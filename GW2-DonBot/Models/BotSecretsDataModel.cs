@@ -12,5 +12,8 @@
 
         [JsonProperty("pingedUser")]
         public string PingedUser { get; set; }
+
+        [JsonProperty("botToken")]
+        public string BotToken { get; set; }
     }
 }

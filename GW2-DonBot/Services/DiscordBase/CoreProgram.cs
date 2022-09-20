@@ -30,7 +30,7 @@ namespace Services.DiscordBase
             }
 
             // Token (often called m_Token)
-            var token = "MTAyMTY4Mjg0OTc5NzExMTgzOA.Gk14Hq.-NMqIJRtev-Ev07vnq9K_1-sdFlpYDu7MSHSOg";
+            var token = $"{secrets.BotToken}";
 
             // Actually logging in...
             await _client.LoginAsync(TokenType.Bot, token);

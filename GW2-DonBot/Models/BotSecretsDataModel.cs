@@ -16,7 +16,16 @@
         [JsonProperty("botToken")]
         public string BotToken { get; set; }
 
+        [JsonProperty("downloadChannelId")]
+        public string DownloadChannelId { get; set; }
+
         [JsonProperty("uploadChannelId")]
         public string UploadChannelId { get; set; }
+
+        [JsonProperty("debugDownloadChannelId")]
+        public string DebugDownloadChannelId { get; set; }
+
+        [JsonProperty("debugUploadChannelId")]
+        public string DebugUploadChannelId { get; set; }
     }
 }

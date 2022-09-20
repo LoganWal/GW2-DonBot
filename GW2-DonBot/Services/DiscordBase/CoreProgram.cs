@@ -66,7 +66,7 @@ namespace Services.DiscordBase
         {
             // Ignore outside webhook + in upload channel + from Don
             if (seenMessage.Source != MessageSource.Webhook || 
-                seenMessage.Channel.Id != ulong.Parse(_secrets.UploadChannelId) || 
+                seenMessage.Channel.Id != ulong.Parse(_secrets.DownloadChannelId) || 
                 seenMessage.Author.Username.Contains("GW2-DonBot", StringComparison.OrdinalIgnoreCase)) 
             {
                 return;

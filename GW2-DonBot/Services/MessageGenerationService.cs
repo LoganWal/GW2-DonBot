@@ -1,4 +1,6 @@
 ﻿using Discord;
+using Newtonsoft.Json.Linq;
+using System.Xml.Linq;
 using Testing.Models;
 
 namespace Services.DiscordBase
@@ -79,19 +81,21 @@ namespace Services.DiscordBase
             var enemyDeathsStr = enemyDeaths?.ToString().PadCenter(7);
 
             // Battleground parsing
-            var battleGround = data?.FightName.Substring(15);
+            var battleGround = data?.FightName.Substring((int)MathF.Min(15, (float)(data?.FightName.Length - 1)));
 
             var battleGroundEmoji = ":grey_question:";
-            battleGroundEmoji = battleGround.Contains("Red") ? ":red_square:" : battleGroundEmoji;
-            battleGroundEmoji = battleGround.Contains("Blue") ? ":blue_square:" : battleGroundEmoji;
-            battleGroundEmoji = battleGround.Contains("Green") ? ":green_square:" : battleGroundEmoji;
-            battleGroundEmoji = battleGround.Contains("Eternal") ? ":white_large_square:" : battleGroundEmoji;
+            battleGroundEmoji = battleGround.Contains("Red", StringComparison.OrdinalIgnoreCase) ? ":red_square:" : battleGroundEmoji;
+            battleGroundEmoji = battleGround.Contains("Blue", StringComparison.OrdinalIgnoreCase) ? ":blue_square:" : battleGroundEmoji;
+            battleGroundEmoji = battleGround.Contains("Green", StringComparison.OrdinalIgnoreCase) ? ":green_square:" : battleGroundEmoji;
+            battleGroundEmoji = battleGround.Contains("Eternal", StringComparison.OrdinalIgnoreCase) ? ":white_large_square:" : battleGroundEmoji;
+            battleGroundEmoji = battleGround.Contains("Edge", StringComparison.OrdinalIgnoreCase) ? ":brown_square:" : battleGroundEmoji;
 
-            var battleGroundColor = System.Drawing.Color.Gray;
-            battleGroundColor = battleGround.Contains("Red") ? System.Drawing.Color.FromArgb(219, 44, 67) : battleGroundColor;
-            battleGroundColor = battleGround.Contains("Blue") ? System.Drawing.Color.FromArgb(85, 172, 238) : battleGroundColor;
-            battleGroundColor = battleGround.Contains("Green") ? System.Drawing.Color.FromArgb(123, 179, 91) : battleGroundColor;
-            battleGroundColor = battleGround.Contains("Eternal") ? System.Drawing.Color.FromArgb(230, 231, 232) : battleGroundColor;
+            var battleGroundColor = System.Drawing.Color.FromArgb(204, 214, 221);
+            battleGroundColor = battleGround.Contains("Red", StringComparison.OrdinalIgnoreCase) ? System.Drawing.Color.FromArgb(219, 44, 67) : battleGroundColor;
+            battleGroundColor = battleGround.Contains("Blue", StringComparison.OrdinalIgnoreCase) ? System.Drawing.Color.FromArgb(85, 172, 238) : battleGroundColor;
+            battleGroundColor = battleGround.Contains("Green", StringComparison.OrdinalIgnoreCase) ? System.Drawing.Color.FromArgb(123, 179, 91) : battleGroundColor;
+            battleGroundColor = battleGround.Contains("Eternal", StringComparison.OrdinalIgnoreCase) ? System.Drawing.Color.FromArgb(230, 231, 232) : battleGroundColor;
+            battleGroundColor = battleGround.Contains("Edge", StringComparison.OrdinalIgnoreCase) ? System.Drawing.Color.FromArgb(193, 105, 79) : battleGroundColor;
 
             // Embed content building
             var friendlyOverview = "";
@@ -168,7 +172,8 @@ namespace Services.DiscordBase
                 "The fact you read this disgusts me.",
                 "Alexa - make me a Discord bot.",
                 "Yes, we raid on EVERY Thursday.",
-                "Yes I'm vegan, yes I eat meat."
+                "Yes I'm vegan, yes I eat meat.",
+                "This report is streets ahead."
             };
 
             var rng = new Random();

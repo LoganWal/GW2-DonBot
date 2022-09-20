@@ -15,5 +15,8 @@
 
         [JsonProperty("botToken")]
         public string BotToken { get; set; }
+
+        [JsonProperty("uploadChannelId")]
+        public string UploadChannelId { get; set; }
     }
 }

@@ -6,6 +6,37 @@ public static class StringExtensions
     {
         return str.PadLeft(((length - str.Length) / 2 + str.Length)).PadRight(length);
     }
+
+    public static string FormatNumber(this float number, float referenceNumber)
+    {
+        if (referenceNumber > 1000000000.0f)
+        {
+            return $"{(number / 1000000000.0f).ToString("F1")}B";
+        }
+        else if (referenceNumber > 1000000.0f)
+        {
+            return $"{(number / 1000000.0f).ToString("F1")}M";
+        }
+        else if (referenceNumber > 1000.0f)
+        {
+            return $"{(number / 1000.0f).ToString("F1")}K";
+        }
+        else
+        {
+            return number.ToString("F1");
+        }
+    }
+
+    public static string FormatNumber(this long number, long referenceNumber)
+    {
+        return ((float)number).FormatNumber(referenceNumber);
+    }
+
+    public static string FormatNumber(this int number, int referenceNumber)
+    {
+        return ((float)number).FormatNumber(referenceNumber);
+    }
+
     public static string FormatNumber(this float number)
     {
         if (number > 1000000000.0f)

@@ -8,9 +8,27 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CSharpDiscordWebhook" Version="2.2.0" />
+    <None Remove="Secrets\botSecrets.json" />
+    <None Remove="Secrets\exampleBotSecrets.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Secrets\botSecrets.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Secrets\exampleBotSecrets.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Autofac" Version="6.4.0" />
+    <PackageReference Include="Discord.Net" Version="3.8.1" />
     <PackageReference Include="HtmlAgilityPack" Version="1.11.46" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    <PackageReference Include="System.Runtime.Caching" Version="6.0.0" />
   </ItemGroup>
+
+  <ProjectExtensions><VisualStudio><UserProperties /></VisualStudio></ProjectExtensions>
 
 </Project>

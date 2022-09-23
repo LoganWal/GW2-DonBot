@@ -51,10 +51,9 @@ namespace Controller.Discord
             var secrets = await secretService.FetchBotSecretsDataModel();
 
             // Ignore outside webhook + in upload channel + from Don
-            if ((seenMessage.Source != MessageSource.Webhook || 
+            if (seenMessage.Source != MessageSource.Webhook || 
                 seenMessage.Channel.Id != ulong.Parse(secrets.DownloadChannelId) || 
                 seenMessage.Author.Username.Contains("GW2-DonBot", StringComparison.OrdinalIgnoreCase)) 
-                && seenMessage.Author.Id != 241519410966167552) 
             {
                 return;
             }
@@ -66,9 +65,6 @@ namespace Controller.Discord
                 : seenMessage.Embeds.SelectMany((x => x.Fields[0].Value.Split('('))).Where(x => x.Contains(")")).ToList();
 
             var trimmedUrls = urls.Select(url => url.Contains(')') ? url[..url.IndexOf(')')] : url).ToList();
-
-            //REMOVE THIS
-            trimmedUrls.Add(seenMessage.Content);
 
             foreach (var message in trimmedUrls
                          .Select(url => dataModelGenerationService.GenerateEliteInsightDataModelFromUrl(url))

@@ -1,8 +1,8 @@
 ﻿using Discord;
 
-namespace Services.DiscordBase
+namespace Services.Logging
 {
-    public class CoreLogging
+    public class LoggingService : ILoggingService
     {
         public Task Log(LogMessage msg)
         {

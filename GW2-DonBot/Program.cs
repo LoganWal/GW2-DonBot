@@ -1,3 +1,2 @@
-using Services.DiscordBase;
-
-await CoreProgram.Main();
+Registration.ServiceRegister.Run();
+await Registration.ServiceRegister.LoadMain().MainAsync();

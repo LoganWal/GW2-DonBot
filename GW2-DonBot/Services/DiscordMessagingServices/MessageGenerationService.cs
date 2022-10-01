@@ -27,6 +27,10 @@ namespace Services.DiscordMessagingServices
 
         private const int BoonStabDimension2Index = 1;
 
+        private const int NameClipLength = 15;
+
+        private const int NameSizeLength = 21;
+
         public Embed GenerateFightSummary(BotSecretsDataModel secrets, EliteInsightDataModel data)
         {
             // Building the actual message to be sent
@@ -59,14 +63,14 @@ namespace Services.DiscordMessagingServices
                     : 0) ?? 0;
 
             var enemyDowns = fightPhase.OffensiveStatsTargets?
-                .Sum(playerOffStats => playerOffStats.FirstOrDefault()?.Length >= EnemyDownIndex + 1
-                    ? playerOffStats.FirstOrDefault()?[EnemyDownIndex]
-                    : 0) ?? 0;
+                .Sum(playerOffStats => playerOffStats.Sum(playerOffTargetStats => playerOffTargetStats?.Length >= EnemyDownIndex + 1
+                    ? playerOffTargetStats?[EnemyDownIndex]
+                    : 0)) ?? 0;
 
             var enemyDeaths = fightPhase.OffensiveStatsTargets?
-                .Sum(playerOffStats => playerOffStats.FirstOrDefault()?.Length >= EnemyDeathIndex + 1
-                    ? playerOffStats.FirstOrDefault()?[EnemyDeathIndex]
-                    : 0) ?? 0;
+                .Sum(playerOffStats => playerOffStats.Sum(playerOffTargetStats => playerOffTargetStats?.Length >= EnemyDeathIndex + 1
+                    ? playerOffTargetStats?[EnemyDownIndex]
+                    : 0)) ?? 0;
 
             var sortedPlayerIndexByDamage = fightPhase.DpsStats?
                 .Select((value, index) => (Value: value.FirstOrDefault(), index))
@@ -107,7 +111,7 @@ namespace Services.DiscordMessagingServices
 
             if (rangeStart < 0 || rangeStart > data.FightName.Length || rangeEnd < 0 || rangeEnd > data.FightName.Length)
             {
-                throw new Exception($"Bad battleground name `{data.FightName}`");
+                throw new Exception($"Bad battleground name: {data.FightName}");
             }
 
             var battleGround = data.FightName?[range] ?? string.Empty;
@@ -128,16 +132,18 @@ namespace Services.DiscordMessagingServices
 
             // Embed content building
             var friendlyOverview = "```Players  Damage     DPS     Downs   Deaths \n";
-            friendlyOverview += "-------  -------  -------  -------  -------\n";
-            friendlyOverview += $"{friendlyCountStr}  {friendlyDamageStr}  {friendlyDPSStr}  {friendlyDownsStr}  {friendlyDeathsStr}```";
+            friendlyOverview      += $"-------  -------  -------  -------  -------\n";
+            friendlyOverview      += $"{friendlyCountStr}  {friendlyDamageStr}  {friendlyDPSStr}  {friendlyDownsStr}  {friendlyDeathsStr}```";
 
             var enemyOverview = "```Players  Damage     DPS     Downs   Deaths \n";
-            enemyOverview += "-------  -------  -------  -------  -------\n";
-            enemyOverview += $"{enemyCountStr}  {enemyDamageStr}  {enemyDPSStr}  {enemyDownsStr}  {enemyDeathsStr}```";
+            enemyOverview      += $"-------  -------  -------  -------  -------\n";
+            enemyOverview      += $"{enemyCountStr}  {enemyDamageStr}  {enemyDPSStr}  {enemyDownsStr}  {enemyDeathsStr}```";
 
+            // Damage overview
             var damageOverview = "``` #           Name          Damage     DPS  \n";
-            damageOverview += "---  --------------------  -------  -------\n";
+            damageOverview      += $"-------------------------  -------  -------\n";
 
+            var maxDamage = -1.0f;
             for (var index = 0; index < 5; index++)
             {
                 if (index + 1 > sortedPlayerIndexByDamage?.Count)
@@ -151,17 +157,22 @@ namespace Services.DiscordMessagingServices
                 }
 
                 var damage = sortedPlayerIndexByDamage.ElementAt(index);
+                var name = data.Players?[damage.Key].Name;
+                var prof = data.Players?[damage.Key].Profession;
                 var damageFloat = (float)damage.Value;
+                if (maxDamage <= 0.0f)
+                {
+                    maxDamage = damageFloat;
+                }
 
-
-                damageOverview += $" {index + 1}   {data.Players?[damage.Key].Name?.PadRight(20)}  {damageFloat.FormatNumber(damageFloat).PadCenter(7)}  {(damageFloat / logLength).FormatNumber(damageFloat / logLength).PadCenter(7)}\n";
+                damageOverview += $" {index + 1}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {damageFloat.FormatNumber(maxDamage).PadCenter(7)}  {(damageFloat / logLength).FormatNumber(maxDamage / logLength).PadCenter(7)}\n";
             }
 
             damageOverview += "```";
 
-            var cleanseOverview = "";
-            cleanseOverview += $"``` #           Name              Cleanses    \n";
-            cleanseOverview += $"---  --------------------  ----------------\n";
+            // Cleanse overview
+            var cleanseOverview = $"``` #           Name              Cleanses    \n";
+            cleanseOverview       += $"-------------------------  ----------------\n";
 
             for (var index = 0; index < 5; index++)
             {
@@ -176,14 +187,17 @@ namespace Services.DiscordMessagingServices
                 }
 
                 var cleanses = sortedPlayerIndexByCleanses.ElementAt(index);
+                var name = data.Players?[cleanses.Key].Name;
+                var prof = data.Players?[cleanses.Key].Profession;
 
-                cleanseOverview += $" {index + 1}   {data?.Players?[cleanses.Key].Name?.PadRight(20)}  {cleanses.Value.ToString(CultureInfo.InvariantCulture).PadCenter(16)}\n";
+                cleanseOverview += $" {index + 1}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {cleanses.Value.ToString(CultureInfo.InvariantCulture).PadCenter(16)}\n";
             }
 
             cleanseOverview += "```";
 
+            // Strip overview
             var stripOverview = "``` #           Name               Strips     \n";
-            stripOverview += "---  --------------------  ----------------\n";
+            stripOverview       += "-------------------------  ----------------\n";
 
             for (var index = 0; index < 5; index++)
             {
@@ -198,14 +212,17 @@ namespace Services.DiscordMessagingServices
                 }
 
                 var strips = sortedPlayerIndexByStrips.ElementAt(index);
+                var name = data.Players?[strips.Key].Name;
+                var prof = data.Players?[strips.Key].Profession;
 
-                stripOverview += $" {index + 1}   {data?.Players?[strips.Key].Name?.PadRight(20)}  {strips.Value.ToString(CultureInfo.InvariantCulture).PadCenter(16)}\n";
+                stripOverview += $" {index + 1}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {strips.Value.ToString(CultureInfo.InvariantCulture).PadCenter(16)}\n";
             }
 
             stripOverview += "```";
 
-            var stabOverview = "``` #           Name               Uptime     \n";
-            stabOverview += "---  --------------------  ----------------\n";
+            // Stab overview
+            var stabOverview = "``` #           Name          Sub     Uptime  \n";
+            stabOverview       += "-------------------------  ---  -----------\n";
 
             for (var index = 0; index < 5; index++)
             {
@@ -220,12 +237,16 @@ namespace Services.DiscordMessagingServices
                 }
 
                 var stab = sortedPlayerIndexByStab.ElementAt(index);
+                var sub = data.Players[stab.Key].Group;
+                var name = data.Players?[stab.Key].Name;
+                var prof = data.Players?[stab.Key].Profession;
 
-                stabOverview += $" {index + 1}   {data?.Players?[stab.Key].Name?.PadRight(20)}  {stab.Value.FormatPercentage().PadCenter(16)}\n";
+                stabOverview += $" {index + 1}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {sub.ToString().PadCenter(3)}  {stab.Value.FormatPercentage().PadCenter(11)}\n";
             }
 
             stabOverview += "```";
 
+            // Building the message via embeds
             var message = new EmbedBuilder
             {
                 Title = $"{battleGroundEmoji} Report (WvW) - {battleGround}\n",
@@ -290,14 +311,15 @@ namespace Services.DiscordMessagingServices
                 "I'm not supposed to be on the internet...",
                 "Just in: Squirrel is a murderer.",
                 "Always be straight licking that shit!",
-                "SHEEEEEEEEEEEEEEEEEEEE",
+                "SHEEEEEEEEEEEEEEEEEEEE!",
                 "What do you like to tank on?",
                 "Be the best dinker you can be!",
                 "The fact you read this disgusts me.",
                 "Alexa - make me a Discord bot.",
                 "Yes, we raid on EVERY Thursday.",
                 "Yes I'm vegan, yes I eat meat.",
-                "This report is streets ahead."
+                "This report is streets ahead.",
+                "I can promise the real Don cleanses."
             };
 
             var rng = new Random();
@@ -307,8 +329,11 @@ namespace Services.DiscordMessagingServices
                 Text = $"{footerMessageVariants[footerVariantIndex]}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             };
+
+            // Timestamp
             message.Timestamp = DateTime.Now;
 
+            // Building the message for use
             return message.Build();
         }
     }

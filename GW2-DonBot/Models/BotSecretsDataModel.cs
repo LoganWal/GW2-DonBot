@@ -11,7 +11,7 @@
         public string? WebhookUrl { get; set; }
 
         [JsonProperty("debugWebhookUrl")]
-        public string DebugWebhookUrl { get; set; }
+        public string? DebugWebhookUrl { get; set; }
 
         [JsonProperty("pingedUser")]
         public string? PingedUser { get; set; }

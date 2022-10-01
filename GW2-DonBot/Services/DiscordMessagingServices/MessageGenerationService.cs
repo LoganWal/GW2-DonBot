@@ -105,11 +105,11 @@ namespace Services.DiscordMessagingServices
             var enemyDeathsStr = enemyDeaths.ToString().PadCenter(7);
 
             // Battleground parsing
-            var range = (int)MathF.Min(15, data.FightName.Length - 1)..;
-            var rangeStart = range.Start.GetOffset(data.FightName.Length);
-            var rangeEnd = range.End.GetOffset(data.FightName.Length);
+            var range = (int)MathF.Min(15, data.FightName?.Length - 1 ?? 0)..;
+            var rangeStart = range.Start.GetOffset(data.FightName?.Length ?? 0);
+            var rangeEnd = range.End.GetOffset(data.FightName?.Length ?? 0);
 
-            if (rangeStart < 0 || rangeStart > data.FightName.Length || rangeEnd < 0 || rangeEnd > data.FightName.Length)
+            if (rangeStart < 0 || rangeStart > data.FightName?.Length || rangeEnd < 0 || rangeEnd > data.FightName?.Length)
             {
                 throw new Exception($"Bad battleground name: {data.FightName}");
             }
@@ -237,7 +237,7 @@ namespace Services.DiscordMessagingServices
                 }
 
                 var stab = sortedPlayerIndexByStab.ElementAt(index);
-                var sub = data.Players[stab.Key].Group;
+                var sub = data.Players?[stab.Key].Group;
                 var name = data.Players?[stab.Key].Name;
                 var prof = data.Players?[stab.Key].Profession;
 

@@ -6,28 +6,28 @@ namespace Services.SecretsServices
 {
     public class SecretServices : ISecretService
     {
-        private readonly ICacheService cacheService;
-        private readonly IFileService fileService;
+        private readonly ICacheService _cacheService;
+        private readonly IFileService _fileService;
 
         public SecretServices(ICacheService cacheService, IFileService fileService)
         {
-            this.cacheService = cacheService;
-            this.fileService = fileService;
+            _cacheService = cacheService;
+            _fileService = fileService;
         }
 
         public async Task<BotSecretsDataModel> FetchBotSecretsDataModel()
         {
-            var secrets = cacheService.Get<BotSecretsDataModel>(nameof(BotSecretsDataModel));
+            var secrets = _cacheService.Get<BotSecretsDataModel>(nameof(BotSecretsDataModel));
             if (secrets == null)
             {
-                secrets = await fileService.ReadAndParse<BotSecretsDataModel>("Secrets/botSecrets.json");
+                secrets = await _fileService.ReadAndParse<BotSecretsDataModel>("Secrets/botSecrets.json");
 
                 if (secrets == null)
                 {
                     throw new Exception("Secrets are null");
                 }
 
-                cacheService.Set(nameof(BotSecretsDataModel), secrets);
+                _cacheService.Set(nameof(BotSecretsDataModel), secrets);
             }
 
             return secrets;

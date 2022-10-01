@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Secrets\botSecrets.json" />
     <None Remove="Secrets\exampleBotSecrets.json" />
   </ItemGroup>
 
@@ -15,6 +16,12 @@
     <Content Include="Secrets\exampleBotSecrets.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Secrets\botSecrets.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>

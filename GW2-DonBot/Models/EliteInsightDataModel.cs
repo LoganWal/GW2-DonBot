@@ -8,6 +8,9 @@
 
     public partial class EliteInsightDataModel
     {
+        [JsonProperty("url")]
+        public string? Url{ get; set; }
+
         [JsonProperty("targets")]
         public EliteInsightDataModelTarget[]? Targets { get; set; }
 

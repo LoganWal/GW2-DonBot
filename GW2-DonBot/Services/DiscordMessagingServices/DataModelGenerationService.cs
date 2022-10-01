@@ -1,5 +1,5 @@
-﻿using Models;
-using HtmlAgilityPack;
+﻿using HtmlAgilityPack;
+using Models;
 using Newtonsoft.Json;
 
 namespace Services.DiscordMessagingServices
@@ -19,7 +19,9 @@ namespace Services.DiscordMessagingServices
             var data = htmlDoc.ParsedText.Substring(logDataStartIndex, logDataEndIndex - logDataStartIndex + 1);
 
             // Deserializing back to the data model
-            return JsonConvert.DeserializeObject<EliteInsightDataModel>(data) ?? new EliteInsightDataModel();
+            var deserializeData = JsonConvert.DeserializeObject<EliteInsightDataModel>(data) ?? new EliteInsightDataModel();
+            deserializeData.Url = url;
+            return deserializeData;
         }
     }
 }

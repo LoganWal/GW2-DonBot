@@ -258,7 +258,7 @@ namespace Services.DiscordMessagingServices
                     Url = "https://github.com/LoganWal/GW2-DonBot",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
-                Url = $"{secrets.ScrapedUrl}"
+                Url = $"{data?.Url}"
             };
 
             message.AddField(x =>

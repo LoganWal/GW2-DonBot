@@ -8,14 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="Secrets\botSecrets.json" />
     <None Remove="Secrets\exampleBotSecrets.json" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Secrets\botSecrets.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Include="Secrets\exampleBotSecrets.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

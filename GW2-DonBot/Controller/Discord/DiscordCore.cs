@@ -47,8 +47,9 @@ namespace Controller.Discord
 
             Console.WriteLine($"[DON] GW2-DonBot booted in - ready to cause chaos");
 
+#if DEBUG
             await AnalyseDebugUrl();
-            //await AnalyseDebugUrl();
+#endif
 
             // Block this task until the program is closed.
             await Task.Delay(-1);

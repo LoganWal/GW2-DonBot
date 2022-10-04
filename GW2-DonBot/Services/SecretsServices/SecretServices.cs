@@ -1,4 +1,5 @@
-﻿using Models;
+﻿using GW2DonBot.Models;
+using Models;
 using Services.CacheServices;
 using Services.FileServices;
 
@@ -17,7 +18,7 @@ namespace Services.SecretsServices
 
         public async Task<BotSecretsDataModel> FetchBotSecretsDataModel()
         {
-            var secrets = _cacheService.Get<BotSecretsDataModel>(nameof(BotSecretsDataModel));
+            var secrets = _cacheService.Get<BotSecretsDataModel>(CacheKey.Secrets);
             if (secrets == null)
             {
                 secrets = await _fileService.ReadAndParse<BotSecretsDataModel>("Secrets/botSecrets.json");
@@ -27,7 +28,7 @@ namespace Services.SecretsServices
                     throw new Exception("Secrets are null");
                 }
 
-                _cacheService.Set(nameof(BotSecretsDataModel), secrets);
+                _cacheService.Set(CacheKey.Secrets, secrets);
             }
 
             return secrets;

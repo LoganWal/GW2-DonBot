@@ -81,10 +81,7 @@ namespace Controller.Discord
            
             var webhook = new DiscordWebhookClient(secrets.WebhookUrl); 
 
-            var urls = seenMessage.Embeds.SelectMany((x => x.Fields[0].Value.Split('('))).Where(x => x.Contains(")")).ToList();
-            //var urls = seenMessage.Embeds.FirstOrDefault()?.Url != string.Empty && seenMessage.Embeds.FirstOrDefault()?.Url != null
-            //    ? new List<string> { seenMessage.Embeds.FirstOrDefault()?.Url ?? string.Empty }
-            //    : seenMessage.Embeds.SelectMany((x => x.Fields[0].Value.Split('('))).Where(x => x.Contains(")")).ToList();
+            var urls = seenMessage.Embeds.SelectMany((x => x.Fields.SelectMany(y => y.Value.Split('(')))).Where(x => x.Contains(")")).ToList();
 
             var trimmedUrls = urls.Select(url => url.Contains(')') ? url[..url.IndexOf(')')] : url).ToList();
 
@@ -97,6 +94,7 @@ namespace Controller.Discord
 
             foreach (var url in trimmedUrls)
             {
+                Console.WriteLine($"[DON] Assessing: {url}");
                 await AnalyseAndReportOnUrl(webhook, url);
             }
         }

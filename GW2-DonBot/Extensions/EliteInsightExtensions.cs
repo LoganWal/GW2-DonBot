@@ -2,7 +2,7 @@
 {
     public static class EliteInsightExtensions
     {
-        private static Dictionary<string, string> _classShorthands = new Dictionary<string, string>()
+        private static readonly Dictionary<string, string> _classShorthands = new()
         {
             { "Guardian", "Grd" },
             { "Dragonhunter", "Dh" },

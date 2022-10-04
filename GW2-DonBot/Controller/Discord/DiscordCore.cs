@@ -9,25 +9,21 @@ namespace Controller.Discord
 {
     public class DiscordCore: IDiscordCore
     {
-        private readonly ISecretService secretService;
-        private readonly IDataModelGenerationService dataModelGenerationService;
-        private readonly IMessageGenerationService messageGenerationService;
-        private readonly ILoggingService loggingService;
+        private readonly ISecretService _secretService;
+        private readonly ILoggingService _loggingService;
 
-        private List<string> _seenUrls = new List<string>();
+        private readonly List<string> _seenUrls = new();
 
-        public DiscordCore(ISecretService secretService, IDataModelGenerationService dataModelGenerationService, IMessageGenerationService messageGenerationService, ILoggingService loggingService)
+        public DiscordCore(ISecretService secretService, ILoggingService loggingService)
         {
-            this.secretService = secretService;
-            this.dataModelGenerationService = dataModelGenerationService;
-            this.messageGenerationService = messageGenerationService;
-            this.loggingService = loggingService;
+            _secretService = secretService;
+            _loggingService = loggingService;
         }
 
         public async Task MainAsync()
         {
             // Loading secrets
-            var secrets = await secretService.FetchBotSecretsDataModel();
+            var secrets = await _secretService.FetchBotSecretsDataModel();
 
             // Initialization
             var config = new DiscordSocketConfig()
@@ -37,12 +33,12 @@ namespace Controller.Discord
 
             var client = new DiscordSocketClient(config);
 
-            // Actually logging in...
+            // Logging in...
             await client.LoginAsync(TokenType.Bot, secrets.BotToken);
             await client.StartAsync();
 
             client.MessageReceived += MessageReceivedAsync;
-            client.Log += loggingService.Log;
+            client.Log += _loggingService.Log;
 
 
             Console.WriteLine($"[DON] GW2-DonBot booted in - ready to cause chaos");
@@ -54,14 +50,14 @@ namespace Controller.Discord
             // Block this task until the program is closed.
             await Task.Delay(-1);
 
-            // Not sure if this is needed...
-            client.Log -= loggingService.Log;
+            // Safelty close...
+            client.Log -= _loggingService.Log;
             client.MessageReceived -= MessageReceivedAsync;
         }
 
         private async Task AnalyseDebugUrl()
         {
-            var secrets = await secretService.FetchBotSecretsDataModel();
+            var secrets = await _secretService.FetchBotSecretsDataModel();
 
             var webhook = new DiscordWebhookClient(secrets.DebugWebhookUrl);
             await AnalyseAndReportOnUrl(webhook, secrets.ScrapedUrl);
@@ -69,7 +65,7 @@ namespace Controller.Discord
 
         private async Task MessageReceivedAsync(SocketMessage seenMessage)
         {
-            var secrets = await secretService.FetchBotSecretsDataModel();
+            var secrets = await _secretService.FetchBotSecretsDataModel();
 
             // Ignore outside webhook + in upload channel + from Don
             if (seenMessage.Source != MessageSource.Webhook || 
@@ -85,13 +81,6 @@ namespace Controller.Discord
 
             var trimmedUrls = urls.Select(url => url.Contains(')') ? url[..url.IndexOf(')')] : url).ToList();
 
-            //foreach (var message in trimmedUrls
-            //             .Select(url => dataModelGenerationService.GenerateEliteInsightDataModelFromUrl(url))
-            //             .Select(data => messageGenerationService.GenerateFightSummary(secrets, data)))
-            //{
-            //    await webhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { message });
-            //}
-
             foreach (var url in trimmedUrls)
             {
                 Console.WriteLine($"[DON] Assessing: {url}");
@@ -101,7 +90,7 @@ namespace Controller.Discord
 
         private async Task AnalyseAndReportOnUrl(DiscordWebhookClient webhook, string url)
         {
-            var secrets = await secretService.FetchBotSecretsDataModel();
+            var secrets = await _secretService.FetchBotSecretsDataModel();
 
             if (_seenUrls.Contains(url))
             {

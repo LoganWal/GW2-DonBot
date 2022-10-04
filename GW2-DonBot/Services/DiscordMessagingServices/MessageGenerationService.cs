@@ -31,6 +31,8 @@ namespace Services.DiscordMessagingServices
 
         private const int NameSizeLength = 21;
 
+        private const int PlayersListed = 10;
+
         public Embed GenerateFightSummary(BotSecretsDataModel secrets, EliteInsightDataModel data)
         {
             // Building the actual message to be sent
@@ -105,11 +107,11 @@ namespace Services.DiscordMessagingServices
             var enemyDeathsStr = enemyDeaths.ToString().PadCenter(7);
 
             // Battleground parsing
-            var range = (int)MathF.Min(15, data.FightName.Length - 1)..;
-            var rangeStart = range.Start.GetOffset(data.FightName.Length);
-            var rangeEnd = range.End.GetOffset(data.FightName.Length);
+            var range = (int)MathF.Min(15, data.FightName?.Length - 1 ?? 0)..;
+            var rangeStart = range.Start.GetOffset(data.FightName?.Length ?? 0);
+            var rangeEnd = range.End.GetOffset(data.FightName?.Length ?? 0);
 
-            if (rangeStart < 0 || rangeStart > data.FightName.Length || rangeEnd < 0 || rangeEnd > data.FightName.Length)
+            if (rangeStart < 0 || rangeStart > data.FightName?.Length || rangeEnd < 0 || rangeEnd > data.FightName?.Length)
             {
                 throw new Exception($"Bad battleground name: {data.FightName}");
             }
@@ -131,20 +133,17 @@ namespace Services.DiscordMessagingServices
             battleGroundColor = battleGround.Contains("Edge", StringComparison.OrdinalIgnoreCase) ? System.Drawing.Color.FromArgb(193, 105, 79) : battleGroundColor;
 
             // Embed content building
-            var friendlyOverview = "```Players  Damage     DPS     Downs   Deaths \n";
-            friendlyOverview      += $"-------  -------  -------  -------  -------\n";
+            var friendlyOverview = "```";
             friendlyOverview      += $"{friendlyCountStr}  {friendlyDamageStr}  {friendlyDPSStr}  {friendlyDownsStr}  {friendlyDeathsStr}```";
 
-            var enemyOverview = "```Players  Damage     DPS     Downs   Deaths \n";
-            enemyOverview      += $"-------  -------  -------  -------  -------\n";
+            var enemyOverview = "```";
             enemyOverview      += $"{enemyCountStr}  {enemyDamageStr}  {enemyDPSStr}  {enemyDownsStr}  {enemyDeathsStr}```";
 
             // Damage overview
-            var damageOverview = "``` #           Name          Damage     DPS  \n";
-            damageOverview      += $"-------------------------  -------  -------\n";
+            var damageOverview = "```";
 
             var maxDamage = -1.0f;
-            for (var index = 0; index < 5; index++)
+            for (var index = 0; index < PlayersListed; index++)
             {
                 if (index + 1 > sortedPlayerIndexByDamage?.Count)
                 {
@@ -165,16 +164,15 @@ namespace Services.DiscordMessagingServices
                     maxDamage = damageFloat;
                 }
 
-                damageOverview += $" {index + 1}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {damageFloat.FormatNumber(maxDamage).PadCenter(7)}  {(damageFloat / logLength).FormatNumber(maxDamage / logLength).PadCenter(7)}\n";
+                damageOverview += $"{(index + 1).ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {damageFloat.FormatNumber(maxDamage).PadCenter(7)}  {(damageFloat / logLength).FormatNumber(maxDamage / logLength).PadCenter(7)}\n";
             }
 
             damageOverview += "```";
 
             // Cleanse overview
-            var cleanseOverview = $"``` #           Name              Cleanses    \n";
-            cleanseOverview       += $"-------------------------  ----------------\n";
+            var cleanseOverview = $"```";
 
-            for (var index = 0; index < 5; index++)
+            for (var index = 0; index < PlayersListed; index++)
             {
                 if (index + 1 > sortedPlayerIndexByCleanses?.Count)
                 {
@@ -190,16 +188,15 @@ namespace Services.DiscordMessagingServices
                 var name = data.Players?[cleanses.Key].Name;
                 var prof = data.Players?[cleanses.Key].Profession;
 
-                cleanseOverview += $" {index + 1}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {cleanses.Value.ToString(CultureInfo.InvariantCulture).PadCenter(16)}\n";
+                cleanseOverview += $"{(index + 1).ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {cleanses.Value.ToString(CultureInfo.InvariantCulture).PadCenter(16)}\n";
             }
 
             cleanseOverview += "```";
 
             // Strip overview
-            var stripOverview = "``` #           Name               Strips     \n";
-            stripOverview       += "-------------------------  ----------------\n";
+            var stripOverview = "```";
 
-            for (var index = 0; index < 5; index++)
+            for (var index = 0; index < PlayersListed; index++)
             {
                 if (index + 1 > sortedPlayerIndexByStrips?.Count)
                 {
@@ -215,16 +212,15 @@ namespace Services.DiscordMessagingServices
                 var name = data.Players?[strips.Key].Name;
                 var prof = data.Players?[strips.Key].Profession;
 
-                stripOverview += $" {index + 1}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {strips.Value.ToString(CultureInfo.InvariantCulture).PadCenter(16)}\n";
+                stripOverview += $"{(index + 1).ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {strips.Value.ToString(CultureInfo.InvariantCulture).PadCenter(16)}\n";
             }
 
             stripOverview += "```";
 
             // Stab overview
-            var stabOverview = "``` #           Name          Sub     Uptime  \n";
-            stabOverview       += "-------------------------  ---  -----------\n";
+            var stabOverview = "```";
 
-            for (var index = 0; index < 5; index++)
+            for (var index = 0; index < PlayersListed; index++)
             {
                 if (index + 1 > sortedPlayerIndexByStab?.Count)
                 {
@@ -237,11 +233,11 @@ namespace Services.DiscordMessagingServices
                 }
 
                 var stab = sortedPlayerIndexByStab.ElementAt(index);
-                var sub = data.Players[stab.Key].Group;
+                var sub = data.Players?[stab.Key].Group;
                 var name = data.Players?[stab.Key].Name;
                 var prof = data.Players?[stab.Key].Profession;
 
-                stabOverview += $" {index + 1}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {sub.ToString().PadCenter(3)}  {stab.Value.FormatPercentage().PadCenter(11)}\n";
+                stabOverview += $"{(index + 1).ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {sub.ToString().PadCenter(3)}  {stab.Value.FormatPercentage().PadCenter(11)}\n";
             }
 
             stabOverview += "```";
@@ -263,45 +259,47 @@ namespace Services.DiscordMessagingServices
 
             message.AddField(x =>
             {
-                x.Name = "Friends";
+                x.Name = "```| Friends   Damage      DPS       Downs     Deaths |```";
                 x.Value = $"{friendlyOverview}";
                 x.IsInline = false;
             });
 
             message.AddField(x =>
             {
-                x.Name = "Enemies";
+                x.Name = "```| Enemies   Damage      DPS       Downs     Deaths |```";
                 x.Value = $"{enemyOverview}";
                 x.IsInline = false;
             });
 
             message.AddField(x =>
             {
-                x.Name = "Damage";
+                x.Name = "```| #            Name              Damage      DPS   |```";
                 x.Value = $"{damageOverview}";
                 x.IsInline = false;
             });
 
             message.AddField(x =>
             {
-                x.Name = "Cleanses";
+                x.Name = "```| #            Name                  Cleanses      |```";
                 x.Value = $"{cleanseOverview}";
                 x.IsInline = false;
             });
 
             message.AddField(x =>
             {
-                x.Name = "Strips";
+                x.Name = "```| #            Name                   Strips       |```";
                 x.Value = $"{stripOverview}";
                 x.IsInline = false;
             });
 
+            /*
             message.AddField(x =>
             {
                 x.Name = "Stability";
                 x.Value = $"{stabOverview}";
                 x.IsInline = false;
             });
+            */
 
             // Joke footers
             var footerMessageVariants = new[]

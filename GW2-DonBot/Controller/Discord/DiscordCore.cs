@@ -14,6 +14,11 @@ namespace Controller.Discord
 
         private readonly List<string> _seenUrls = new();
 
+        private DateTime _lastValidLog;
+        //private const float _badBehaviourPingWaitLength = 5; // testing
+        private const float _badBehaviourPingWaitLength = 60 * 30;
+        private bool _pingedForBadBehaviour = false;
+
         public DiscordCore(ISecretService secretService, ILoggingService loggingService)
         {
             _secretService = secretService;
@@ -46,6 +51,10 @@ namespace Controller.Discord
 #if DEBUG
             await AnalyseDebugUrl();
 #endif
+
+            _lastValidLog = DateTime.Now;
+            _pingedForBadBehaviour = false;
+            _ = EvaluateBadBehaviour();
 
             // Block this task until the program is closed.
             await Task.Delay(-1);
@@ -88,6 +97,32 @@ namespace Controller.Discord
             }
         }
 
+        private async Task EvaluateBadBehaviour()
+        {
+            var secrets = await _secretService.FetchBotSecretsDataModel();
+            var webhook = new DiscordWebhookClient(secrets.DebugWebhookUrl);
+            
+            while (true)
+            {
+                double secondsWaited = (DateTime.Now - _lastValidLog).TotalSeconds;
+                if (!_pingedForBadBehaviour &&
+                    secondsWaited > _badBehaviourPingWaitLength)
+                {
+                    _lastValidLog = DateTime.Now;
+                    _pingedForBadBehaviour = true;
+
+                    var messageGenerator = new MessageGenerationService();
+                    var message = messageGenerator.GenerateBadBehaviourPing(secrets);
+
+                    Console.WriteLine($"[DON] Pinging for bad behaviour, we have been PvE-ing for: {secondsWaited.ToString("F1")}s");
+
+                    await webhook.SendMessageAsync(text: $"<:red_alert:1026863989851951204> BIG ALERT FOR <@{secrets.PingedUser}> <:red_alert:1026863989851951204>", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { message });
+                }
+                
+                await Task.Delay(1000);
+            }
+        }
+
         private async Task AnalyseAndReportOnUrl(DiscordWebhookClient webhook, string url)
         {
             var secrets = await _secretService.FetchBotSecretsDataModel();
@@ -99,6 +134,8 @@ namespace Controller.Discord
             }
 
             _seenUrls.Add(url);
+            _lastValidLog = DateTime.Now;
+            _pingedForBadBehaviour = false;
 
             Console.WriteLine($"[DON] Analysing and reporting on: {url}");
             var dataModelGenerator = new DataModelGenerationService();

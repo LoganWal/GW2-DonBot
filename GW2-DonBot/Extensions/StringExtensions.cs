@@ -7,9 +7,9 @@ namespace Extensions
             return str.Substring(0, Math.Min(str.Length, length));
         }
 
-        public static string PadCenter(this string str, int length)
+        public static string PadCenter(this string str, int length, char paddingChar = ' ')
         {
-            return str.PadLeft(((length - str.Length) / 2 + str.Length)).PadRight(length);
+            return str.PadLeft(((length - str.Length) / 2 + str.Length), paddingChar).PadRight(length, paddingChar);
         }
 
         public static string FormatNumber(this float number, float referenceNumber)

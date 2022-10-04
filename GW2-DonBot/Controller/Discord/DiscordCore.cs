@@ -1,6 +1,8 @@
 ﻿using Discord;
 using Discord.Webhook;
 using Discord.WebSocket;
+using GW2DonBot.Models;
+using Services.CacheServices;
 using Services.DiscordMessagingServices;
 using Services.Logging;
 using Services.SecretsServices;
@@ -11,18 +13,18 @@ namespace Controller.Discord
     {
         private readonly ISecretService _secretService;
         private readonly ILoggingService _loggingService;
-
-        private readonly List<string> _seenUrls = new();
+        private readonly ICacheService _cacheService;
 
         private DateTime _lastValidLog;
         //private const float _badBehaviourPingWaitLength = 5; // testing
         private const float _badBehaviourPingWaitLength = 60 * 30;
         private bool _pingedForBadBehaviour = false;
 
-        public DiscordCore(ISecretService secretService, ILoggingService loggingService)
+        public DiscordCore(ISecretService secretService, ILoggingService loggingService, ICacheService cacheService)
         {
             _secretService = secretService;
             _loggingService = loggingService;
+            _cacheService = cacheService;
         }
 
         public async Task MainAsync()
@@ -126,14 +128,16 @@ namespace Controller.Discord
         private async Task AnalyseAndReportOnUrl(DiscordWebhookClient webhook, string url)
         {
             var secrets = await _secretService.FetchBotSecretsDataModel();
+            var seenUrls = _cacheService.Get<List<string>>(CacheKey.SeenUrls) ?? new List<string>();
 
-            if (_seenUrls.Contains(url))
+            if (seenUrls.Contains(url))
             {
                 Console.WriteLine($"[DON] Already seen, not analysing or reporting: {url}");
                 return;
             }
 
-            _seenUrls.Add(url);
+            seenUrls.Add(url);
+            _cacheService.Set(CacheKey.SeenUrls, seenUrls);
             _lastValidLog = DateTime.Now;
             _pingedForBadBehaviour = false;
 

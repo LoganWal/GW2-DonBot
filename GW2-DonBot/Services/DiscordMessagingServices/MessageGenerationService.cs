@@ -2,6 +2,9 @@
 using Discord;
 using Extensions;
 using Models;
+using Services.CacheServices;
+using Services.Logging;
+using Services.SecretsServices;
 
 namespace Services.DiscordMessagingServices
 {
@@ -33,7 +36,14 @@ namespace Services.DiscordMessagingServices
 
         private const int PlayersListed = 10;
 
-        public Embed GenerateFightSummary(BotSecretsDataModel secrets, EliteInsightDataModel data)
+        private readonly ISecretService _secretService;
+
+        public MessageGenerationService(ISecretService secretService)
+        {
+            _secretService = secretService;
+        }
+
+        public Embed GenerateFightSummary(EliteInsightDataModel data)
         {
             // Building the actual message to be sent
             var logLength = data.EncounterDuration?.TimeToSeconds() ?? 0;
@@ -330,7 +340,7 @@ namespace Services.DiscordMessagingServices
             return message.Build();
         }
   
-        public Embed GenerateBadBehaviourPing(BotSecretsDataModel secrets)
+        public Embed GenerateBadBehaviourPing()
         {
             bool useSafeVersion = false;
 
@@ -358,7 +368,7 @@ namespace Services.DiscordMessagingServices
                         $"{emoji} Test Report (???) - ???\n" :
                         $"{emoji} Report (PvE) - Literally No Content\n",
                 Description = useSafeVersion ?
-                              $"**Fight Duration:** Test Time\n**Pinging:** <@{secrets.PingedUser}>" :
+                              $"**Fight Duration:** Test Time\n**Pinging:** <@{_secretService.FetchBotAppSettings<string>(nameof(BotSecretsDataModel.PingedUser))}>" :
                               $"**Fight Duration:** Zero Minutes For The Last Half Hour\n",
                 Color = (Color)color,
                 Author = new EmbedAuthorBuilder()

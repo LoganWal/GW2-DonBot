@@ -6,9 +6,16 @@ namespace Services.CacheServices
     {
         private readonly MemoryCache cache = MemoryCache.Default;
 
-        public void Set<T>(string key, T value) where T: notnull
+        public void Set<T>(string key, T value, DateTimeOffset? expiry = null) where T: notnull
         {
-            cache.Set(key, value, null);
+            if (expiry == null)
+            {
+                cache.Set(key, value, null);
+            }
+            else
+            {
+                cache.Set(key, value, expiry.Value);
+            }
         }
 
         public T? Get<T>(string key) where T: class

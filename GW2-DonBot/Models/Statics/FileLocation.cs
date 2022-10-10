@@ -2,6 +2,6 @@
 {
     static class FileLocation
     {
-        public const string Secrets = "Secrets/botSecrets.json";
+        public const string AppSettings = "appsettings.json";
     }
 }

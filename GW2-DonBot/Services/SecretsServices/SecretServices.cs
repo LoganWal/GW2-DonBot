@@ -9,6 +9,7 @@ namespace Services.SecretsServices
     public class SecretServices : ISecretService
     {
         private readonly ICacheService _cacheService;
+
         private readonly IFileService _fileService;
 
         public SecretServices(ICacheService cacheService, IFileService fileService)
@@ -17,22 +18,22 @@ namespace Services.SecretsServices
             _fileService = fileService;
         }
 
-        public async Task<BotSecretsDataModel> FetchBotSecretsDataModel()
+        public async Task<BotSecretsDataModel> FetchBotAppSettings()
         {
-            var secrets = _cacheService.Get<BotSecretsDataModel>(CacheKey.Secrets);
-            if (secrets == null)
+            var appsettings = _cacheService.Get<BotSecretsDataModel>(CacheKey.Secrets);
+            if (appsettings == null)
             {
-                secrets = await _fileService.ReadAndParse<BotSecretsDataModel>(FileLocation.Secrets);
+                appsettings = await _fileService.ReadAndParse<BotSecretsDataModel>(FileLocation.AppSettings);
 
-                if (secrets == null)
+                if (appsettings == null)
                 {
-                    throw new Exception("Secrets are null");
+                    throw new Exception("Appsettings are null");
                 }
 
-                _cacheService.Set(CacheKey.Secrets, secrets);
+                _cacheService.Set(CacheKey.Secrets, appsettings, DateTimeOffset.Now.AddMinutes(2));
             }
 
-            return secrets;
+            return appsettings;
         }
     }
 }

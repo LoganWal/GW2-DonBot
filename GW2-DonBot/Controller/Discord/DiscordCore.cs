@@ -101,7 +101,7 @@ namespace Controller.Discord
 
         private async Task EvaluateBadBehaviour()
         {
-            var secrets = await _secretService.FetchBotSecretsDataModel();
+            var secrets = await _secretService.FetchBotAppSettings();
             var webhook = new DiscordWebhookClient(secrets.DebugWebhookUrl);
             
             while (true)

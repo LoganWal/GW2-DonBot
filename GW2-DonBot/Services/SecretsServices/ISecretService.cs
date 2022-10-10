@@ -4,6 +4,6 @@ namespace Services.SecretsServices
 {
     public interface ISecretService
     {
-        Task<BotSecretsDataModel> FetchBotAppSettings();
+        T? FetchBotAppSettings<T>(string key) where T : class;
     }
 }

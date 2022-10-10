@@ -2,6 +2,7 @@
 using Discord.Webhook;
 using Discord.WebSocket;
 using GW2DonBot.Models;
+using Models;
 using Services.CacheServices;
 using Services.DiscordMessagingServices;
 using Services.Logging;
@@ -14,23 +15,24 @@ namespace Controller.Discord
         private readonly ISecretService _secretService;
         private readonly ILoggingService _loggingService;
         private readonly ICacheService _cacheService;
+        private readonly IMessageGenerationService _messageGenerationService;
 
         private DateTime _lastValidLog;
         //private const float _badBehaviourPingWaitLength = 5; // testing
         private const float _badBehaviourPingWaitLength = 60 * 30;
         private bool _pingedForBadBehaviour = false;
 
-        public DiscordCore(ISecretService secretService, ILoggingService loggingService, ICacheService cacheService)
+        public DiscordCore(ISecretService secretService, ILoggingService loggingService, ICacheService cacheService, IMessageGenerationService messageGenerationService)
         {
             _secretService = secretService;
             _loggingService = loggingService;
             _cacheService = cacheService;
+            _messageGenerationService = messageGenerationService;
         }
 
         public async Task MainAsync()
         {
             // Loading secrets
-            var secrets = await _secretService.FetchBotAppSettings();
 
             // Initialization
             var config = new DiscordSocketConfig()
@@ -41,7 +43,7 @@ namespace Controller.Discord
             var client = new DiscordSocketClient(config);
 
             // Logging in...
-            await client.LoginAsync(TokenType.Bot, secrets.BotToken);
+            await client.LoginAsync(TokenType.Bot, _secretService.FetchBotAppSettings<string>(nameof(BotSecretsDataModel.BotToken)));
             await client.StartAsync();
 
             client.MessageReceived += MessageReceivedAsync;
@@ -68,25 +70,21 @@ namespace Controller.Discord
 
         private async Task AnalyseDebugUrl()
         {
-            var secrets = await _secretService.FetchBotAppSettings();
-
-            var webhook = new DiscordWebhookClient(secrets.DebugWebhookUrl);
-            await AnalyseAndReportOnUrl(webhook, secrets.ScrapedUrl);
+            var webhook = new DiscordWebhookClient(_secretService.FetchBotAppSettings<string>(nameof(BotSecretsDataModel.DebugWebhookUrl)));
+            await AnalyseAndReportOnUrl(webhook, _secretService.FetchBotAppSettings<string>(nameof(BotSecretsDataModel.ScrapedUrl)));
         }
 
         private async Task MessageReceivedAsync(SocketMessage seenMessage)
         {
-            var secrets = await _secretService.FetchBotAppSettings();
-
             // Ignore outside webhook + in upload channel + from Don
             if (seenMessage.Source != MessageSource.Webhook || 
-                seenMessage.Channel.Id != ulong.Parse(secrets.DownloadChannelId) || 
+                seenMessage.Channel.Id != ulong.Parse(_secretService.FetchBotAppSettings<string>(nameof(BotSecretsDataModel.DownloadChannelId))) || 
                 seenMessage.Author.Username.Contains("GW2-DonBot", StringComparison.OrdinalIgnoreCase)) 
             {
                 return;
             }
            
-            var webhook = new DiscordWebhookClient(secrets.WebhookUrl); 
+            var webhook = new DiscordWebhookClient(_secretService.FetchBotAppSettings<string>(nameof(BotSecretsDataModel.WebhookUrl))); 
 
             var urls = seenMessage.Embeds.SelectMany((x => x.Fields.SelectMany(y => y.Value.Split('(')))).Where(x => x.Contains(")")).ToList();
 
@@ -101,8 +99,7 @@ namespace Controller.Discord
 
         private async Task EvaluateBadBehaviour()
         {
-            var secrets = await _secretService.FetchBotAppSettings();
-            var webhook = new DiscordWebhookClient(secrets.DebugWebhookUrl);
+            var webhook = new DiscordWebhookClient(_secretService.FetchBotAppSettings<string>(nameof(BotSecretsDataModel.DebugWebhookUrl)));
             
             while (true)
             {
@@ -113,12 +110,11 @@ namespace Controller.Discord
                     _lastValidLog = DateTime.Now;
                     _pingedForBadBehaviour = true;
 
-                    var messageGenerator = new MessageGenerationService();
-                    var message = messageGenerator.GenerateBadBehaviourPing(secrets);
+                    var message = _messageGenerationService.GenerateBadBehaviourPing();
 
                     Console.WriteLine($"[DON] Pinging for bad behaviour, we have been PvE-ing for: {secondsWaited.ToString("F1")}s");
 
-                    await webhook.SendMessageAsync(text: $"<:red_alert:1026863989851951204> BIG ALERT FOR <@{secrets.PingedUser}> <:red_alert:1026863989851951204>", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { message });
+                    await webhook.SendMessageAsync(text: $"<:red_alert:1026863989851951204> BIG ALERT FOR <@{_secretService.FetchBotAppSettings<string>(nameof(BotSecretsDataModel.PingedUser))}> <:red_alert:1026863989851951204>", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { message });
                 }
                 
                 await Task.Delay(1000);
@@ -127,7 +123,6 @@ namespace Controller.Discord
 
         private async Task AnalyseAndReportOnUrl(DiscordWebhookClient webhook, string url)
         {
-            var secrets = await _secretService.FetchBotAppSettings();
             var seenUrls = _cacheService.Get<List<string>>(CacheKey.SeenUrls) ?? new List<string>();
 
             if (seenUrls.Contains(url))
@@ -145,8 +140,7 @@ namespace Controller.Discord
             var dataModelGenerator = new DataModelGenerationService();
             var data = dataModelGenerator.GenerateEliteInsightDataModelFromUrl(url);
 
-            var messageGenerator = new MessageGenerationService();
-            var message = messageGenerator.GenerateFightSummary(secrets, data);
+            var message = _messageGenerationService.GenerateFightSummary(data);
 
             await webhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { message });
             Console.WriteLine($"[DON] Completed and posted report on: {url}");

@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="appsettingsExample.json" />
     <None Remove="Secrets\botSecrets.json" />
     <None Remove="Secrets\exampleBotSecrets.json" />
   </ItemGroup>

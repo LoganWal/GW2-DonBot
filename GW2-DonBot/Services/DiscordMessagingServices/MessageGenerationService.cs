@@ -119,11 +119,27 @@ namespace Services.DiscordMessagingServices
             var battleGround = data.FightName?[range] ?? string.Empty;
 
             var battleGroundEmoji = ":grey_question:";
+
+            // Safe emojis -- these can be run in any Discord
+            /*
             battleGroundEmoji = battleGround.Contains("Red", StringComparison.OrdinalIgnoreCase) ? ":red_square:" : battleGroundEmoji;
             battleGroundEmoji = battleGround.Contains("Blue", StringComparison.OrdinalIgnoreCase) ? ":blue_square:" : battleGroundEmoji;
             battleGroundEmoji = battleGround.Contains("Green", StringComparison.OrdinalIgnoreCase) ? ":green_square:" : battleGroundEmoji;
             battleGroundEmoji = battleGround.Contains("Eternal", StringComparison.OrdinalIgnoreCase) ? ":white_large_square:" : battleGroundEmoji;
             battleGroundEmoji = battleGround.Contains("Edge", StringComparison.OrdinalIgnoreCase) ? ":brown_square:" : battleGroundEmoji;
+            */
+
+            // SoX specific emojis -- these won't work elsewhere
+            battleGroundEmoji = battleGround.Contains("Red", StringComparison.OrdinalIgnoreCase) ? "<:red_comm:1026849485780951090>" : battleGroundEmoji;
+            battleGroundEmoji = battleGround.Contains("Blue", StringComparison.OrdinalIgnoreCase) ? "<:blue_comm:1026849483943837857>" : battleGroundEmoji;
+            battleGroundEmoji = battleGround.Contains("Green", StringComparison.OrdinalIgnoreCase) ? "<:green_comm:1026849482043830272>" : battleGroundEmoji;
+            battleGroundEmoji = battleGround.Contains("Eternal", StringComparison.OrdinalIgnoreCase) ? "<:grey_comm:1026849479325909063>" : battleGroundEmoji;
+            battleGroundEmoji = battleGround.Contains("Edge", StringComparison.OrdinalIgnoreCase) ? "<:brown_comm:1026849476905816164>" : battleGroundEmoji;
+            
+            // To get custom emojis
+            // Type \:emoji_name_here: and use the generated code below
+            //battleGroundEmoji = "<:yellow_box:1026824406208618496>";
+            //battleGroundEmoji = "<:red_comm:1026846907953328158>";
 
             var battleGroundColor = System.Drawing.Color.FromArgb(204, 214, 221);
             battleGroundColor = battleGround.Contains("Red", StringComparison.OrdinalIgnoreCase) ? System.Drawing.Color.FromArgb(219, 44, 67) : battleGroundColor;
@@ -259,35 +275,35 @@ namespace Services.DiscordMessagingServices
 
             message.AddField(x =>
             {
-                x.Name = "```| Friends   Damage      DPS       Downs     Deaths |```";
+                x.Name = "``` Friends    Damage      DPS       Downs     Deaths  ```";
                 x.Value = $"{friendlyOverview}";
                 x.IsInline = false;
             });
 
             message.AddField(x =>
             {
-                x.Name = "```| Enemies   Damage      DPS       Downs     Deaths |```";
+                x.Name = "``` Enemies    Damage      DPS       Downs     Deaths  ```";
                 x.Value = $"{enemyOverview}";
                 x.IsInline = false;
             });
 
             message.AddField(x =>
             {
-                x.Name = "```| #            Name              Damage      DPS   |```";
+                x.Name = "```  #            Name              Damage      DPS    ```";
                 x.Value = $"{damageOverview}";
                 x.IsInline = false;
             });
 
             message.AddField(x =>
             {
-                x.Name = "```| #            Name                  Cleanses      |```";
+                x.Name = "```  #            Name                  Cleanses       ```";
                 x.Value = $"{cleanseOverview}";
                 x.IsInline = false;
             });
 
             message.AddField(x =>
             {
-                x.Name = "```| #            Name                   Strips       |```";
+                x.Name = "```  #            Name                   Strips        ```";
                 x.Value = $"{stripOverview}";
                 x.IsInline = false;
             });
@@ -301,7 +317,100 @@ namespace Services.DiscordMessagingServices
             });
             */
 
+            message.Footer = new EmbedFooterBuilder()
+            {
+                Text = $"{GetJokeFooter()}",
+                IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+            };
+
+            // Timestamp
+            message.Timestamp = DateTime.Now;
+
+            // Building the message for use
+            return message.Build();
+        }
+  
+        public Embed GenerateBadBehaviourPing(BotSecretsDataModel secrets)
+        {
+            bool useSafeVersion = false;
+
+            var emoji = useSafeVersion ?
+                        ":grey_question:" :
+                        "<:elinsalt:1019594258245746758>";
+
+            var color = useSafeVersion ?
+                        System.Drawing.Color.FromArgb(204, 214, 221) :
+                        System.Drawing.Color.FromArgb(26, 4, 4);
+
+            var urlVariants = new string[]
+            {
+                "https://www.youtube.com/watch?v=YKcabMXAjUU", // Inbetweeners what are you doing
+                "https://www.youtube.com/watch?v=l60MnDJklnM", // Michael Jordan stop it
+                "https://www.youtube.com/watch?v=yuqpa_V1P24", // end of frog
+                "https://www.youtube.com/watch?v=UkdFjOd2kuk" // oof
+            };
+            string randomUrl = urlVariants[new Random().Next(0, urlVariants.Length)];
+
+            // Building the message via embeds
+            var message = new EmbedBuilder
+            {
+                Title = useSafeVersion ?
+                        $"{emoji} Test Report (???) - ???\n" :
+                        $"{emoji} Report (PvE) - Literally No Content\n",
+                Description = useSafeVersion ?
+                              $"**Fight Duration:** Test Time\n**Pinging:** <@{secrets.PingedUser}>" :
+                              $"**Fight Duration:** Zero Minutes For The Last Half Hour\n",
+                Color = (Color)color,
+                Author = new EmbedAuthorBuilder()
+                {
+                    Name = "GW2-DonBot",
+                    Url = "https://github.com/LoganWal/GW2-DonBot",
+                    IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                },
+                Url = useSafeVersion ?
+                      $"" :
+                      $"{randomUrl}"
+            };
+
+            int embedNameLength = 52;
+            int embedValueLength = 41;
+
+            var insultVariants = new string[]
+            {
+                "Welp, time to hop into PoE team?",
+                "Sorry, did we swap over to PvE?",
+                "Uhm, are we just PvE-ing now?",
+                "I didn't know Squirrel liked PvE!"
+            };
+            string randomInsult = insultVariants[new Random().Next(0, insultVariants.Length)];
+
+            message.AddField(x =>
+            {
+                x.Name = useSafeVersion ? 
+                         $"```{("Some test text").PadCenter(embedNameLength)}```" :
+                         $"```{("No stats lmao").PadCenter(embedNameLength)}```";
+                x.Value = useSafeVersion ?
+                          $"```-{("Some additional test text").PadCenter(embedValueLength)}-```" :
+                          $"```-{randomInsult.PadCenter(embedValueLength)}-```";
+                x.IsInline = false;
+            });
+
             // Joke footers
+            message.Footer = new EmbedFooterBuilder()
+            {
+                Text = $"{GetJokeFooter()}",
+                IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+            };
+
+            // Timestamp
+            message.Timestamp = DateTime.Now;
+
+            // Building the message for use
+            return message.Build();
+        }
+
+        private string GetJokeFooter(int index = -1)
+        {
             var footerMessageVariants = new[]
             {
                 "This bot brought to you by PoE, ty Chris!",
@@ -320,19 +429,9 @@ namespace Services.DiscordMessagingServices
                 "I can promise the real Don cleanses."
             };
 
-            var rng = new Random();
-            var footerVariantIndex = rng.Next(0, footerMessageVariants.Length);
-            message.Footer = new EmbedFooterBuilder()
-            {
-                Text = $"{footerMessageVariants[footerVariantIndex]}",
-                IconUrl = "https://i.imgur.com/tQ4LD6H.png"
-            };
-
-            // Timestamp
-            message.Timestamp = DateTime.Now;
-
-            // Building the message for use
-            return message.Build();
+            return index == -1 ?
+                   footerMessageVariants[new Random().Next(0, footerMessageVariants.Length)] :
+                   footerMessageVariants[Math.Min(index, footerMessageVariants.Length)];
         }
     }
 }

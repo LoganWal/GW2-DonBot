@@ -13,7 +13,7 @@ _ReSharper.*
 bin
 obj
 packages
-*/appsettings.json
+/GW2-DonBot/appsettings.json
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

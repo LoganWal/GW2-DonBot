@@ -1,4 +1,6 @@
-﻿using Models;
+﻿using GW2DonBot.Models;
+using GW2DonBot.Models.Statics;
+using Models;
 using Services.CacheServices;
 using Services.FileServices;
 
@@ -6,31 +8,32 @@ namespace Services.SecretsServices
 {
     public class SecretServices : ISecretService
     {
-        private readonly ICacheService cacheService;
-        private readonly IFileService fileService;
+        private readonly ICacheService _cacheService;
+
+        private readonly IFileService _fileService;
 
         public SecretServices(ICacheService cacheService, IFileService fileService)
         {
-            this.cacheService = cacheService;
-            this.fileService = fileService;
+            _cacheService = cacheService;
+            _fileService = fileService;
         }
 
-        public async Task<BotSecretsDataModel> FetchBotSecretsDataModel()
+        public async Task<BotSecretsDataModel> FetchBotAppSettings()
         {
-            var secrets = cacheService.Get<BotSecretsDataModel>(nameof(BotSecretsDataModel));
-            if (secrets == null)
+            var appsettings = _cacheService.Get<BotSecretsDataModel>(CacheKey.Secrets);
+            if (appsettings == null)
             {
-                secrets = await fileService.ReadAndParse<BotSecretsDataModel>("Secrets/botSecrets.json");
+                appsettings = await _fileService.ReadAndParse<BotSecretsDataModel>(FileLocation.AppSettings);
 
-                if (secrets == null)
+                if (appsettings == null)
                 {
-                    throw new Exception("Secrets are null");
+                    throw new Exception("Appsettings are null");
                 }
 
-                cacheService.Set(nameof(BotSecretsDataModel), secrets);
+                _cacheService.Set(CacheKey.Secrets, appsettings, DateTimeOffset.Now.AddMinutes(2));
             }
 
-            return secrets;
+            return appsettings;
         }
     }
 }

@@ -4,6 +4,6 @@ namespace Services.SecretsServices
 {
     public interface ISecretService
     {
-        Task<BotSecretsDataModel> FetchBotSecretsDataModel();
+        Task<BotSecretsDataModel> FetchBotAppSettings();
     }
 }

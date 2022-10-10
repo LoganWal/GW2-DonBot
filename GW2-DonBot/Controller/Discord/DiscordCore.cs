@@ -25,7 +25,7 @@ namespace Controller.Discord
         public async Task MainAsync()
         {
             // Loading secrets
-            var secrets = await _secretService.FetchBotSecretsDataModel();
+            var secrets = await _secretService.FetchBotAppSettings();
 
             // Initialization
             var config = new DiscordSocketConfig()
@@ -59,7 +59,7 @@ namespace Controller.Discord
 
         private async Task AnalyseDebugUrl()
         {
-            var secrets = await _secretService.FetchBotSecretsDataModel();
+            var secrets = await _secretService.FetchBotAppSettings();
 
             var webhook = new DiscordWebhookClient(secrets.DebugWebhookUrl);
             await AnalyseAndReportOnUrl(webhook, secrets.ScrapedUrl);
@@ -67,7 +67,7 @@ namespace Controller.Discord
 
         private async Task MessageReceivedAsync(SocketMessage seenMessage)
         {
-            var secrets = await _secretService.FetchBotSecretsDataModel();
+            var secrets = await _secretService.FetchBotAppSettings();
 
             // Ignore outside webhook + in upload channel + from Don
             if (seenMessage.Source != MessageSource.Webhook || 
@@ -92,7 +92,7 @@ namespace Controller.Discord
 
         private async Task AnalyseAndReportOnUrl(DiscordWebhookClient webhook, string url)
         {
-            var secrets = await _secretService.FetchBotSecretsDataModel();
+            var secrets = await _secretService.FetchBotAppSettings();
             var seenUrls = _cacheService.Get<List<string>>(CacheKey.SeenUrls) ?? new List<string>();
 
             if (seenUrls.Contains(url))

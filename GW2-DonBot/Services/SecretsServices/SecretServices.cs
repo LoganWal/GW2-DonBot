@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Configuration;
+using System.Security.Policy;
 
 namespace Services.SecretsServices
 {
@@ -10,6 +11,7 @@ namespace Services.SecretsServices
             IConfiguration config = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json")
                 .Build();
+            Console.WriteLine($"key is : {config[key] as T}");
 
             return config[key] as T;
         }

@@ -8,12 +8,21 @@ namespace Services.SecretsServices
 
         public T? FetchBotAppSettings<T>(string key) where T: class
         {
-            IConfiguration config = new ConfigurationBuilder()
+            IConfiguration localConfig = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json")
                 .Build();
-            Console.WriteLine($"key is : {config[key] as T}");
 
-            return config[key] as T;
+            var cloudConfig = new ConfigurationBuilder()
+                .AddAzureAppConfiguration(Environment.GetEnvironmentVariable("AzureConfigConnectionString"))
+                .Build();
+
+            var setting = localConfig[key] as T;
+            if (setting == null || setting.ToString() == "")
+            {
+                setting = cloudConfig[key] as T;
+            }
+
+            return setting;
         }
     }
 }

@@ -7,6 +7,7 @@ namespace Services.SecretsServices
 
         public T? FetchBotAppSettings<T>(string key) where T: class
         {
+            Console.WriteLine("Quick little test");
             IConfiguration localConfig = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json")
                 .Build();

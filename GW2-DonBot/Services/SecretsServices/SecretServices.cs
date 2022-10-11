@@ -12,15 +12,29 @@ namespace Services.SecretsServices
                 .AddJsonFile("appsettings.json")
                 .Build();
 
-            var cloudConfig = new ConfigurationBuilder()
-                .AddAzureAppConfiguration(Environment.GetEnvironmentVariable("AzureConfigConnectionString"))
-                .Build();
-
             var setting = localConfig[key] as T;
             if (setting == null || setting.ToString() == "")
             {
-                setting = cloudConfig[key] as T;
+                Console.WriteLine($"Fetching from azure");
+                try
+                {
+                    var cloudConfig = new ConfigurationBuilder()
+                        .AddAzureAppConfiguration(Environment.GetEnvironmentVariable("AzureConfigConnectionString"))
+                        .Build();
+
+                    setting = cloudConfig[key] as T;
+                }
+                catch (Exception)
+                {
+                    Console.WriteLine($"Failed to fetch cloud configuration, either set a local app setting value for `{key}` or check you have an environment value for `AzureConfigConnectionString`");
+                }
             }
+            else
+            {
+                Console.WriteLine($"NOT Fetching from azure");
+            }
+
+            Console.WriteLine($"Value of {key} is {setting}");
 
             return setting;
         }

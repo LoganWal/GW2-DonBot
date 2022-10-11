@@ -36,7 +36,7 @@ jobs:
 
       - name: dotnet publish
         run: |
-          dotnet publish -c Release -o './publish/App_Data/Jobs/Continuous/${{ env.WEBJOB_NAME }}' ${{ env.PROJECT_ROOT }}
+          dotnet publish -c Release -o './publish/App_Data/Jobs/Continuous/GW2-DonBot' ${{env.DOTNET_ROOT}}/myapp
   deploy:
     runs-on: windows-latest
     needs: build

@@ -7,11 +7,28 @@ namespace Services.SecretsServices
 
         public T? FetchBotAppSettings<T>(string key) where T: class
         {
-            IConfiguration config = new ConfigurationBuilder()
+            IConfiguration localConfig = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json")
                 .Build();
 
-            return config[key] as T;
+            var setting = localConfig[key] as T;
+            if (setting == null || setting.ToString() == "")
+            {
+                try
+                {
+                    var cloudConfig = new ConfigurationBuilder()
+                        .AddAzureAppConfiguration(Environment.GetEnvironmentVariable("AzureConfigConnectionString"))
+                        .Build();
+
+                    setting = cloudConfig[key] as T;
+                }
+                catch (Exception)
+                {
+                    Console.WriteLine($"Failed to fetch cloud configuration, either set a local app setting value for `{key}` or check you have an environment value for `AzureConfigConnectionString`");
+                }
+            }
+
+            return setting;
         }
     }
 }

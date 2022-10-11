@@ -34,6 +34,9 @@ jobs:
           name: .net-app
           path: ${{env.DOTNET_ROOT}}/myapp
 
+      - name: dotnet publish
+        run: |
+          dotnet publish -c Release -o './publish/App_Data/Jobs/Continuous/${{ env.WEBJOB_NAME }}' ${{ env.PROJECT_ROOT }}
   deploy:
     runs-on: windows-latest
     needs: build

@@ -317,6 +317,8 @@ namespace Controller.Discord
 
             var guild = ((IGuildChannel)command.Channel).Guild;
             var guildUsers = await guild.GetUsersAsync();
+
+            var output = "";
             var primaryUserCountRemoved = 0;
             var secondaryUserCountRemoved = 0;
             var primaryUserCountAdded = 0;
@@ -337,6 +339,9 @@ namespace Controller.Discord
                     secondaryUserCountRemoved++;
                 }
             }
+
+            output += $"Removed `{primaryRole.Name}` role from `{primaryUserCountRemoved}` players.\n";
+            output += $"Removed `{secondaryRole.Name}` role from `{secondaryUserCountRemoved}` players.\n";
 
             // Role add based on db (adds roles to everyone who is verified)
             using (var context = new DatabaseContext().SetSecretService(_secretService))
@@ -393,11 +398,8 @@ namespace Controller.Discord
                 }
             }
 
-            var output = "";
-            output += $"Removed {primaryRole.Name} role from {primaryUserCountRemoved} players.\n";
-            output += $"Removed {secondaryRole.Name} role from {secondaryUserCountRemoved} players.\n";
-            output += $"Added {primaryRole.Name} role to {primaryUserCountAdded} players.\n";
-            output += $"Added {secondaryRole.Name} role to {secondaryUserCountAdded} players.";
+            output += $"Added `{primaryRole.Name}` role to `{primaryUserCountAdded}` players.\n";
+            output += $"Added `{secondaryRole.Name}` role to `{secondaryUserCountAdded}` players.";
 
             await command.ModifyOriginalResponseAsync(message => message.Content = output);
         }
@@ -409,7 +411,7 @@ namespace Controller.Discord
 
         private async Task AnalyseDebugUrl()
         {
-            var debugUrl = "https://wvw.report/wYCx-20221021-210332_wvw";
+            var debugUrl = "";
             if (debugUrl == "")
             {
                 return;

@@ -2,9 +2,6 @@
 using Discord;
 using Extensions;
 using Models;
-using Services.CacheServices;
-using Services.Logging;
-using Services.SecretsServices;
 
 namespace Services.DiscordMessagingServices
 {
@@ -36,14 +33,7 @@ namespace Services.DiscordMessagingServices
 
         private const int PlayersListed = 10;
 
-        private readonly ISecretService _secretService;
-
-        public MessageGenerationService(ISecretService secretService)
-        {
-            _secretService = secretService;
-        }
-
-        public Embed GenerateFightSummary(EliteInsightDataModel data)
+        public Embed GenerateWvWFightSummary(EliteInsightDataModel data)
         {
             // Building the actual message to be sent
             var logLength = data.EncounterDuration?.TimeToSeconds() ?? 0;
@@ -339,73 +329,93 @@ namespace Services.DiscordMessagingServices
             // Building the message for use
             return message.Build();
         }
-  
-        public Embed GenerateBadBehaviourPing()
+
+        public Embed GeneratePvEFightSummary(EliteInsightDataModel data)
         {
-            bool useSafeVersion = false;
+            // Building the actual message to be sent
+            var logLength = data.EncounterDuration?.TimeToSeconds() ?? 0;
 
-            var emoji = useSafeVersion ?
-                        ":grey_question:" :
-                        "<:elinsalt:1019594258245746758>";
+            var friendlyCount = data.Players?.Length ?? 0;
+            var friendlyDamage = data.Players?.Sum(player => player.Details?.DmgDistributions?.FirstOrDefault()?.ContributedDamage) ?? 0;
+            var friendlyDps = friendlyDamage / logLength;
 
-            var color = useSafeVersion ?
-                        System.Drawing.Color.FromArgb(204, 214, 221) :
-                        System.Drawing.Color.FromArgb(26, 4, 4);
+            var fightPhase = data.Phases?.Length >= FightPhaseIndex + 1
+                ? data.Phases[FightPhaseIndex]
+                : new EliteInsightDataModelPhase();
 
-            var urlVariants = new string[]
+            var sortedPlayerIndexByDamage = fightPhase.DpsStats?
+                .Select((value, index) => (Value: value.FirstOrDefault(), index))
+                .OrderByDescending(x => x.Value)
+                .ToDictionary(k => k.index, v => v.Value);
+
+            // Battleground parsing
+            var range = (int)MathF.Min(15, data.FightName?.Length - 1 ?? 0)..;
+            var rangeStart = range.Start.GetOffset(data.FightName?.Length ?? 0);
+            var rangeEnd = range.End.GetOffset(data.FightName?.Length ?? 0);
+
+            if (rangeStart < 0 || rangeStart > data.FightName?.Length || rangeEnd < 0 || rangeEnd > data.FightName?.Length)
             {
-                "https://www.youtube.com/watch?v=YKcabMXAjUU", // Inbetweeners what are you doing
-                "https://www.youtube.com/watch?v=l60MnDJklnM", // Michael Jordan stop it
-                "https://www.youtube.com/watch?v=yuqpa_V1P24", // end of frog
-                "https://www.youtube.com/watch?v=UkdFjOd2kuk" // oof
-            };
-            string randomUrl = urlVariants[new Random().Next(0, urlVariants.Length)];
+                throw new Exception($"Bad battleground name: {data.FightName}");
+            }
+
+            var battleGround = data.FightName?[range] ?? string.Empty;
+
+            var fightEmoji = ":grey_question:";
+
+            var fightColour = System.Drawing.Color.FromArgb(204, 214, 221);
+
+            // Damage overview
+            var damageOverview = "```";
+
+            var maxDamage = -1.0f;
+            for (var index = 0; index < PlayersListed; index++)
+            {
+                if (index + 1 > sortedPlayerIndexByDamage?.Count)
+                {
+                    break;
+                }
+
+                if (sortedPlayerIndexByDamage?.ElementAt(index) == null)
+                {
+                    continue;
+                }
+
+                var damage = sortedPlayerIndexByDamage.ElementAt(index);
+                var name = data.Players?[damage.Key].Name;
+                var prof = data.Players?[damage.Key].Profession;
+                var damageFloat = (float)damage.Value;
+                if (maxDamage <= 0.0f)
+                {
+                    maxDamage = damageFloat;
+                }
+
+                damageOverview += $"{(index + 1).ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength + 9) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {(damageFloat / logLength).FormatNumber(maxDamage / logLength).PadCenter(7)}\n";
+            }
+
+            damageOverview += "```"; 
 
             // Building the message via embeds
             var message = new EmbedBuilder
             {
-                Title = useSafeVersion ?
-                        $"{emoji} Test Report (???) - ???\n" :
-                        $"{emoji} Report (PvE) - Literally No Content\n",
-                Description = useSafeVersion ?
-                              $"**Fight Duration:** Test Time\n**Pinging:** <@{_secretService.FetchBotAppSettings<string>(nameof(BotSecretsDataModel.PingedUser))}>" :
-                              $"**Fight Duration:** Zero Minutes For The Last Half Hour\n",
-                Color = (Color)color,
+                Title = $"{fightEmoji} Report (PvE) - {data.FightName}\n",
+                Description = $"**Length:** {data?.EncounterDuration}\n**Group:** TBD",
+                Color = (Color)fightColour,
                 Author = new EmbedAuthorBuilder()
                 {
                     Name = "GW2-DonBot",
                     Url = "https://github.com/LoganWal/GW2-DonBot",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
-                Url = useSafeVersion ?
-                      $"" :
-                      $"{randomUrl}"
+                Url = $"{data?.Url}"
             };
-
-            int embedNameLength = 52;
-            int embedValueLength = 41;
-
-            var insultVariants = new string[]
-            {
-                "Welp, time to hop into PoE team?",
-                "Sorry, did we swap over to PvE?",
-                "Uhm, are we just PvE-ing now?",
-                "I didn't know Squirrel liked PvE!"
-            };
-            string randomInsult = insultVariants[new Random().Next(0, insultVariants.Length)];
 
             message.AddField(x =>
             {
-                x.Name = useSafeVersion ? 
-                         $"```{("Some test text").PadCenter(embedNameLength)}```" :
-                         $"```{("No stats lmao").PadCenter(embedNameLength)}```";
-                x.Value = useSafeVersion ?
-                          $"```-{("Some additional test text").PadCenter(embedValueLength)}-```" :
-                          $"```-{randomInsult.PadCenter(embedValueLength)}-```";
+                x.Name = "```  #            Name                          DPS    ```";
+                x.Value = $"{damageOverview}";
                 x.IsInline = false;
             });
 
-            // Joke footers
             message.Footer = new EmbedFooterBuilder()
             {
                 Text = $"{GetJokeFooter()}",
@@ -436,7 +446,9 @@ namespace Services.DiscordMessagingServices
                 "Yes, we raid on EVERY Thursday.",
                 "Yes I'm vegan, yes I eat meat.",
                 "This report is streets ahead.",
-                "I can promise the real Don cleanses."
+                "I can promise the real Don cleanses.",
+                "Don't commit nebicide.",
+                "I will turn you into horse glue."
             };
 
             return index == -1 ?

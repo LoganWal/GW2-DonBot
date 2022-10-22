@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Operations Version="1.0" xmlns="http://schemas.microsoft.com/sqlserver/dac/Serialization/2012/02">
+  <Operation Name="Rename Refactor" Key="6d44bcd8-565e-44f1-9cb4-8a12a60df7df" ChangeDateTime="10/14/2022 08:04:50">
+    <Property Name="ElementName" Value="[dbo].[Account].[Id]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[dbo].[Account]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="DiscordId" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="340a9dd0-5347-4cec-8875-ccb15f68b404" ChangeDateTime="10/14/2022 08:07:54">
+    <Property Name="ElementName" Value="[dbo].[Account].[AccountId]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[dbo].[Account]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="GW2AccountId" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="e4407974-8146-4a3c-b3c9-c681f4b3787f" ChangeDateTime="10/14/2022 08:07:57">
+    <Property Name="ElementName" Value="[dbo].[Account].[AccountName]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[dbo].[Account]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="GW2AccountName" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="07ce9d1e-d037-464d-911b-0019aa896f61" ChangeDateTime="10/14/2022 08:08:00">
+    <Property Name="ElementName" Value="[dbo].[Account].[ApiKey]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[dbo].[Account]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="Gw2ApiKey" />
+  </Operation>
+</Operations>

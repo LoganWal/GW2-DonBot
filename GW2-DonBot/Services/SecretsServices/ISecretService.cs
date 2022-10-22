@@ -4,6 +4,8 @@ namespace Services.SecretsServices
 {
     public interface ISecretService
     {
-        T? FetchBotAppSettings<T>(string key) where T : class;
+        T? Fetch<T>(string key) where T : class;
+
+        Dictionary<string, string> FetchAll();
     }
 }

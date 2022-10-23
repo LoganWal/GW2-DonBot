@@ -25,6 +25,8 @@ namespace Controller.Discord
 
         private Dictionary<string, string> _settings;
 
+        private DiscordSocketClient Client = null;
+
         public DiscordCore(ISecretService secretService, ILoggingService loggingService, ICacheService cacheService, IMessageGenerationService messageGenerationService)
         {
             _secretService = secretService;
@@ -45,24 +47,24 @@ namespace Controller.Discord
                 GatewayIntents = GatewayIntents.All
             };
 
-            var client = new DiscordSocketClient(config);
+            Client = new DiscordSocketClient(config);
 
             // Logging in...
-            await client.LoginAsync(TokenType.Bot, _settings[nameof(BotSecretsDataModel.BotToken)]);
-            await client.StartAsync();
+            await Client.LoginAsync(TokenType.Bot, _settings[nameof(BotSecretsDataModel.BotToken)]);
+            await Client.StartAsync();
 
             Console.WriteLine($"[DON] GW2-DonBot attempting to connect...");
-            while (client.ConnectionState != ConnectionState.Connected)
+            while (Client.ConnectionState != ConnectionState.Connected)
             {
                 await Task.Delay(100);
             }
             Console.WriteLine($"[DON] GW2-DonBot connected in");
 
-            await RegisterCommands(client);
+            await RegisterCommands(Client);
 
-            client.MessageReceived += MessageReceivedAsync;
-            client.Log += _loggingService.Log;
-            client.SlashCommandExecuted += SlashCommandExecutedAsync;
+            Client.MessageReceived += MessageReceivedAsync;
+            Client.Log += _loggingService.Log;
+            Client.SlashCommandExecuted += SlashCommandExecutedAsync;
 
 #if DEBUG
             await AnalyseDebugUrl();
@@ -74,9 +76,9 @@ namespace Controller.Discord
             await Task.Delay(-1);
 
             // Safely close...
-            client.Log -= _loggingService.Log;
-            client.MessageReceived -= MessageReceivedAsync;
-            client.SlashCommandExecuted -= SlashCommandExecutedAsync;
+            Client.Log -= _loggingService.Log;
+            Client.MessageReceived -= MessageReceivedAsync;
+            Client.SlashCommandExecuted -= SlashCommandExecutedAsync;
         }
 
         private async Task RegisterCommands(DiscordSocketClient client)
@@ -153,6 +155,9 @@ namespace Controller.Discord
         {
             await command.DeferAsync(ephemeral: true);
 
+            var guild = Client.GetGuild(command.GuildId.Value);
+            var guildUser = guild.GetUser(command.User.Id);
+
             var apiKey = command.Data.Options.First().Value.ToString();
 
             var httpClient = new HttpClient();
@@ -226,7 +231,7 @@ namespace Controller.Discord
                 // Adds verified role
                 var primaryRoleId = _settings[nameof(BotSecretsDataModel.WvWMemberRoleId)];
                 var secondaryRoleId = _settings[nameof(BotSecretsDataModel.WvWAllianceMemberRoleId)];
-                var user = (IGuildUser)command.User;
+                var user = guildUser;
                 var primaryRole = ((IGuildChannel)command.Channel).Guild.GetRole(ulong.Parse(primaryRoleId));
                 var secondaryRole = ((IGuildChannel)command.Channel).Guild.GetRole(ulong.Parse(secondaryRoleId));
 
@@ -277,10 +282,13 @@ namespace Controller.Discord
                       $"Deverify succeeded! Account data cleared for: `{command.User}`" :
                       $"Deverify unnecessary! No account data found for: `{command.User}`";
 
+            var guild = Client.GetGuild(command.GuildId.Value);
+            var guildUser = guild.GetUser(command.User.Id);
+
             // Removes roles
             var primaryRoleId = _settings[nameof(BotSecretsDataModel.WvWMemberRoleId)];
             var secondaryRoleId = _settings[nameof(BotSecretsDataModel.WvWAllianceMemberRoleId)];
-            var user = (IGuildUser)command.User;
+            var user = (IGuildUser)guildUser;
             var primaryRole = ((IGuildChannel)command.Channel).Guild.GetRole(ulong.Parse(primaryRoleId));
             var secondaryRole = ((IGuildChannel)command.Channel).Guild.GetRole(ulong.Parse(secondaryRoleId));
 

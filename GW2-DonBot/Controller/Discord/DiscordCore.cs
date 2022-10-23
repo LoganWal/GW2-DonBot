@@ -163,6 +163,7 @@ namespace Controller.Discord
             {
                 Console.WriteLine($"Failing nicely: `{ex.Message}`");
                 await command.ModifyOriginalResponseAsync(message => message.Content = $"Heya mate, looks like you are whispering me, please /verify in the discord you want to be verified in, only you will see the message.");
+                return;
             }
 
             var apiKey = string.Empty;
@@ -178,6 +179,7 @@ namespace Controller.Discord
             {
                 Console.WriteLine($"Failing nicely: `{ex.Message}`");
                 await command.ModifyOriginalResponseAsync(message => message.Content = $"Looks like you didn't provide an api key, when using /verify please try again and enter your api key into the grey box, that way, it'll work.");
+                return;
             }
 
             var httpClient = new HttpClient();
@@ -315,6 +317,7 @@ namespace Controller.Discord
             {
                 Console.WriteLine($"Failing nicely: `{ex.Message}`");
                 await command.ModifyOriginalResponseAsync(message => message.Content = $"Heya mate, looks like you are whispering me, please /deverify in the discord you want to be deverified in, only you will see the message.");
+                return;
             }
 
             // Removes roles

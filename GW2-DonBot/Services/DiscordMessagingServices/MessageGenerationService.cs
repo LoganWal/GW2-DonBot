@@ -438,7 +438,6 @@ namespace Services.DiscordMessagingServices
                 "I'm not supposed to be on the internet...",
                 "Just in: Squirrel is a murderer.",
                 "Always be straight licking that shit!",
-                "SHEEEEEEEEEEEEEEEEEEEE!",
                 "What do you like to tank on?",
                 "Be the best dinker you can be!",
                 "The fact you read this disgusts me.",
@@ -447,8 +446,11 @@ namespace Services.DiscordMessagingServices
                 "Yes I'm vegan, yes I eat meat.",
                 "This report is streets ahead.",
                 "I can promise the real Don cleanses.",
-                "Don't commit nebicide.",
-                "I will turn you into horse glue."
+                "I will turn you into horse glue.",
+                "You are doing great, Kaye! - Squirrel",
+                "You're right, Logan! - Squirrel",
+                "Get on the seige!",
+                "No one on the left cata!"
             };
 
             return index == -1 ?

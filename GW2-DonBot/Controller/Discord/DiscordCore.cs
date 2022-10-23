@@ -251,9 +251,11 @@ namespace Controller.Discord
                 // Adds verified role
                 var primaryRoleId = _settings[nameof(BotSecretsDataModel.WvWMemberRoleId)];
                 var secondaryRoleId = _settings[nameof(BotSecretsDataModel.WvWAllianceMemberRoleId)];
+                var verifiedRoleId = _settings[nameof(BotSecretsDataModel.WvWVerifiedRoleId)];
                 var user = guildUser;
                 var primaryRole = ((IGuildChannel)command.Channel).Guild.GetRole(ulong.Parse(primaryRoleId));
                 var secondaryRole = ((IGuildChannel)command.Channel).Guild.GetRole(ulong.Parse(secondaryRoleId));
+                var verifiedRole = ((IGuildChannel)command.Channel).Guild.GetRole(ulong.Parse(verifiedRoleId));
 
                 if (inPrimaryGuild)
                 {
@@ -265,6 +267,8 @@ namespace Controller.Discord
                     await user.AddRoleAsync(secondaryRole);
                 }
 
+                await user.AddRoleAsync(verifiedRole);
+
                 // Edit message to send through the actual filled out message
                 await command.ModifyOriginalResponseAsync(message => message.Content = output);
             }
@@ -272,7 +276,7 @@ namespace Controller.Discord
             {
                 Console.WriteLine($"[DON] API call failed");
 
-                await command.ModifyOriginalResponseAsync(message => message.Content = $"Looks like you screwed up a couple of letter in the api key, try again mate, failed to process with API key: `{apiKey}`");
+                await command.ModifyOriginalResponseAsync(message => message.Content = $"Looks like you screwed up a couple of letters in the api key, try again mate, failed to process with API key: `{apiKey}`");
             }
         }
 
@@ -316,9 +320,11 @@ namespace Controller.Discord
             // Removes roles
             var primaryRoleId = _settings[nameof(BotSecretsDataModel.WvWMemberRoleId)];
             var secondaryRoleId = _settings[nameof(BotSecretsDataModel.WvWAllianceMemberRoleId)];
+            var verifiedRoleId = _settings[nameof(BotSecretsDataModel.WvWVerifiedRoleId)];
             var user = (IGuildUser)guildUser;
             var primaryRole = ((IGuildChannel)command.Channel).Guild.GetRole(ulong.Parse(primaryRoleId));
             var secondaryRole = ((IGuildChannel)command.Channel).Guild.GetRole(ulong.Parse(secondaryRoleId));
+            var verifiedRole = ((IGuildChannel)command.Channel).Guild.GetRole(ulong.Parse(verifiedRoleId));
 
             if (user.RoleIds.ToList().Contains(ulong.Parse(primaryRoleId)))
             {
@@ -330,6 +336,11 @@ namespace Controller.Discord
             {
                 await user.RemoveRoleAsync(secondaryRole);
                 output += $"\nRemoved `{primaryRole.Name}` role.";
+            }
+
+            if (user.RoleIds.ToList().Contains(ulong.Parse(verifiedRoleId)))
+            {
+                await user.RemoveRoleAsync(verifiedRole);
             }
 
             await command.ModifyOriginalResponseAsync(message => message.Content = output);
@@ -350,6 +361,8 @@ namespace Controller.Discord
             var secondaryRoleId = _settings[nameof(BotSecretsDataModel.WvWAllianceMemberRoleId)];
             var primaryRole = ((IGuildChannel)command.Channel).Guild.GetRole(ulong.Parse(primaryRoleId));
             var secondaryRole = ((IGuildChannel)command.Channel).Guild.GetRole(ulong.Parse(secondaryRoleId));
+            var verifiedRoleId = _settings[nameof(BotSecretsDataModel.WvWVerifiedRoleId)];
+            var verifiedRole = ((IGuildChannel)command.Channel).Guild.GetRole(ulong.Parse(verifiedRoleId));
 
             var guild = ((IGuildChannel)command.Channel).Guild;
             var guildUsers = await guild.GetUsersAsync();
@@ -373,6 +386,11 @@ namespace Controller.Discord
                 {
                     await user.RemoveRoleAsync(secondaryRole);
                     secondaryUserCountRemoved++;
+                }
+
+                if (user.RoleIds.ToList().Contains(ulong.Parse(verifiedRoleId)))
+                {
+                    await user.RemoveRoleAsync(verifiedRole);
                 }
             }
 
@@ -430,6 +448,8 @@ namespace Controller.Discord
                             await user.AddRoleAsync(secondaryRole);
                             secondaryUserCountAdded++;
                         }
+
+                        await user.AddRoleAsync(verifiedRole);
                     }
                 }
             }

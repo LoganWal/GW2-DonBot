@@ -46,6 +46,8 @@ namespace Models
 
         public string? WvWUploadChannelId { get; set; }
 
+        public string? WvWVerifiedRoleId { get; set; }
+
         public string? WvWWebhookUrl { get; set; }
 
         public string? SqlServerConnection { get; set; }

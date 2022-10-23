@@ -450,7 +450,10 @@ namespace Services.DiscordMessagingServices
                 "You are doing great, Kaye! - Squirrel",
                 "You're right, Logan! - Squirrel",
                 "Get on the seige!",
-                "No one on the left cata!"
+                "No one on the left cata!",
+                "Those who cross Squirrel will die! Try a Dodge Roll!",
+                "Never give up! Trust your training!",
+                "Do your job!"
             };
 
             return index == -1 ?

@@ -154,11 +154,31 @@ namespace Controller.Discord
         private async Task VerifyCommandExecuted(SocketSlashCommand command)
         {
             await command.DeferAsync(ephemeral: true);
+            SocketGuildUser? guildUser = null;
+            try
+            {
+                guildUser = Client.GetGuild(command.GuildId.Value).GetUser(command.User.Id);
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine($"Failing nicely: `{ex.Message}`");
+                await command.ModifyOriginalResponseAsync(message => message.Content = $"Heya mate, looks like you are whispering me, please /verify in the discord you want to be verified in, only you will see the message.");
+            }
 
-            var guild = Client.GetGuild(command.GuildId.Value);
-            var guildUser = guild.GetUser(command.User.Id);
-
-            var apiKey = command.Data.Options.First().Value.ToString();
+            var apiKey = string.Empty;
+            try
+            {
+                apiKey = command.Data.Options.First().Value.ToString();
+                if (string.IsNullOrEmpty(apiKey))
+                {
+                    throw new Exception("No apikey provided");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failing nicely: `{ex.Message}`");
+                await command.ModifyOriginalResponseAsync(message => message.Content = $"Looks like you didn't provide an api key, when using /verify please try again and enter your api key into the grey box, that way, it'll work.");
+            }
 
             var httpClient = new HttpClient();
             var response = await httpClient.GetAsync($"https://api.guildwars2.com/v2/account/?access_token={apiKey}");
@@ -252,7 +272,7 @@ namespace Controller.Discord
             {
                 Console.WriteLine($"[DON] API call failed");
 
-                await command.ModifyOriginalResponseAsync(message => message.Content = $"Verify failed to process with API key: `{apiKey}`");
+                await command.ModifyOriginalResponseAsync(message => message.Content = $"Looks like you screwed up a couple of letter in the api key, try again mate, failed to process with API key: `{apiKey}`");
             }
         }
 
@@ -282,8 +302,16 @@ namespace Controller.Discord
                       $"Deverify succeeded! Account data cleared for: `{command.User}`" :
                       $"Deverify unnecessary! No account data found for: `{command.User}`";
 
-            var guild = Client.GetGuild(command.GuildId.Value);
-            var guildUser = guild.GetUser(command.User.Id);
+            SocketGuildUser? guildUser = null;
+            try
+            {
+                guildUser = Client.GetGuild(command.GuildId.Value).GetUser(command.User.Id);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failing nicely: `{ex.Message}`");
+                await command.ModifyOriginalResponseAsync(message => message.Content = $"Heya mate, looks like you are whispering me, please /deverify in the discord you want to be deverified in, only you will see the message.");
+            }
 
             // Removes roles
             var primaryRoleId = _settings[nameof(BotSecretsDataModel.WvWMemberRoleId)];

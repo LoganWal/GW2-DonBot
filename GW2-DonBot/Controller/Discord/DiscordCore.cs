@@ -491,8 +491,14 @@ namespace Controller.Discord
             {
                 return;
             }
-           
-            var webhook = new DiscordWebhookClient(_settings[nameof(BotSecretsDataModel.WvWWebhookUrl)]); // TODO: break this apart so it can handle multiple webhooks
+
+            string webhookUrl = "";
+            webhookUrl = seenMessage.Channel.Id == ulong.Parse(_settings[nameof(BotSecretsDataModel.WvWDebugUploadChannelId)]) ? _settings[nameof(BotSecretsDataModel.WvWDebugWebhookUrl)] : webhookUrl;
+            webhookUrl = seenMessage.Channel.Id == ulong.Parse(_settings[nameof(BotSecretsDataModel.WvWUploadChannelId)]) ? _settings[nameof(BotSecretsDataModel.WvWWebhookUrl)] : webhookUrl;
+            webhookUrl = seenMessage.Channel.Id == ulong.Parse(_settings[nameof(BotSecretsDataModel.PvEDebugUploadChannelId)]) ? _settings[nameof(BotSecretsDataModel.PvEDebugWebhookUrl)] : webhookUrl;
+            webhookUrl = seenMessage.Channel.Id == ulong.Parse(_settings[nameof(BotSecretsDataModel.PvEUploadChannelId)]) ? _settings[nameof(BotSecretsDataModel.PvEWebhookUrl)] : webhookUrl;
+
+            var webhook = new DiscordWebhookClient(webhookUrl);
 
             var urls = seenMessage.Embeds.SelectMany((x => x.Fields.SelectMany(y => y.Value.Split('(')))).Where(x => x.Contains(")")).ToList();
 
@@ -522,7 +528,7 @@ namespace Controller.Discord
             var dataModelGenerator = new DataModelGenerationService();
             var data = dataModelGenerator.GenerateEliteInsightDataModelFromUrl(url);
 
-            var message = _messageGenerationService.GenerateWvWFightSummary(data);
+            var message = _messageGenerationService.GenerateFightSummary(data);
 
             await webhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { message });
             Console.WriteLine($"[DON] Completed and posted report on: {url}");

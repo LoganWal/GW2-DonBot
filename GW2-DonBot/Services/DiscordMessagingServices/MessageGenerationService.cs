@@ -33,13 +33,66 @@ namespace Services.DiscordMessagingServices
 
         private const int PlayersListed = 10;
 
+        private const int EmbedTitleCharacterLength = 52;
+
+        private const int EmbedBarCharacterLength = 23;
+
+        private struct SquadBoons
+        {
+            public bool initialized;
+
+            public int playerCount;
+            public int squadNumber;
+            
+            public float mightStacks;
+            public float furyPercent;
+            public float quickPercent;
+            public float alacrityPercent;
+            public float protectionPercent;
+            public float regenPercent;
+            public float vigorPercent;
+            public float aegisPercent;
+            public float stabilityPercent;
+            public float swiftnessPercent;
+            public float resistancePercent;
+            public float resolutionPercent;
+
+            public void AverageStats()
+            {
+                mightStacks /= playerCount;
+                furyPercent /= playerCount;
+                quickPercent /= playerCount;
+                alacrityPercent /= playerCount;
+                protectionPercent /= playerCount;
+                regenPercent /= playerCount;
+                vigorPercent /= playerCount;
+                aegisPercent /= playerCount;
+                stabilityPercent /= playerCount;
+                swiftnessPercent /= playerCount;
+                resistancePercent /= playerCount;
+                resolutionPercent /= playerCount;
+            }
+        }
+
+        public Embed GenerateFightSummary(EliteInsightDataModel data)
+        {
+            if (data.Wvw)
+            {
+                return GenerateWvWFightSummary(data);
+            }
+            else
+            {
+                return GeneratePvEFightSummary(data);
+            }
+        }
+
         public Embed GenerateWvWFightSummary(EliteInsightDataModel data)
         {
             // Building the actual message to be sent
             var logLength = data.EncounterDuration?.TimeToSeconds() ?? 0;
 
             var friendlyCount = data.Players?.Length ?? 0;
-            var friendlyDamage = data.Players?.Sum(player => player.Details?.DmgDistributions?.FirstOrDefault()?.ContributedDamage) ?? 0;
+            var friendlyDamage = data.Players?.Sum(player => player.Details?.DmgDistributions?.Sum(playerContribution => playerContribution.ContributedDamage)) ?? 0;
             var friendlyDps = friendlyDamage / logLength;
 
             var enemyCount = data.Targets?.Length ?? 0;
@@ -335,46 +388,96 @@ namespace Services.DiscordMessagingServices
             // Building the actual message to be sent
             var logLength = data.EncounterDuration?.TimeToSeconds() ?? 0;
 
-            var friendlyCount = data.Players?.Length ?? 0;
-            var friendlyDamage = data.Players?.Sum(player => player.Details?.DmgDistributions?.FirstOrDefault()?.ContributedDamage) ?? 0;
-            var friendlyDps = friendlyDamage / logLength;
+            var playerCount = data.Players?.Length ?? 0;
 
-            var fightPhase = data.Phases?.Length >= FightPhaseIndex + 1
-                ? data.Phases[FightPhaseIndex]
+            var fightPhase = data.Phases?.Length > 0
+                ? data.Phases[0]
                 : new EliteInsightDataModelPhase();
 
-            var sortedPlayerIndexByDamage = fightPhase.DpsStats?
+            var sortedPlayerIndexByDamage = fightPhase.DpsStats? // Note this is against all targets (not just boss), need to do some more logic here to just get targets oof
                 .Select((value, index) => (Value: value.FirstOrDefault(), index))
                 .OrderByDescending(x => x.Value)
                 .ToDictionary(k => k.index, v => v.Value);
 
-            // Battleground parsing
-            var range = (int)MathF.Min(15, data.FightName?.Length - 1 ?? 0)..;
-            var rangeStart = range.Start.GetOffset(data.FightName?.Length ?? 0);
-            var rangeEnd = range.End.GetOffset(data.FightName?.Length ?? 0);
+            // Fight name parsing
+            var fightEmoji = ":crossed_swords:";
 
-            if (rangeStart < 0 || rangeStart > data.FightName?.Length || rangeEnd < 0 || rangeEnd > data.FightName?.Length)
+            var fightColour = data.Success 
+                              ? System.Drawing.Color.FromArgb(123, 179, 91) 
+                              : System.Drawing.Color.FromArgb(219, 44, 67);
+            // blue for later: System.Drawing.Color.FromArgb(85, 172, 238)
+
+            // Progress
+            var progress = 0.0f;
+            var showPhaseEmbed = false;
+            var phaseProgress = -1.0f;
+            var phaseName = "";
+            switch (data.FightName)
             {
-                throw new Exception($"Bad battleground name: {data.FightName}");
+                // HT CM
+                case "The Dragonvoid CM":
+                    {
+                        foreach (var target in data.Targets)
+                        {
+                            if (target.Percent == 0)
+                            {
+                                break;
+                            }
+                            progress += (float)(target.Percent / 12);
+
+                            showPhaseEmbed = true;
+                            phaseProgress = (float)target.Percent;
+                            phaseName = target.Name;
+                        }
+                    } break;
+                // Standard
+                default: progress = (float)data.Targets.First().Percent; break;
             }
 
-            var battleGround = data.FightName?[range] ?? string.Empty;
+            var percentProgress = progress / 100.0f;
 
-            var fightEmoji = ":grey_question:";
+            var progressTitle = "";
+            var progressOverview = "";
 
-            var fightColour = System.Drawing.Color.FromArgb(204, 214, 221);
+            progressTitle = ($"Overall [{progress.FormatPercentage()}]").PadCenter(EmbedTitleCharacterLength);
+
+            progressOverview = "```[";
+
+            var initialCharacterLength = progressOverview.Length;
+            var filledBarCount = (int)Math.Floor(percentProgress * EmbedBarCharacterLength);
+
+            progressOverview = progressOverview.PadRight(filledBarCount + initialCharacterLength, '▰');
+            progressOverview = progressOverview.PadRight(EmbedBarCharacterLength + initialCharacterLength, '▱');
+
+            progressOverview += "]```";
+
+            // Phase overview
+            var phaseProgressTitle = "";
+            var phaseProgressOverview = "";
+
+            if (showPhaseEmbed)
+            {
+                var percentPhaseProgress = phaseProgress / 100.0f;
+
+                phaseProgressTitle = ($"{phaseName} [{phaseProgress.FormatPercentage()}]").PadCenter(EmbedTitleCharacterLength);
+
+                phaseProgressOverview = "```[";
+
+                var initialPhaseCharacterLength = phaseProgressOverview.Length;
+                var phaseFilledBarCount = (int)Math.Floor(percentPhaseProgress * EmbedBarCharacterLength);
+
+                phaseProgressOverview = phaseProgressOverview.PadRight(phaseFilledBarCount + initialPhaseCharacterLength, '▰');
+                phaseProgressOverview = phaseProgressOverview.PadRight(EmbedBarCharacterLength + initialPhaseCharacterLength, '▱');
+
+                phaseProgressOverview += "]```";
+            }
 
             // Damage overview
             var damageOverview = "```";
 
             var maxDamage = -1.0f;
-            for (var index = 0; index < PlayersListed; index++)
+            for (var index = 0; index < playerCount; index++)
             {
-                if (index + 1 > sortedPlayerIndexByDamage?.Count)
-                {
-                    break;
-                }
-
                 if (sortedPlayerIndexByDamage?.ElementAt(index) == null)
                 {
                     continue;
@@ -389,16 +492,74 @@ namespace Services.DiscordMessagingServices
                     maxDamage = damageFloat;
                 }
 
-                damageOverview += $"{(index + 1).ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength + 9) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {(damageFloat / logLength).FormatNumber(maxDamage / logLength).PadCenter(7)}\n";
+                damageOverview += $"{(index + 1).ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength + 9)}  {(damageFloat / logLength).FormatNumber(maxDamage / logLength).PadLeft(6)} \n";
             }
 
-            damageOverview += "```"; 
+            damageOverview += "```";
+
+            // Boon overview
+            var boonOverview = "```";
+            var squadBoons = new SquadBoons[51];
+
+            for (var index = 0; index < playerCount; index++)
+            {
+                var playerSquad = data.Players[index].Group;
+
+                squadBoons[playerSquad].initialized = true;
+                squadBoons[playerSquad].playerCount++;
+                squadBoons[playerSquad].squadNumber = (int)playerSquad;
+
+                squadBoons[playerSquad].mightStacks +=          fightPhase?.BoonStats?[index].Data?.Length > 0  ? (float)(fightPhase?.BoonStats?[index].Data?[0]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].furyPercent +=          fightPhase?.BoonStats?[index].Data?.Length > 1  ? (float)(fightPhase?.BoonStats?[index].Data?[1]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].quickPercent +=         fightPhase?.BoonStats?[index].Data?.Length > 2  ? (float)(fightPhase?.BoonStats?[index].Data?[2]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].alacrityPercent +=      fightPhase?.BoonStats?[index].Data?.Length > 3  ? (float)(fightPhase?.BoonStats?[index].Data?[3]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].protectionPercent +=    fightPhase?.BoonStats?[index].Data?.Length > 4  ? (float)(fightPhase?.BoonStats?[index].Data?[4]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].regenPercent +=         fightPhase?.BoonStats?[index].Data?.Length > 5  ? (float)(fightPhase?.BoonStats?[index].Data?[5]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].vigorPercent +=         fightPhase?.BoonStats?[index].Data?.Length > 6  ? (float)(fightPhase?.BoonStats?[index].Data?[6]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].aegisPercent +=         fightPhase?.BoonStats?[index].Data?.Length > 7  ? (float)(fightPhase?.BoonStats?[index].Data?[7]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].stabilityPercent +=     fightPhase?.BoonStats?[index].Data?.Length > 8  ? (float)(fightPhase?.BoonStats?[index].Data?[8]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].swiftnessPercent +=     fightPhase?.BoonStats?[index].Data?.Length > 9  ? (float)(fightPhase?.BoonStats?[index].Data?[9]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].resistancePercent +=    fightPhase?.BoonStats?[index].Data?.Length > 10 ? (float)(fightPhase?.BoonStats?[index].Data?[10]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].resolutionPercent +=    fightPhase?.BoonStats?[index].Data?.Length > 11 ? (float)(fightPhase?.BoonStats?[index].Data?[11]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+            }
+
+            var usedSquadBoons = new List<SquadBoons>();
+
+            foreach (var boons in squadBoons)
+            {
+                if (boons.initialized)
+                {
+                    boons.AverageStats();
+                    usedSquadBoons.Add(boons);
+                }
+            }
+
+            for (var index = 0; index < usedSquadBoons.Count; index++)
+            {
+                var squadNumber = usedSquadBoons[index].squadNumber;
+                var might = usedSquadBoons[index].mightStacks;
+                var fury = usedSquadBoons[index].furyPercent;
+                var quick = usedSquadBoons[index].quickPercent;
+                var alac = usedSquadBoons[index].alacrityPercent;
+                var prot = usedSquadBoons[index].protectionPercent;
+                var regen = usedSquadBoons[index].regenPercent;
+
+                boonOverview += $"{squadNumber.ToString().PadLeft(2, '0')}   ";
+                boonOverview += $"{might.ToString("F1").PadCenter(4)}   ";
+                boonOverview += $"{fury.FormatSimplePercentage().PadCenter(3)}    ";
+                boonOverview += $"{alac.FormatSimplePercentage().PadCenter(3)}    ";
+                boonOverview += $"{quick.FormatSimplePercentage().PadCenter(3)}    ";
+                boonOverview += $"{prot.FormatSimplePercentage().PadCenter(3)}   ";
+                boonOverview += $"{regen.FormatSimplePercentage().PadCenter(3)}\n";
+            }
+
+            boonOverview += "```";
 
             // Building the message via embeds
             var message = new EmbedBuilder
             {
                 Title = $"{fightEmoji} Report (PvE) - {data.FightName}\n",
-                Description = $"**Length:** {data?.EncounterDuration}\n**Group:** TBD",
+                Description = $"**Length:** {data?.EncounterDuration}\n**Group:** - Core | - Friends | - PuG",
                 Color = (Color)fightColour,
                 Author = new EmbedAuthorBuilder()
                 {
@@ -411,8 +572,32 @@ namespace Services.DiscordMessagingServices
 
             message.AddField(x =>
             {
-                x.Name = "```  #            Name                          DPS    ```";
+                x.Name = $"```{progressTitle}```";
+                x.Value = $"{progressOverview}";
+                x.IsInline = false;
+            });
+
+            if (showPhaseEmbed && !data.Success)
+            {
+                message.AddField(x =>
+                {
+                    x.Name = $"```{phaseProgressTitle}```";
+                    x.Value = $"{phaseProgressOverview}";
+                    x.IsInline = false;
+                });
+            }
+
+            message.AddField(x =>
+            {
+                x.Name = "``` #          Name                              DPS   ```";
                 x.Value = $"{damageOverview}";
+                x.IsInline = false;
+            });
+
+            message.AddField(x =>
+            {
+                x.Name = "``` #    Might    Fury    Alac    Quick   Prot    Rgn  ```";
+                x.Value = $"{boonOverview}";
                 x.IsInline = false;
             });
 

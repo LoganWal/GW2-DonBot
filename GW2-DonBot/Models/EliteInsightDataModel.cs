@@ -5,6 +5,7 @@
     using System.Globalization;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Converters;
+    using Newtonsoft.Json.Linq;
 
     public partial class EliteInsightDataModel
     {
@@ -320,8 +321,8 @@
         [JsonProperty("facingData", NullValueHandling = NullValueHandling.Ignore)]
         public double[]? FacingData { get; set; }
 
-        [JsonProperty("connectedTo", NullValueHandling = NullValueHandling.Ignore)]
-        public long? ConnectedTo { get; set; }
+        [JsonProperty("connectedTo", NullValueHandling = NullValueHandling.Ignore), JsonConverter(typeof(SingleOrArrayConverter<long>))]
+        public long[]? ConnectedTo { get; set; }
 
         [JsonProperty("masterID", NullValueHandling = NullValueHandling.Ignore)]
         public long? MasterId { get; set; }
@@ -1167,5 +1168,33 @@
         }
 
         public static readonly DefStatElementConverter Singleton = new();
+    }
+
+    public class SingleOrArrayConverter<T> : JsonConverter
+    {
+        public override bool CanConvert(Type objectType)
+        {
+            return (objectType == typeof(T[]));
+        }
+
+        public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+        {
+            JToken token = JToken.Load(reader);
+            if (token.Type == JTokenType.Array)
+            {
+                return token.ToObject<T[]>();
+            }
+            return new T[] { token.ToObject<T>() };
+        }
+
+        public override bool CanWrite
+        {
+            get { return false; }
+        }
+
+        public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

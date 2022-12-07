@@ -6,11 +6,11 @@ namespace Services.DiscordMessagingServices
 {
     public class DataModelGenerationService : IDataModelGenerationService
     {
-        public EliteInsightDataModel GenerateEliteInsightDataModelFromUrl(string url)
+        public async Task<EliteInsightDataModel> GenerateEliteInsightDataModelFromUrl(string url)
         {
             // HTML scraping
             var web = new HtmlWeb();
-            var htmlDoc = web.Load(url);
+            var htmlDoc = await web.LoadFromWebAsync(url);
 
             // Registering start and end of actual log data inside the HTML
             var logDataStartIndex = htmlDoc.ParsedText.IndexOf("logData", StringComparison.Ordinal) + 10;

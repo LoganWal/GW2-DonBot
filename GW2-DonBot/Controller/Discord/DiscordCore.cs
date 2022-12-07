@@ -501,13 +501,14 @@ namespace Controller.Discord
             var webhook = new DiscordWebhookClient(webhookUrl);
 
             var urls = seenMessage.Embeds.SelectMany((x => x.Fields.SelectMany(y => y.Value.Split('(')))).Where(x => x.Contains(")")).ToList();
+            urls.AddRange(seenMessage.Embeds.Select(x => x.Url).Where(x => !string.IsNullOrEmpty(x)));
 
             var trimmedUrls = urls.Select(url => url.Contains(')') ? url[..url.IndexOf(')')] : url).ToList();
 
             foreach (var url in trimmedUrls)
             {
                 Console.WriteLine($"[DON] Assessing: {url}");
-                await AnalyseAndReportOnUrl(webhook, url);
+                AnalyseAndReportOnUrl(webhook, url);
             }
         }
 
@@ -526,7 +527,7 @@ namespace Controller.Discord
 
             Console.WriteLine($"[DON] Analysing and reporting on: {url}");
             var dataModelGenerator = new DataModelGenerationService();
-            var data = dataModelGenerator.GenerateEliteInsightDataModelFromUrl(url);
+            var data = await dataModelGenerator.GenerateEliteInsightDataModelFromUrl(url);
 
             var message = _messageGenerationService.GenerateFightSummary(data);
 

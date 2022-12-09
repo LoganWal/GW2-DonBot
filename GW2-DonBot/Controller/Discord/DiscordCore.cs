@@ -529,6 +529,7 @@ namespace Controller.Discord
             var dataModelGenerator = new DataModelGenerationService();
             var data = await dataModelGenerator.GenerateEliteInsightDataModelFromUrl(url);
 
+            Console.WriteLine($"[DON] Generating fight summary: {url}");
             var message = _messageGenerationService.GenerateFightSummary(data);
 
             await webhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { message });

@@ -9,14 +9,26 @@ namespace Services.DiscordMessagingServices
         public async Task<EliteInsightDataModel> GenerateEliteInsightDataModelFromUrl(string url)
         {
             // HTML scraping
-            var web = new HtmlWeb();
-            var htmlDoc = await web.LoadFromWebAsync(url);
+            //var web = new HtmlWeb();
+            //var htmlDoc = new System.Net.WebClient().DownloadString(url); //await web.LoadFromWebAsync(url);
+            string result;
+
+            using (HttpClient client = new HttpClient())
+            {
+                using (HttpResponseMessage response = await client.GetAsync(url))
+                {
+                    using (HttpContent content = response.Content)
+                    {
+                        result = await content.ReadAsStringAsync();
+                    }
+                }
+            }
 
             // Registering start and end of actual log data inside the HTML
-            var logDataStartIndex = htmlDoc.ParsedText.IndexOf("logData", StringComparison.Ordinal) + 10;
-            var logDataEndIndex = htmlDoc.ParsedText.IndexOf("};", StringComparison.Ordinal);
+            var logDataStartIndex = result.IndexOf("logData", StringComparison.Ordinal) + 10;
+            var logDataEndIndex = result.IndexOf("};", StringComparison.Ordinal);
 
-            var data = htmlDoc.ParsedText.Substring(logDataStartIndex, logDataEndIndex - logDataStartIndex + 1);
+            var data = result.Substring(logDataStartIndex, logDataEndIndex - logDataStartIndex + 1);
 
             // Deserializing back to the data model
             var deserializeData = JsonConvert.DeserializeObject<EliteInsightDataModel>(data) ?? new EliteInsightDataModel();

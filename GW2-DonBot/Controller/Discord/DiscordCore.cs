@@ -508,7 +508,7 @@ namespace Controller.Discord
             foreach (var url in trimmedUrls)
             {
                 Console.WriteLine($"[DON] Assessing: {url}");
-                await AnalyseAndReportOnUrl(webhook, url);
+                AnalyseAndReportOnUrl(webhook, url);
             }
         }
 

@@ -1,5 +1,4 @@
-﻿using HtmlAgilityPack;
-using Models;
+﻿using Models;
 using Newtonsoft.Json;
 
 namespace Services.DiscordMessagingServices
@@ -9,19 +8,13 @@ namespace Services.DiscordMessagingServices
         public async Task<EliteInsightDataModel> GenerateEliteInsightDataModelFromUrl(string url)
         {
             // HTML scraping
-            //var web = new HtmlWeb();
-            //var htmlDoc = new System.Net.WebClient().DownloadString(url); //await web.LoadFromWebAsync(url);
             string result;
 
-            using (HttpClient client = new HttpClient())
+            using (var client = new HttpClient())
             {
-                using (HttpResponseMessage response = client.GetAsync(url).Result)
-                {
-                    using (HttpContent content = response.Content)
-                    {
-                        result = content.ReadAsStringAsync().Result;
-                    }
-                }
+                using var response = await client.GetAsync(url);
+                using var content = response.Content;
+                result = await content.ReadAsStringAsync();
             }
 
             // Registering start and end of actual log data inside the HTML

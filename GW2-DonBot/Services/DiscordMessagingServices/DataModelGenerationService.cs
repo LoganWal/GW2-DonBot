@@ -15,11 +15,11 @@ namespace Services.DiscordMessagingServices
 
             using (HttpClient client = new HttpClient())
             {
-                using (HttpResponseMessage response = await client.GetAsync(url))
+                using (HttpResponseMessage response = client.GetAsync(url).Result)
                 {
                     using (HttpContent content = response.Content)
                     {
-                        result = await content.ReadAsStringAsync();
+                        result = content.ReadAsStringAsync().Result;
                     }
                 }
             }

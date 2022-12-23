@@ -5,7 +5,7 @@ namespace Services.DiscordMessagingServices
 {
     public interface IMessageGenerationService
     {
-        public Embed GenerateFightSummary(EliteInsightDataModel data);
+        public Embed GenerateFightSummary(EliteInsightDataModel data, ulong guildId);
 
         public Embed GenerateWvWFightSummary(EliteInsightDataModel data);
 

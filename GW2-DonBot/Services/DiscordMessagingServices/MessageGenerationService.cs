@@ -2,11 +2,21 @@
 using Discord;
 using Extensions;
 using Models;
+using Models.Entities;
+using Services.SecretsServices;
 
 namespace Services.DiscordMessagingServices
 {
     public class MessageGenerationService: IMessageGenerationService
     {
+        private readonly ISecretService _secretService;
+
+        public MessageGenerationService(ISecretService secretService)
+        {
+            _secretService = secretService;
+        }
+
+
         private const int EnemyDamageIndex = 1;
 
         private const int FightPhaseIndex = 1;
@@ -74,7 +84,7 @@ namespace Services.DiscordMessagingServices
             }
         }
 
-        public Embed GenerateFightSummary(EliteInsightDataModel data)
+        public Embed GenerateFightSummary(EliteInsightDataModel data, ulong guildId)
         {
             if (data.Wvw)
             {
@@ -88,6 +98,9 @@ namespace Services.DiscordMessagingServices
 
         public Embed GenerateWvWFightSummary(EliteInsightDataModel data)
         {
+            // Set player points
+            SetPlayerPoints(data);
+
             // Building the actual message to be sent
             var logLength = data.EncounterDuration?.TimeToSeconds() ?? 0;
 
@@ -644,6 +657,86 @@ namespace Services.DiscordMessagingServices
             return index == -1 ?
                    footerMessageVariants[new Random().Next(0, footerMessageVariants.Length)] :
                    footerMessageVariants[Math.Min(index, footerMessageVariants.Length)];
+        }
+
+        private void SetPlayerPoints(EliteInsightDataModel eliteInsightDataModel)
+        {
+            List<Account> accounts;
+            using (var context = new DatabaseContext().SetSecretService(_secretService))
+            {
+                accounts = context.Account.ToList();
+            }
+
+            if (!accounts.Any())
+            {
+                return;
+            }
+
+            var fightPhase = eliteInsightDataModel.Phases?.Length >= FightPhaseIndex + 1
+                ? eliteInsightDataModel.Phases[FightPhaseIndex]
+                : new EliteInsightDataModelPhase();
+
+            var sortedPlayerIndexByDamage = fightPhase.DpsStats?
+                .Select((value, index) => (Value: value.FirstOrDefault(), index))
+                .OrderByDescending(x => x.Value)
+                .ToDictionary(k => eliteInsightDataModel.Players?[k.index].Acc, v => v.Value);
+
+            var sortedPlayerIndexByCleanses = fightPhase.SupportStats?
+                .Select((value, index) => (Value: value.FirstOrDefault() + (value.Length >= PlayerCleansesIndex + 1 ? value[PlayerCleansesIndex] : 0), index))
+                .OrderByDescending(x => x.Value)
+                .ToDictionary(k => eliteInsightDataModel.Players?[k.index].Acc, v => v.Value);
+
+            var sortedPlayerIndexByStrips = fightPhase.SupportStats?
+                .Select((value, index) => (Value: value.Length >= PlayerStripsIndex + 1 ? value[PlayerStripsIndex] : 0, index))
+                .OrderByDescending(x => x.Value)
+                .ToDictionary(k => eliteInsightDataModel.Players?[k.index].Acc, v => v.Value);
+
+            var sortedPlayerIndexByStab = fightPhase.BoonGenSquadStats?
+                .Select((value, index) => (Value: value.Data?.CheckIndexIsValid(BoonStabDimension1Index, BoonStabDimension2Index) ?? false ? value.Data[BoonStabDimension1Index][BoonStabDimension2Index] : 0, index))
+                .OrderByDescending(x => x.Value)
+                .ToDictionary(k => eliteInsightDataModel.Players?[k.index].Acc, v => v.Value);
+
+            using (var context = new DatabaseContext().SetSecretService(_secretService))
+            {
+                foreach (var player in eliteInsightDataModel.Players)
+                {
+                    var account = accounts.FirstOrDefault(a => a.Gw2AccountName == player.Acc);
+                    if (account == null)
+                    {
+                        continue;
+                    }
+
+                    var totalPoints = 0d;
+
+                    if (sortedPlayerIndexByDamage.TryGetValue(account.Gw2AccountName, out var damage))
+                    {
+                        totalPoints += damage / 100000;
+                    }
+
+                    if (sortedPlayerIndexByCleanses.TryGetValue(account.Gw2AccountName, out var cleanses))
+                    {
+                        totalPoints += cleanses / 100;
+                    }
+
+                    if (sortedPlayerIndexByStrips.TryGetValue(account.Gw2AccountName, out var strips))
+                    {
+                        totalPoints += strips / 50;
+                    }
+
+                    if (sortedPlayerIndexByStab.TryGetValue(account.Gw2AccountName, out var stab))
+                    {
+                        totalPoints += stab / 0.25;
+                    }
+
+                    if (totalPoints > 0)
+                    {
+                        account.Points += Convert.ToDecimal(totalPoints);
+                        context.Update(account);
+                    }
+                }
+
+                context.SaveChanges();
+            }
         }
     }
 }

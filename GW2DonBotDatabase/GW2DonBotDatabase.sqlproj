@@ -33,7 +33,7 @@
     <DefineTrace>true</DefineTrace>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-	<IsPublishable>false</IsPublishable>
+    <IsPublishable>false</IsPublishable>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <OutputPath>bin\Debug\</OutputPath>
@@ -60,6 +60,7 @@
   </ItemGroup>
   <ItemGroup>
     <Build Include="Account.sql" />
+    <Build Include="Guild.sql" />
   </ItemGroup>
   <ItemGroup>
     <RefactorLog Include="GW2DonBotDatabase.refactorlog" />

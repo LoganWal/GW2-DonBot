@@ -63,7 +63,7 @@ namespace Controller.Discord
             _client.SlashCommandExecuted += SlashCommandExecutedAsync;
 
             var pollingRolesCancellationToken = new CancellationToken();
-            PollingRolesTask(TimeSpan.FromMinutes(5), pollingRolesCancellationToken);
+            PollingRolesTask(TimeSpan.FromMinutes(30), pollingRolesCancellationToken);
 
             Console.WriteLine("[DON] GW2-DonBot setup - ready to cause chaos");
 

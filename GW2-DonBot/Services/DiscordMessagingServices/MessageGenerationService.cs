@@ -711,27 +711,32 @@ namespace Services.DiscordMessagingServices
                     if (sortedPlayerIndexByDamage.TryGetValue(account.Gw2AccountName, out var damage))
                     {
                         totalPoints += damage / 100000;
+                        Console.WriteLine($"{account.Gw2AccountName}, damage, {damage / 100000}");
                     }
 
                     if (sortedPlayerIndexByCleanses.TryGetValue(account.Gw2AccountName, out var cleanses))
                     {
                         totalPoints += cleanses / 100;
+                        Console.WriteLine($"{account.Gw2AccountName}, cleanses, {cleanses / 100}");
                     }
 
                     if (sortedPlayerIndexByStrips.TryGetValue(account.Gw2AccountName, out var strips))
                     {
                         totalPoints += strips / 50;
+                        Console.WriteLine($"{account.Gw2AccountName}, strips, {strips / 50}");
                     }
 
                     if (sortedPlayerIndexByStab.TryGetValue(account.Gw2AccountName, out var stab))
                     {
                         totalPoints += stab / 0.25;
+                        Console.WriteLine($"{account.Gw2AccountName}, stab, {stab / 0.25}");
                     }
 
                     if (totalPoints > 0)
                     {
                         account.Points += Convert.ToDecimal(totalPoints);
                         context.Update(account);
+                        Console.WriteLine($"{account.Gw2AccountName}, total, {totalPoints}");
                     }
                 }
 

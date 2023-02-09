@@ -21,7 +21,6 @@ Global
 		{7353B074-97F2-4D97-A251-27AADE614F4E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7353B074-97F2-4D97-A251-27AADE614F4E}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
 		{7353B074-97F2-4D97-A251-27AADE614F4E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{7353B074-97F2-4D97-A251-27AADE614F4E}.Release|Any CPU.Build.0 = Release|Any CPU
 		{7353B074-97F2-4D97-A251-27AADE614F4E}.Release|Any CPU.Deploy.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution

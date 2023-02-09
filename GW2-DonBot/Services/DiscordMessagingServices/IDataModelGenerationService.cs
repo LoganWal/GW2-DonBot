@@ -4,6 +4,6 @@ namespace Services.DiscordMessagingServices
 {
     public interface IDataModelGenerationService
     {
-        public EliteInsightDataModel GenerateEliteInsightDataModelFromUrl(string url);
+        public Task<EliteInsightDataModel> GenerateEliteInsightDataModelFromUrl(string url);
     }
 }

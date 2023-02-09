@@ -67,6 +67,11 @@ namespace Extensions
             return $"{number:F1}%";
         }
 
+        public static string FormatSimplePercentage(this float number)
+        {
+            return $"{number:F0}%";
+        }
+
         public static string FormatPercentage(this double number)
         {
             return FormatPercentage((float)number);

@@ -1,22 +1,27 @@
-﻿using HtmlAgilityPack;
-using Models;
+﻿using Models;
 using Newtonsoft.Json;
 
 namespace Services.DiscordMessagingServices
 {
     public class DataModelGenerationService : IDataModelGenerationService
     {
-        public EliteInsightDataModel GenerateEliteInsightDataModelFromUrl(string url)
+        public async Task<EliteInsightDataModel> GenerateEliteInsightDataModelFromUrl(string url)
         {
             // HTML scraping
-            var web = new HtmlWeb();
-            var htmlDoc = web.Load(url);
+            string result;
+
+            using (var client = new HttpClient())
+            {
+                using var response = await client.GetAsync(url);
+                using var content = response.Content;
+                result = await content.ReadAsStringAsync();
+            }
 
             // Registering start and end of actual log data inside the HTML
-            var logDataStartIndex = htmlDoc.ParsedText.IndexOf("logData", StringComparison.Ordinal) + 10;
-            var logDataEndIndex = htmlDoc.ParsedText.IndexOf("};", StringComparison.Ordinal);
+            var logDataStartIndex = result.IndexOf("logData", StringComparison.Ordinal) + 10;
+            var logDataEndIndex = result.IndexOf("};", StringComparison.Ordinal);
 
-            var data = htmlDoc.ParsedText.Substring(logDataStartIndex, logDataEndIndex - logDataStartIndex + 1);
+            var data = result.Substring(logDataStartIndex, logDataEndIndex - logDataStartIndex + 1);
 
             // Deserializing back to the data model
             var deserializeData = JsonConvert.DeserializeObject<EliteInsightDataModel>(data) ?? new EliteInsightDataModel();

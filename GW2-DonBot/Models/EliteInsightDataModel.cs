@@ -3,8 +3,10 @@
     using System;
     using System.Collections.Generic;
     using System.Globalization;
+    using Extensions;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Converters;
+    using Newtonsoft.Json.Linq;
 
     public partial class EliteInsightDataModel
     {
@@ -320,8 +322,8 @@
         [JsonProperty("facingData", NullValueHandling = NullValueHandling.Ignore)]
         public double[]? FacingData { get; set; }
 
-        [JsonProperty("connectedTo", NullValueHandling = NullValueHandling.Ignore)]
-        public long? ConnectedTo { get; set; }
+        [JsonProperty("connectedTo", NullValueHandling = NullValueHandling.Ignore), JsonConverter(typeof(SingleOrArrayConverter<long>))]
+        public long[]? ConnectedTo { get; set; }
 
         [JsonProperty("masterID", NullValueHandling = NullValueHandling.Ignore)]
         public long? MasterId { get; set; }
@@ -594,7 +596,7 @@
         public double[][]? GameplayStats { get; set; }
 
         [JsonProperty("defStats")]
-        public DefStatElement[][]? DefStats { get; set; }
+        public object[][]? DefStats { get; set; }
 
         [JsonProperty("supportStats")]
         public double[][]? SupportStats { get; set; }
@@ -1068,7 +1070,7 @@
     public struct DefStatElement
     {
         public string? DefStatName;
-        public long? DefStatValue;
+        public object? DefStatValue;
 
         public static implicit operator DefStatElement(string defStatName) => new() { DefStatName = defStatName };
         public static implicit operator DefStatElement(long defStatValue) => new() { DefStatValue = defStatValue };
@@ -1156,7 +1158,7 @@
             var value = untypedValue != null ? (DefStatElement)untypedValue : new DefStatElement();
             if (value.DefStatValue != null)
             {
-                serializer.Serialize(writer, value.DefStatValue.Value);
+                serializer.Serialize(writer, value.DefStatValue.TryParseLong());
                 return;
             }
             if (value.DefStatName != null)
@@ -1167,5 +1169,33 @@
         }
 
         public static readonly DefStatElementConverter Singleton = new();
+    }
+
+    public class SingleOrArrayConverter<T> : JsonConverter
+    {
+        public override bool CanConvert(Type objectType)
+        {
+            return (objectType == typeof(T[]));
+        }
+
+        public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+        {
+            JToken token = JToken.Load(reader);
+            if (token.Type == JTokenType.Array)
+            {
+                return token.ToObject<T[]>();
+            }
+            return new T[] { token.ToObject<T>() };
+        }
+
+        public override bool CanWrite
+        {
+            get { return false; }
+        }
+
+        public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

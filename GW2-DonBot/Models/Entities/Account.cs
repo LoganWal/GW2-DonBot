@@ -6,8 +6,13 @@ namespace Models.Entities
     {
         [Key]
         public long DiscordId { get; set; }
+
         public string Gw2AccountId { get; set; }
+
         public string Gw2AccountName { get; set; }
+
         public string Gw2ApiKey { get; set; }
+
+        public decimal Points { get; set; }
     }
 }

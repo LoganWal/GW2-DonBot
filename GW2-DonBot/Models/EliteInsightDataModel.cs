@@ -3,6 +3,7 @@
     using System;
     using System.Collections.Generic;
     using System.Globalization;
+    using Extensions;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Converters;
     using Newtonsoft.Json.Linq;
@@ -595,7 +596,7 @@
         public double[][]? GameplayStats { get; set; }
 
         [JsonProperty("defStats")]
-        public DefStatElement[][]? DefStats { get; set; }
+        public object[][]? DefStats { get; set; }
 
         [JsonProperty("supportStats")]
         public double[][]? SupportStats { get; set; }
@@ -1069,7 +1070,7 @@
     public struct DefStatElement
     {
         public string? DefStatName;
-        public long? DefStatValue;
+        public object? DefStatValue;
 
         public static implicit operator DefStatElement(string defStatName) => new() { DefStatName = defStatName };
         public static implicit operator DefStatElement(long defStatValue) => new() { DefStatValue = defStatValue };
@@ -1157,7 +1158,7 @@
             var value = untypedValue != null ? (DefStatElement)untypedValue : new DefStatElement();
             if (value.DefStatValue != null)
             {
-                serializer.Serialize(writer, value.DefStatValue.Value);
+                serializer.Serialize(writer, value.DefStatValue.TryParseLong());
                 return;
             }
             if (value.DefStatName != null)

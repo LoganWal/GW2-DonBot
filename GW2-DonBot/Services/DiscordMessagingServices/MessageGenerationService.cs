@@ -122,12 +122,12 @@ namespace Services.DiscordMessagingServices
 
             var friendlyDowns = fightPhase.DefStats?
                 .Sum(playerDefStats => playerDefStats.Length >= FriendlyDownIndex + 1
-                    ? playerDefStats[FriendlyDownIndex].DefStatValue
+                    ? playerDefStats[FriendlyDownIndex].TryParseLong()
                     : 0) ?? 0;
 
             var friendlyDeaths = fightPhase.DefStats?
                 .Sum(playerDefStats => playerDefStats.Length >= FriendlyDeathIndex + 1
-                    ? playerDefStats[FriendlyDeathIndex].DefStatValue
+                    ? playerDefStats[FriendlyDeathIndex].TryParseLong()
                     : 0) ?? 0;
 
             var enemyDowns = fightPhase.OffensiveStatsTargets?

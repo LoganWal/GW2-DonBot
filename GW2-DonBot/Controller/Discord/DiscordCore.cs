@@ -101,6 +101,12 @@ namespace Controller.Discord
                     .AddOption("api-key", ApplicationCommandOptionType.String, "The API key you wish to link", isRequired: true);
 
                 await guild.CreateApplicationCommandAsync(verifyCommand.Build());
+
+                var pointsCommand = new SlashCommandBuilder()
+                    .WithName("points")
+                    .WithDescription("(Work in progress) Check how many points you have earned.");
+
+                await guild.CreateApplicationCommandAsync(pointsCommand.Build());
             }
         }
 
@@ -112,6 +118,7 @@ namespace Controller.Discord
                 
                 case "verify":          await VerifyCommandExecuted(command); break;
                 case "deverify":        await DeverifyCommandExecuted(command); break;
+                case "points":          await PointsCommandExecuted(command); break;
 
                 default:                await DefaultCommandExecuted(command); break;
             }
@@ -361,6 +368,32 @@ namespace Controller.Discord
             {
                 await user.RemoveRoleAsync(verifiedRole);
             }
+
+            await command.ModifyOriginalResponseAsync(message => message.Content = output);
+        }
+
+        private async Task PointsCommandExecuted(SocketSlashCommand command)
+        {
+            await command.DeferAsync(ephemeral: true);
+
+            Guild? guild;
+            Account? account = null;
+            int? rank = null;
+            using (var context = new DatabaseContext().SetSecretService(_secretService))
+            {
+                var model = await context.Account.ToListAsync();
+                account = model.FirstOrDefault(m => (ulong)m.DiscordId == command.User.Id);
+                if (account != null)
+                {
+                    rank = model.OrderByDescending(o => o.Points).ToList().FindIndex(m => (ulong)m.DiscordId == command.User.Id) + 1;
+                }
+            }
+
+            var output = "";
+            output += account != null
+                ? $"You have earned {Math.Round(account.Points)} points.{Environment.NewLine}Current Rank: {rank}"
+                : "Unable to find account, have you verified?";
+
 
             await command.ModifyOriginalResponseAsync(message => message.Content = output);
         }

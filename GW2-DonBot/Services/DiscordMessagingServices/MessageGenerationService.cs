@@ -21,9 +21,9 @@ namespace Services.DiscordMessagingServices
 
         private const int FightPhaseIndex = 1;
 
-        private const int FriendlyDownIndex = 8;
+        private const int FriendlyDownIndex = 12;
 
-        private const int FriendlyDeathIndex = 10;
+        private const int FriendlyDeathIndex = 14;
 
         private const int EnemyDeathIndex = 12;
 
@@ -137,7 +137,7 @@ namespace Services.DiscordMessagingServices
 
             var enemyDeaths = fightPhase.OffensiveStatsTargets?
                 .Sum(playerOffStats => playerOffStats.Sum(playerOffTargetStats => playerOffTargetStats?.Length >= EnemyDeathIndex + 1
-                    ? playerOffTargetStats?[EnemyDownIndex]
+                    ? playerOffTargetStats?[EnemyDeathIndex]
                     : 0)) ?? 0;
 
             var sortedPlayerIndexByDamage = fightPhase.DpsStats?

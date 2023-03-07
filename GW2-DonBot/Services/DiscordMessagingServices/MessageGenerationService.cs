@@ -696,6 +696,23 @@ namespace Services.DiscordMessagingServices
                 .OrderByDescending(x => x.Value)
                 .ToDictionary(k => eliteInsightDataModel.Players?[k.index].Acc, v => v.Value);
 
+            var stringDuration = eliteInsightDataModel.EncounterDuration;
+
+            var secondsOfFight = 0;
+            if (!string.IsNullOrEmpty(stringDuration))
+            {
+                try
+                {
+                    var minutes = Convert.ToInt32(stringDuration.Substring(0, 2));
+                    var seconds = Convert.ToInt32(stringDuration.Substring(4, 2));
+                    secondsOfFight = (minutes * 60) + seconds;
+                }
+                catch (Exception ex)
+                {
+                    //idk something
+                }
+            }
+
             using (var context = new DatabaseContext().SetSecretService(_secretService))
             {
                 foreach (var player in eliteInsightDataModel.Players)
@@ -711,25 +728,26 @@ namespace Services.DiscordMessagingServices
                     if (sortedPlayerIndexByDamage.TryGetValue(account.Gw2AccountName, out var damage))
                     {
                         totalPoints += damage / 100000;
-                        Console.WriteLine($"{account.Gw2AccountName}, damage, {damage / 100000}");
+                        Console.WriteLine($"{account.Gw2AccountName}, damage, {damage / 110000}");
                     }
 
                     if (sortedPlayerIndexByCleanses.TryGetValue(account.Gw2AccountName, out var cleanses))
                     {
                         totalPoints += cleanses / 100;
-                        Console.WriteLine($"{account.Gw2AccountName}, cleanses, {cleanses / 100}");
+                        Console.WriteLine($"{account.Gw2AccountName}, cleanses, {cleanses / 110}");
                     }
 
                     if (sortedPlayerIndexByStrips.TryGetValue(account.Gw2AccountName, out var strips))
                     {
                         totalPoints += strips / 50;
-                        Console.WriteLine($"{account.Gw2AccountName}, strips, {strips / 50}");
+                        Console.WriteLine($"{account.Gw2AccountName}, strips, {strips / 20}");
                     }
 
                     if (sortedPlayerIndexByStab.TryGetValue(account.Gw2AccountName, out var stab))
                     {
-                        totalPoints += stab / 0.25;
-                        Console.WriteLine($"{account.Gw2AccountName}, stab, {stab / 0.25}");
+                        var stabMultiplier = secondsOfFight < 30 ? 1 : secondsOfFight / 30;
+                        totalPoints += (stab / 0.25) * stabMultiplier;
+                        Console.WriteLine($"{account.Gw2AccountName}, stab, {(stab / 0.25) * stabMultiplier}");
                     }
 
                     if (totalPoints > 0)

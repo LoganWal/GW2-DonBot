@@ -389,16 +389,16 @@
     public class Mechanic
     {
         [JsonProperty("symbol")]
-        public string? Symbol { get; set; }
+        public string Symbol { get; set; }
 
         [JsonProperty("size")]
-        public long Size { get; set; }
+        public int Size { get; set; }
 
         [JsonProperty("color")]
-        public string? Color { get; set; }
+        public string Color { get; set; }
 
         [JsonProperty("points")]
-        public double[][][]? Points { get; set; }
+        public List<List<List<object>>> Points { get; set; }
 
         [JsonProperty("visible")]
         public bool Visible { get; set; }

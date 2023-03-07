@@ -24,7 +24,17 @@ namespace Services.DiscordMessagingServices
             var data = result.Substring(logDataStartIndex, logDataEndIndex - logDataStartIndex + 1);
 
             // Deserializing back to the data model
-            var deserializeData = JsonConvert.DeserializeObject<EliteInsightDataModel>(data) ?? new EliteInsightDataModel();
+            EliteInsightDataModel deserializeData = new EliteInsightDataModel();
+            try
+            {
+                deserializeData = JsonConvert.DeserializeObject<EliteInsightDataModel>(data) ??
+                                  new EliteInsightDataModel();
+            }
+            catch (Exception ex)
+            {
+                var message = ex.Message;
+            }
+
             deserializeData.Url = url;
             return deserializeData;
         }

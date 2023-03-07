@@ -17,7 +17,7 @@ namespace Services.SecretsServices
                 try
                 {
                     var cloudConfig = new ConfigurationBuilder()
-                        .AddAzureAppConfiguration(Environment.GetEnvironmentVariable("AzureConfigConnectionString"))
+                        .AddAzureAppConfiguration("Endpoint=https://gw2donbotappconfiguration.azconfig.io;Id=fJ7l-lg-s0:cvYGergWY0fofJ/oMs3i;Secret=omUZx2hp2IlQsAdY/QZ66XZiUddiwkvMFuJZp1IffcE=")
                         .Build();
 
                     setting = cloudConfig[key] as T;
@@ -45,7 +45,7 @@ namespace Services.SecretsServices
                     try
                     {
                         var cloudConfig = new ConfigurationBuilder()
-                            .AddAzureAppConfiguration(Environment.GetEnvironmentVariable("AzureConfigConnectionString"))
+                            .AddAzureAppConfiguration("Endpoint=https://gw2donbotappconfiguration.azconfig.io;Id=fJ7l-lg-s0:cvYGergWY0fofJ/oMs3i;Secret=omUZx2hp2IlQsAdY/QZ66XZiUddiwkvMFuJZp1IffcE=")
                         .Build();
 
                         dictSettings.Add(setting.Key, cloudConfig[setting.Key]);

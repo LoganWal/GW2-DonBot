@@ -444,15 +444,27 @@ namespace Controller.Discord
                             continue;
                         }
 
+                        Console.WriteLine($"=== Handling {account.Gw2AccountName.Trim()} : {user.DisplayName.Trim()} ===");
                         var apiKey = account.Gw2ApiKey;
 
-                        var httpClient = new HttpClient();
-                        var response = await httpClient.GetAsync($"https://api.guildwars2.com/v2/account/?access_token={apiKey}");
+                        var httpClient = new HttpClient
+                        {
+                            Timeout = TimeSpan.FromSeconds(5)
+                        };
+
+                        HttpResponseMessage response;
+                        try
+                        {
+                            response = await httpClient.GetAsync($"https://api.guildwars2.com/v2/account/?access_token={apiKey}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"=== FAILED Handling {account.Gw2AccountName.Trim()} : {user.DisplayName.Trim()} ===");
+                            continue;
+                        }
 
                         if (response.IsSuccessStatusCode)
                         {
-                            Console.WriteLine($"=== Handling {account.Gw2AccountName.Trim()} : {user.DisplayName.Trim()} ===");
-
                             var stringData = await response.Content.ReadAsStringAsync();
                             var accountData = JsonConvert.DeserializeObject<GW2AccountDataModel>(stringData) ?? new GW2AccountDataModel();
 
@@ -490,6 +502,10 @@ namespace Controller.Discord
                                 await user.AddRoleAsync((ulong)verifiedRoleId);
                                 Console.WriteLine(" + Adding Verified Role");
                             }
+                        }
+                        else
+                        {
+                            Console.WriteLine($"=== FAILED Handling {account.Gw2AccountName.Trim()} : {user.DisplayName.Trim()} ===");
                         }
                     }
                 }

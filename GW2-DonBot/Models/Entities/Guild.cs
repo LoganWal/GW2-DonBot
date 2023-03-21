@@ -15,6 +15,10 @@ namespace Models.Entities
 
         public string? Webhook { get; set; }
 
+        public string? PlayerReportWebhook { get; set; }
+
+        public string? AdminPlayerReportWebhook { get; set; }
+
         public long? DebugWebhookChannelId { get; set; }
 
         public long? DebugPostChannelId { get; set; }

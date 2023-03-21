@@ -12,6 +12,9 @@ using Services.DiscordMessagingServices;
 using Services.Logging;
 using Services.SecretsServices;
 using ConnectionState = Discord.ConnectionState;
+using Microsoft.EntityFrameworkCore.Metadata;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
+using System;
 
 namespace Controller.Discord
 {
@@ -607,6 +610,35 @@ namespace Controller.Discord
 
             await webhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { message });
             Console.WriteLine($"[DON] Completed and posted report on: {url}");
+
+            if (data.Wvw)
+            {
+                Guild? guild;
+                using (var context = new DatabaseContext().SetSecretService(_secretService))
+                {
+                    var guilds = await context.Guild.ToListAsync();
+                    guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildId);
+
+                    if (guild == null)
+                    {
+                        return;
+                    }
+                }
+
+                var adminPlayerReportWebhook = new DiscordWebhookClient(guild.AdminPlayerReportWebhook);
+
+                try
+                {
+                    var playerMessage = _messageGenerationService.GenerateWvWPlayerSummary();
+                    await adminPlayerReportWebhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { playerMessage });
+                    Console.WriteLine($"[DON] Completed and posted report on: {url}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+                
+            }
         }
     }
 }

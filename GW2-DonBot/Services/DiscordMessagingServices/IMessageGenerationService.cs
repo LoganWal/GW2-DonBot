@@ -10,5 +10,7 @@ namespace Services.DiscordMessagingServices
         public Embed GenerateWvWFightSummary(EliteInsightDataModel data);
 
         public Embed GeneratePvEFightSummary(EliteInsightDataModel data);
+
+        public Embed GenerateWvWPlayerSummary();
     }
 }

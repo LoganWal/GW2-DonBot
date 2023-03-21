@@ -14,5 +14,7 @@ namespace Models.Entities
         public string Gw2ApiKey { get; set; }
 
         public decimal Points { get; set; }
+
+        public decimal PreviousPoints { get; set; }
     }
 }

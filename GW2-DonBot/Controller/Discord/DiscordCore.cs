@@ -583,12 +583,12 @@ namespace Controller.Discord
                 foreach (var url in trimmedUrls)
                 {
                     Console.WriteLine($"[DON] Assessing: {url}");
-                    AnalyseAndReportOnUrl(webhook, url, guildUser.Id);
+                    AnalyseAndReportOnUrl(webhook, url, guildUser.Id, guildUser);
                 }
             }
         }
 
-        private async Task AnalyseAndReportOnUrl(DiscordWebhookClient webhook, string url, ulong guildId)
+        private async Task AnalyseAndReportOnUrl(DiscordWebhookClient webhook, string url, ulong guildId, SocketGuild socketGuild)
         {
             var seenUrls = _cacheService.Get<List<string>>(CacheKey.SeenUrls) ?? new List<string>();
 
@@ -629,7 +629,7 @@ namespace Controller.Discord
 
                 try
                 {
-                    var playerMessage = _messageGenerationService.GenerateWvWPlayerSummary();
+                    var playerMessage = _messageGenerationService.GenerateWvWPlayerSummary(socketGuild, guild);
                     await adminPlayerReportWebhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { playerMessage });
                     Console.WriteLine($"[DON] Completed and posted report on: {url}");
                 }

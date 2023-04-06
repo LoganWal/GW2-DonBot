@@ -1,5 +1,7 @@
-﻿using System.Globalization;
+﻿using System;
+using System.Globalization;
 using Discord;
+using Discord.WebSocket;
 using Extensions;
 using Models;
 using Models.Entities;
@@ -627,7 +629,7 @@ namespace Services.DiscordMessagingServices
             return message.Build();
         }
 
-        public Embed GenerateWvWPlayerSummary()
+        public Embed GenerateWvWPlayerSummary(SocketGuild discordGuild, Guild gw2Guild)
         {
             List<Account> accounts;
             using (var context = new DatabaseContext().SetSecretService(_secretService))
@@ -650,44 +652,50 @@ namespace Services.DiscordMessagingServices
                 },
             };
 
-            for (var i = 0; i < (accounts.Count/20) + 1; i++)
+            if (gw2Guild.DiscordGuildMemberRoleId != null)
             {
-                var accountOverview = "```";
-                var useLimit = false;
-                var limit = 0;
+                var validAccounts = accounts.Where(account => discordGuild.GetUser((ulong)account.DiscordId)?.Roles.Select(role => role.Id).Contains((ulong)gw2Guild.DiscordGuildMemberRoleId) ?? false).ToList();
 
-                if (position + 20 > accounts.Count)
+                for (var i = 0; i < (validAccounts.Count / 20) + 1; i++)
                 {
-                    limit = accounts.Count % 20;
+                    var accountOverview = "```";
+                    var useLimit = false;
+                    var limit = 0;
+
+                    if (position + 20 > validAccounts.Count)
+                    {
+                        limit = validAccounts.Count % 20;
+                    }
+
+                    foreach (var account in validAccounts.OrderByDescending(o => o.Points).Take(new Range(20 * i, !useLimit ? (20 * i) + 20 : limit)))
+                    {
+                        var points = account.Points;
+                        var name = account.Gw2AccountName;
+                        var pointsDiff = Math.Round(account.Points - account.PreviousPoints);
+
+                        accountOverview += $"{position.ToString().PadLeft(3, '0')}  {name.ClipAt(NameSizeLength + 4).PadRight(NameSizeLength + 4)}  {Convert.ToInt32(points)}(+{Convert.ToInt32(pointsDiff)})\n";
+                        position++;
+                    }
+
+                    accountOverview += "```";
+
+                    message.AddField(x =>
+                    {
+                        x.Name = "```  #            Name                   Points        ```";
+                        x.Value = $"{accountOverview}";
+                        x.IsInline = false;
+                    });
                 }
-                foreach (var account in accounts.OrderByDescending(o => o.Points).Take(new Range(20 * i, !useLimit ? (20 * i) + 20 : limit)))
+
+                message.Footer = new EmbedFooterBuilder()
                 {
-                    var points = account.Points;
-                    var name = account.Gw2AccountName;
-                    var pointsDiff = Math.Round(account.Points - account.PreviousPoints);
+                    Text = $"{GetJokeFooter()}",
+                    IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                };
 
-                    accountOverview += $"{position.ToString().PadLeft(3, '0')}  {name.ClipAt(NameSizeLength + 4).PadRight(NameSizeLength + 4)}  {Convert.ToInt32(points)}(+{Convert.ToInt32(pointsDiff)})\n";
-                    position++;
-                }
-
-                accountOverview += "```";
-
-                message.AddField(x =>
-                {
-                    x.Name = "```  #            Name                   Points        ```";
-                    x.Value = $"{accountOverview}";
-                    x.IsInline = false;
-                });
+                // Timestamp
+                message.Timestamp = DateTime.Now;
             }
-
-            message.Footer = new EmbedFooterBuilder()
-            {
-                Text = $"{GetJokeFooter()}",
-                IconUrl = "https://i.imgur.com/tQ4LD6H.png"
-            };
-
-            // Timestamp
-            message.Timestamp = DateTime.Now;
 
             // Building the message for use
             return message.Build();
@@ -698,7 +706,7 @@ namespace Services.DiscordMessagingServices
             var footerMessageVariants = new[]
             {
                 "This bot brought to you by PoE, ty Chris!",
-                "Did you know SoX is a PvE PoE guild?",
+                "Did you know SoX is a PvE PoE discordGuild?",
                 "I'm not supposed to be on the internet...",
                 "Just in: Squirrel is a murderer.",
                 "Always be straight licking that shit!",

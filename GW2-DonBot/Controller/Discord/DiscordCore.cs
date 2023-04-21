@@ -107,6 +107,20 @@ namespace Controller.Discord
                     .WithDescription("(Work in progress) Check how many points you have earned.");
 
                 await guild.CreateApplicationCommandAsync(pointsCommand.Build());
+
+                var createRaffleCommand = new SlashCommandBuilder()
+                    .WithName("create_raffle")
+                    .WithDescription("(Work in progress) Create a raffle.")
+                    .AddOption("raffle-description", ApplicationCommandOptionType.String, "The Raffle description", isRequired: true);
+
+                await guild.CreateApplicationCommandAsync(createRaffleCommand.Build());
+
+                // TODO
+                //var raffleCommand = new SlashCommandBuilder()
+                //    .WithName("raffle")
+                //    .WithDescription("(Work in progress) RAFFLE TIME.");
+                //
+                //await guild.CreateApplicationCommandAsync(raffleCommand.Build());
             }
         }
 
@@ -114,13 +128,13 @@ namespace Controller.Discord
         {
             switch (command.Data.Name)
             {
-                case "help":            await HelpCommandExecuted(command); break;
-                
-                case "verify":          await VerifyCommandExecuted(command); break;
-                case "deverify":        await DeverifyCommandExecuted(command); break;
-                case "points":          await PointsCommandExecuted(command); break;
-
-                default:                await DefaultCommandExecuted(command); break;
+                case    "help":              await HelpCommandExecuted(command);          break;
+                case    "verify":            await VerifyCommandExecuted(command);        break;
+                case    "deverify":          await DeverifyCommandExecuted(command);      break;
+                case    "points":            await PointsCommandExecuted(command);        break;
+                case    "create_raffle":     await RaffleCommandExecuted(command);        break;
+                case    "raffle":            await PointsCommandExecuted(command);        break;
+                default:                     await DefaultCommandExecuted(command);       break;
             }
         }
 
@@ -145,6 +159,96 @@ namespace Controller.Discord
             message += "This will only remove the information associated with the Discord account used to trigger the command.";
 
             await command.RespondAsync(message, ephemeral: true);
+        }
+
+        //TODO
+        private async Task CreateRaffleCommandExecuted(SocketSlashCommand command)
+        {
+
+        }
+
+        private async Task RaffleCommandExecuted(SocketSlashCommand command)
+        {
+            await command.DeferAsync(ephemeral: true);
+            SocketGuildUser? guildUser;
+            try
+            {
+                if (command.GuildId != null)
+                {
+                    guildUser = _client.GetGuild(command.GuildId.Value).GetUser(command.User.Id);
+                }
+                else
+                {
+                    throw new Exception("No GuildId");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failing raffle create nicely: `{ex.Message}`");
+                await command.ModifyOriginalResponseAsync(message => message.Content = "Failed to create raffle, please try again, or yell at logan.");
+                return;
+            }
+
+            Guild? guild;
+            using (var context = new DatabaseContext().SetSecretService(_secretService))
+            {
+                var guilds = await context.Guild.ToListAsync();
+                guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
+
+                if (guild == null)
+                {
+                    return;
+                }
+
+                //TODO add guildid column to db
+                var raffles = await context.Raffle.ToListAsync();
+                if (raffles.Any(raf => raf.IsActive))
+                {
+                    await command.ModifyOriginalResponseAsync(message => message.Content = "There already is a running raffle, close that one first!");
+                }
+            }
+
+            var webhookUrl = guild.AnnouncementWebhook;
+
+            var webhook = new DiscordWebhookClient(webhookUrl);
+
+            var message = new EmbedBuilder
+            {
+                Title = "Raffle!\n",
+                Description = $"{command.Data.Options.First().Value}\n",
+                Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
+                Author = new EmbedAuthorBuilder()
+                {
+                    Name = "GW2-DonBot",
+                    Url = "https://github.com/LoganWal/GW2-DonBot",
+                    IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                },
+                Footer = new EmbedFooterBuilder()
+                {
+                    Text = $"{MessageGenerationService.GetJokeFooter()}",
+                    IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                },
+                // Timestamp
+                Timestamp = DateTime.Now
+            };
+
+            // Building the message for use
+            var builtMessage = message.Build();
+
+            using (var context = new DatabaseContext().SetSecretService(_secretService))
+            {
+                var raffle = new Raffle
+                {
+                    Description = $"{command.Data.Options.First().Value}"
+                };
+
+                context.Add(raffle);
+                await context.SaveChangesAsync();
+            }
+
+            await webhook.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { builtMessage });
+
+            await command.ModifyOriginalResponseAsync(message => message.Content = "Created!");
         }
 
         private async Task VerifyCommandExecuted(SocketSlashCommand command)

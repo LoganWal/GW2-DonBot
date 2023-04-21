@@ -11,6 +11,8 @@ namespace Models.Entities
 
         public DbSet<Guild> Guild { get; set; }
 
+        public DbSet<Raffle> Raffle { get; set; }
+
         public string DatabasePath { get; }
 
         public DatabaseContext SetSecretService(ISecretService secretService)

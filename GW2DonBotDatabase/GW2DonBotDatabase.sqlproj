@@ -61,6 +61,7 @@
   <ItemGroup>
     <Build Include="Account.sql" />
     <Build Include="Guild.sql" />
+    <Build Include="Raffle.sql" />
   </ItemGroup>
   <ItemGroup>
     <RefactorLog Include="GW2DonBotDatabase.refactorlog" />

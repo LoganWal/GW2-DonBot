@@ -701,7 +701,7 @@ namespace Services.DiscordMessagingServices
             return message.Build();
         }
 
-        private string GetJokeFooter(int index = -1)
+        public static string GetJokeFooter(int index = -1)
         {
             var footerMessageVariants = new[]
             {
@@ -803,8 +803,8 @@ namespace Services.DiscordMessagingServices
 
                     if (sortedPlayerIndexByDamage.TryGetValue(account.Gw2AccountName, out var damage))
                     {
-                        totalPoints += damage / 100000;
-                        Console.WriteLine($"{account.Gw2AccountName}, damage, {damage / 110000}");
+                        totalPoints += damage / 80000;
+                        Console.WriteLine($"{account.Gw2AccountName}, damage, {damage / 80000}");
                     }
 
                     if (sortedPlayerIndexByCleanses.TryGetValue(account.Gw2AccountName, out var cleanses))
@@ -822,7 +822,7 @@ namespace Services.DiscordMessagingServices
                     if (sortedPlayerIndexByStab.TryGetValue(account.Gw2AccountName, out var stab))
                     {
                         var stabMultiplier = secondsOfFight < 30 ? 1 : secondsOfFight / 30;
-                        totalPoints += (stab / 0.25) * stabMultiplier;
+                        totalPoints += (stab / 0.15) * stabMultiplier;
                         Console.WriteLine($"{account.Gw2AccountName}, stab, {(stab / 0.15) * stabMultiplier}");
                     }
 

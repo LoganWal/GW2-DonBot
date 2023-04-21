@@ -12,9 +12,6 @@ using Services.DiscordMessagingServices;
 using Services.Logging;
 using Services.SecretsServices;
 using ConnectionState = Discord.ConnectionState;
-using Microsoft.EntityFrameworkCore.Metadata;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
-using System;
 
 namespace Controller.Discord
 {

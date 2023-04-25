@@ -15,7 +15,7 @@ namespace Services.SecretsServices
             {
                 try
                 {
-                    var cloudConfig = new ConfigurationBuilder().AddAzureAppConfiguration(Environment.GetEnvironmentVariable("AzureConfigConnectionString")).Build();
+                    var cloudConfig = new ConfigurationBuilder().AddAzureAppConfiguration(Environment.GetEnvironmentVariable("AzureConfigConnectionString", EnvironmentVariableTarget.User)).Build();
                     setting = cloudConfig[key] as T;
                 }
                 catch (Exception)
@@ -40,7 +40,7 @@ namespace Services.SecretsServices
                 {
                     try
                     {
-                        var cloudConfig = new ConfigurationBuilder().AddAzureAppConfiguration(Environment.GetEnvironmentVariable("AzureConfigConnectionString")).Build();
+                        var cloudConfig = new ConfigurationBuilder().AddAzureAppConfiguration(Environment.GetEnvironmentVariable("AzureConfigConnectionString", EnvironmentVariableTarget.User)).Build();
                         dictSettings.Add(setting.Key, cloudConfig[setting.Key]);
                     }
                     catch (Exception)

@@ -1,5 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 
 namespace Services.SecretsServices
 {
@@ -16,10 +15,7 @@ namespace Services.SecretsServices
             {
                 try
                 {
-                    var cloudConfig = new ConfigurationBuilder()
-                        .AddAzureAppConfiguration("Endpoint=https://gw2donbotappconfiguration.azconfig.io;Id=fJ7l-lg-s0:cvYGergWY0fofJ/oMs3i;Secret=omUZx2hp2IlQsAdY/QZ66XZiUddiwkvMFuJZp1IffcE=")
-                        .Build();
-
+                    var cloudConfig = new ConfigurationBuilder().AddAzureAppConfiguration(Environment.GetEnvironmentVariable("AzureConfigConnectionString")).Build();
                     setting = cloudConfig[key] as T;
                 }
                 catch (Exception)
@@ -44,10 +40,7 @@ namespace Services.SecretsServices
                 {
                     try
                     {
-                        var cloudConfig = new ConfigurationBuilder()
-                            .AddAzureAppConfiguration("Endpoint=https://gw2donbotappconfiguration.azconfig.io;Id=fJ7l-lg-s0:cvYGergWY0fofJ/oMs3i;Secret=omUZx2hp2IlQsAdY/QZ66XZiUddiwkvMFuJZp1IffcE=")
-                        .Build();
-
+                        var cloudConfig = new ConfigurationBuilder().AddAzureAppConfiguration(Environment.GetEnvironmentVariable("AzureConfigConnectionString")).Build();
                         dictSettings.Add(setting.Key, cloudConfig[setting.Key]);
                     }
                     catch (Exception)

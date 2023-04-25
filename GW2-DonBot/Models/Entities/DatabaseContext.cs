@@ -13,12 +13,19 @@ namespace Models.Entities
 
         public DbSet<Raffle> Raffle { get; set; }
 
+        public DbSet<PlayerRaffleBid> PlayerRaffleBid { get; set; }
+
         public string DatabasePath { get; }
 
         public DatabaseContext SetSecretService(ISecretService secretService)
         {
             _secretService = secretService;
             return this;
+        }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<PlayerRaffleBid>().HasKey(prb => new { prb.RaffleId, prb.DiscordId });
         }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)

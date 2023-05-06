@@ -30,7 +30,7 @@ namespace Models.Entities
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            var connection = _secretService.Fetch<string>(nameof(BotSecretsDataModel.SqlServerConnection));
+            var connection = _secretService.FetchDonBotSqlConnectionString();
             optionsBuilder.UseSqlServer(connection);
         }
     }

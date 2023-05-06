@@ -22,8 +22,6 @@ namespace Controller.Discord
         private readonly ICacheService _cacheService;
         private readonly IMessageGenerationService _messageGenerationService;
 
-        private readonly Dictionary<string, string> _settings;
-
         private readonly DiscordSocketClient _client;
 
         public DiscordCore(ISecretService secretService, ILoggingService loggingService, ICacheService cacheService, IMessageGenerationService messageGenerationService)
@@ -32,8 +30,6 @@ namespace Controller.Discord
             _loggingService = loggingService;
             _cacheService = cacheService;
             _messageGenerationService = messageGenerationService;
-
-            _settings = _secretService.FetchAll();
 
             var config = new DiscordSocketConfig()
             {
@@ -46,7 +42,7 @@ namespace Controller.Discord
         public async Task MainAsync()
         {
             // Logging in...
-            await _client.LoginAsync(TokenType.Bot, _settings[nameof(BotSecretsDataModel.BotToken)]);
+            await _client.LoginAsync(TokenType.Bot, _secretService.FetchDonBotToken());
             await _client.StartAsync();
 
             Console.WriteLine("[DON] GW2-DonBot attempting to connect...");

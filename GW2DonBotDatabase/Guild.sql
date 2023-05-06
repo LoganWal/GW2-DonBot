@@ -12,5 +12,6 @@
     [DiscordSecondaryMemberRoleId] BIGINT NULL,
     [DiscordVerifiedRoleId] BIGINT NULL,
     [Gw2GuildMemberRoleId] NVARCHAR(128) NULL,
-    [Gw2SecondaryMemberRoleIds] NVARCHAR(1000) NULL
+    [Gw2SecondaryMemberRoleIds] NVARCHAR(1000) NULL, 
+    [AnnouncementWebhook] NVARCHAR(256) NULL
 )

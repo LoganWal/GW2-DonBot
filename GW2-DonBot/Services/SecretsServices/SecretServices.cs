@@ -1,67 +1,29 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using Microsoft.Extensions.Configuration;
-
-namespace Services.SecretsServices
+﻿namespace Services.SecretsServices
 {
     public class SecretServices : ISecretService
     {
-        public T? Fetch<T>(string key) where T: class
+        public string FetchDonBotSqlConnectionString()
         {
-            IConfiguration localConfig = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json")
-                .Build();
+            var donBotSqlConnectionString = Environment.GetEnvironmentVariable("DonBotSqlConnectionString", EnvironmentVariableTarget.User);
 
-            var setting = localConfig[key] as T;
-            if (setting == null || setting.ToString() == "")
+            if (string.IsNullOrEmpty(donBotSqlConnectionString))
             {
-                try
-                {
-                    var cloudConfig = new ConfigurationBuilder()
-                        .AddAzureAppConfiguration("Endpoint=https://gw2donbotappconfiguration.azconfig.io;Id=fJ7l-lg-s0:cvYGergWY0fofJ/oMs3i;Secret=omUZx2hp2IlQsAdY/QZ66XZiUddiwkvMFuJZp1IffcE=")
-                        .Build();
-
-                    setting = cloudConfig[key] as T;
-                }
-                catch (Exception)
-                {
-                    Console.WriteLine($"Failed to fetch cloud configuration, either set a local app setting value for `{key}` or check you have an environment value for `AzureConfigConnectionString`");
-                }
+                throw new Exception("DonBotSqlConnectionString does not exist");
             }
 
-            return setting;
+            return donBotSqlConnectionString;
         }
 
-        public Dictionary<string, string> FetchAll()
+        public string FetchDonBotToken()
         {
-            var allSettings = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json")
-                .Build().AsEnumerable().ToList();
+            var donBotToken = Environment.GetEnvironmentVariable("DonBotToken", EnvironmentVariableTarget.User);
 
-            var dictSettings = new Dictionary<string, string>();
-            foreach (var setting in allSettings)
+            if (string.IsNullOrEmpty(donBotToken))
             {
-                if (setting.Value == null || setting.Value.ToString() == "")
-                {
-                    try
-                    {
-                        var cloudConfig = new ConfigurationBuilder()
-                            .AddAzureAppConfiguration("Endpoint=https://gw2donbotappconfiguration.azconfig.io;Id=fJ7l-lg-s0:cvYGergWY0fofJ/oMs3i;Secret=omUZx2hp2IlQsAdY/QZ66XZiUddiwkvMFuJZp1IffcE=")
-                        .Build();
-
-                        dictSettings.Add(setting.Key, cloudConfig[setting.Key]);
-                    }
-                    catch (Exception)
-                    {
-                        Console.WriteLine($"Failed to fetch cloud configuration, either set a local app setting value for `{setting.Key}` or check you have an environment value for `AzureConfigConnectionString`");
-                    }
-                }
-                else
-                {
-                    dictSettings.Add(setting.Key, setting.Value);
-                }
+                throw new Exception("DonBotToken does not exist");
             }
 
-            return dictSettings;
+            return donBotToken;
         }
     }
 }

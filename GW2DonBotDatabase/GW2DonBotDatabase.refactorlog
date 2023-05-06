@@ -28,4 +28,11 @@
     <Property Name="ParentElementType" Value="SqlTable" />
     <Property Name="NewName" Value="Gw2ApiKey" />
   </Operation>
+  <Operation Name="Rename Refactor" Key="56370bdb-2a09-4a4d-9afb-cdcf80118b82" ChangeDateTime="04/21/2023 13:24:11">
+    <Property Name="ElementName" Value="[dbo].[Guild].[Ann]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[dbo].[Guild]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="AnnouncementWebhook" />
+  </Operation>
 </Operations>

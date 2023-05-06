@@ -3,63 +3,70 @@
     using System;
     using System.Collections.Generic;
     using System.Globalization;
-    using Extensions;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Converters;
-    using Newtonsoft.Json.Linq;
 
     public partial class EliteInsightDataModel
     {
         [JsonProperty("url")]
-        public string? Url{ get; set; }
+        public string? Url { get; set; }
 
         [JsonProperty("targets")]
-        public EliteInsightDataModelTarget[]? Targets { get; set; }
+        public List<ArcDpsTarget>? Targets { get; set; }
 
         [JsonProperty("players")]
-        public EliteInsightDataModelPlayer[]? Players { get; set; }
+        public List<ArcDpsPlayer>? Players { get; set; }
 
         [JsonProperty("enemies")]
-        public object[]? Enemies { get; set; }
+        public List<object>? Enemies { get; set; }
 
         [JsonProperty("phases")]
-        public EliteInsightDataModelPhase[]? Phases { get; set; }
+        public List<ArcDpsPhase>? Phases { get; set; }
 
         [JsonProperty("boons")]
-        public long[]? Boons { get; set; }
+        public List<long>? Boons { get; set; }
 
         [JsonProperty("offBuffs")]
-        public long[]? OffBuffs { get; set; }
+        public List<long>? OffBuffs { get; set; }
 
         [JsonProperty("supBuffs")]
-        public long[]? SupBuffs { get; set; }
+        public List<long>? SupBuffs { get; set; }
 
         [JsonProperty("defBuffs")]
-        public long[]? DefBuffs { get; set; }
+        public List<long>? DefBuffs { get; set; }
 
         [JsonProperty("debuffs")]
-        public long[]? Debuffs { get; set; }
+        public List<long>? Debuffs { get; set; }
 
         [JsonProperty("gearBuffs")]
-        public long[]? GearBuffs { get; set; }
+        public List<long>? GearBuffs { get; set; }
+
+        [JsonProperty("nourishments")]
+        public List<long>? Nourishments { get; set; }
+
+        [JsonProperty("enhancements")]
+        public List<long>? Enhancements { get; set; }
+
+        [JsonProperty("otherConsumables")]
+        public List<long>? OtherConsumables { get; set; }
 
         [JsonProperty("instanceBuffs")]
-        public object[]? InstanceBuffs { get; set; }
+        public List<object>? InstanceBuffs { get; set; }
 
         [JsonProperty("dmgModifiersItem")]
-        public long[]? DmgModifiersItem { get; set; }
+        public List<long>? DmgModifiersItem { get; set; }
 
         [JsonProperty("dmgModifiersCommon")]
-        public object[]? DmgModifiersCommon { get; set; }
+        public List<object>? DmgModifiersCommon { get; set; }
 
         [JsonProperty("dmgModifiersPers")]
-        public Dictionary<string, long[]>? DmgModifiersPers { get; set; }
+        public Dictionary<string, List<long>>? DmgModifiersPers { get; set; }
 
         [JsonProperty("persBuffs")]
-        public Dictionary<string, long[]>? PersBuffs { get; set; }
+        public Dictionary<string, List<long>>? PersBuffs { get; set; }
 
         [JsonProperty("conditions")]
-        public long[]? Conditions { get; set; }
+        public List<long>? Conditions { get; set; }
 
         [JsonProperty("skillMap")]
         public Dictionary<string, SkillMap>? SkillMap { get; set; }
@@ -71,7 +78,7 @@
         public Dictionary<string, DamageModMap>? DamageModMap { get; set; }
 
         [JsonProperty("mechanicMap")]
-        public MechanicMap[]? MechanicMap { get; set; }
+        public List<MechanicMap>? MechanicMap { get; set; }
 
         [JsonProperty("crData")]
         public CrData? CrData { get; set; }
@@ -119,7 +126,7 @@
         public bool HasBreakbarDamage { get; set; }
 
         [JsonProperty("logErrors")]
-        public string[]? LogErrors { get; set; }
+        public List<string>? LogErrors { get; set; }
 
         [JsonProperty("encounterStart")]
         public string? EncounterStart { get; set; }
@@ -149,70 +156,70 @@
         public string? RecordedBy { get; set; }
 
         [JsonProperty("uploadLinks")]
-        public string[]? UploadLinks { get; set; }
+        public List<string>? UploadLinks { get; set; }
 
         [JsonProperty("usedExtensions")]
-        public string[]? UsedExtensions { get; set; }
+        public List<string>? UsedExtensions { get; set; }
 
         [JsonProperty("playersRunningExtensions")]
-        public string[][]? PlayersRunningExtensions { get; set; }
+        public List<List<string>>? PlayersRunningExtensions { get; set; }
     }
 
-    public class BarrierStatsExtension
+    public partial class BarrierStatsExtension
     {
         [JsonProperty("barrierPhases")]
-        public BarrierPhase[]? BarrierPhases { get; set; }
+        public List<BarrierPhase>? BarrierPhases { get; set; }
 
         [JsonProperty("playerBarrierDetails")]
-        public PlayerBarrierDetail[]? PlayerBarrierDetails { get; set; }
+        public List<PlayerBarrierDetail>? PlayerBarrierDetails { get; set; }
 
         [JsonProperty("playerBarrierCharts")]
-        public PlayerBarrierChart[][]? PlayerBarrierCharts { get; set; }
+        public List<List<PlayerBarrierChart>>? PlayerBarrierCharts { get; set; }
     }
 
-    public class BarrierPhase
+    public partial class BarrierPhase
     {
         [JsonProperty("outgoingBarrierStats")]
-        public long[][]? OutgoingBarrierStats { get; set; }
+        public List<List<long>>? OutgoingBarrierStats { get; set; }
 
         [JsonProperty("outgoingBarrierStatsTargets")]
-        public long[][][]? OutgoingBarrierStatsTargets { get; set; }
+        public List<List<List<long>>>? OutgoingBarrierStatsTargets { get; set; }
 
         [JsonProperty("incomingBarrierStats")]
-        public long[][]? IncomingBarrierStats { get; set; }
+        public List<List<long>>? IncomingBarrierStats { get; set; }
     }
 
-    public class PlayerBarrierChart
+    public partial class PlayerBarrierChart
     {
         [JsonProperty("barrier")]
         public Barrier? Barrier { get; set; }
     }
 
-    public class Barrier
+    public partial class Barrier
     {
         [JsonProperty("targets")]
-        public double[][]? Targets { get; set; }
+        public List<List<long>>? Targets { get; set; }
 
         [JsonProperty("total")]
-        public double[]? Total { get; set; }
+        public List<double>? Total { get; set; }
     }
 
-    public class PlayerBarrierDetail
+    public partial class PlayerBarrierDetail
     {
         [JsonProperty("barrierDistributions")]
-        public BarrierDistribution[]? BarrierDistributions { get; set; }
+        public List<BarrierDistribution>? BarrierDistributions { get; set; }
 
         [JsonProperty("barrierDistributionsTargets")]
-        public BarrierDistribution[][]? BarrierDistributionsTargets { get; set; }
+        public List<List<BarrierDistribution>>? BarrierDistributionsTargets { get; set; }
 
         [JsonProperty("incomingBarrierDistributions")]
-        public BarrierDistribution[]? IncomingBarrierDistributions { get; set; }
+        public List<BarrierDistribution>? IncomingBarrierDistributions { get; set; }
 
         [JsonProperty("minions")]
-        public PlayerBarrierDetailMinion[]? Minions { get; set; }
+        public List<PlayerBarrierDetailMinion>? Minions { get; set; }
     }
 
-    public class BarrierDistribution
+    public partial class BarrierDistribution
     {
         [JsonProperty("contributedBarrier")]
         public long ContributedBarrier { get; set; }
@@ -224,19 +231,19 @@
         public long TotalCasting { get; set; }
 
         [JsonProperty("distribution")]
-        public Distribution[][]? Distribution { get; set; }
+        public List<List<Distribution>>? Distribution { get; set; }
     }
 
-    public class PlayerBarrierDetailMinion
+    public partial class PlayerBarrierDetailMinion
     {
         [JsonProperty("barrierDistributions")]
-        public BarrierDistribution[]? BarrierDistributions { get; set; }
+        public List<BarrierDistribution>? BarrierDistributions { get; set; }
 
         [JsonProperty("barrierDistributionsTargets")]
-        public BarrierDistribution[][]? BarrierDistributionsTargets { get; set; }
+        public List<List<BarrierDistribution>>? BarrierDistributionsTargets { get; set; }
     }
 
-    public class BuffMap
+    public partial class BuffMap
     {
         [JsonProperty("stacking")]
         public bool Stacking { get; set; }
@@ -263,13 +270,13 @@
         public string? Description { get; set; }
     }
 
-    public class CrData
+    public partial class CrData
     {
         [JsonProperty("actors")]
-        public Actor[]? Actors { get; set; }
+        public List<Actor>? Actors { get; set; }
 
         [JsonProperty("sizes")]
-        public long[]? Sizes { get; set; }
+        public List<long>? Sizes { get; set; }
 
         [JsonProperty("maxTime")]
         public long MaxTime { get; set; }
@@ -281,10 +288,10 @@
         public long PollingRate { get; set; }
 
         [JsonProperty("maps")]
-        public Map[]? Maps { get; set; }
+        public List<Map>? Maps { get; set; }
     }
 
-    public class Actor
+    public partial class Actor
     {
         [JsonProperty("group", NullValueHandling = NullValueHandling.Ignore)]
         public long? Group { get; set; }
@@ -293,22 +300,22 @@
         public string? Img { get; set; }
 
         [JsonProperty("type")]
-        public string? Type { get; set; }
+        public TypeEnum Type { get; set; }
 
         [JsonProperty("id", NullValueHandling = NullValueHandling.Ignore)]
         public long? Id { get; set; }
 
         [JsonProperty("positions", NullValueHandling = NullValueHandling.Ignore)]
-        public double[]? Positions { get; set; }
+        public List<double>? Positions { get; set; }
 
         [JsonProperty("dead", NullValueHandling = NullValueHandling.Ignore)]
-        public long[]? Dead { get; set; }
+        public List<double>? Dead { get; set; }
 
         [JsonProperty("down", NullValueHandling = NullValueHandling.Ignore)]
-        public long[]? Down { get; set; }
+        public List<long>? Down { get; set; }
 
         [JsonProperty("dc", NullValueHandling = NullValueHandling.Ignore)]
-        public object[]? Dc { get; set; }
+        public List<double>? Dc { get; set; }
 
         [JsonProperty("start")]
         public long Start { get; set; }
@@ -320,10 +327,10 @@
         public long? HitboxWidth { get; set; }
 
         [JsonProperty("facingData", NullValueHandling = NullValueHandling.Ignore)]
-        public double[]? FacingData { get; set; }
+        public List<double>? FacingData { get; set; }
 
-        [JsonProperty("connectedTo", NullValueHandling = NullValueHandling.Ignore), JsonConverter(typeof(SingleOrArrayConverter<long>))]
-        public long[]? ConnectedTo { get; set; }
+        [JsonProperty("connectedTo", NullValueHandling = NullValueHandling.Ignore)]
+        public long? ConnectedTo { get; set; }
 
         [JsonProperty("masterID", NullValueHandling = NullValueHandling.Ignore)]
         public long? MasterId { get; set; }
@@ -341,7 +348,7 @@
         public string? Color { get; set; }
     }
 
-    public class Map
+    public partial class Map
     {
         [JsonProperty("link")]
         public string? Link { get; set; }
@@ -350,10 +357,10 @@
         public long Start { get; set; }
 
         [JsonProperty("end")]
-        public long End { get; set; }
+        public double End { get; set; }
     }
 
-    public class DamageModMap
+    public partial class DamageModMap
     {
         [JsonProperty("id")]
         public long Id { get; set; }
@@ -377,52 +384,52 @@
         public bool Approximate { get; set; }
     }
 
-    public class GraphData
+    public partial class GraphData
     {
         [JsonProperty("phases")]
-        public GraphDataPhase[]? Phases { get; set; }
+        public List<GraphDataPhase>? Phases { get; set; }
 
         [JsonProperty("mechanics")]
-        public Mechanic[]? Mechanics { get; set; }
+        public List<Mechanic>? Mechanics { get; set; }
     }
 
-    public class Mechanic
+    public partial class Mechanic
     {
         [JsonProperty("symbol")]
-        public string Symbol { get; set; }
+        public string? Symbol { get; set; }
 
         [JsonProperty("size")]
-        public int Size { get; set; }
+        public long Size { get; set; }
 
         [JsonProperty("color")]
-        public string Color { get; set; }
+        public string? Color { get; set; }
 
         [JsonProperty("points")]
-        public List<List<List<object>>> Points { get; set; }
+        public List<List<List<double>>>? Points { get; set; }
 
         [JsonProperty("visible")]
         public bool Visible { get; set; }
     }
 
-    public class GraphDataPhase
+    public partial class GraphDataPhase
     {
         [JsonProperty("players")]
-        public PhasePlayer[]? Players { get; set; }
+        public List<PhasePlayer>? Players { get; set; }
 
         [JsonProperty("targets")]
-        public PhaseTarget[]? Targets { get; set; }
+        public List<PhaseTarget>? Targets { get; set; }
 
-        [JsonProperty("targetsHealthStatesForCR", NullValueHandling = NullValueHandling.Ignore)]
-        public double[][][]? TargetsHealthStatesForCr { get; set; }
+        [JsonProperty("targetsHealthStatesForCR")]
+        public List<List<List<double>>>? TargetsHealthStatesForCr { get; set; }
 
-        [JsonProperty("targetsBreakbarPercentStatesForCR", NullValueHandling = NullValueHandling.Ignore)]
-        public object[]? TargetsBreakbarPercentStatesForCr { get; set; }
+        [JsonProperty("targetsBreakbarPercentStatesForCR")]
+        public List<object>? TargetsBreakbarPercentStatesForCr { get; set; }
 
-        [JsonProperty("targetsBarrierStatesForCR", NullValueHandling = NullValueHandling.Ignore)]
-        public object[]? TargetsBarrierStatesForCr { get; set; }
+        [JsonProperty("targetsBarrierStatesForCR")]
+        public List<object>? TargetsBarrierStatesForCr { get; set; }
     }
 
-    public class PhasePlayer
+    public partial class PhasePlayer
     {
         [JsonProperty("damage")]
         public Barrier? Damage { get; set; }
@@ -437,52 +444,52 @@
         public Barrier? BreakbarDamage { get; set; }
 
         [JsonProperty("healthStates")]
-        public double[][]? HealthStates { get; set; }
+        public List<List<double>>? HealthStates { get; set; }
 
         [JsonProperty("barrierStates", NullValueHandling = NullValueHandling.Ignore)]
-        public double[][]? BarrierStates { get; set; }
+        public List<List<double>>? BarrierStates { get; set; }
     }
 
-    public class PhaseTarget
+    public partial class PhaseTarget
     {
         [JsonProperty("total")]
-        public long[]? Total { get; set; }
+        public List<long>? Total { get; set; }
 
         [JsonProperty("totalPower")]
-        public long[]? TotalPower { get; set; }
+        public List<long>? TotalPower { get; set; }
 
         [JsonProperty("totalCondition")]
-        public long[]? TotalCondition { get; set; }
+        public List<long>? TotalCondition { get; set; }
 
         [JsonProperty("healthStates")]
-        public double[][]? HealthStates { get; set; }
+        public List<List<double>>? HealthStates { get; set; }
     }
 
-    public class HealingStatsExtension
+    public partial class HealingStatsExtension
     {
         [JsonProperty("healingPhases")]
-        public HealingPhase[]? HealingPhases { get; set; }
+        public List<HealingPhase>? HealingPhases { get; set; }
 
         [JsonProperty("playerHealingDetails")]
-        public PlayerHealingDetail[]? PlayerHealingDetails { get; set; }
+        public List<PlayerHealingDetail>? PlayerHealingDetails { get; set; }
 
         [JsonProperty("playerHealingCharts")]
-        public PlayerHealingChart[][]? PlayerHealingCharts { get; set; }
+        public List<List<PlayerHealingChart>>? PlayerHealingCharts { get; set; }
     }
 
-    public class HealingPhase
+    public partial class HealingPhase
     {
         [JsonProperty("outgoingHealingStats")]
-        public long[][]? OutgoingHealingStats { get; set; }
+        public List<List<long>>? OutgoingHealingStats { get; set; }
 
         [JsonProperty("outgoingHealingStatsTargets")]
-        public long[][][]? OutgoingHealingStatsTargets { get; set; }
+        public List<List<List<long>>>? OutgoingHealingStatsTargets { get; set; }
 
         [JsonProperty("incomingHealingStats")]
-        public long[][]? IncomingHealingStats { get; set; }
+        public List<List<long>>? IncomingHealingStats { get; set; }
     }
 
-    public class PlayerHealingChart
+    public partial class PlayerHealingChart
     {
         [JsonProperty("healing")]
         public Barrier? Healing { get; set; }
@@ -494,22 +501,22 @@
         public Barrier? ConversionBasedHealing { get; set; }
     }
 
-    public class PlayerHealingDetail
+    public partial class PlayerHealingDetail
     {
         [JsonProperty("healingDistributions")]
-        public HealingDistribution[]? HealingDistributions { get; set; }
+        public List<HealingDistribution>? HealingDistributions { get; set; }
 
         [JsonProperty("healingDistributionsTargets")]
-        public HealingDistribution[][]? HealingDistributionsTargets { get; set; }
+        public List<List<HealingDistribution>>? HealingDistributionsTargets { get; set; }
 
         [JsonProperty("incomingHealingDistributions")]
-        public HealingDistribution[]? IncomingHealingDistributions { get; set; }
+        public List<HealingDistribution>? IncomingHealingDistributions { get; set; }
 
         [JsonProperty("minions")]
-        public PlayerHealingDetailMinion[]? Minions { get; set; }
+        public List<PlayerHealingDetailMinion>? Minions { get; set; }
     }
 
-    public class HealingDistribution
+    public partial class HealingDistribution
     {
         [JsonProperty("contributedHealing")]
         public long ContributedHealing { get; set; }
@@ -524,19 +531,19 @@
         public long TotalCasting { get; set; }
 
         [JsonProperty("distribution")]
-        public Distribution[][]? Distribution { get; set; }
+        public List<List<Distribution>>? Distribution { get; set; }
     }
 
-    public class PlayerHealingDetailMinion
+    public partial class PlayerHealingDetailMinion
     {
         [JsonProperty("healingDistributions")]
-        public HealingDistribution[]? HealingDistributions { get; set; }
+        public List<HealingDistribution>? HealingDistributions { get; set; }
 
         [JsonProperty("healingDistributionsTargets")]
-        public HealingDistribution[][]? HealingDistributionsTargets { get; set; }
+        public List<List<HealingDistribution>>? HealingDistributionsTargets { get; set; }
     }
 
-    public class MechanicMap
+    public partial class MechanicMap
     {
         [JsonProperty("name")]
         public string? Name { get; set; }
@@ -557,7 +564,7 @@
         public bool PlayerMech { get; set; }
     }
 
-    public class EliteInsightDataModelPhase
+    public partial class ArcDpsPhase
     {
         [JsonProperty("name")]
         public string? Name { get; set; }
@@ -566,232 +573,244 @@
         public long Duration { get; set; }
 
         [JsonProperty("start")]
-        public double Start { get; set; }
+        public long Start { get; set; }
 
         [JsonProperty("end")]
         public double End { get; set; }
 
         [JsonProperty("targets")]
-        public long[]? Targets { get; set; }
+        public List<long>? Targets { get; set; }
 
         [JsonProperty("breakbarPhase")]
         public bool BreakbarPhase { get; set; }
 
-        [JsonProperty("dummy")]
-        public bool Dummy { get; set; }
-
         [JsonProperty("dpsStats")]
-        public double[][]? DpsStats { get; set; }
+        public List<List<double>>? DpsStats { get; set; }
 
         [JsonProperty("dpsStatsTargets")]
-        public double[][][]? DpsStatsTargets { get; set; }
+        public List<List<List<long>>>? DpsStatsTargets { get; set; }
 
         [JsonProperty("offensiveStatsTargets")]
-        public long[][][]? OffensiveStatsTargets { get; set; }
+        public List<List<List<long>>>? OffensiveStatsTargets { get; set; }
 
         [JsonProperty("offensiveStats")]
-        public long[][]? OffensiveStats { get; set; }
+        public List<List<long>>? OffensiveStats { get; set; }
 
         [JsonProperty("gameplayStats")]
-        public double[][]? GameplayStats { get; set; }
+        public List<List<double>>? GameplayStats { get; set; }
 
         [JsonProperty("defStats")]
-        public object[][]? DefStats { get; set; }
+        public List<List<DefStat>>? DefStats { get; set; }
 
         [JsonProperty("supportStats")]
-        public double[][]? SupportStats { get; set; }
+        public List<List<double>>? SupportStats { get; set; }
 
         [JsonProperty("boonStats")]
-        public BoonActiveStat[]? BoonStats { get; set; }
+        public List<BoonActiveStat>? BoonStats { get; set; }
+
+        [JsonProperty("boonDictionaries")]
+        public List<List<BoonActiveStat>>? BoonDictionaries { get; set; }
 
         [JsonProperty("boonGenSelfStats")]
-        public BoonActiveStat[]? BoonGenSelfStats { get; set; }
+        public List<BoonActiveStat>? BoonGenSelfStats { get; set; }
 
         [JsonProperty("boonGenGroupStats")]
-        public BoonActiveStat[]? BoonGenGroupStats { get; set; }
+        public List<BoonActiveStat>? BoonGenGroupStats { get; set; }
 
         [JsonProperty("boonGenOGroupStats")]
-        public BoonActiveStat[]? BoonGenOGroupStats { get; set; }
+        public List<BoonActiveStat>? BoonGenOGroupStats { get; set; }
 
         [JsonProperty("boonGenSquadStats")]
-        public BoonActiveStat[]? BoonGenSquadStats { get; set; }
+        public List<BoonActiveStat>? BoonGenSquadStats { get; set; }
 
         [JsonProperty("offBuffStats")]
-        public BoonActiveStat[]? OffBuffStats { get; set; }
+        public List<BoonActiveStat>? OffBuffStats { get; set; }
 
         [JsonProperty("offBuffGenSelfStats")]
-        public BoonActiveStat[]? OffBuffGenSelfStats { get; set; }
+        public List<BoonActiveStat>? OffBuffGenSelfStats { get; set; }
 
         [JsonProperty("offBuffGenGroupStats")]
-        public BoonActiveStat[]? OffBuffGenGroupStats { get; set; }
+        public List<BoonActiveStat>? OffBuffGenGroupStats { get; set; }
 
         [JsonProperty("offBuffGenOGroupStats")]
-        public BoonActiveStat[]? OffBuffGenOGroupStats { get; set; }
+        public List<BoonActiveStat>? OffBuffGenOGroupStats { get; set; }
 
         [JsonProperty("offBuffGenSquadStats")]
-        public BoonActiveStat[]? OffBuffGenSquadStats { get; set; }
+        public List<BoonActiveStat>? OffBuffGenSquadStats { get; set; }
 
         [JsonProperty("supBuffStats")]
-        public BoonActiveStat[]? SupBuffStats { get; set; }
+        public List<BoonActiveStat>? SupBuffStats { get; set; }
 
         [JsonProperty("supBuffGenSelfStats")]
-        public BoonActiveStat[]? SupBuffGenSelfStats { get; set; }
+        public List<BoonActiveStat>? SupBuffGenSelfStats { get; set; }
 
         [JsonProperty("supBuffGenGroupStats")]
-        public BoonActiveStat[]? SupBuffGenGroupStats { get; set; }
+        public List<BoonActiveStat>? SupBuffGenGroupStats { get; set; }
 
         [JsonProperty("supBuffGenOGroupStats")]
-        public BoonActiveStat[]? SupBuffGenOGroupStats { get; set; }
+        public List<BoonActiveStat>? SupBuffGenOGroupStats { get; set; }
 
         [JsonProperty("supBuffGenSquadStats")]
-        public BoonActiveStat[]? SupBuffGenSquadStats { get; set; }
+        public List<BoonActiveStat>? SupBuffGenSquadStats { get; set; }
 
         [JsonProperty("defBuffStats")]
-        public BoonActiveStat[]? DefBuffStats { get; set; }
+        public List<BoonActiveStat>? DefBuffStats { get; set; }
 
         [JsonProperty("defBuffGenSelfStats")]
-        public BoonActiveStat[]? DefBuffGenSelfStats { get; set; }
+        public List<BoonActiveStat>? DefBuffGenSelfStats { get; set; }
 
         [JsonProperty("defBuffGenGroupStats")]
-        public BoonActiveStat[]? DefBuffGenGroupStats { get; set; }
+        public List<BoonActiveStat>? DefBuffGenGroupStats { get; set; }
 
         [JsonProperty("defBuffGenOGroupStats")]
-        public BoonActiveStat[]? DefBuffGenOGroupStats { get; set; }
+        public List<BoonActiveStat>? DefBuffGenOGroupStats { get; set; }
 
         [JsonProperty("defBuffGenSquadStats")]
-        public BoonActiveStat[]? DefBuffGenSquadStats { get; set; }
+        public List<BoonActiveStat>? DefBuffGenSquadStats { get; set; }
 
         [JsonProperty("conditionsStats")]
-        public BoonActiveStat[]? ConditionsStats { get; set; }
+        public List<BoonActiveStat>? ConditionsStats { get; set; }
 
         [JsonProperty("persBuffStats")]
-        public BoonActiveStat[]? PersBuffStats { get; set; }
+        public List<BoonActiveStat>? PersBuffStats { get; set; }
 
         [JsonProperty("gearBuffStats")]
-        public BoonActiveStat[]? GearBuffStats { get; set; }
+        public List<BoonActiveStat>? GearBuffStats { get; set; }
+
+        [JsonProperty("nourishmentStats")]
+        public List<BoonActiveStat>? NourishmentStats { get; set; }
+
+        [JsonProperty("enhancementStats")]
+        public List<BoonActiveStat>? EnhancementStats { get; set; }
+
+        [JsonProperty("otherConsumableStats")]
+        public List<BoonActiveStat>? OtherConsumableStats { get; set; }
 
         [JsonProperty("debuffStats")]
-        public BoonActiveStat[]? DebuffStats { get; set; }
+        public List<BoonActiveStat>? DebuffStats { get; set; }
 
         [JsonProperty("boonActiveStats")]
-        public BoonActiveStat[]? BoonActiveStats { get; set; }
+        public List<BoonActiveStat>? BoonActiveStats { get; set; }
+
+        [JsonProperty("boonActiveDictionaries")]
+        public List<List<BoonActiveStat>>? BoonActiveDictionaries { get; set; }
 
         [JsonProperty("boonGenActiveSelfStats")]
-        public BoonActiveStat[]? BoonGenActiveSelfStats { get; set; }
+        public List<BoonActiveStat>? BoonGenActiveSelfStats { get; set; }
 
         [JsonProperty("boonGenActiveGroupStats")]
-        public BoonActiveStat[]? BoonGenActiveGroupStats { get; set; }
+        public List<BoonActiveStat>? BoonGenActiveGroupStats { get; set; }
 
         [JsonProperty("boonGenActiveOGroupStats")]
-        public BoonActiveStat[]? BoonGenActiveOGroupStats { get; set; }
+        public List<BoonActiveStat>? BoonGenActiveOGroupStats { get; set; }
 
         [JsonProperty("boonGenActiveSquadStats")]
-        public BoonActiveStat[]? BoonGenActiveSquadStats { get; set; }
+        public List<BoonActiveStat>? BoonGenActiveSquadStats { get; set; }
 
         [JsonProperty("offBuffActiveStats")]
-        public BoonActiveStat[]? OffBuffActiveStats { get; set; }
+        public List<BoonActiveStat>? OffBuffActiveStats { get; set; }
 
         [JsonProperty("offBuffGenActiveSelfStats")]
-        public BoonActiveStat[]? OffBuffGenActiveSelfStats { get; set; }
+        public List<BoonActiveStat>? OffBuffGenActiveSelfStats { get; set; }
 
         [JsonProperty("offBuffGenActiveGroupStats")]
-        public BoonActiveStat[]? OffBuffGenActiveGroupStats { get; set; }
+        public List<BoonActiveStat>? OffBuffGenActiveGroupStats { get; set; }
 
         [JsonProperty("offBuffGenActiveOGroupStats")]
-        public BoonActiveStat[]? OffBuffGenActiveOGroupStats { get; set; }
+        public List<BoonActiveStat>? OffBuffGenActiveOGroupStats { get; set; }
 
         [JsonProperty("offBuffGenActiveSquadStats")]
-        public BoonActiveStat[]? OffBuffGenActiveSquadStats { get; set; }
+        public List<BoonActiveStat>? OffBuffGenActiveSquadStats { get; set; }
 
         [JsonProperty("supBuffActiveStats")]
-        public BoonActiveStat[]? SupBuffActiveStats { get; set; }
+        public List<BoonActiveStat>? SupBuffActiveStats { get; set; }
 
         [JsonProperty("supBuffGenActiveSelfStats")]
-        public BoonActiveStat[]? SupBuffGenActiveSelfStats { get; set; }
+        public List<BoonActiveStat>? SupBuffGenActiveSelfStats { get; set; }
 
         [JsonProperty("supBuffGenActiveGroupStats")]
-        public BoonActiveStat[]? SupBuffGenActiveGroupStats { get; set; }
+        public List<BoonActiveStat>? SupBuffGenActiveGroupStats { get; set; }
 
         [JsonProperty("supBuffGenActiveOGroupStats")]
-        public BoonActiveStat[]? SupBuffGenActiveOGroupStats { get; set; }
+        public List<BoonActiveStat>? SupBuffGenActiveOGroupStats { get; set; }
 
         [JsonProperty("supBuffGenActiveSquadStats")]
-        public BoonActiveStat[]? SupBuffGenActiveSquadStats { get; set; }
+        public List<BoonActiveStat>? SupBuffGenActiveSquadStats { get; set; }
 
         [JsonProperty("defBuffActiveStats")]
-        public BoonActiveStat[]? DefBuffActiveStats { get; set; }
+        public List<BoonActiveStat>? DefBuffActiveStats { get; set; }
 
         [JsonProperty("defBuffGenActiveSelfStats")]
-        public BoonActiveStat[]? DefBuffGenActiveSelfStats { get; set; }
+        public List<BoonActiveStat>? DefBuffGenActiveSelfStats { get; set; }
 
         [JsonProperty("defBuffGenActiveGroupStats")]
-        public BoonActiveStat[]? DefBuffGenActiveGroupStats { get; set; }
+        public List<BoonActiveStat>? DefBuffGenActiveGroupStats { get; set; }
 
         [JsonProperty("defBuffGenActiveOGroupStats")]
-        public BoonActiveStat[]? DefBuffGenActiveOGroupStats { get; set; }
+        public List<BoonActiveStat>? DefBuffGenActiveOGroupStats { get; set; }
 
         [JsonProperty("defBuffGenActiveSquadStats")]
-        public BoonActiveStat[]? DefBuffGenActiveSquadStats { get; set; }
+        public List<BoonActiveStat>? DefBuffGenActiveSquadStats { get; set; }
 
         [JsonProperty("conditionsActiveStats")]
-        public BoonActiveStat[]? ConditionsActiveStats { get; set; }
+        public List<BoonActiveStat>? ConditionsActiveStats { get; set; }
 
         [JsonProperty("persBuffActiveStats")]
-        public BoonActiveStat[]? PersBuffActiveStats { get; set; }
+        public List<BoonActiveStat>? PersBuffActiveStats { get; set; }
 
         [JsonProperty("gearBuffActiveStats")]
-        public BoonActiveStat[]? GearBuffActiveStats { get; set; }
+        public List<BoonActiveStat>? GearBuffActiveStats { get; set; }
 
         [JsonProperty("debuffActiveStats")]
-        public BoonActiveStat[]? DebuffActiveStats { get; set; }
+        public List<BoonActiveStat>? DebuffActiveStats { get; set; }
 
         [JsonProperty("dmgModifiersCommon")]
-        public DmgModifiers[]? DmgModifiersCommon { get; set; }
+        public List<DmgModifiers>? DmgModifiersCommon { get; set; }
 
         [JsonProperty("dmgModifiersItem")]
-        public DmgModifiers[]? DmgModifiersItem { get; set; }
+        public List<DmgModifiers>? DmgModifiersItem { get; set; }
 
         [JsonProperty("dmgModifiersPers")]
-        public DmgModifiers[]? DmgModifiersPers { get; set; }
+        public List<DmgModifiers>? DmgModifiersPers { get; set; }
 
         [JsonProperty("targetsCondiStats")]
-        public BoonActiveStat[][]? TargetsCondiStats { get; set; }
+        public List<List<BoonActiveStat>>? TargetsCondiStats { get; set; }
 
         [JsonProperty("targetsCondiTotals")]
-        public BoonActiveStat[]? TargetsCondiTotals { get; set; }
+        public List<BoonActiveStat>? TargetsCondiTotals { get; set; }
 
         [JsonProperty("targetsBoonTotals")]
-        public BoonActiveStat[]? TargetsBoonTotals { get; set; }
+        public List<BoonActiveStat>? TargetsBoonTotals { get; set; }
 
         [JsonProperty("mechanicStats")]
-        public object[][]? MechanicStats { get; set; }
+        public List<List<object>>? MechanicStats { get; set; }
 
         [JsonProperty("enemyMechanicStats")]
-        public object[]? EnemyMechanicStats { get; set; }
+        public List<object>? EnemyMechanicStats { get; set; }
 
         [JsonProperty("playerActiveTimes")]
-        public long[]? PlayerActiveTimes { get; set; }
+        public List<long>? PlayerActiveTimes { get; set; }
     }
 
-    public class BoonActiveStat
+    public partial class BoonActiveStat
     {
         [JsonProperty("avg")]
         public double Avg { get; set; }
 
         [JsonProperty("data")]
-        public double[][]? Data { get; set; }
+        public List<List<double>>? Data { get; set; }
     }
 
-    public class DmgModifiers
+    public partial class DmgModifiers
     {
         [JsonProperty("data")]
-        public double[][]? Data { get; set; }
+        public List<List<double>>? Data { get; set; }
 
         [JsonProperty("dataTarget")]
-        public double[][][]? DataTarget { get; set; }
+        public List<List<List<double>>>? DataTarget { get; set; }
     }
 
-    public class EliteInsightDataModelPlayer
+    public partial class ArcDpsPlayer
     {
         [JsonProperty("group")]
         public long Group { get; set; }
@@ -809,16 +828,16 @@
         public bool IsCommander { get; set; }
 
         [JsonProperty("l1Set")]
-        public string[]? L1Set { get; set; }
+        public List<string>? L1Set { get; set; }
 
         [JsonProperty("l2Set")]
-        public string[]? L2Set { get; set; }
+        public List<string>? L2Set { get; set; }
 
         [JsonProperty("a1Set")]
-        public object[]? A1Set { get; set; }
+        public List<object>? A1Set { get; set; }
 
         [JsonProperty("a2Set")]
-        public object[]? A2Set { get; set; }
+        public List<object>? A2Set { get; set; }
 
         [JsonProperty("colTarget")]
         public string? ColTarget { get; set; }
@@ -860,37 +879,40 @@
         public long Health { get; set; }
 
         [JsonProperty("minions")]
-        public PlayerMinion[]? Minions { get; set; }
+        public List<PlayerMinion>? Minions { get; set; }
 
         [JsonProperty("details")]
         public PlayerDetails? Details { get; set; }
     }
 
-    public class PlayerDetails
+    public partial class PlayerDetails
     {
         [JsonProperty("dmgDistributions")]
-        public DmgDistribution[]? DmgDistributions { get; set; }
+        public List<DmgDistribution>? DmgDistributions { get; set; }
 
         [JsonProperty("dmgDistributionsTargets")]
-        public DmgDistribution[][]? DmgDistributionsTargets { get; set; }
+        public List<List<DmgDistribution>>? DmgDistributionsTargets { get; set; }
 
         [JsonProperty("dmgDistributionsTaken")]
-        public DmgDistribution[]? DmgDistributionsTaken { get; set; }
+        public List<DmgDistribution>? DmgDistributionsTaken { get; set; }
 
         [JsonProperty("rotation")]
-        public double[][][]? Rotation { get; set; }
+        public List<List<List<double>>>? Rotation { get; set; }
 
         [JsonProperty("boonGraph")]
-        public BoonGraph[][]? BoonGraph { get; set; }
+        public List<List<BoonGraph>>? BoonGraph { get; set; }
 
         [JsonProperty("food")]
-        public Food[]? Food { get; set; }
+        public List<Food>? Food { get; set; }
 
         [JsonProperty("minions")]
-        public PurpleMinion[]? Minions { get; set; }
+        public List<PurpleMinion>? Minions { get; set; }
+
+        [JsonProperty("deathRecap", NullValueHandling = NullValueHandling.Ignore)]
+        public List<DeathRecap>? DeathRecap { get; set; }
     }
 
-    public class BoonGraph
+    public partial class BoonGraph
     {
         [JsonProperty("id")]
         public long Id { get; set; }
@@ -902,10 +924,22 @@
         public bool Visible { get; set; }
 
         [JsonProperty("states")]
-        public double[][]? States { get; set; }
+        public List<List<double>>? States { get; set; }
     }
 
-    public class DmgDistribution
+    public partial class DeathRecap
+    {
+        [JsonProperty("time")]
+        public long Time { get; set; }
+
+        [JsonProperty("toDown")]
+        public List<List<To>>? ToDown { get; set; }
+
+        [JsonProperty("toKill", NullValueHandling = NullValueHandling.Ignore)]
+        public List<List<To>>? ToKill { get; set; }
+    }
+
+    public partial class DmgDistribution
     {
         [JsonProperty("contributedDamage")]
         public long ContributedDamage { get; set; }
@@ -926,10 +960,10 @@
         public long TotalCasting { get; set; }
 
         [JsonProperty("distribution", NullValueHandling = NullValueHandling.Ignore)]
-        public Distribution[][]? Distribution { get; set; }
+        public List<List<Distribution>>? Distribution { get; set; }
     }
 
-    public class Food
+    public partial class Food
     {
         [JsonProperty("time")]
         public double Time { get; set; }
@@ -947,16 +981,16 @@
         public bool Dimished { get; set; }
     }
 
-    public class PurpleMinion
+    public partial class PurpleMinion
     {
         [JsonProperty("dmgDistributions")]
-        public DmgDistribution[]? DmgDistributions { get; set; }
+        public List<DmgDistribution>? DmgDistributions { get; set; }
 
         [JsonProperty("dmgDistributionsTargets")]
-        public DmgDistribution[][]? DmgDistributionsTargets { get; set; }
+        public List<List<DmgDistribution>>? DmgDistributionsTargets { get; set; }
     }
 
-    public class PlayerMinion
+    public partial class PlayerMinion
     {
         [JsonProperty("id")]
         public long Id { get; set; }
@@ -965,7 +999,7 @@
         public string? Name { get; set; }
     }
 
-    public class SkillMap
+    public partial class SkillMap
     {
         [JsonProperty("aa")]
         public bool Aa { get; set; }
@@ -989,7 +1023,7 @@
         public long HealingMode { get; set; }
     }
 
-    public class EliteInsightDataModelTarget
+    public partial class ArcDpsTarget
     {
         [JsonProperty("hbWidth")]
         public long HbWidth { get; set; }
@@ -998,10 +1032,10 @@
         public long HbHeight { get; set; }
 
         [JsonProperty("percent")]
-        public double Percent { get; set; }
+        public long Percent { get; set; }
 
         [JsonProperty("hpLeft")]
-        public double HpLeft { get; set; }
+        public long HpLeft { get; set; }
 
         [JsonProperty("uniqueID")]
         public long UniqueId { get; set; }
@@ -1028,69 +1062,79 @@
         public long Health { get; set; }
 
         [JsonProperty("minions")]
-        public PlayerMinion[]? Minions { get; set; }
+        public List<PlayerMinion>? Minions { get; set; }
 
         [JsonProperty("details")]
         public TargetDetails? Details { get; set; }
     }
 
-    public class TargetDetails
+    public partial class TargetDetails
     {
         [JsonProperty("dmgDistributions")]
-        public DmgDistribution[]? DmgDistributions { get; set; }
+        public List<DmgDistribution>? DmgDistributions { get; set; }
 
         [JsonProperty("dmgDistributionsTaken")]
-        public DmgDistribution[]? DmgDistributionsTaken { get; set; }
+        public List<DmgDistribution>? DmgDistributionsTaken { get; set; }
 
         [JsonProperty("rotation")]
-        public double[][][]? Rotation { get; set; }
+        public List<List<List<double>>>? Rotation { get; set; }
 
         [JsonProperty("boonGraph")]
-        public BoonGraph[][]? BoonGraph { get; set; }
+        public List<List<BoonGraph>>? BoonGraph { get; set; }
 
         [JsonProperty("minions")]
-        public FluffyMinion[]? Minions { get; set; }
+        public List<FluffyMinion>? Minions { get; set; }
     }
 
-    public class FluffyMinion
+    public partial class FluffyMinion
     {
         [JsonProperty("dmgDistributions")]
-        public DmgDistribution[]? DmgDistributions { get; set; }
+        public List<DmgDistribution>? DmgDistributions { get; set; }
     }
 
-    public struct Distribution
-    {
-        public bool? HasDistribution;
-        public double? DistributionValue;
+    public enum TypeEnum { Facing, Friendly, Line, Player, Target, TargetPlayer };
 
-        public static implicit operator Distribution(bool hasDistribution) => new() { HasDistribution = hasDistribution };
-        public static implicit operator Distribution(double distributionValue) => new() { DistributionValue = distributionValue };
+    public partial struct Distribution
+    {
+        public bool? Bool;
+        public double? Double;
+
+        public static implicit operator Distribution(bool Bool) => new Distribution { Bool = Bool };
+        public static implicit operator Distribution(double Double) => new Distribution { Double = Double };
     }
 
-    public struct DefStatElement
+    public partial struct DefStat
     {
-        public string? DefStatName;
-        public object? DefStatValue;
+        public double? Double;
+        public string String;
 
-        public static implicit operator DefStatElement(string defStatName) => new() { DefStatName = defStatName };
-        public static implicit operator DefStatElement(long defStatValue) => new() { DefStatValue = defStatValue };
+        public static implicit operator DefStat(double Double) => new DefStat { Double = Double };
+        public static implicit operator DefStat(string String) => new DefStat { String = String };
     }
 
-    public partial class EliteInsightDataModel
+    public partial struct To
     {
-        public static EliteInsightDataModel FromJson(string json) => JsonConvert.DeserializeObject<EliteInsightDataModel>(json, Converter.Settings) ?? new EliteInsightDataModel();
+        public bool? Bool;
+        public long? Integer;
+        public string String;
+
+        public static implicit operator To(bool Bool) => new To { Bool = Bool };
+        public static implicit operator To(long Integer) => new To { Integer = Integer };
+        public static implicit operator To(string String) => new To { String = String };
     }
 
     internal static class Converter
     {
-        public static readonly JsonSerializerSettings Settings = new()
+        public static readonly JsonSerializerSettings Settings = new JsonSerializerSettings
         {
             MetadataPropertyHandling = MetadataPropertyHandling.Ignore,
             DateParseHandling = DateParseHandling.None,
             Converters =
             {
                 DistributionConverter.Singleton,
-                DefStatElementConverter.Singleton,
+                TypeEnumConverter.Singleton,
+                DefStatConverter.Singleton,
+                ToConverter.Singleton,
                 new IsoDateTimeConverter { DateTimeStyles = DateTimeStyles.AssumeUniversal }
             },
         };
@@ -1100,102 +1144,183 @@
     {
         public override bool CanConvert(Type t) => t == typeof(Distribution) || t == typeof(Distribution?);
 
-        public override object ReadJson(JsonReader reader, Type t, object? existingValue, JsonSerializer serializer)
+        public override object ReadJson(JsonReader reader, Type t, object existingValue, JsonSerializer serializer)
         {
             switch (reader.TokenType)
             {
                 case JsonToken.Integer:
                 case JsonToken.Float:
                     var doubleValue = serializer.Deserialize<double>(reader);
-                    return new Distribution { DistributionValue = doubleValue };
+                    return new Distribution { Double = doubleValue };
                 case JsonToken.Boolean:
                     var boolValue = serializer.Deserialize<bool>(reader);
-                    return new Distribution { HasDistribution = boolValue };
+                    return new Distribution { Bool = boolValue };
+            }
+            throw new Exception("Cannot unmarshal type Distribution");
+        }
+
+        public override void WriteJson(JsonWriter writer, object untypedValue, JsonSerializer serializer)
+        {
+            var value = (Distribution)untypedValue;
+            if (value.Double != null)
+            {
+                serializer.Serialize(writer, value.Double.Value);
+                return;
+            }
+            if (value.Bool != null)
+            {
+                serializer.Serialize(writer, value.Bool.Value);
+                return;
             }
             throw new Exception("Cannot marshal type Distribution");
         }
 
-        public override void WriteJson(JsonWriter writer, object? untypedValue, JsonSerializer serializer)
-        {
-            var value = untypedValue != null ? (Distribution)untypedValue : new Distribution();
-            if (value.DistributionValue != null)
-            {
-                serializer.Serialize(writer, value.DistributionValue.Value);
-                return;
-            }
-
-            if (value.HasDistribution == null)
-            {
-                throw new Exception("Cannot marshal type Distribution");
-            }
-
-            serializer.Serialize(writer, value.HasDistribution.Value);
-        }
-
-        public static readonly DistributionConverter Singleton = new();
+        public static readonly DistributionConverter Singleton = new DistributionConverter();
     }
 
-    internal class DefStatElementConverter : JsonConverter
+    internal class TypeEnumConverter : JsonConverter
     {
-        public override bool CanConvert(Type t) => t == typeof(DefStatElement) || t == typeof(DefStatElement?);
+        public override bool CanConvert(Type t) => t == typeof(TypeEnum) || t == typeof(TypeEnum?);
 
-        public override object ReadJson(JsonReader reader, Type t, object? existingValue, JsonSerializer serializer)
+        public override object ReadJson(JsonReader reader, Type t, object existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var value = serializer.Deserialize<string>(reader);
+            switch (value)
+            {
+                case "Facing":
+                    return TypeEnum.Facing;
+                case "Friendly":
+                    return TypeEnum.Friendly;
+                case "Line":
+                    return TypeEnum.Line;
+                case "Player":
+                    return TypeEnum.Player;
+                case "Target":
+                    return TypeEnum.Target;
+                case "TargetPlayer":
+                    return TypeEnum.TargetPlayer;
+            }
+            throw new Exception("Cannot unmarshal type TypeEnum");
+        }
+
+        public override void WriteJson(JsonWriter writer, object untypedValue, JsonSerializer serializer)
+        {
+            if (untypedValue == null)
+            {
+                serializer.Serialize(writer, null);
+                return;
+            }
+            var value = (TypeEnum)untypedValue;
+            switch (value)
+            {
+                case TypeEnum.Facing:
+                    serializer.Serialize(writer, "Facing");
+                    return;
+                case TypeEnum.Friendly:
+                    serializer.Serialize(writer, "Friendly");
+                    return;
+                case TypeEnum.Line:
+                    serializer.Serialize(writer, "Line");
+                    return;
+                case TypeEnum.Player:
+                    serializer.Serialize(writer, "Player");
+                    return;
+                case TypeEnum.Target:
+                    serializer.Serialize(writer, "Target");
+                    return;
+                case TypeEnum.TargetPlayer:
+                    serializer.Serialize(writer, "TargetPlayer");
+                    return;
+            }
+            throw new Exception("Cannot marshal type TypeEnum");
+        }
+
+        public static readonly TypeEnumConverter Singleton = new TypeEnumConverter();
+    }
+
+    internal class DefStatConverter : JsonConverter
+    {
+        public override bool CanConvert(Type t) => t == typeof(DefStat) || t == typeof(DefStat?);
+
+        public override object ReadJson(JsonReader reader, Type t, object existingValue, JsonSerializer serializer)
+        {
+            switch (reader.TokenType)
+            {
+                case JsonToken.Integer:
+                case JsonToken.Float:
+                    var doubleValue = serializer.Deserialize<double>(reader);
+                    return new DefStat { Double = doubleValue };
+                case JsonToken.String:
+                case JsonToken.Date:
+                    var stringValue = serializer.Deserialize<string>(reader);
+                    return new DefStat { String = stringValue };
+            }
+            throw new Exception("Cannot unmarshal type DefStat");
+        }
+
+        public override void WriteJson(JsonWriter writer, object untypedValue, JsonSerializer serializer)
+        {
+            var value = (DefStat)untypedValue;
+            if (value.Double != null)
+            {
+                serializer.Serialize(writer, value.Double.Value);
+                return;
+            }
+            if (value.String != null)
+            {
+                serializer.Serialize(writer, value.String);
+                return;
+            }
+            throw new Exception("Cannot marshal type DefStat");
+        }
+
+        public static readonly DefStatConverter Singleton = new DefStatConverter();
+    }
+
+    internal class ToConverter : JsonConverter
+    {
+        public override bool CanConvert(Type t) => t == typeof(To) || t == typeof(To?);
+
+        public override object ReadJson(JsonReader reader, Type t, object existingValue, JsonSerializer serializer)
         {
             switch (reader.TokenType)
             {
                 case JsonToken.Integer:
                     var integerValue = serializer.Deserialize<long>(reader);
-                    return new DefStatElement { DefStatValue = integerValue };
+                    return new To { Integer = integerValue };
+                case JsonToken.Boolean:
+                    var boolValue = serializer.Deserialize<bool>(reader);
+                    return new To { Bool = boolValue };
                 case JsonToken.String:
                 case JsonToken.Date:
-                    return new DefStatElement { DefStatName = serializer.Deserialize<string>(reader) };
+                    var stringValue = serializer.Deserialize<string>(reader);
+                    return new To { String = stringValue };
             }
-            throw new Exception("Cannot un-marshal type DefStatElement");
+            throw new Exception("Cannot unmarshal type To");
         }
 
-        public override void WriteJson(JsonWriter writer, object? untypedValue, JsonSerializer serializer)
+        public override void WriteJson(JsonWriter writer, object untypedValue, JsonSerializer serializer)
         {
-            var value = untypedValue != null ? (DefStatElement)untypedValue : new DefStatElement();
-            if (value.DefStatValue != null)
+            var value = (To)untypedValue;
+            if (value.Integer != null)
             {
-                serializer.Serialize(writer, value.DefStatValue.TryParseLong());
+                serializer.Serialize(writer, value.Integer.Value);
                 return;
             }
-            if (value.DefStatName != null)
+            if (value.Bool != null)
             {
-                serializer.Serialize(writer, value.DefStatName);
+                serializer.Serialize(writer, value.Bool.Value);
+                return;
             }
-            throw new Exception("Cannot marshal type DefStatElement");
-        }
-
-        public static readonly DefStatElementConverter Singleton = new();
-    }
-
-    public class SingleOrArrayConverter<T> : JsonConverter
-    {
-        public override bool CanConvert(Type objectType)
-        {
-            return (objectType == typeof(T[]));
-        }
-
-        public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
-        {
-            JToken token = JToken.Load(reader);
-            if (token.Type == JTokenType.Array)
+            if (value.String != null)
             {
-                return token.ToObject<T[]>();
+                serializer.Serialize(writer, value.String);
+                return;
             }
-            return new T[] { token.ToObject<T>() };
+            throw new Exception("Cannot marshal type To");
         }
 
-        public override bool CanWrite
-        {
-            get { return false; }
-        }
-
-        public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
-        {
-            throw new NotImplementedException();
-        }
+        public static readonly ToConverter Singleton = new ToConverter();
     }
 }

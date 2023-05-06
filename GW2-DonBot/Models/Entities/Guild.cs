@@ -34,5 +34,7 @@ namespace Models.Entities
         public string? Gw2GuildMemberRoleId { get; set; }
 
         public string? Gw2SecondaryMemberRoleIds { get; set; }
+
+        public string? AnnouncementWebhook { get; set; }
     }
 }

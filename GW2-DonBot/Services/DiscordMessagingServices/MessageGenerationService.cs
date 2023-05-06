@@ -1,11 +1,10 @@
-﻿using System;
-using System.Globalization;
-using Discord;
+﻿using Discord;
 using Discord.WebSocket;
 using Extensions;
 using Models;
 using Models.Entities;
 using Services.SecretsServices;
+using System.Globalization;
 
 namespace Services.DiscordMessagingServices
 {
@@ -17,11 +16,6 @@ namespace Services.DiscordMessagingServices
         {
             _secretService = secretService;
         }
-
-
-        private const int EnemyDamageIndex = 1;
-
-        private const int FightPhaseIndex = 1;
 
         private const int FriendlyDownIndex = 12;
 
@@ -39,6 +33,10 @@ namespace Services.DiscordMessagingServices
 
         private const int BoonStabDimension2Index = 1;
 
+        private const int HealingDimension1Index = 0;
+
+        private const int HealingDimension2Index = 0;
+
         private const int NameClipLength = 15;
 
         private const int NameSizeLength = 21;
@@ -51,38 +49,38 @@ namespace Services.DiscordMessagingServices
 
         private struct SquadBoons
         {
-            public bool initialized;
+            public bool Initialized;
 
-            public int playerCount;
-            public int squadNumber;
+            public int PlayerCount;
+            public int SquadNumber;
             
-            public float mightStacks;
-            public float furyPercent;
-            public float quickPercent;
-            public float alacrityPercent;
-            public float protectionPercent;
-            public float regenPercent;
-            public float vigorPercent;
-            public float aegisPercent;
-            public float stabilityPercent;
-            public float swiftnessPercent;
-            public float resistancePercent;
-            public float resolutionPercent;
+            public float MightStacks;
+            public float FuryPercent;
+            public float QuickPercent;
+            public float AlacrityPercent;
+            public float ProtectionPercent;
+            public float RegenPercent;
+            public float VigorPercent;
+            public float AegisPercent;
+            public float StabilityPercent;
+            public float SwiftnessPercent;
+            public float ResistancePercent;
+            public float ResolutionPercent;
 
             public void AverageStats()
             {
-                mightStacks /= playerCount;
-                furyPercent /= playerCount;
-                quickPercent /= playerCount;
-                alacrityPercent /= playerCount;
-                protectionPercent /= playerCount;
-                regenPercent /= playerCount;
-                vigorPercent /= playerCount;
-                aegisPercent /= playerCount;
-                stabilityPercent /= playerCount;
-                swiftnessPercent /= playerCount;
-                resistancePercent /= playerCount;
-                resolutionPercent /= playerCount;
+                MightStacks /= PlayerCount;
+                FuryPercent /= PlayerCount;
+                QuickPercent /= PlayerCount;
+                AlacrityPercent /= PlayerCount;
+                ProtectionPercent /= PlayerCount;
+                RegenPercent /= PlayerCount;
+                VigorPercent /= PlayerCount;
+                AegisPercent /= PlayerCount;
+                StabilityPercent /= PlayerCount;
+                SwiftnessPercent /= PlayerCount;
+                ResistancePercent /= PlayerCount;
+                ResolutionPercent /= PlayerCount;
             }
         }
 
@@ -106,39 +104,39 @@ namespace Services.DiscordMessagingServices
             // Building the actual message to be sent
             var logLength = data.EncounterDuration?.TimeToSeconds() ?? 0;
 
-            var friendlyCount = data.Players?.Length ?? 0;
+            var friendlyCount = data.Players?.Count ?? 0;
             var friendlyDamage = data.Players?.Sum(player => player.Details?.DmgDistributions?.Sum(playerContribution => playerContribution.ContributedDamage)) ?? 0;
             var friendlyDps = friendlyDamage / logLength;
 
-            var enemyCount = data.Targets?.Length ?? 0;
+            var enemyCount = data.Targets?.Count ?? 0;
             var enemyDamage = data.Targets?
-                .Sum(player => player.Details?.DmgDistributions?.Length >= EnemyDamageIndex + 1
-                    ? player.Details?.DmgDistributions?[EnemyDamageIndex].ContributedDamage
+                .Sum(player => player.Details?.DmgDistributions?.Any() ?? false
+                    ? player.Details?.DmgDistributions[0].ContributedDamage
                     : 0) ?? 0;
 
             var enemyDps = enemyDamage / logLength;
 
-            var fightPhase = data.Phases?.Length >= FightPhaseIndex + 1
-                ? data.Phases[FightPhaseIndex]
-                : new EliteInsightDataModelPhase();
+            var fightPhase = data.Phases?.Any() ?? false
+                ? data.Phases[0]
+                : new ArcDpsPhase();
 
             var friendlyDowns = fightPhase.DefStats?
-                .Sum(playerDefStats => playerDefStats.Length >= FriendlyDownIndex + 1
-                    ? playerDefStats[FriendlyDownIndex].TryParseLong()
+                .Sum(playerDefStats => playerDefStats.Count >= FriendlyDownIndex
+                    ? playerDefStats[FriendlyDownIndex].Double
                     : 0) ?? 0;
 
             var friendlyDeaths = fightPhase.DefStats?
-                .Sum(playerDefStats => playerDefStats.Length >= FriendlyDeathIndex + 1
-                    ? playerDefStats[FriendlyDeathIndex].TryParseLong()
+                .Sum(playerDefStats => playerDefStats.Count >= FriendlyDeathIndex
+                    ? playerDefStats[FriendlyDeathIndex].Double
                     : 0) ?? 0;
 
             var enemyDowns = fightPhase.OffensiveStatsTargets?
-                .Sum(playerOffStats => playerOffStats.Sum(playerOffTargetStats => playerOffTargetStats?.Length >= EnemyDownIndex + 1
+                .Sum(playerOffStats => playerOffStats.Sum(playerOffTargetStats => playerOffTargetStats?.Count >= EnemyDownIndex
                     ? playerOffTargetStats?[EnemyDownIndex]
                     : 0)) ?? 0;
 
             var enemyDeaths = fightPhase.OffensiveStatsTargets?
-                .Sum(playerOffStats => playerOffStats.Sum(playerOffTargetStats => playerOffTargetStats?.Length >= EnemyDeathIndex + 1
+                .Sum(playerOffStats => playerOffStats.Sum(playerOffTargetStats => playerOffTargetStats?.Count >= EnemyDeathIndex
                     ? playerOffTargetStats?[EnemyDeathIndex]
                     : 0)) ?? 0;
 
@@ -148,12 +146,12 @@ namespace Services.DiscordMessagingServices
                 .ToDictionary(k => k.index, v => v.Value);
 
             var sortedPlayerIndexByCleanses = fightPhase.SupportStats?
-                .Select((value, index) => (Value: value.FirstOrDefault() + (value.Length >= PlayerCleansesIndex + 1 ? value[PlayerCleansesIndex] : 0), index))
+                .Select((value, index) => (Value: value.FirstOrDefault() + (value.Count >= PlayerCleansesIndex + 1 ? value[PlayerCleansesIndex] : 0), index))
                 .OrderByDescending(x => x.Value)
                 .ToDictionary(k => k.index, v => v.Value);
 
             var sortedPlayerIndexByStrips = fightPhase.SupportStats?
-                .Select((value, index) => (Value: value.Length >= PlayerStripsIndex + 1 ? value[PlayerStripsIndex] : 0, index))
+                .Select((value, index) => (Value: value.Count >= PlayerStripsIndex + 1 ? value[PlayerStripsIndex] : 0, index))
                 .OrderByDescending(x => x.Value)
                 .ToDictionary(k => k.index, v => v.Value);
 
@@ -164,13 +162,13 @@ namespace Services.DiscordMessagingServices
 
             var friendlyCountStr = friendlyCount.ToString().PadCenter(7);
             var friendlyDamageStr = friendlyDamage.FormatNumber().PadCenter(7);
-            var friendlyDPSStr = friendlyDps.FormatNumber().PadCenter(7);
+            var friendlyDpsStr = friendlyDps.FormatNumber().PadCenter(7);
             var friendlyDownsStr = friendlyDowns.ToString().PadCenter(7);
             var friendlyDeathsStr = friendlyDeaths.ToString().PadCenter(7);
 
             var enemyCountStr = enemyCount.ToString().PadCenter(7);
             var enemyDamageStr = enemyDamage.FormatNumber().PadCenter(7);
-            var enemyDPSStr = enemyDps.FormatNumber().PadCenter(7);
+            var enemyDpsStr = enemyDps.FormatNumber().PadCenter(7);
             var enemyDownsStr = enemyDowns.ToString().PadCenter(7);
             var enemyDeathsStr = enemyDeaths.ToString().PadCenter(7);
 
@@ -218,10 +216,10 @@ namespace Services.DiscordMessagingServices
 
             // Embed content building
             var friendlyOverview = "```";
-            friendlyOverview      += $"{friendlyCountStr}  {friendlyDamageStr}  {friendlyDPSStr}  {friendlyDownsStr}  {friendlyDeathsStr}```";
+            friendlyOverview      += $"{friendlyCountStr}  {friendlyDamageStr}  {friendlyDpsStr}  {friendlyDownsStr}  {friendlyDeathsStr}```";
 
             var enemyOverview = "```";
-            enemyOverview      += $"{enemyCountStr}  {enemyDamageStr}  {enemyDPSStr}  {enemyDownsStr}  {enemyDeathsStr}```";
+            enemyOverview      += $"{enemyCountStr}  {enemyDamageStr}  {enemyDpsStr}  {enemyDownsStr}  {enemyDeathsStr}```";
 
             // Damage overview
             var damageOverview = "```";
@@ -403,11 +401,11 @@ namespace Services.DiscordMessagingServices
             // Building the actual message to be sent
             var logLength = data.EncounterDuration?.TimeToSeconds() ?? 0;
 
-            var playerCount = data.Players?.Length ?? 0;
+            var playerCount = data.Players?.Count ?? 0;
 
-            var fightPhase = data.Phases?.Length > 0
+            var fightPhase = data.Phases?.Count > 0
                 ? data.Phases[0]
-                : new EliteInsightDataModelPhase();
+                : new ArcDpsPhase();
 
             var sortedPlayerIndexByDamage = fightPhase.DpsStats? // Note this is against all targets (not just boss), need to do some more logic here to just get targets oof
                 .Select((value, index) => (Value: value.FirstOrDefault(), index))
@@ -520,29 +518,29 @@ namespace Services.DiscordMessagingServices
             {
                 var playerSquad = data.Players[index].Group;
 
-                squadBoons[playerSquad].initialized = true;
-                squadBoons[playerSquad].playerCount++;
-                squadBoons[playerSquad].squadNumber = (int)playerSquad;
+                squadBoons[playerSquad].Initialized = true;
+                squadBoons[playerSquad].PlayerCount++;
+                squadBoons[playerSquad].SquadNumber = (int)playerSquad;
 
-                squadBoons[playerSquad].mightStacks +=          fightPhase?.BoonStats?[index].Data?.Length > 0  ? (float)(fightPhase?.BoonStats?[index].Data?[0]?.FirstOrDefault() ?? 0.0f) : 0.0f;
-                squadBoons[playerSquad].furyPercent +=          fightPhase?.BoonStats?[index].Data?.Length > 1  ? (float)(fightPhase?.BoonStats?[index].Data?[1]?.FirstOrDefault() ?? 0.0f) : 0.0f;
-                squadBoons[playerSquad].quickPercent +=         fightPhase?.BoonStats?[index].Data?.Length > 2  ? (float)(fightPhase?.BoonStats?[index].Data?[2]?.FirstOrDefault() ?? 0.0f) : 0.0f;
-                squadBoons[playerSquad].alacrityPercent +=      fightPhase?.BoonStats?[index].Data?.Length > 3  ? (float)(fightPhase?.BoonStats?[index].Data?[3]?.FirstOrDefault() ?? 0.0f) : 0.0f;
-                squadBoons[playerSquad].protectionPercent +=    fightPhase?.BoonStats?[index].Data?.Length > 4  ? (float)(fightPhase?.BoonStats?[index].Data?[4]?.FirstOrDefault() ?? 0.0f) : 0.0f;
-                squadBoons[playerSquad].regenPercent +=         fightPhase?.BoonStats?[index].Data?.Length > 5  ? (float)(fightPhase?.BoonStats?[index].Data?[5]?.FirstOrDefault() ?? 0.0f) : 0.0f;
-                squadBoons[playerSquad].vigorPercent +=         fightPhase?.BoonStats?[index].Data?.Length > 6  ? (float)(fightPhase?.BoonStats?[index].Data?[6]?.FirstOrDefault() ?? 0.0f) : 0.0f;
-                squadBoons[playerSquad].aegisPercent +=         fightPhase?.BoonStats?[index].Data?.Length > 7  ? (float)(fightPhase?.BoonStats?[index].Data?[7]?.FirstOrDefault() ?? 0.0f) : 0.0f;
-                squadBoons[playerSquad].stabilityPercent +=     fightPhase?.BoonStats?[index].Data?.Length > 8  ? (float)(fightPhase?.BoonStats?[index].Data?[8]?.FirstOrDefault() ?? 0.0f) : 0.0f;
-                squadBoons[playerSquad].swiftnessPercent +=     fightPhase?.BoonStats?[index].Data?.Length > 9  ? (float)(fightPhase?.BoonStats?[index].Data?[9]?.FirstOrDefault() ?? 0.0f) : 0.0f;
-                squadBoons[playerSquad].resistancePercent +=    fightPhase?.BoonStats?[index].Data?.Length > 10 ? (float)(fightPhase?.BoonStats?[index].Data?[10]?.FirstOrDefault() ?? 0.0f) : 0.0f;
-                squadBoons[playerSquad].resolutionPercent +=    fightPhase?.BoonStats?[index].Data?.Length > 11 ? (float)(fightPhase?.BoonStats?[index].Data?[11]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].MightStacks +=          fightPhase?.BoonStats?[index].Data?.Count > 0  ? (float)(fightPhase?.BoonStats?[index].Data?[0]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].FuryPercent +=          fightPhase?.BoonStats?[index].Data?.Count > 1  ? (float)(fightPhase?.BoonStats?[index].Data?[1]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].QuickPercent +=         fightPhase?.BoonStats?[index].Data?.Count > 2  ? (float)(fightPhase?.BoonStats?[index].Data?[2]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].AlacrityPercent +=      fightPhase?.BoonStats?[index].Data?.Count > 3  ? (float)(fightPhase?.BoonStats?[index].Data?[3]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].ProtectionPercent +=    fightPhase?.BoonStats?[index].Data?.Count > 4  ? (float)(fightPhase?.BoonStats?[index].Data?[4]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].RegenPercent +=         fightPhase?.BoonStats?[index].Data?.Count > 5  ? (float)(fightPhase?.BoonStats?[index].Data?[5]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].VigorPercent +=         fightPhase?.BoonStats?[index].Data?.Count > 6  ? (float)(fightPhase?.BoonStats?[index].Data?[6]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].AegisPercent +=         fightPhase?.BoonStats?[index].Data?.Count > 7  ? (float)(fightPhase?.BoonStats?[index].Data?[7]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].StabilityPercent +=     fightPhase?.BoonStats?[index].Data?.Count > 8  ? (float)(fightPhase?.BoonStats?[index].Data?[8]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].SwiftnessPercent +=     fightPhase?.BoonStats?[index].Data?.Count > 9  ? (float)(fightPhase?.BoonStats?[index].Data?[9]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].ResistancePercent +=    fightPhase?.BoonStats?[index].Data?.Count > 10 ? (float)(fightPhase?.BoonStats?[index].Data?[10]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].ResolutionPercent +=    fightPhase?.BoonStats?[index].Data?.Count > 11 ? (float)(fightPhase?.BoonStats?[index].Data?[11]?.FirstOrDefault() ?? 0.0f) : 0.0f;
             }
 
             var usedSquadBoons = new List<SquadBoons>();
 
             foreach (var boons in squadBoons)
             {
-                if (boons.initialized)
+                if (boons.Initialized)
                 {
                     boons.AverageStats();
                     usedSquadBoons.Add(boons);
@@ -551,13 +549,13 @@ namespace Services.DiscordMessagingServices
 
             for (var index = 0; index < usedSquadBoons.Count; index++)
             {
-                var squadNumber = usedSquadBoons[index].squadNumber;
-                var might = usedSquadBoons[index].mightStacks;
-                var fury = usedSquadBoons[index].furyPercent;
-                var quick = usedSquadBoons[index].quickPercent;
-                var alac = usedSquadBoons[index].alacrityPercent;
-                var prot = usedSquadBoons[index].protectionPercent;
-                var regen = usedSquadBoons[index].regenPercent;
+                var squadNumber = usedSquadBoons[index].SquadNumber;
+                var might = usedSquadBoons[index].MightStacks;
+                var fury = usedSquadBoons[index].FuryPercent;
+                var quick = usedSquadBoons[index].QuickPercent;
+                var alac = usedSquadBoons[index].AlacrityPercent;
+                var prot = usedSquadBoons[index].ProtectionPercent;
+                var regen = usedSquadBoons[index].RegenPercent;
 
                 boonOverview += $"{squadNumber.ToString().PadLeft(2, '0')}   ";
                 boonOverview += $"{might.ToString("F1").PadCenter(4)}   ";
@@ -641,8 +639,8 @@ namespace Services.DiscordMessagingServices
 
             var message = new EmbedBuilder
             {
-                Title = "Report - WvW points\n",
-                Description = "**Admin WvW player Details:**\n",
+                Title = "Report - WvW points **2x MULTIPLIER**\n",
+                Description = "**WvW player Details:**\n",
                 Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
                 Author = new EmbedAuthorBuilder()
                 {
@@ -701,7 +699,7 @@ namespace Services.DiscordMessagingServices
             return message.Build();
         }
 
-        private string GetJokeFooter(int index = -1)
+        public static string GetJokeFooter(int index = -1)
         {
             var footerMessageVariants = new[]
             {
@@ -746,9 +744,13 @@ namespace Services.DiscordMessagingServices
                 return;
             }
 
-            var fightPhase = eliteInsightDataModel.Phases?.Length >= FightPhaseIndex + 1
-                ? eliteInsightDataModel.Phases[FightPhaseIndex]
-                : new EliteInsightDataModelPhase();
+            var fightPhase = eliteInsightDataModel.Phases?.Any() ?? false
+                ? eliteInsightDataModel.Phases[0]
+                : new ArcDpsPhase();
+
+            var healingPhase = eliteInsightDataModel.HealingStatsExtension?.HealingPhases?.Any() ?? false
+                ? eliteInsightDataModel.HealingStatsExtension.HealingPhases[0]
+                : new HealingPhase();
 
             var sortedPlayerIndexByDamage = fightPhase.DpsStats?
                 .Select((value, index) => (Value: value.FirstOrDefault(), index))
@@ -756,17 +758,22 @@ namespace Services.DiscordMessagingServices
                 .ToDictionary(k => eliteInsightDataModel.Players?[k.index].Acc, v => v.Value);
 
             var sortedPlayerIndexByCleanses = fightPhase.SupportStats?
-                .Select((value, index) => (Value: value.FirstOrDefault() + (value.Length >= PlayerCleansesIndex + 1 ? value[PlayerCleansesIndex] : 0), index))
+                .Select((value, index) => (Value: value.FirstOrDefault() + (value.Count >= PlayerCleansesIndex + 1 ? value[PlayerCleansesIndex] : 0), index))
                 .OrderByDescending(x => x.Value)
                 .ToDictionary(k => eliteInsightDataModel.Players?[k.index].Acc, v => v.Value);
 
             var sortedPlayerIndexByStrips = fightPhase.SupportStats?
-                .Select((value, index) => (Value: value.Length >= PlayerStripsIndex + 1 ? value[PlayerStripsIndex] : 0, index))
+                .Select((value, index) => (Value: value.Count >= PlayerStripsIndex + 1 ? value[PlayerStripsIndex] : 0, index))
                 .OrderByDescending(x => x.Value)
                 .ToDictionary(k => eliteInsightDataModel.Players?[k.index].Acc, v => v.Value);
 
             var sortedPlayerIndexByStab = fightPhase.BoonGenSquadStats?
                 .Select((value, index) => (Value: value.Data?.CheckIndexIsValid(BoonStabDimension1Index, BoonStabDimension2Index) ?? false ? value.Data[BoonStabDimension1Index][BoonStabDimension2Index] : 0, index))
+                .OrderByDescending(x => x.Value)
+                .ToDictionary(k => eliteInsightDataModel.Players?[k.index].Acc, v => v.Value);
+
+            var sortedPlayerIndexByHealing = healingPhase.OutgoingHealingStats?
+                .Select((value, index) => (Value: value.FirstOrDefault(), index))
                 .OrderByDescending(x => x.Value)
                 .ToDictionary(k => eliteInsightDataModel.Players?[k.index].Acc, v => v.Value);
 
@@ -781,14 +788,26 @@ namespace Services.DiscordMessagingServices
                     var seconds = Convert.ToInt32(stringDuration.Substring(4, 2));
                     secondsOfFight = (minutes * 60) + seconds;
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    //idk something
+                    Console.WriteLine($"Failed to parse to seconds of fight `{stringDuration}`");
                 }
             }
 
             using (var context = new DatabaseContext().SetSecretService(_secretService))
             {
+                var pointsPerCategory = 5;
+                var stabPointsCap = 6;
+                var healingPointsCap = 6;
+
+                foreach (var account in accounts)
+                {
+                    account.PreviousPoints = account.Points;
+                }
+
+                context.UpdateRange(accounts);
+                context.SaveChanges();
+
                 foreach (var player in eliteInsightDataModel.Players)
                 {
                     var account = accounts.FirstOrDefault(a => a.Gw2AccountName == player.Acc);
@@ -797,41 +816,49 @@ namespace Services.DiscordMessagingServices
                         continue;
                     }
 
-                    account.PreviousPoints = account.Points;
-
                     var totalPoints = 0d;
 
                     if (sortedPlayerIndexByDamage.TryGetValue(account.Gw2AccountName, out var damage))
                     {
-                        totalPoints += damage / 100000;
-                        Console.WriteLine($"{account.Gw2AccountName}, damage, {damage / 110000}");
+                        var damagePoints = damage / 80000;
+                        totalPoints += damagePoints > pointsPerCategory ? pointsPerCategory : damagePoints;
                     }
 
                     if (sortedPlayerIndexByCleanses.TryGetValue(account.Gw2AccountName, out var cleanses))
                     {
-                        totalPoints += cleanses / 100;
-                        Console.WriteLine($"{account.Gw2AccountName}, cleanses, {cleanses / 110}");
+                        var cleansePoints = cleanses / 100;
+                        totalPoints += cleansePoints > pointsPerCategory ? pointsPerCategory : cleansePoints;
                     }
 
                     if (sortedPlayerIndexByStrips.TryGetValue(account.Gw2AccountName, out var strips))
                     {
-                        totalPoints += strips / 50;
-                        Console.WriteLine($"{account.Gw2AccountName}, strips, {strips / 20}");
+                        var stripPoints = strips / 20;
+                        totalPoints += stripPoints > pointsPerCategory ? pointsPerCategory : stripPoints;
                     }
 
                     if (sortedPlayerIndexByStab.TryGetValue(account.Gw2AccountName, out var stab))
                     {
                         var stabMultiplier = secondsOfFight < 30 ? 1 : secondsOfFight / 30;
-                        totalPoints += (stab / 0.25) * stabMultiplier;
-                        Console.WriteLine($"{account.Gw2AccountName}, stab, {(stab / 0.25) * stabMultiplier}");
+                        var stabPoint = (stab / 0.15) * stabMultiplier;
+                        totalPoints += stabPoint > stabPointsCap ? stabPointsCap : stabPoint;
                     }
 
-                    if (totalPoints > 0)
+                    if (sortedPlayerIndexByHealing.TryGetValue(account.Gw2AccountName, out var healing))
                     {
-                        account.Points += Convert.ToDecimal(totalPoints);
-                        context.Update(account);
-                        Console.WriteLine($"{account.Gw2AccountName}, total, {totalPoints}");
+                        var healingPoints = healing / 50000;
+                        totalPoints += healingPoints > healingPointsCap ? healingPointsCap : healingPoints;
                     }
+
+                    if (totalPoints < 4)
+                    {
+                        totalPoints = 4;
+                    }
+
+                    totalPoints *= 2;
+
+                    account.Points += Convert.ToDecimal(totalPoints);
+                    account.AvailablePoints += Convert.ToDecimal(totalPoints);
+                    context.Update(account);
                 }
 
                 context.SaveChanges();

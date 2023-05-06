@@ -16,5 +16,7 @@ namespace Models.Entities
         public decimal Points { get; set; }
 
         public decimal PreviousPoints { get; set; }
+
+        public decimal AvailablePoints { get; set; }
     }
 }

@@ -11,6 +11,10 @@ namespace Models.Entities
 
         public DbSet<Guild> Guild { get; set; }
 
+        public DbSet<Raffle> Raffle { get; set; }
+
+        public DbSet<PlayerRaffleBid> PlayerRaffleBid { get; set; }
+
         public string DatabasePath { get; }
 
         public DatabaseContext SetSecretService(ISecretService secretService)
@@ -19,9 +23,14 @@ namespace Models.Entities
             return this;
         }
 
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<PlayerRaffleBid>().HasKey(prb => new { prb.RaffleId, prb.DiscordId });
+        }
+
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            var connection = _secretService.Fetch<string>(nameof(BotSecretsDataModel.SqlServerConnection));
+            var connection = _secretService.FetchDonBotSqlConnectionString();
             optionsBuilder.UseSqlServer(connection);
         }
     }

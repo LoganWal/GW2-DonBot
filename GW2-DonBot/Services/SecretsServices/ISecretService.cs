@@ -4,8 +4,8 @@ namespace Services.SecretsServices
 {
     public interface ISecretService
     {
-        T? Fetch<T>(string key) where T : class;
+        public string FetchDonBotSqlConnectionString();
 
-        Dictionary<string, string> FetchAll();
+        public string FetchDonBotToken();
     }
 }

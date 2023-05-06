@@ -33,6 +33,10 @@ namespace Services.DiscordMessagingServices
 
         private const int BoonStabDimension2Index = 1;
 
+        private const int HealingDimension1Index = 0;
+
+        private const int HealingDimension2Index = 0;
+
         private const int NameClipLength = 15;
 
         private const int NameSizeLength = 21;
@@ -635,7 +639,7 @@ namespace Services.DiscordMessagingServices
 
             var message = new EmbedBuilder
             {
-                Title = "Report - WvW points\n",
+                Title = "Report - WvW points **2x MULTIPLIER**\n",
                 Description = "**WvW player Details:**\n",
                 Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
                 Author = new EmbedAuthorBuilder()
@@ -744,6 +748,8 @@ namespace Services.DiscordMessagingServices
                 ? eliteInsightDataModel.Phases[0]
                 : new ArcDpsPhase();
 
+            var healingPhase = eliteInsightDataModel.HealingStatsExtension?.HealingPhases;
+
             var sortedPlayerIndexByDamage = fightPhase.DpsStats?
                 .Select((value, index) => (Value: value.FirstOrDefault(), index))
                 .OrderByDescending(x => x.Value)
@@ -761,6 +767,11 @@ namespace Services.DiscordMessagingServices
 
             var sortedPlayerIndexByStab = fightPhase.BoonGenSquadStats?
                 .Select((value, index) => (Value: value.Data?.CheckIndexIsValid(BoonStabDimension1Index, BoonStabDimension2Index) ?? false ? value.Data[BoonStabDimension1Index][BoonStabDimension2Index] : 0, index))
+                .OrderByDescending(x => x.Value)
+                .ToDictionary(k => eliteInsightDataModel.Players?[k.index].Acc, v => v.Value);
+
+            var sortedPlayerIndexByHealing = healingPhase?
+                .Select((value, index) => (Value: value.OutgoingHealingStats?.CheckIndexIsValid(HealingDimension1Index, HealingDimension2Index) ?? false ? value.OutgoingHealingStats[HealingDimension1Index][HealingDimension2Index] : 0, index))
                 .OrderByDescending(x => x.Value)
                 .ToDictionary(k => eliteInsightDataModel.Players?[k.index].Acc, v => v.Value);
 
@@ -784,6 +795,8 @@ namespace Services.DiscordMessagingServices
             using (var context = new DatabaseContext().SetSecretService(_secretService))
             {
                 var pointsPerCategory = 5;
+                var stabPointsCap = 6;
+                var healingPointsCap = 6;
 
                 foreach (var account in accounts)
                 {
@@ -825,13 +838,21 @@ namespace Services.DiscordMessagingServices
                     {
                         var stabMultiplier = secondsOfFight < 30 ? 1 : secondsOfFight / 30;
                         var stabPoint = (stab / 0.15) * stabMultiplier;
-                        totalPoints += stabPoint > pointsPerCategory ? pointsPerCategory : stabPoint;
+                        totalPoints += stabPoint > stabPointsCap ? stabPointsCap : stabPoint;
+                    }
+
+                    if (sortedPlayerIndexByHealing.TryGetValue(account.Gw2AccountName, out var healing))
+                    {
+                        var healingPoints = healing / 50000;
+                        totalPoints += healingPoints > healingPointsCap ? healingPointsCap : healingPoints;
                     }
 
                     if (totalPoints < 4)
                     {
                         totalPoints = 4;
                     }
+
+                    totalPoints *= 2;
 
                     account.Points += Convert.ToDecimal(totalPoints);
                     account.AvailablePoints += Convert.ToDecimal(totalPoints);

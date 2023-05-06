@@ -118,7 +118,7 @@ namespace Controller.Discord
                 await guild.CreateApplicationCommandAsync(createRaffleCommand.Build());
 
                 var raffleCommand = new SlashCommandBuilder()
-                    .WithName("raffle_bid")
+                    .WithName("enter_raffle")
                     .WithDescription("(Work in progress) RAFFLE TIME.")
                     .AddOption("points-to-spend", ApplicationCommandOptionType.Integer,
                         "How many points do you want to spend?", isRequired: true);
@@ -142,7 +142,7 @@ namespace Controller.Discord
                 case        "deverify":         await DeverifyCommandExecuted(command);            break;
                 case        "points":           await PointsCommandExecuted(command);              break;
                 case        "create_raffle":    await CreateRaffleCommandExecuted(command);        break;
-                case        "raffle_bid":       await RaffleCommandExecuted(command);              break;
+                case        "enter_raffle":     await RaffleCommandExecuted(command);              break;
                 case        "complete_raffle":  await CompleteRaffleCommandExecuted(command);      break;
                 default:                        await DefaultCommandExecuted(command);             break;
             }
@@ -289,6 +289,12 @@ namespace Controller.Discord
                 return;
             }
 
+            if (pointsToSpend <= 0)
+            {
+                await command.ModifyOriginalResponseAsync(message => message.Content = "Need to spend at least 1 point.");
+                return;
+            }
+
             await command.DeferAsync(ephemeral: true);
             SocketGuildUser? guildUser;
             try
@@ -355,11 +361,11 @@ namespace Controller.Discord
                             context.Update(account);
                             await context.SaveChangesAsync();
 
-                            await command.ModifyOriginalResponseAsync(message => message.Content = "Added your bid!");
+                            await command.ModifyOriginalResponseAsync(message => message.Content = $"Added {pointsToSpend} points!{Environment.NewLine}Total points in current raffle is: {currentBid.PointsSpent}");
                         }
                         else
                         {
-                            await command.ModifyOriginalResponseAsync(message => message.Content = $"You do not have enough points to place this bid, you currently have {account.AvailablePoints} points to spend.");
+                            await command.ModifyOriginalResponseAsync(message => message.Content = $"You do not have enough points for that, you currently have {account.AvailablePoints} points to spend.");
                             return;
                         }
                     }
@@ -407,6 +413,7 @@ namespace Controller.Discord
 
                 if (guild == null)
                 {
+                    await command.ModifyOriginalResponseAsync(message => message.Content = "Cannot find the discord this should apply to, try the command in the discord you want the raffle in!");
                     return;
                 }
 
@@ -414,6 +421,7 @@ namespace Controller.Discord
                 if (raffles.Any(raf => raf.IsActive && raf.GuildId == guild.GuildId))
                 {
                     await command.ModifyOriginalResponseAsync(message => message.Content = "There already is a running raffle, close that one first!");
+                    return;
                 }
             }
 

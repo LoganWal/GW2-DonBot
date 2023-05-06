@@ -748,7 +748,9 @@ namespace Services.DiscordMessagingServices
                 ? eliteInsightDataModel.Phases[0]
                 : new ArcDpsPhase();
 
-            var healingPhase = eliteInsightDataModel.HealingStatsExtension?.HealingPhases;
+            var healingPhase = eliteInsightDataModel.HealingStatsExtension?.HealingPhases?.Any() ?? false
+                ? eliteInsightDataModel.HealingStatsExtension.HealingPhases[0]
+                : new HealingPhase();
 
             var sortedPlayerIndexByDamage = fightPhase.DpsStats?
                 .Select((value, index) => (Value: value.FirstOrDefault(), index))
@@ -770,8 +772,8 @@ namespace Services.DiscordMessagingServices
                 .OrderByDescending(x => x.Value)
                 .ToDictionary(k => eliteInsightDataModel.Players?[k.index].Acc, v => v.Value);
 
-            var sortedPlayerIndexByHealing = healingPhase?
-                .Select((value, index) => (Value: value.OutgoingHealingStats?.CheckIndexIsValid(HealingDimension1Index, HealingDimension2Index) ?? false ? value.OutgoingHealingStats[HealingDimension1Index][HealingDimension2Index] : 0, index))
+            var sortedPlayerIndexByHealing = healingPhase.OutgoingHealingStats?
+                .Select((value, index) => (Value: value.FirstOrDefault(), index))
                 .OrderByDescending(x => x.Value)
                 .ToDictionary(k => eliteInsightDataModel.Players?[k.index].Acc, v => v.Value);
 

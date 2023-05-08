@@ -3,7 +3,6 @@ using Discord.Webhook;
 using Discord.WebSocket;
 using GW2DonBot.Models;
 using Microsoft.EntityFrameworkCore;
-using Models;
 using Models.GW2Api;
 using Models.Entities;
 using Newtonsoft.Json;

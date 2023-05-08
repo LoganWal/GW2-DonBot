@@ -639,7 +639,7 @@ namespace Services.DiscordMessagingServices
 
             var message = new EmbedBuilder
             {
-                Title = "Report - WvW points **2x MULTIPLIER**\n",
+                Title = "Report - WvW points\n",
                 Description = "**WvW player Details:**\n",
                 Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
                 Author = new EmbedAuthorBuilder()
@@ -798,7 +798,7 @@ namespace Services.DiscordMessagingServices
             {
                 var pointsPerCategory = 5;
                 var stabPointsCap = 6;
-                var healingPointsCap = 6;
+                var healingPointsCap = 4;
 
                 foreach (var account in accounts)
                 {
@@ -853,8 +853,6 @@ namespace Services.DiscordMessagingServices
                     {
                         totalPoints = 4;
                     }
-
-                    totalPoints *= 2;
 
                     account.Points += Convert.ToDecimal(totalPoints);
                     account.AvailablePoints += Convert.ToDecimal(totalPoints);

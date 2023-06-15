@@ -105,8 +105,6 @@ namespace Services.DiscordMessagingServices
             var logLength = data.EncounterDuration?.TimeToSeconds() ?? 0;
 
             var friendlyCount = data.Players?.Count ?? 0;
-            var friendlyDamage = data.Players?.Sum(player => player.Details?.DmgDistributions?.Sum(playerContribution => playerContribution.ContributedDamage)) ?? 0;
-            var friendlyDps = friendlyDamage / logLength;
 
             var enemyCount = data.Targets?.Count ?? 0;
             var enemyDamage = data.Targets?
@@ -119,6 +117,8 @@ namespace Services.DiscordMessagingServices
             var fightPhase = data.Phases?.Any() ?? false
                 ? data.Phases[0]
                 : new ArcDpsPhase();
+
+            var healingPhase = data.HealingStatsExtension?.HealingPhases?.FirstOrDefault() ?? new HealingPhase();
 
             var friendlyDowns = fightPhase.DefStats?
                 .Sum(playerDefStats => playerDefStats.Count >= FriendlyDownIndex
@@ -140,10 +140,13 @@ namespace Services.DiscordMessagingServices
                     ? playerOffTargetStats?[EnemyDeathIndex]
                     : 0)) ?? 0;
 
-            var sortedPlayerIndexByDamage = fightPhase.DpsStats?
-                .Select((value, index) => (Value: value.FirstOrDefault(), index))
+            var sortedPlayerIndexByDamage = fightPhase.DpsStatsTargets?
+                .Select((value, index) => (Value: value.Sum(s => s.FirstOrDefault()), index))
                 .OrderByDescending(x => x.Value)
                 .ToDictionary(k => k.index, v => v.Value);
+
+            var friendlyDamage = sortedPlayerIndexByDamage?.Sum(s => s.Value) ?? 0;
+            var friendlyDps = friendlyDamage / logLength;
 
             var sortedPlayerIndexByCleanses = fightPhase.SupportStats?
                 .Select((value, index) => (Value: value.FirstOrDefault() + (value.Count >= PlayerCleansesIndex + 1 ? value[PlayerCleansesIndex] : 0), index))
@@ -155,8 +158,13 @@ namespace Services.DiscordMessagingServices
                 .OrderByDescending(x => x.Value)
                 .ToDictionary(k => k.index, v => v.Value);
 
-            var sortedPlayerIndexByStab = fightPhase.BoonStats?
+            var sortedPlayerIndexByStab = fightPhase.BoonGenSquadStats?
                 .Select((value, index) => (Value: value.Data?.CheckIndexIsValid(BoonStabDimension1Index, BoonStabDimension2Index) ?? false ? value.Data[BoonStabDimension1Index][BoonStabDimension2Index] : 0, index))
+                .OrderByDescending(x => x.Value)
+                .ToDictionary(k => k.index, v => v.Value);
+
+            var sortedPlayerIndexByHealing = healingPhase.OutgoingHealingStatsTargets?
+                .Select((value, index) => (Value: value?.Sum(s => s.FirstOrDefault()) ?? 0, index))
                 .OrderByDescending(x => x.Value)
                 .ToDictionary(k => k.index, v => v.Value);
 
@@ -319,10 +327,33 @@ namespace Services.DiscordMessagingServices
                 var name = data.Players?[stab.Key].Name;
                 var prof = data.Players?[stab.Key].Profession;
 
-                stabOverview += $"{(index + 1).ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {sub.ToString().PadCenter(3)}  {stab.Value.FormatPercentage().PadCenter(11)}\n";
+                stabOverview += $"{(index + 1).ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {sub.ToString().PadCenter(3)}  {(stab.Value * 100).FormatPercentage().ToString(CultureInfo.InvariantCulture).PadCenter(11)}\n";
             }
 
             stabOverview += "```";
+
+            var healingOverview = "```";
+
+            for (var index = 0; index < PlayersListed; index++)
+            {
+                if (index + 1 > sortedPlayerIndexByHealing?.Count)
+                {
+                    break;
+                }
+
+                if (sortedPlayerIndexByHealing?.ElementAt(index) == null)
+                {
+                    continue;
+                }
+
+                var healing = sortedPlayerIndexByHealing.ElementAt(index);
+                var name = data.Players?[healing.Key].Name;
+                var prof = data.Players?[healing.Key].Profession;
+
+                healingOverview += $"{(index + 1).ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {healing.Value.ToString(CultureInfo.InvariantCulture).PadCenter(16)}\n";
+            }
+
+            healingOverview += "```";
 
             // Building the message via embeds
             var message = new EmbedBuilder
@@ -374,14 +405,19 @@ namespace Services.DiscordMessagingServices
                 x.IsInline = false;
             });
 
-            /*
             message.AddField(x =>
             {
-                x.Name = "Stability";
+                x.Name = "```  #            Name              Sub      Stab      ```";
                 x.Value = $"{stabOverview}";
                 x.IsInline = false;
             });
-            */
+
+            message.AddField(x =>
+            {
+                x.Name = "```  #            Name                   Healing       ```";
+                x.Value = $"{healingOverview}";
+                x.IsInline = false;
+            });
 
             message.Footer = new EmbedFooterBuilder()
             {
@@ -639,7 +675,7 @@ namespace Services.DiscordMessagingServices
 
             var message = new EmbedBuilder
             {
-                Title = "Report - WvW points **2x MULTIPLIER**\n",
+                Title = "Report - WvW points\n",
                 Description = "**WvW player Details:**\n",
                 Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
                 Author = new EmbedAuthorBuilder()
@@ -721,7 +757,6 @@ namespace Services.DiscordMessagingServices
                 "You're right, Logan! - Squirrel",
                 "Get on the seige!",
                 "No one on the left cata!",
-                "Those who cross Squirrel will die! Try a Dodge Roll!",
                 "Never give up! Trust your training!",
                 "Do your job!"
             };
@@ -748,12 +783,10 @@ namespace Services.DiscordMessagingServices
                 ? eliteInsightDataModel.Phases[0]
                 : new ArcDpsPhase();
 
-            var healingPhase = eliteInsightDataModel.HealingStatsExtension?.HealingPhases?.Any() ?? false
-                ? eliteInsightDataModel.HealingStatsExtension.HealingPhases[0]
-                : new HealingPhase();
+            var healingPhase = eliteInsightDataModel.HealingStatsExtension?.HealingPhases?.FirstOrDefault() ?? new HealingPhase();
 
-            var sortedPlayerIndexByDamage = fightPhase.DpsStats?
-                .Select((value, index) => (Value: value.FirstOrDefault(), index))
+            var sortedPlayerIndexByDamage = fightPhase.DpsStatsTargets?
+                .Select((value, index) => (Value: value.Sum(s => s.FirstOrDefault()), index))
                 .OrderByDescending(x => x.Value)
                 .ToDictionary(k => eliteInsightDataModel.Players?[k.index].Acc, v => v.Value);
 
@@ -772,8 +805,8 @@ namespace Services.DiscordMessagingServices
                 .OrderByDescending(x => x.Value)
                 .ToDictionary(k => eliteInsightDataModel.Players?[k.index].Acc, v => v.Value);
 
-            var sortedPlayerIndexByHealing = healingPhase.OutgoingHealingStats?
-                .Select((value, index) => (Value: value.FirstOrDefault(), index))
+            var sortedPlayerIndexByHealing = healingPhase.OutgoingHealingStatsTargets?
+                .Select((value, index) => (Value: value?.Sum(s => s.FirstOrDefault()) ?? 0, index))
                 .OrderByDescending(x => x.Value)
                 .ToDictionary(k => eliteInsightDataModel.Players?[k.index].Acc, v => v.Value);
 
@@ -797,8 +830,10 @@ namespace Services.DiscordMessagingServices
             using (var context = new DatabaseContext().SetSecretService(_secretService))
             {
                 var pointsPerCategory = 5;
+                var damagePointCap = 6;
                 var stabPointsCap = 6;
-                var healingPointsCap = 6;
+                var healingPointsCap = 4;
+                var stripsPointsCap = 4;
 
                 foreach (var account in accounts)
                 {
@@ -820,8 +855,8 @@ namespace Services.DiscordMessagingServices
 
                     if (sortedPlayerIndexByDamage.TryGetValue(account.Gw2AccountName, out var damage))
                     {
-                        var damagePoints = damage / 80000;
-                        totalPoints += damagePoints > pointsPerCategory ? pointsPerCategory : damagePoints;
+                        var damagePoints = damage / 70000;
+                        totalPoints += damagePoints > damagePointCap ? damagePointCap : damagePoints;
                     }
 
                     if (sortedPlayerIndexByCleanses.TryGetValue(account.Gw2AccountName, out var cleanses))
@@ -832,8 +867,8 @@ namespace Services.DiscordMessagingServices
 
                     if (sortedPlayerIndexByStrips.TryGetValue(account.Gw2AccountName, out var strips))
                     {
-                        var stripPoints = strips / 20;
-                        totalPoints += stripPoints > pointsPerCategory ? pointsPerCategory : stripPoints;
+                        var stripPoints = strips / 30;
+                        totalPoints += stripPoints > stripsPointsCap ? stripsPointsCap : stripPoints;
                     }
 
                     if (sortedPlayerIndexByStab.TryGetValue(account.Gw2AccountName, out var stab))
@@ -853,8 +888,6 @@ namespace Services.DiscordMessagingServices
                     {
                         totalPoints = 4;
                     }
-
-                    totalPoints *= 2;
 
                     account.Points += Convert.ToDecimal(totalPoints);
                     account.AvailablePoints += Convert.ToDecimal(totalPoints);

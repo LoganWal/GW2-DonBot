@@ -75,7 +75,7 @@ namespace Controller.Discord
         private async Task RegisterCommands(DiscordSocketClient client)
         {
             // This only needs to be run if you have made changes
-            /*
+            
             var guilds = client.Guilds;
             await client.BulkOverwriteGlobalApplicationCommandsAsync(Array.Empty<ApplicationCommandProperties>());
             foreach (var guild in guilds)
@@ -105,13 +105,13 @@ namespace Controller.Discord
 
                 var pointsCommand = new SlashCommandBuilder()
                     .WithName("points")
-                    .WithDescription("(Work in progress) Check how many points you have earned.");
+                    .WithDescription("Check how many points you have earned.");
 
                 await guild.CreateApplicationCommandAsync(pointsCommand.Build());
 
                 var createRaffleCommand = new SlashCommandBuilder()
                     .WithName("create_raffle")
-                    .WithDescription("(Work in progress) Create a raffle.")
+                    .WithDescription("Create a raffle.")
                     .AddOption("raffle-description", ApplicationCommandOptionType.String, "The Raffle description",
                         isRequired: true);
 
@@ -119,7 +119,7 @@ namespace Controller.Discord
 
                 var raffleCommand = new SlashCommandBuilder()
                     .WithName("enter_raffle")
-                    .WithDescription("(Work in progress) RAFFLE TIME.")
+                    .WithDescription("RAFFLE TIME.")
                     .AddOption("points-to-spend", ApplicationCommandOptionType.Integer,
                         "How many points do you want to spend?", isRequired: true);
 
@@ -127,11 +127,16 @@ namespace Controller.Discord
 
                 var completeRaffleCommand = new SlashCommandBuilder()
                     .WithName("complete_raffle")
-                    .WithDescription("(Work in progress) Complete the raffle.");
+                    .WithDescription("Complete the raffle.");
 
                 await guild.CreateApplicationCommandAsync(completeRaffleCommand.Build());
+
+                var redrawRaffleCommand = new SlashCommandBuilder()
+                    .WithName("reopen_raffle")
+                    .WithDescription("Reopen the raffle.");
+
+                await guild.CreateApplicationCommandAsync(redrawRaffleCommand.Build());
             }
-            */
         }
 
         private async Task SlashCommandExecutedAsync(SocketSlashCommand command)
@@ -145,6 +150,7 @@ namespace Controller.Discord
                 case        "create_raffle":    await CreateRaffleCommandExecuted(command);        break;
                 case        "enter_raffle":     await RaffleCommandExecuted(command);              break;
                 case        "complete_raffle":  await CompleteRaffleCommandExecuted(command);      break;
+                case        "reopen_raffle":    await ReopenRaffleCommandExecuted(command);        break;
                 default:                        await DefaultCommandExecuted(command);             break;
             }
         }
@@ -171,7 +177,100 @@ namespace Controller.Discord
 
             await command.RespondAsync(message, ephemeral: true);
         }
-        
+
+        private async Task ReopenRaffleCommandExecuted(SocketSlashCommand command)
+        {
+            await command.DeferAsync(ephemeral: true);
+            SocketGuildUser? guildUser;
+            try
+            {
+                if (command.GuildId != null)
+                {
+                    guildUser = _client.GetGuild(command.GuildId.Value).GetUser(command.User.Id);
+                }
+                else
+                {
+                    throw new Exception("No GuildId");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failing raffle create nicely: `{ex.Message}`");
+                await command.ModifyOriginalResponseAsync(message => message.Content = "Failed to end raffle, please try again, or yell at logan.");
+                return;
+            }
+
+            Guild? guild;
+            Raffle? latestRaffle = null;
+            using (var context = new DatabaseContext().SetSecretService(_secretService))
+            {
+                var guilds = await context.Guild.ToListAsync();
+                guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
+
+                if (guild == null)
+                {
+                    await command.ModifyOriginalResponseAsync(message => message.Content = "This message does not belong to a discord server, please don't whisper me,");
+                    return;
+                }
+
+                var raffles = await context.Raffle.ToListAsync();
+
+                if (raffles.FirstOrDefault(raf => raf.IsActive && raf.GuildId == guild.GuildId) != null)
+                {
+                    await command.ModifyOriginalResponseAsync(message => message.Content = "There is currently an open raffle.");
+                    return;
+                } 
+
+                latestRaffle = raffles.Where(raffle => raffle.GuildId == guild.GuildId).MaxBy(raffle => raffle.Id);
+                if (latestRaffle != null)
+                {
+                    latestRaffle.IsActive = true;
+                }
+                else
+                {
+                    await command.ModifyOriginalResponseAsync(message => message.Content = "There is currently no latest raffle, maybe create one!");
+                    return;
+                }
+            }
+
+            var webhookUrl = guild.AnnouncementWebhook;
+
+            var webhook = new DiscordWebhookClient(webhookUrl);
+
+            var message = new EmbedBuilder
+            {
+                Title = "Raffle!\n",
+                Description = $"Reopened last raffle, enter now!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!",
+                Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
+                Author = new EmbedAuthorBuilder()
+                {
+                    Name = "GW2-DonBot",
+                    Url = "https://github.com/LoganWal/GW2-DonBot",
+                    IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                },
+                Footer = new EmbedFooterBuilder()
+                {
+                    Text = $"{MessageGenerationService.GetJokeFooter()}",
+                    IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                },
+                // Timestamp
+                Timestamp = DateTime.Now
+            };
+
+            // Building the message for use
+            var builtMessage = message.Build();
+
+            using (var context = new DatabaseContext().SetSecretService(_secretService))
+            {
+                context.Update(latestRaffle);
+                await context.SaveChangesAsync();
+            }
+
+            await webhook.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { builtMessage });
+
+            await command.ModifyOriginalResponseAsync(message => message.Content = "Reopened!");
+        }
+
         private async Task CompleteRaffleCommandExecuted(SocketSlashCommand command)
         {
             await command.DeferAsync(ephemeral: true);
@@ -433,7 +532,7 @@ namespace Controller.Discord
             var message = new EmbedBuilder
             {
                 Title = "Raffle!\n",
-                Description = $"{command.Data.Options.First().Value}\n",
+                Description = $"{command.Data.Options.First().Value}{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!",
                 Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
                 Author = new EmbedAuthorBuilder()
                 {
@@ -948,17 +1047,9 @@ namespace Controller.Discord
 
                 var adminPlayerReportWebhook = new DiscordWebhookClient(guild.AdminPlayerReportWebhook);
 
-                try
-                {
-                    var playerMessage = _messageGenerationService.GenerateWvWPlayerSummary(socketGuild, guild);
-                    await adminPlayerReportWebhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { playerMessage });
-                    Console.WriteLine($"[DON] Completed and posted report on: {url}");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.Message);
-                }
-                
+                var playerMessage = _messageGenerationService.GenerateWvWPlayerSummary(socketGuild, guild);
+                await adminPlayerReportWebhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { playerMessage });
+                Console.WriteLine($"[DON] Completed and posted report on: {url}");
             }
         }
     }

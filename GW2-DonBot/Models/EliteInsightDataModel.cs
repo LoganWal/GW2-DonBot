@@ -1092,7 +1092,7 @@
         public List<DmgDistribution>? DmgDistributions { get; set; }
     }
 
-    public enum TypeEnum { Facing, Friendly, Line, Player, Target, TargetPlayer };
+    public enum TypeEnum { Facing, Friendly, Line, Player, Target, TargetPlayer, ActorOrientation };
 
     public partial struct Distribution
     {
@@ -1200,6 +1200,8 @@
                     return TypeEnum.Target;
                 case "TargetPlayer":
                     return TypeEnum.TargetPlayer;
+                case "ActorOrientation":
+                    return TypeEnum.ActorOrientation;
             }
             throw new Exception("Cannot unmarshal type TypeEnum");
         }
@@ -1231,6 +1233,9 @@
                     return;
                 case TypeEnum.TargetPlayer:
                     serializer.Serialize(writer, "TargetPlayer");
+                    return;
+                case TypeEnum.ActorOrientation:
+                    serializer.Serialize(writer, "ActorOrientation");
                     return;
             }
             throw new Exception("Cannot marshal type TypeEnum");

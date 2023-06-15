@@ -75,7 +75,6 @@ namespace Controller.Discord
         private async Task RegisterCommands(DiscordSocketClient client)
         {
             // This only needs to be run if you have made changes
-            
             var guilds = client.Guilds;
             await client.BulkOverwriteGlobalApplicationCommandsAsync(Array.Empty<ApplicationCommandProperties>());
             foreach (var guild in guilds)

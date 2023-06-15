@@ -327,7 +327,7 @@ namespace Services.DiscordMessagingServices
                 var name = data.Players?[stab.Key].Name;
                 var prof = data.Players?[stab.Key].Profession;
 
-                stabOverview += $"{(index + 1).ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {sub.ToString().PadCenter(3)}  {Math.Round(stab.Value, 3).ToString(CultureInfo.InvariantCulture).PadCenter(11)}\n";
+                stabOverview += $"{(index + 1).ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {sub.ToString().PadCenter(3)}  {(stab.Value * 100).FormatPercentage().ToString(CultureInfo.InvariantCulture).PadCenter(11)}\n";
             }
 
             stabOverview += "```";

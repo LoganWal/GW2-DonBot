@@ -2,7 +2,6 @@
 using Controller.Discord;
 using Services.CacheServices;
 using Services.DiscordMessagingServices;
-using Services.FileServices;
 using Services.Logging;
 using Services.SecretsServices;
 
@@ -17,7 +16,6 @@ namespace Registration
         public static void Run()
         {
             RegisterServices().Resolve<ICacheService>();
-            RegisterServices().Resolve<IFileService>();
             RegisterServices().Resolve<ISecretService>();
             RegisterServices().Resolve<IDataModelGenerationService>();
             RegisterServices().Resolve<IMessageGenerationService>();
@@ -29,8 +27,6 @@ namespace Registration
             var builder = new ContainerBuilder();
 
             builder.RegisterType<CacheService>().As<ICacheService>().SingleInstance();
-
-            builder.RegisterType<FileService>().As<IFileService>();
 
             builder.RegisterType<SecretServices>().As<ISecretService>();
 

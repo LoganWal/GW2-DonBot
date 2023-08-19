@@ -33,6 +33,8 @@ namespace Services.DiscordMessagingServices
 
         private const int BoonStabDimension2Index = 1;
 
+        private const int DistanceFromTagIndex = 6;
+
         private const int HealingDimension1Index = 0;
 
         private const int HealingDimension2Index = 0;
@@ -41,7 +43,9 @@ namespace Services.DiscordMessagingServices
 
         private const int NameSizeLength = 21;
 
-        private const int PlayersListed = 10;
+        private const int PlayersListed = 5;
+
+        private const int AdvancedPlayersListed = 10;
 
         private const int EmbedTitleCharacterLength = 52;
 
@@ -84,22 +88,15 @@ namespace Services.DiscordMessagingServices
             }
         }
 
-        public Embed GenerateFightSummary(EliteInsightDataModel data, ulong guildId)
+        public Embed GenerateWvWFightSummary(EliteInsightDataModel data, bool advancedLog, bool setPlayerPoint)
         {
-            if (data.Wvw)
+            if (setPlayerPoint)
             {
-                return GenerateWvWFightSummary(data);
+                // Set player points
+                SetPlayerPoints(data);
             }
-            else
-            {
-                return GeneratePvEFightSummary(data);
-            }
-        }
 
-        public Embed GenerateWvWFightSummary(EliteInsightDataModel data)
-        {
-            // Set player points
-            SetPlayerPoints(data);
+            var playerCount = advancedLog ? AdvancedPlayersListed : PlayersListed;
 
             // Building the actual message to be sent
             var logLength = data.EncounterDuration?.TimeToSeconds() ?? 0;
@@ -150,26 +147,30 @@ namespace Services.DiscordMessagingServices
                     gw2Players.Add(new Gw2Player
                     {
                         AccountName = arcDpsPlayer.Acc,
+                        Profession = arcDpsPlayer.Profession,
+                        CharacterName = arcDpsPlayer.Name,
+                        SubGroup = arcDpsPlayer.Group,
                         Damage = fightPhase.DpsStatsTargets[playerIndex].Sum(s => s.FirstOrDefault()),
                         Cleanses = fightPhase.SupportStats[playerIndex].FirstOrDefault() + (fightPhase.SupportStats[playerIndex].Count >= PlayerCleansesIndex + 1 ? fightPhase.SupportStats[playerIndex][PlayerCleansesIndex] : 0),
                         Strips = fightPhase.SupportStats[playerIndex].FirstOrDefault() + (fightPhase.SupportStats[playerIndex].Count >= PlayerStripsIndex + 1 ? fightPhase.SupportStats[playerIndex][PlayerStripsIndex] : 0),
                         StabUpTime = fightPhase.BoonGenSquadStats[playerIndex].Data?.CheckIndexIsValid(BoonStabDimension1Index, BoonStabDimension2Index) ?? false ? fightPhase.BoonGenSquadStats[playerIndex].Data[BoonStabDimension1Index][BoonStabDimension2Index] : 0,
                         Healing = healingPhase.OutgoingHealingStatsTargets[playerIndex].Sum(s => s.FirstOrDefault()),
-                        Profession = arcDpsPlayer.Profession,
-                        CharacterName = arcDpsPlayer.Name,
-                        SubGroup = arcDpsPlayer.Group
+                        DistanceFromTag = fightPhase.GameplayStats[playerIndex][DistanceFromTagIndex],
+                        TimesDowned = fightPhase.DefStats[playerIndex][FriendlyDownIndex].Double ?? 0
                     });
                 }
                 else
                 {
+                    existingPlayer.Profession = arcDpsPlayer.Profession;
+                    existingPlayer.CharacterName = arcDpsPlayer.Name;
+                    existingPlayer.SubGroup = arcDpsPlayer.Group;
                     existingPlayer.Damage += fightPhase.DpsStatsTargets[playerIndex].Sum(s => s.FirstOrDefault());
                     existingPlayer.Cleanses += fightPhase.SupportStats[playerIndex].FirstOrDefault() + (fightPhase.SupportStats[playerIndex].Count >= PlayerCleansesIndex + 1 ? fightPhase.SupportStats[playerIndex][PlayerCleansesIndex] : 0);
                     existingPlayer.Strips += fightPhase.SupportStats[playerIndex].FirstOrDefault() + (fightPhase.SupportStats[playerIndex].Count >= PlayerStripsIndex + 1 ? fightPhase.SupportStats[playerIndex][PlayerStripsIndex] : 0);
                     existingPlayer.StabUpTime += fightPhase.BoonGenSquadStats[playerIndex].Data?.CheckIndexIsValid(BoonStabDimension1Index, BoonStabDimension2Index) ?? false ? fightPhase.BoonGenSquadStats[playerIndex].Data[BoonStabDimension1Index][BoonStabDimension2Index] : 0;
                     existingPlayer.Healing += healingPhase.OutgoingHealingStatsTargets[playerIndex].Sum(s => s.FirstOrDefault());
-                    existingPlayer.Profession = arcDpsPlayer.Profession;
-                    existingPlayer.CharacterName = arcDpsPlayer.Name;
-                    existingPlayer.SubGroup = arcDpsPlayer.Group;
+                    existingPlayer.DistanceFromTag = fightPhase.GameplayStats[playerIndex][DistanceFromTagIndex];
+                    existingPlayer.TimesDowned += fightPhase.DefStats[playerIndex][FriendlyDownIndex].Double ?? 0;
                 }
 
                 playerIndex++;
@@ -243,9 +244,9 @@ namespace Services.DiscordMessagingServices
             var damageOverview = "```";
 
             var maxDamage = -1.0f;
-            var top10Damage = gw2Players.OrderByDescending(s => s.Damage).Take(PlayersListed).ToList();
+            var topDamage = gw2Players.OrderByDescending(s => s.Damage).Take(playerCount).ToList();
             var damageIndex = 1;
-            foreach (var gw2Player in top10Damage)
+            foreach (var gw2Player in topDamage)
             {
                 var name = gw2Player.AccountName;
                 var prof = gw2Player.Profession;
@@ -255,7 +256,7 @@ namespace Services.DiscordMessagingServices
                     maxDamage = damageFloat;
                 }
 
-                damageOverview += $"{(damageIndex).ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {damageFloat.FormatNumber(maxDamage).PadCenter(7)}  {(damageFloat / logLength).FormatNumber(maxDamage / logLength).PadCenter(7)}\n";
+                damageOverview += $"{damageIndex.ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {damageFloat.FormatNumber(maxDamage).PadCenter(7)}  {(damageFloat / logLength).FormatNumber(maxDamage / logLength).PadCenter(7)}\n";
                 damageIndex++;
             }
 
@@ -264,15 +265,15 @@ namespace Services.DiscordMessagingServices
             // Cleanse overview
             var cleanseOverview = $"```";
 
-            var top10Cleanses = gw2Players.OrderByDescending(s => s.Cleanses).Take(PlayersListed).ToList();
+            var topCleanses = gw2Players.OrderByDescending(s => s.Cleanses).Take(playerCount).ToList();
             var cleanseIndex = 1;
-            foreach (var gw2Player in top10Cleanses)
+            foreach (var gw2Player in topCleanses)
             {
                 var cleanses = gw2Player.Cleanses;
                 var name = gw2Player.CharacterName;
                 var prof = gw2Player.Profession;
 
-                cleanseOverview += $"{(cleanseIndex).ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {cleanses.ToString(CultureInfo.InvariantCulture).PadCenter(16)}\n";
+                cleanseOverview += $"{cleanseIndex.ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {cleanses.ToString(CultureInfo.InvariantCulture).PadCenter(16)}\n";
                 cleanseIndex++;
             }
 
@@ -281,15 +282,15 @@ namespace Services.DiscordMessagingServices
             // Strip overview
             var stripOverview = "```";
 
-            var top10Strips = gw2Players.OrderByDescending(s => s.Strips).Take(PlayersListed).ToList();
+            var topStrips = gw2Players.OrderByDescending(s => s.Strips).Take(playerCount).ToList();
             var stripIndex = 1;
-            foreach (var gw2Player in top10Strips)
+            foreach (var gw2Player in topStrips)
             {
                 var strips = gw2Player.Strips;
                 var name = gw2Player.CharacterName;
                 var prof = gw2Player.Profession;
 
-                stripOverview += $"{(stripIndex).ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {strips.ToString(CultureInfo.InvariantCulture).PadCenter(16)}\n";
+                stripOverview += $"{stripIndex.ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {strips.ToString(CultureInfo.InvariantCulture).PadCenter(16)}\n";
                 stripIndex++;
             }
 
@@ -298,16 +299,16 @@ namespace Services.DiscordMessagingServices
             // Stab overview
             var stabOverview = "```";
 
-            var top10Stabs = gw2Players.OrderByDescending(s => s.StabUpTime).Take(PlayersListed).ToList();
+            var topStabs = gw2Players.OrderByDescending(s => s.StabUpTime).Take(playerCount).ToList();
             var stabIndex = 1;
-            foreach (var gw2Player in top10Stabs)
+            foreach (var gw2Player in topStabs)
             {
                 var stab = gw2Player.StabUpTime;
                 var sub = gw2Player.SubGroup;
                 var name = gw2Player.CharacterName;
                 var prof = gw2Player.Profession;
 
-                stabOverview += $"{(stabIndex).ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {sub.ToString().PadCenter(3)}  {(stab * 100).FormatPercentage().ToString(CultureInfo.InvariantCulture).PadCenter(11)}\n";
+                stabOverview += $"{stabIndex.ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {sub.ToString().PadCenter(3)}  {(stab * 100).FormatPercentage().ToString(CultureInfo.InvariantCulture).PadCenter(11)}\n";
                 stabIndex++;
             }
 
@@ -315,19 +316,53 @@ namespace Services.DiscordMessagingServices
 
             var healingOverview = "```";
 
-            var top10Healing = gw2Players.OrderByDescending(s => s.Healing).Take(PlayersListed).ToList();
+            var topHealing = gw2Players.OrderByDescending(s => s.Healing).Take(playerCount).ToList();
             var healingIndex = 1;
-            foreach (var gw2Player in top10Healing)
+            foreach (var gw2Player in topHealing)
             {
                 var healing = gw2Player.Healing;
                 var name = gw2Player.CharacterName;
                 var prof = gw2Player.Profession;
 
-                healingOverview += $"{(healingIndex).ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {healing.ToString(CultureInfo.InvariantCulture).PadCenter(16)}\n";
+                healingOverview += $"{healingIndex.ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {healing.ToString(CultureInfo.InvariantCulture).PadCenter(16)}\n";
                 healingIndex++;
             }
 
             healingOverview += "```";
+
+            var distanceOverview = "```";
+            var timesDownedOverview = "```";
+
+            if (advancedLog)
+            {
+                var topDistance = gw2Players.OrderByDescending(s => s.DistanceFromTag).Take(playerCount).ToList();
+                var distanceIndex = 1;
+                foreach (var gw2Player in topDistance)
+                {
+                    var distance = gw2Player.DistanceFromTag;
+                    var name = gw2Player.CharacterName;
+                    var prof = gw2Player.Profession;
+
+                    distanceOverview += $"{distanceIndex.ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {distance.ToString(CultureInfo.InvariantCulture).PadCenter(16)}\n";
+                    distanceIndex++;
+                }
+                distanceOverview += "```";
+
+
+                var topTimesDowned = gw2Players.OrderByDescending(s => s.TimesDowned).Take(playerCount).ToList();
+                var timesDownedIndex = 1;
+                foreach (var gw2Player in topTimesDowned)
+                {
+                    var timesDowned = gw2Player.TimesDowned;
+                    var name = gw2Player.CharacterName;
+                    var prof = gw2Player.Profession;
+
+                    timesDownedOverview += $"{timesDownedIndex.ToString().PadLeft(2, '0')}  {(name?.ClipAt(NameClipLength) + EliteInsightExtensions.GetClassAppend(prof)).PadRight(NameSizeLength)}  {timesDowned.ToString(CultureInfo.InvariantCulture).PadCenter(16)}\n";
+                    timesDownedIndex++;
+                }
+
+                timesDownedOverview += "```";
+            }
 
             // Building the message via embeds
             var message = new EmbedBuilder
@@ -392,6 +427,23 @@ namespace Services.DiscordMessagingServices
                 x.Value = $"{healingOverview}";
                 x.IsInline = false;
             });
+
+            if (advancedLog)
+            {
+                message.AddField(x =>
+                {
+                    x.Name = "```  #            Name                Distance From Tag```";
+                    x.Value = $"{distanceOverview}";
+                    x.IsInline = false;
+                });
+
+                message.AddField(x =>
+                {
+                    x.Name = "```  #            Name                Times Downed     ```";
+                    x.Value = $"{timesDownedOverview}";
+                    x.IsInline = false;
+                });
+            }
 
             message.Footer = new EmbedFooterBuilder()
             {
@@ -462,7 +514,7 @@ namespace Services.DiscordMessagingServices
             var progressTitle = "";
             var progressOverview = "";
 
-            progressTitle = ($"Overall [{progress.FormatPercentage()}]").PadCenter(EmbedTitleCharacterLength);
+            progressTitle = $"Overall [{progress.FormatPercentage()}]".PadCenter(EmbedTitleCharacterLength);
 
             progressOverview = "```[";
 
@@ -482,7 +534,7 @@ namespace Services.DiscordMessagingServices
             {
                 var percentPhaseProgress = phaseProgress / 100.0f;
 
-                phaseProgressTitle = ($"{phaseName} [{phaseProgress.FormatPercentage()}]").PadCenter(EmbedTitleCharacterLength);
+                phaseProgressTitle = $"{phaseName} [{phaseProgress.FormatPercentage()}]".PadCenter(EmbedTitleCharacterLength);
 
                 phaseProgressOverview = "```[";
 
@@ -664,7 +716,7 @@ namespace Services.DiscordMessagingServices
             {
                 var validAccounts = accounts.Where(account => discordGuild.GetUser((ulong)account.DiscordId)?.Roles.Select(role => role.Id).Contains((ulong)gw2Guild.DiscordGuildMemberRoleId) ?? false).ToList();
 
-                for (var i = 0; i < (validAccounts.Count / 20) + 1; i++)
+                for (var i = 0; i < validAccounts.Count / 20 + 1; i++)
                 {
                     var accountOverview = "```";
                     var useLimit = false;
@@ -675,7 +727,14 @@ namespace Services.DiscordMessagingServices
                         limit = validAccounts.Count % 20;
                     }
 
-                    foreach (var account in validAccounts.OrderByDescending(o => o.Points).Take(new Range(20 * i, !useLimit ? (20 * i) + 20 : limit)))
+                    var playerBatch = validAccounts.OrderByDescending(o => o.Points).Take(new Range(20 * i, !useLimit ? 20 * i + 20 : limit)).ToList();
+
+                    if (!playerBatch.Any())
+                    {
+                        break;
+                    }
+
+                    foreach (var account in playerBatch)
                     {
                         var points = account.Points;
                         var name = account.Gw2AccountName;
@@ -744,6 +803,12 @@ namespace Services.DiscordMessagingServices
         {
             public string AccountName { get; set; }
 
+            public string CharacterName { get; set; }
+
+            public string Profession { get; set; }
+
+            public long SubGroup { get; set; }
+
             public long Damage { get; set; }
 
             public double Cleanses { get; set; }
@@ -754,11 +819,9 @@ namespace Services.DiscordMessagingServices
 
             public long Healing { get; set; }
 
-            public string CharacterName { get; set; }
+            public double DistanceFromTag { get; set; }
 
-            public string Profession { get; set; }
-
-            public long SubGroup { get; set; }
+            public double TimesDowned { get; set; }
         }
 
         private void SetPlayerPoints(EliteInsightDataModel eliteInsightDataModel)
@@ -795,26 +858,30 @@ namespace Services.DiscordMessagingServices
                     gw2Players.Add(new Gw2Player
                     {
                         AccountName = arcDpsPlayer.Acc,
+                        Profession = arcDpsPlayer.Profession,
+                        CharacterName = arcDpsPlayer.Name,
+                        SubGroup = arcDpsPlayer.Group,
                         Damage = fightPhase.DpsStatsTargets[playerIndex].Sum(s => s.FirstOrDefault()),
                         Cleanses = fightPhase.SupportStats[playerIndex].FirstOrDefault() + (fightPhase.SupportStats[playerIndex].Count >= PlayerCleansesIndex + 1 ? fightPhase.SupportStats[playerIndex][PlayerCleansesIndex] : 0),
                         Strips = fightPhase.SupportStats[playerIndex].FirstOrDefault() + (fightPhase.SupportStats[playerIndex].Count >= PlayerStripsIndex + 1 ? fightPhase.SupportStats[playerIndex][PlayerStripsIndex] : 0),
                         StabUpTime = fightPhase.BoonGenSquadStats[playerIndex].Data?.CheckIndexIsValid(BoonStabDimension1Index, BoonStabDimension2Index) ?? false ? fightPhase.BoonGenSquadStats[playerIndex].Data[BoonStabDimension1Index][BoonStabDimension2Index] : 0,
                         Healing = healingPhase.OutgoingHealingStatsTargets[playerIndex].Sum(s => s.FirstOrDefault()),
-                        Profession = arcDpsPlayer.Profession,
-                        CharacterName = arcDpsPlayer.Name,
-                        SubGroup = arcDpsPlayer.Group
+                        DistanceFromTag = fightPhase.GameplayStats[playerIndex][DistanceFromTagIndex],
+                        TimesDowned = fightPhase.DefStats[playerIndex][FriendlyDownIndex].Double ?? 0
                     });
                 }
                 else
                 {
+                    existingPlayer.Profession = arcDpsPlayer.Profession;
+                    existingPlayer.CharacterName = arcDpsPlayer.Name;
+                    existingPlayer.SubGroup = arcDpsPlayer.Group;
                     existingPlayer.Damage += fightPhase.DpsStatsTargets[playerIndex].Sum(s => s.FirstOrDefault());
                     existingPlayer.Cleanses += fightPhase.SupportStats[playerIndex].FirstOrDefault() + (fightPhase.SupportStats[playerIndex].Count >= PlayerCleansesIndex + 1 ? fightPhase.SupportStats[playerIndex][PlayerCleansesIndex] : 0);
                     existingPlayer.Strips += fightPhase.SupportStats[playerIndex].FirstOrDefault() + (fightPhase.SupportStats[playerIndex].Count >= PlayerStripsIndex + 1 ? fightPhase.SupportStats[playerIndex][PlayerStripsIndex] : 0);
                     existingPlayer.StabUpTime += fightPhase.BoonGenSquadStats[playerIndex].Data?.CheckIndexIsValid(BoonStabDimension1Index, BoonStabDimension2Index) ?? false ? fightPhase.BoonGenSquadStats[playerIndex].Data[BoonStabDimension1Index][BoonStabDimension2Index] : 0;
                     existingPlayer.Healing += healingPhase.OutgoingHealingStatsTargets[playerIndex].Sum(s => s.FirstOrDefault());
-                    existingPlayer.Profession = arcDpsPlayer.Profession;
-                    existingPlayer.CharacterName = arcDpsPlayer.Name;
-                    existingPlayer.SubGroup = arcDpsPlayer.Group;
+                    existingPlayer.DistanceFromTag = fightPhase.GameplayStats[playerIndex][DistanceFromTagIndex];
+                    existingPlayer.TimesDowned += fightPhase.DefStats[playerIndex][FriendlyDownIndex].Double ?? 0;
                 }
 
                 playerIndex++;
@@ -829,7 +896,7 @@ namespace Services.DiscordMessagingServices
                 {
                     var minutes = Convert.ToInt32(stringDuration.Substring(0, 2));
                     var seconds = Convert.ToInt32(stringDuration.Substring(4, 2));
-                    secondsOfFight = (minutes * 60) + seconds;
+                    secondsOfFight = minutes * 60 + seconds;
                 }
                 catch (Exception)
                 {
@@ -873,7 +940,7 @@ namespace Services.DiscordMessagingServices
                     totalPoints += stripPoints > stripsPointsCap ? stripsPointsCap : stripPoints;
 
                     var stabMultiplier = secondsOfFight < 30 ? 1 : secondsOfFight / 30;
-                    var stabPoint = (player.StabUpTime / 0.15) * stabMultiplier;
+                    var stabPoint = player.StabUpTime / 0.15 * stabMultiplier;
                     totalPoints += stabPoint > stabPointsCap ? stabPointsCap : stabPoint;
 
                     var healingPoints = player.Healing / 50000;

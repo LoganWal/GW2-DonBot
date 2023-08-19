@@ -300,7 +300,7 @@
         public string? Img { get; set; }
 
         [JsonProperty("type")]
-        public TypeEnum Type { get; set; }
+        public string Type { get; set; }
 
         [JsonProperty("id", NullValueHandling = NullValueHandling.Ignore)]
         public long? Id { get; set; }
@@ -329,14 +329,8 @@
         [JsonProperty("facingData", NullValueHandling = NullValueHandling.Ignore)]
         public List<double>? FacingData { get; set; }
 
-        [JsonProperty("connectedTo", NullValueHandling = NullValueHandling.Ignore)]
-        public long? ConnectedTo { get; set; }
-
         [JsonProperty("masterID", NullValueHandling = NullValueHandling.Ignore)]
         public long? MasterId { get; set; }
-
-        [JsonProperty("connectedFrom", NullValueHandling = NullValueHandling.Ignore)]
-        public long? ConnectedFrom { get; set; }
 
         [JsonProperty("fill", NullValueHandling = NullValueHandling.Ignore)]
         public bool? Fill { get; set; }
@@ -1092,8 +1086,6 @@
         public List<DmgDistribution>? DmgDistributions { get; set; }
     }
 
-    public enum TypeEnum { Facing, Friendly, Line, Player, Target, TargetPlayer, ActorOrientation };
-
     public partial struct Distribution
     {
         public bool? Bool;
@@ -1132,7 +1124,6 @@
             Converters =
             {
                 DistributionConverter.Singleton,
-                TypeEnumConverter.Singleton,
                 DefStatConverter.Singleton,
                 ToConverter.Singleton,
                 new IsoDateTimeConverter { DateTimeStyles = DateTimeStyles.AssumeUniversal }
@@ -1176,72 +1167,6 @@
         }
 
         public static readonly DistributionConverter Singleton = new DistributionConverter();
-    }
-
-    internal class TypeEnumConverter : JsonConverter
-    {
-        public override bool CanConvert(Type t) => t == typeof(TypeEnum) || t == typeof(TypeEnum?);
-
-        public override object ReadJson(JsonReader reader, Type t, object existingValue, JsonSerializer serializer)
-        {
-            if (reader.TokenType == JsonToken.Null) return null;
-            var value = serializer.Deserialize<string>(reader);
-            switch (value)
-            {
-                case "Facing":
-                    return TypeEnum.Facing;
-                case "Friendly":
-                    return TypeEnum.Friendly;
-                case "Line":
-                    return TypeEnum.Line;
-                case "Player":
-                    return TypeEnum.Player;
-                case "Target":
-                    return TypeEnum.Target;
-                case "TargetPlayer":
-                    return TypeEnum.TargetPlayer;
-                case "ActorOrientation":
-                    return TypeEnum.ActorOrientation;
-            }
-            throw new Exception("Cannot unmarshal type TypeEnum");
-        }
-
-        public override void WriteJson(JsonWriter writer, object untypedValue, JsonSerializer serializer)
-        {
-            if (untypedValue == null)
-            {
-                serializer.Serialize(writer, null);
-                return;
-            }
-            var value = (TypeEnum)untypedValue;
-            switch (value)
-            {
-                case TypeEnum.Facing:
-                    serializer.Serialize(writer, "Facing");
-                    return;
-                case TypeEnum.Friendly:
-                    serializer.Serialize(writer, "Friendly");
-                    return;
-                case TypeEnum.Line:
-                    serializer.Serialize(writer, "Line");
-                    return;
-                case TypeEnum.Player:
-                    serializer.Serialize(writer, "Player");
-                    return;
-                case TypeEnum.Target:
-                    serializer.Serialize(writer, "Target");
-                    return;
-                case TypeEnum.TargetPlayer:
-                    serializer.Serialize(writer, "TargetPlayer");
-                    return;
-                case TypeEnum.ActorOrientation:
-                    serializer.Serialize(writer, "ActorOrientation");
-                    return;
-            }
-            throw new Exception("Cannot marshal type TypeEnum");
-        }
-
-        public static readonly TypeEnumConverter Singleton = new TypeEnumConverter();
     }
 
     internal class DefStatConverter : JsonConverter

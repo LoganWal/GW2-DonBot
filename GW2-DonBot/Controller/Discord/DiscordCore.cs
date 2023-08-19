@@ -3,8 +3,8 @@ using Discord.Webhook;
 using Discord.WebSocket;
 using GW2DonBot.Models;
 using Microsoft.EntityFrameworkCore;
-using Models.GW2Api;
 using Models.Entities;
+using Models.GW2Api;
 using Newtonsoft.Json;
 using Services.CacheServices;
 using Services.DiscordMessagingServices;
@@ -239,7 +239,7 @@ namespace Controller.Discord
             var message = new EmbedBuilder
             {
                 Title = "Raffle!\n",
-                Description = $"Reopened last raffle, enter now!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!",
+                Description = $"Reopened last raffle, enter now!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /enter_raffle <points> to enter!",
                 Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
                 Author = new EmbedAuthorBuilder()
                 {
@@ -294,7 +294,7 @@ namespace Controller.Discord
 
             Guild? guild;
             Account? account = null;
-            Raffle? currentRaffle = null;
+            Raffle? currentRaffle;
             using (var context = new DatabaseContext().SetSecretService(_secretService))
             {
                 var guilds = await context.Guild.ToListAsync();
@@ -312,8 +312,8 @@ namespace Controller.Discord
                     var bids = await context.PlayerRaffleBid.ToListAsync();
                     var currentRaffleBids = bids.Where(bid => bid.RaffleId == currentRaffle.Id);
                     var totalBids = Convert.ToInt32(currentRaffleBids.Sum(bid => bid.PointsSpent)) + 1;
-                    Random random = new Random();
-                    int pickedBid = random.Next(1, totalBids);
+                    var random = new Random();
+                    var pickedBid = random.Next(1, totalBids);
 
                     var rollingTotal = 0m;
                     foreach (var currentRaffleBid in currentRaffleBids)
@@ -465,19 +465,16 @@ namespace Controller.Discord
                         else
                         {
                             await command.ModifyOriginalResponseAsync(message => message.Content = $"You do not have enough points for that, you currently have {account.AvailablePoints} points to spend.");
-                            return;
                         }
                     }
                     else
                     {
                         await command.ModifyOriginalResponseAsync(message => message.Content = "Could not find an account for you, have you verified?");
-                        return;
                     }
                 }
                 else
                 {
                     await command.ModifyOriginalResponseAsync(message => message.Content = "There are currently no raffles.");
-                    return;
                 }
             }
         }
@@ -531,7 +528,7 @@ namespace Controller.Discord
             var message = new EmbedBuilder
             {
                 Title = "Raffle!\n",
-                Description = $"{command.Data.Options.First().Value}{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!{Environment.NewLine}Use /enter_raffle <points> to enter!",
+                Description = $"{command.Data.Options.First().Value}{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /enter_raffle <points> to enter!",
                 Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
                 Author = new EmbedAuthorBuilder()
                 {
@@ -616,7 +613,7 @@ namespace Controller.Discord
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
             if (response.IsSuccessStatusCode)
             {
-                Console.WriteLine($"[DON] API call success");
+                Console.WriteLine("[DON] API call success");
 
                 var stringData = await response.Content.ReadAsStringAsync();
                 var accountData = JsonConvert.DeserializeObject<GW2AccountDataModel>(stringData) ?? new GW2AccountDataModel();
@@ -706,7 +703,7 @@ namespace Controller.Discord
             }
             else
             {
-                Console.WriteLine($"[DON] API call failed");
+                Console.WriteLine("[DON] API call failed");
 
                 await command.ModifyOriginalResponseAsync(message => message.Content = $"Looks like you screwed up a couple of letters in the api key, try again mate, failed to process with API key: `{apiKey}`");
             }
@@ -992,8 +989,6 @@ namespace Controller.Discord
 
             if (!string.IsNullOrEmpty(webhookUrl))
             {
-                var webhook = new DiscordWebhookClient(webhookUrl);
-
                 var urls = seenMessage.Embeds.SelectMany((x => x.Fields.SelectMany(y => y.Value.Split('(')))).Where(x => x.Contains(")")).ToList();
                 urls.AddRange(seenMessage.Embeds.Select(x => x.Url).Where(x => !string.IsNullOrEmpty(x)));
 
@@ -1002,12 +997,12 @@ namespace Controller.Discord
                 foreach (var url in trimmedUrls)
                 {
                     Console.WriteLine($"[DON] Assessing: {url}");
-                    AnalyseAndReportOnUrl(webhook, url, guildUser.Id, guildUser);
+                    AnalyseAndReportOnUrl(url, guildUser.Id, guildUser, webhookUrl);
                 }
             }
         }
 
-        private async Task AnalyseAndReportOnUrl(DiscordWebhookClient webhook, string url, ulong guildId, SocketGuild socketGuild)
+        private async Task AnalyseAndReportOnUrl(string url, ulong guildId, SocketGuild socketGuild, string webhookUrl)
         {
             var seenUrls = _cacheService.Get<List<string>>(CacheKey.SeenUrls) ?? new List<string>();
 
@@ -1024,32 +1019,49 @@ namespace Controller.Discord
             var dataModelGenerator = new DataModelGenerationService();
             var data = await dataModelGenerator.GenerateEliteInsightDataModelFromUrl(url);
 
+            if (data.Success == false)
+            {
+                return;
+            }
+
+            Guild? guild;
+            using (var context = new DatabaseContext().SetSecretService(_secretService))
+            {
+                var guilds = await context.Guild.ToListAsync();
+                guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildId);
+
+                if (guild == null)
+                {
+                    return;
+                }
+            }
+
             Console.WriteLine($"[DON] Generating fight summary: {url}");
-            var message = _messageGenerationService.GenerateFightSummary(data, guildId);
+
+            var webhook = new DiscordWebhookClient(webhookUrl);
+
+            Embed message;
+            if (data.Wvw)
+            {
+                var advancePlayerReportWebhook = new DiscordWebhookClient(guild.AdminAdvancePlayerReportWebhook);
+                var advancedMessage = _messageGenerationService.GenerateWvWFightSummary(data, true, false);
+
+                var playerReportWebhook = new DiscordWebhookClient(guild.AdminPlayerReportWebhook);
+                var playerMessage = _messageGenerationService.GenerateWvWPlayerSummary(socketGuild, guild);
+
+                await advancePlayerReportWebhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { advancedMessage });
+                await playerReportWebhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { playerMessage });
+
+                message = _messageGenerationService.GenerateWvWFightSummary(data, false, true);
+            }
+            else
+            {
+                message = _messageGenerationService.GeneratePvEFightSummary(data);
+            }
+
 
             await webhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { message });
             Console.WriteLine($"[DON] Completed and posted report on: {url}");
-
-            if (data.Wvw)
-            {
-                Guild? guild;
-                using (var context = new DatabaseContext().SetSecretService(_secretService))
-                {
-                    var guilds = await context.Guild.ToListAsync();
-                    guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildId);
-
-                    if (guild == null)
-                    {
-                        return;
-                    }
-                }
-
-                var adminPlayerReportWebhook = new DiscordWebhookClient(guild.AdminPlayerReportWebhook);
-
-                var playerMessage = _messageGenerationService.GenerateWvWPlayerSummary(socketGuild, guild);
-                await adminPlayerReportWebhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { playerMessage });
-                Console.WriteLine($"[DON] Completed and posted report on: {url}");
-            }
         }
     }
 }

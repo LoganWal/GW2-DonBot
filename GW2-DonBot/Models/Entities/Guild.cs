@@ -21,6 +21,10 @@ namespace Models.Entities
 
         public string? AdminAdvancePlayerReportWebhook { get; set; }
 
+        public string? StreamLogsWebhook { get; set; }
+
+        public long? PlayerReportChannelId { get; set; }
+
         public long? DebugWebhookChannelId { get; set; }
 
         public long? DebugPostChannelId { get; set; }
@@ -38,5 +42,9 @@ namespace Models.Entities
         public string? Gw2SecondaryMemberRoleIds { get; set; }
 
         public string? AnnouncementWebhook { get; set; }
+
+        public string? WvwPlayerActivityReportWebhook { get; set; }
+
+        public long? WvwPlayerActivityReportChannelId { get; set; }
     }
 }

@@ -321,7 +321,7 @@ namespace Controller.Discord
                         rollingTotal += currentRaffleBid.PointsSpent;
                         if (pickedBid < rollingTotal)
                         {
-                            var accounts = await context.Account.ToListAsync();
+                            var accounts = await context.Account.Where(acc => acc.Gw2ApiKey != null).ToListAsync();
                             account = accounts.FirstOrDefault(a => a.DiscordId == currentRaffleBid.DiscordId);
                             break;
                         }
@@ -430,7 +430,7 @@ namespace Controller.Discord
                 var currentRaffle = raffles.FirstOrDefault(raf => raf.IsActive && raf.GuildId == guild.GuildId);
                 if (currentRaffle != null)
                 {
-                    var accounts = await context.Account.ToListAsync();
+                    var accounts = await context.Account.Where(acc => acc.Gw2ApiKey != null).ToListAsync();
                     var account = accounts.FirstOrDefault(a => (ulong)a.DiscordId == command.User.Id);
                     if (account != null)
                     {
@@ -714,17 +714,19 @@ namespace Controller.Discord
             await command.DeferAsync(ephemeral: true);
 
             var accountFound = false;
+            var output = "";
 
             Guild? guild;
             using (var context = new DatabaseContext().SetSecretService(_secretService))
             {
-                var model = await context.Account.ToListAsync();
+                var model = await context.Account.Where(acc => acc.Gw2ApiKey != null).ToListAsync();
                 var account = model.FirstOrDefault(m => (ulong)m.DiscordId == command.User.Id);
 
                 if (account != null)
                 {
                     accountFound = true;
-                    context.Remove(account);
+                    account.Gw2ApiKey = null;
+                    context.Update(account);
                 }
 
                 await context.SaveChangesAsync();
@@ -732,16 +734,16 @@ namespace Controller.Discord
                 var guilds = await context.Guild.ToListAsync();
                 guild = guilds.FirstOrDefault(g => g.GuildId == (long)command.GuildId);
 
+                output += accountFound ?
+                    $"Deverify succeeded! Account data cleared for: `{command.User}`" :
+                    $"Deverify unnecessary! No account data found for: `{command.User}`";
+
                 if (guild == null)
                 {
+                    await command.ModifyOriginalResponseAsync(message => message.Content = output);
                     return;
                 }
             }
-
-            var output = "";
-            output += accountFound ?
-                      $"Deverify succeeded! Account data cleared for: `{command.User}`" :
-                      $"Deverify unnecessary! No account data found for: `{command.User}`";
 
             SocketGuildUser? guildUser;
             try
@@ -795,12 +797,11 @@ namespace Controller.Discord
         {
             await command.DeferAsync(ephemeral: true);
 
-            Guild? guild;
-            Account? account = null;
+            Account? account;
             int? rank = null;
             using (var context = new DatabaseContext().SetSecretService(_secretService))
             {
-                var model = await context.Account.ToListAsync();
+                var model = await context.Account.Where(acc => acc.Gw2ApiKey != null).ToListAsync();
                 account = model.FirstOrDefault(m => (ulong)m.DiscordId == command.User.Id);
                 if (account != null)
                 {
@@ -830,8 +831,49 @@ namespace Controller.Discord
         {
             using (var context = new DatabaseContext().SetSecretService(_secretService))
             {
-                var accounts = await context.Account.ToListAsync();
+                var accounts = await context.Account.Where(acc => acc.Gw2ApiKey != null).ToListAsync();
                 var guilds = await context.Guild.ToListAsync();
+                var guildWars2Data = new Dictionary<long, GW2AccountDataModel?>();
+
+                foreach (var account in accounts)
+                {
+                    Console.WriteLine($"=== FETCHING {account.Gw2AccountName.Trim()} ===");
+
+                    var httpClient = new HttpClient
+                    {
+                        Timeout = TimeSpan.FromSeconds(20)
+                    };
+
+                    try
+                    {
+                        var response = await httpClient.GetAsync($"https://api.guildwars2.com/v2/account/?access_token={account.Gw2ApiKey}");
+                        if (response.IsSuccessStatusCode)
+                        {
+                            var stringData = await response.Content.ReadAsStringAsync();
+                            var accountData = JsonConvert.DeserializeObject<GW2AccountDataModel>(stringData) ?? new GW2AccountDataModel();
+
+                            guildWars2Data.Add(account.DiscordId, accountData);
+
+                            account.FailedApiPullCount = 0;
+                            account.World = Convert.ToInt32(accountData.World);
+                        }
+                        else
+                        {
+                            account.FailedApiPullCount = account.FailedApiPullCount == null ? 1 : account.FailedApiPullCount + 1;
+                            guildWars2Data.Add(account.DiscordId, null);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        account.FailedApiPullCount = account.FailedApiPullCount == null ? 1 : account.FailedApiPullCount++;
+                        Console.WriteLine($"=== FAILED Handling {account.Gw2AccountName.Trim()} ===");
+                        Console.WriteLine(ex.Message);
+                    }
+
+                    context.Update(account);
+                }
+
+                await context.SaveChangesAsync();
 
                 foreach (var clientGuild in _client.Guilds)
                 {
@@ -855,77 +897,142 @@ namespace Controller.Discord
                     }
 
                     // Role removal (strips roles from everybody in the guild)
-                    foreach (var user in guildUsers)
+                    try
                     {
-                        var account = accounts.FirstOrDefault(f => f.DiscordId == (long)user.Id);
-                        if (account == null)
+                        var guildUserIds = guildUsers.Select(s => (long)s.Id);
+                        var nonServerAccounts = accounts.Where(s => !guildUserIds.Contains(s.DiscordId)).ToList();
+                        // TODO update db to have AccountGuild reference table and run this checking that table (i.e. don't add accounts that don't belong to that server
+                        foreach (var nonServerAccount in nonServerAccounts)
                         {
-                            continue;
+                            nonServerAccount.Gw2ApiKey = null;
+                            context.Update(nonServerAccount);
+
+                            await context.SaveChangesAsync();
                         }
 
-                        Console.WriteLine($"=== Handling {account.Gw2AccountName.Trim()} : {user.DisplayName.Trim()} ===");
-                        var apiKey = account.Gw2ApiKey;
-
-                        var httpClient = new HttpClient
+                        foreach (var user in guildUsers)
                         {
-                            Timeout = TimeSpan.FromSeconds(5)
-                        };
-
-                        HttpResponseMessage response;
-                        try
-                        {
-                            response = await httpClient.GetAsync($"https://api.guildwars2.com/v2/account/?access_token={apiKey}");
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"=== FAILED Handling {account.Gw2AccountName.Trim()} : {user.DisplayName.Trim()} ===");
-                            continue;
-                        }
-
-                        if (response.IsSuccessStatusCode)
-                        {
-                            var stringData = await response.Content.ReadAsStringAsync();
-                            var accountData = JsonConvert.DeserializeObject<GW2AccountDataModel>(stringData) ?? new GW2AccountDataModel();
-
+                            Console.WriteLine($"=== HANDLING {user.DisplayName} ===");
                             var primaryGuildId = guildConfiguration.Gw2GuildMemberRoleId;
                             var secondaryGuildIds = guildConfiguration.Gw2SecondaryMemberRoleIds.Split(',');
-
-                            var inPrimaryGuild = accountData.Guilds.Contains(primaryGuildId);
-                            var inSecondaryGuild = secondaryGuildIds.Any(guildId => accountData.Guilds.Contains(guildId));
-
                             var roles = user.Roles.Select(s => s.Id).ToList();
-                            if (roles.Contains((ulong)primaryRoleId) && !inPrimaryGuild)
+
+                            var account = accounts.FirstOrDefault(f => f.DiscordId == (long)user.Id);
+                            if (account == null)
                             {
-                                await user.RemoveRoleAsync((ulong)primaryRoleId);
-                                Console.WriteLine(" - Removing Primary Role");
-                            }
-                            else if (!roles.Contains((ulong)primaryRoleId) && inPrimaryGuild)
-                            {
-                                await user.AddRoleAsync((ulong)primaryRoleId);
-                                Console.WriteLine(" + Adding Primary Role");
+                                Console.WriteLine($"Failed to get {user.DisplayName} GW2 details, removing all roles.");
+
+                                if (roles.Contains((ulong)primaryRoleId))
+                                {
+                                    await user.RemoveRoleAsync((ulong)primaryRoleId);
+                                    Console.WriteLine(" - Removing Primary Role");
+                                }
+
+                                if (roles.Contains((ulong)secondaryRoleId))
+                                {
+                                    await user.RemoveRoleAsync((ulong)secondaryRoleId);
+                                    Console.WriteLine(" - Removing Secondary Role");
+                                }
+
+                                if (roles.Contains((ulong)verifiedRoleId))
+                                {
+                                    await user.RemoveRoleAsync((ulong)verifiedRoleId);
+                                    Console.WriteLine(" + Removing Verified Role");
+                                }
+
+                                continue;
                             }
 
-                            if (roles.Contains((ulong)secondaryRoleId) && !inSecondaryGuild)
+                            if (account.FailedApiPullCount >= 48)
                             {
-                                await user.RemoveRoleAsync((ulong)secondaryRoleId);
-                                Console.WriteLine(" - Removing Secondary Role");
-                            }
-                            else if (!roles.Contains((ulong)secondaryRoleId) && inSecondaryGuild)
-                            {
-                                await user.AddRoleAsync((ulong)secondaryRoleId);
-                                Console.WriteLine(" + Adding Secondary Role");
+                                account.Gw2ApiKey = null;
+                                context.Update(account);
+
+                                await context.SaveChangesAsync();
+
+                                var dmChannel = await user.CreateDMChannelAsync();
+                                await dmChannel.SendMessageAsync($"Heyo {user.DisplayName}, I failed to pull your GW2 data using your API key throughout the day and have removed your roles for the server {guild.Name}, to get back the roles just use /verify in any channel in {guild.Name}.");
+
+                                continue;
                             }
 
-                            if (!roles.Contains((ulong)verifiedRoleId))
+                            if (guildWars2Data.TryGetValue(account.DiscordId, out var accountData))
                             {
-                                await user.AddRoleAsync((ulong)verifiedRoleId);
-                                Console.WriteLine(" + Adding Verified Role");
+                                if (accountData == null)
+                                {
+                                    Console.WriteLine($"API KEY no longer valid for {user.DisplayName} GW2 details, removing all roles.");
+
+                                    if (roles.Contains((ulong)primaryRoleId))
+                                    {
+                                        await user.RemoveRoleAsync((ulong)primaryRoleId);
+                                        Console.WriteLine(" - Removing Primary Role");
+                                    }
+
+                                    if (roles.Contains((ulong)secondaryRoleId))
+                                    {
+                                        await user.RemoveRoleAsync((ulong)secondaryRoleId);
+                                        Console.WriteLine(" - Removing Secondary Role");
+                                    }
+
+                                    if (roles.Contains((ulong)verifiedRoleId))
+                                    {
+                                        await user.RemoveRoleAsync((ulong)verifiedRoleId);
+                                        Console.WriteLine(" + Removing Verified Role");
+                                    }
+
+                                    continue;
+                                }
+                                var inPrimaryGuild = accountData.Guilds.Contains(primaryGuildId);
+                                var inSecondaryGuild = secondaryGuildIds.Any(guildId => accountData.Guilds.Contains(guildId));
+
+                                if (roles.Contains((ulong)primaryRoleId) && !inPrimaryGuild)
+                                {
+                                    await user.RemoveRoleAsync((ulong)primaryRoleId);
+                                    Console.WriteLine(" - Removing Primary Role");
+                                }
+                                else if (!roles.Contains((ulong)primaryRoleId) && inPrimaryGuild)
+                                {
+                                    await user.AddRoleAsync((ulong)primaryRoleId);
+                                    Console.WriteLine(" + Adding Primary Role");
+                                }
+
+                                if (roles.Contains((ulong)secondaryRoleId) && !inSecondaryGuild)
+                                {
+                                    await user.RemoveRoleAsync((ulong)secondaryRoleId);
+                                    Console.WriteLine(" - Removing Secondary Role");
+                                }
+                                else if (!roles.Contains((ulong)secondaryRoleId) && inSecondaryGuild)
+                                {
+                                    await user.AddRoleAsync((ulong)secondaryRoleId);
+                                    Console.WriteLine(" + Adding Secondary Role");
+                                }
+
+                                if (!roles.Contains((ulong)verifiedRoleId))
+                                {
+                                    await user.AddRoleAsync((ulong)verifiedRoleId);
+                                    Console.WriteLine(" + Adding Verified Role");
+                                }
                             }
                         }
-                        else
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                    }
+
+                    try
+                    {
+                        if (guildConfiguration.WvwPlayerActivityReportWebhook != null && _client.GetChannel((ulong)guildConfiguration.WvwPlayerActivityReportChannelId) is SocketTextChannel playerChannel)
                         {
-                            Console.WriteLine($"=== FAILED Handling {account.Gw2AccountName.Trim()} : {user.DisplayName.Trim()} ===");
+                            var messages = await playerChannel.GetMessagesAsync(100).FlattenAsync();
+                            await playerChannel.DeleteMessagesAsync(messages);
+
+                            _messageGenerationService.GenerateWvWPlayerReport(guildConfiguration, clientGuild, guildConfiguration.WvwPlayerActivityReportWebhook);
                         }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
                     }
                 }
             }
@@ -938,7 +1045,6 @@ namespace Controller.Discord
 
         private async Task MessageReceivedAsync(SocketMessage seenMessage)
         {
-            var user = seenMessage.Author;
             SocketGuild? guildUser;
             try
             {
@@ -1044,15 +1150,20 @@ namespace Controller.Discord
             if (data.Wvw)
             {
                 var advancePlayerReportWebhook = new DiscordWebhookClient(guild.AdminAdvancePlayerReportWebhook);
-                var advancedMessage = _messageGenerationService.GenerateWvWFightSummary(data, true, false);
+                var advancedMessage = await _messageGenerationService.GenerateWvWFightSummary(data, true, false, guild);
 
                 var playerReportWebhook = new DiscordWebhookClient(guild.AdminPlayerReportWebhook);
-                var playerMessage = _messageGenerationService.GenerateWvWPlayerSummary(socketGuild, guild);
+                var playerMessage = await _messageGenerationService.GenerateWvWPlayerSummary(socketGuild, guild);
 
                 await advancePlayerReportWebhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { advancedMessage });
-                await playerReportWebhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { playerMessage });
 
-                message = _messageGenerationService.GenerateWvWFightSummary(data, false, true);
+                if (guild.PlayerReportChannelId != null && _client.GetChannel((ulong)guild.PlayerReportChannelId) is SocketTextChannel playerChannel)
+                {
+                    var messages = await playerChannel.GetMessagesAsync(10).FlattenAsync();
+                    await playerChannel.DeleteMessagesAsync(messages);
+                    await playerReportWebhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { playerMessage });
+                }
+                message = await _messageGenerationService.GenerateWvWFightSummary(data, false, true, guild);
             }
             else
             {

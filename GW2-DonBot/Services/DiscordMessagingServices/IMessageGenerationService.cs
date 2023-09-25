@@ -7,10 +7,12 @@ namespace Services.DiscordMessagingServices
 {
     public interface IMessageGenerationService
     {
-        public Embed GenerateWvWFightSummary(EliteInsightDataModel data, bool advancedLog, bool setPlayerPoints);
+        public Task<Embed> GenerateWvWFightSummary(EliteInsightDataModel data, bool advancedLog, bool setPlayerPoint, Guild guild);
+
+        public void GenerateWvWPlayerReport(Guild guild, SocketGuild discordGuild, string guildConfigurationWvwPlayerActivityReportWebhook);
 
         public Embed GeneratePvEFightSummary(EliteInsightDataModel data);
 
-        public Embed GenerateWvWPlayerSummary(SocketGuild discordGuild, Guild gw2Guild);
+        public Task<Embed> GenerateWvWPlayerSummary(SocketGuild discordGuild, Guild gw2Guild);
     }
 }

@@ -12,5 +12,7 @@ namespace Models.Entities
         public bool IsActive { get; set; }
 
         public long GuildId { get; set; }
+
+        public int RaffleType { get; set; }
     }
 }

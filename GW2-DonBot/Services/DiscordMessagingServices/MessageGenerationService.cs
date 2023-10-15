@@ -163,11 +163,11 @@ namespace Services.DiscordMessagingServices
             if (!advancedLog)
             {
                 var streamMessage =
-                    $@"```
-                Friends    Damage      DPS       Downs     Deaths  
-                {friendlyCountStr.Trim(),-3}        {friendlyDamageStr.Trim(),-7}     {friendlyDpsStr.Trim(),-6}    {friendlyDownsStr.Trim(),-3}       {friendlyDeathsStr.Trim(),-3}   
-                Enemies    Damage      DPS       Downs     Deaths  
-                {enemyCountStr.Trim(),-3}        {enemyDamageStr.Trim(),-7}     {enemyDpsStr.Trim(),-6}    {enemyDownsStr.Trim(),-3}       {enemyDeathsStr.Trim(),-3}```";
+$@"```
+Who     Count    Damage      DPS       Downs     Deaths  
+Friends {friendlyCountStr.Trim(),-3}      {friendlyDamageStr.Trim(),-7}     {friendlyDpsStr.Trim(),-6}    {friendlyDownsStr.Trim(),-3}       {friendlyDeathsStr.Trim(),-3}   
+Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsStr.Trim(),-6}    {enemyDownsStr.Trim(),-3}       {enemyDeathsStr.Trim(),-3}
+```";
 
                 var playerReportWebhook = new DiscordWebhookClient(guild.StreamLogsWebhook);
                 playerReportWebhook.SendMessageAsync(text: streamMessage, username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png");
@@ -542,9 +542,8 @@ namespace Services.DiscordMessagingServices
                         }
 
                         var lastLogDateTime = account.LastWvwLogDateTime.HasValue ? account.LastWvwLogDateTime.Value.AddHours(10).ToString("yyyy-MM-dd") : "Never";
-                        var failedApiPullCount = account.FailedApiPullCount ?? 0;
 
-                        accountOverview += $"{name.ClipAt(21).PadRight(21)} {server.ClipAt(7).PadRight(7)}   {lastLogDateTime.ClipAt(12).PadRight(12)}  {failedApiPullCount}\n";
+                        accountOverview += $"{name.ClipAt(34).PadRight(34)} {server.ClipAt(7).PadRight(7)}   {lastLogDateTime.ClipAt(12).PadRight(12)} \n";
                         position++;
                     }
 
@@ -552,7 +551,7 @@ namespace Services.DiscordMessagingServices
 
                     message.AddField(x =>
                     {
-                        x.Name = "``` Name                      Server     Last Log (AEST)  Failed Fetches ```\n";
+                        x.Name = "``` Name                                    Server     Last Log (AEST)   ```\n";
                         x.Value = $"{accountOverview}";
                         x.IsInline = false;
                     });

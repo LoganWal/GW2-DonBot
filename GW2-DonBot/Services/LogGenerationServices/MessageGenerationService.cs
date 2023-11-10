@@ -1,70 +1,49 @@
 ﻿using Discord;
+using Discord.Webhook;
 using Discord.WebSocket;
 using Extensions;
+using GW2DonBot.Models;
+using Microsoft.EntityFrameworkCore;
 using Models;
 using Models.Entities;
-using Services.SecretsServices;
-using System.Globalization;
-using GW2DonBot.Models;
-using Discord.Webhook;
-using System;
 using Models.GW2Api;
-using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 
-namespace Services.DiscordMessagingServices
+namespace Services.LogGenerationServices
 {
     public class MessageGenerationService: IMessageGenerationService
     {
-        private readonly ISecretService _secretService;
+        private readonly DatabaseContext _databaseContext;
 
-        public MessageGenerationService(ISecretService secretService)
+        public MessageGenerationService(IDatabaseContext databaseContext)
         {
-            _secretService = secretService;
+            _databaseContext = databaseContext.GetDatabaseContext();
         }
 
         private const int FriendlyDownIndex = 12;
-
         private const int FriendlyDeathIndex = 14;
-
         private const int EnemyDeathIndex = 12;
-
         private const int EnemyDownIndex = 13;
-
         private const int PlayerCleansesIndex = 2;
-
         private const int PlayerStripsIndex = 4;
-
         private const int BoonStabDimension1Index = 8;
-
         private const int BoonStabDimension2Index = 1;
-
         private const int DistanceFromTagIndex = 6;
-
         private const int InterruptsIndex = 7;
-
         private const int HealingDimension1Index = 0;
-
         private const int HealingDimension2Index = 0;
-
         private const int NameClipLength = 15;
-
         private const int NameSizeLength = 21;
-
         private const int PlayersListed = 5;
-
         private const int AdvancedPlayersListed = 10;
-
         private const int EmbedTitleCharacterLength = 52;
-
         private const int EmbedBarCharacterLength = 23;
 
         private struct SquadBoons
         {
             public bool Initialized;
-
             public int PlayerCount;
             public int SquadNumber;
-            
             public float MightStacks;
             public float FuryPercent;
             public float QuickPercent;
@@ -483,12 +462,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
         public async void GenerateWvWPlayerReport(Guild guild, SocketGuild discordGuild, string guildConfigurationWvwPlayerActivityReportWebhook)
         {
-            List<Account> accounts;
-            using (var context = new DatabaseContext().SetSecretService(_secretService))
-            {
-                accounts = await context.Account.Where(acc => acc.Gw2ApiKey != null).ToListAsync();
-            }
-
+            var accounts = await _databaseContext.Account.Where(acc => acc.Gw2ApiKey != null).ToListAsync();
             var position = 1;
             var accountsPerMessage = 15;
 
@@ -797,12 +771,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
         public async Task<Embed> GenerateWvWPlayerSummary(SocketGuild discordGuild, Guild gw2Guild)
         {
-            List<Account> accounts;
-            using (var context = new DatabaseContext().SetSecretService(_secretService))
-            {
-                accounts = await context.Account.Where(acc => acc.Gw2ApiKey != null).ToListAsync();
-            }
-
+            var accounts = await _databaseContext.Account.Where(acc => acc.Gw2ApiKey != null).ToListAsync();
             var position = 1;
 
             var message = new EmbedBuilder
@@ -879,12 +848,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                 return;
             }
 
-            List<Account> accounts;
-            using (var context = new DatabaseContext().SetSecretService(_secretService))
-            {
-                accounts = await context.Account.Where(acc => acc.Gw2ApiKey != null).ToListAsync();
-            }
-
+            var accounts = await _databaseContext.Account.Where(acc => acc.Gw2ApiKey != null).ToListAsync();
             if (!accounts.Any())
             {
                 return;
@@ -916,69 +880,66 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             }
 
             var currentDateTimeUtc = DateTime.UtcNow;
-            using (var context = new DatabaseContext().SetSecretService(_secretService))
+            var damagePointCap = 10;
+            var cleansePointCap = 5;
+            var stabPointsCap = 6;
+            var healingPointsCap = 4;
+            var stripsPointsCap = 3;
+            var barrierPointsCap = 3;
+
+            foreach (var account in accounts)
             {
-                var damagePointCap = 10;
-                var cleansePointCap = 5;
-                var stabPointsCap = 6;
-                var healingPointsCap = 4;
-                var stripsPointsCap = 3;
-                var barrierPointsCap = 3;
-
-                foreach (var account in accounts)
-                {
-                    account.PreviousPoints = account.Points;
-                }
-
-                context.UpdateRange(accounts);
-                context.SaveChanges();
-
-                foreach (var player in gw2Players)
-                {
-                    var account = accounts.FirstOrDefault(a => a.Gw2AccountName == player.AccountName);
-                    if (account == null)
-                    {
-                        continue;
-                    }
-
-                    var totalPoints = 0d;
-
-                    var damagePoints = player.Damage / 50000;
-                    totalPoints += damagePoints > damagePointCap ? damagePointCap : damagePoints;
-
-                    var cleansePoints = player.Cleanses / 100;
-                    totalPoints += cleansePoints > cleansePointCap ? cleansePointCap : cleansePoints;
-
-                    var stripPoints = player.Strips / 30;
-                    totalPoints += stripPoints > stripsPointsCap ? stripsPointsCap : stripPoints;
-
-                    var stabMultiplier = secondsOfFight < 30 ? 1 : secondsOfFight / 30;
-                    var stabPoint = player.StabUpTime / 0.15 * stabMultiplier;
-                    totalPoints += stabPoint > stabPointsCap ? stabPointsCap : stabPoint;
-
-                    var healingPoints = player.Healing / 50000;
-                    totalPoints += healingPoints > healingPointsCap ? healingPointsCap : healingPoints;
-
-                    var barrierPoints = player.Barrier / 40000;
-                    totalPoints += barrierPoints > barrierPointsCap ? barrierPointsCap : barrierPoints;
-
-                    if (totalPoints < 4)
-                    {
-                        totalPoints = 4;
-                    }
-                    else if (totalPoints > 12)
-                    {
-                        totalPoints = 12;
-                    }
-
-                    account.Points += Convert.ToDecimal(totalPoints);
-                    account.AvailablePoints += Convert.ToDecimal(totalPoints);
-                    account.LastWvwLogDateTime = currentDateTimeUtc;
-                    context.Update(account);
-                }
-
-                await context.SaveChangesAsync();
+                account.PreviousPoints = account.Points;
             }
+
+            _databaseContext.UpdateRange(accounts);
+            _databaseContext.SaveChanges();
+
+            foreach (var player in gw2Players)
+            {
+                var account = accounts.FirstOrDefault(a => a.Gw2AccountName == player.AccountName);
+                if (account == null)
+                {
+                    continue;
+                }
+
+                var totalPoints = 0d;
+
+                var damagePoints = player.Damage / 50000;
+                totalPoints += damagePoints > damagePointCap ? damagePointCap : damagePoints;
+
+                var cleansePoints = player.Cleanses / 100;
+                totalPoints += cleansePoints > cleansePointCap ? cleansePointCap : cleansePoints;
+
+                var stripPoints = player.Strips / 30;
+                totalPoints += stripPoints > stripsPointsCap ? stripsPointsCap : stripPoints;
+
+                var stabMultiplier = secondsOfFight < 30 ? 1 : secondsOfFight / 30;
+                var stabPoint = player.StabUpTime / 0.15 * stabMultiplier;
+                totalPoints += stabPoint > stabPointsCap ? stabPointsCap : stabPoint;
+
+                var healingPoints = player.Healing / 50000;
+                totalPoints += healingPoints > healingPointsCap ? healingPointsCap : healingPoints;
+
+                var barrierPoints = player.Barrier / 40000;
+                totalPoints += barrierPoints > barrierPointsCap ? barrierPointsCap : barrierPoints;
+
+                if (totalPoints < 4)
+                {
+                    totalPoints = 4;
+                }
+                else if (totalPoints > 12)
+                {
+                    totalPoints = 12;
+                }
+
+                account.Points += Convert.ToDecimal(totalPoints);
+                account.AvailablePoints += Convert.ToDecimal(totalPoints);
+                account.LastWvwLogDateTime = currentDateTimeUtc;
+                _databaseContext.Update(account);
+            }
+
+            await _databaseContext.SaveChangesAsync();
         }
 
         private static List<Gw2Player> GetGw2Players(EliteInsightDataModel data, ArcDpsPhase fightPhase, HealingPhase healingPhase, BarrierPhase barrierPhase)
@@ -1038,22 +999,17 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
         {
             var footerMessageVariants = new[]
             {
-                "Did you know SoX is a PvE PoE discordGuild?",
-                "I'm not supposed to be on the internet...",
-                "Just in: Squirrel is a murderer.",
                 "What do you like to tank on?",
                 "Alexa - make me a Discord bot.",
                 "Yes, we raid on EVERY Thursday.",
-                "I can promise the real Don cleanses.",
-                "I will turn you into horse glue.",
                 "You are doing great, Kaye! - Squirrel",
                 "You're right, Logan! - Squirrel",
-                "Get on the siege!",
                 "No one on the left cata!",
-                "Never give up! Trust your training!",
                 "Do your job!",
                 "They were ALL interrupted",
-                "Cave farm poppin' off"
+                "Cave farm poppin' off",
+                "I never lose gay chicken - Aten",
+                "It's almost down, 80%"
             };
 
             return index == -1 ?

@@ -3,23 +3,22 @@ using Services.SecretsServices;
 
 namespace Models.Entities
 {
-    public class DatabaseContext : DbContext
+    public class DatabaseContext : DbContext, IDatabaseContext
     {
-        private ISecretService _secretService;
+        private readonly ISecretService _secretService;
 
-        public DbSet<Account> Account { get; set; }
-
-        public DbSet<Guild> Guild { get; set; }
-
-        public DbSet<Raffle> Raffle { get; set; }
-
-        public DbSet<PlayerRaffleBid> PlayerRaffleBid { get; set; }
-
-        public string DatabasePath { get; }
-
-        public DatabaseContext SetSecretService(ISecretService secretService)
+        public DatabaseContext(ISecretService secretService)
         {
             _secretService = secretService;
+        }
+
+        public DbSet<Account> Account { get; set; } = null!;
+        public DbSet<Guild> Guild { get; set; } = null!;
+        public DbSet<Raffle> Raffle { get; set; } = null!;
+        public DbSet<PlayerRaffleBid> PlayerRaffleBid { get; set; } = null!;
+
+        DatabaseContext IDatabaseContext.GetDatabaseContext()
+        {
             return this;
         }
 

@@ -1,4 +1,4 @@
-﻿namespace GW2DonBot.Models
+﻿namespace Models.Enums
 {
     public enum RaffleTypeEnum
     {

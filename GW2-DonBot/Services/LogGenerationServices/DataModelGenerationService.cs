@@ -1,7 +1,7 @@
 ﻿using Models;
 using Newtonsoft.Json;
 
-namespace Services.DiscordMessagingServices
+namespace Services.LogGenerationServices
 {
     public class DataModelGenerationService : IDataModelGenerationService
     {

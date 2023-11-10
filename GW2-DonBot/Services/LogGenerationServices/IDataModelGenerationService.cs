@@ -1,6 +1,6 @@
 ﻿using Models;
 
-namespace Services.DiscordMessagingServices
+namespace Services.LogGenerationServices
 {
     public interface IDataModelGenerationService
     {

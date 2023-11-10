@@ -1,5 +1,4 @@
 ﻿using Newtonsoft.Json;
-using static Controller.Discord.DiscordCore;
 
 namespace Models.GW2Api
 {

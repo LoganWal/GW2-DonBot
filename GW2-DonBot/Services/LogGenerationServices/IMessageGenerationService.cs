@@ -3,7 +3,7 @@ using Discord.WebSocket;
 using Models;
 using Models.Entities;
 
-namespace Services.DiscordMessagingServices
+namespace Services.LogGenerationServices
 {
     public interface IMessageGenerationService
     {

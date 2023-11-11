@@ -8,6 +8,7 @@ using Services.CacheServices;
 using Services.DiscordRequestServices;
 using Services.LogGenerationServices;
 using Services.Logging;
+using Services.PlayerServices;
 using Services.SecretsServices;
 using ConnectionState = Discord.ConnectionState;
 
@@ -19,11 +20,12 @@ namespace Controller.Discord
         private readonly ILoggingService _loggingService;
         private readonly ICacheService _cacheService;
         private readonly IMessageGenerationService _messageGenerationService;
-        private readonly IGenericCommands _genericCommands;
-        private readonly IVerifyCommands _verifyCommands;
-        private readonly IPointsCommands _pointsCommands;
-        private readonly IRaffleCommands _raffleCommands;
-        private readonly IPollingTasks _pollingTasks;
+        private readonly IGenericCommandsService _genericCommandsService;
+        private readonly IVerifyCommandsService _verifyCommandsService;
+        private readonly IPointsCommandsService _pointsCommandsService;
+        private readonly IRaffleCommandsService _raffleCommandsService;
+        private readonly IPollingTasksService _pollingTasksService;
+        private readonly IPlayerService _playerService;
         private readonly IDataModelGenerationService _dataModelGenerator;
 
         private readonly DatabaseContext _databaseContext;
@@ -34,11 +36,12 @@ namespace Controller.Discord
             ILoggingService loggingService,
             ICacheService cacheService,
             IMessageGenerationService messageGenerationService,
-            IGenericCommands genericCommands,
-            IVerifyCommands verifyCommands,
-            IPointsCommands pointsCommands,
-            IRaffleCommands raffleCommands,
-            IPollingTasks pollingTasks,
+            IGenericCommandsService genericCommandsService,
+            IVerifyCommandsService verifyCommandsService,
+            IPointsCommandsService pointsCommandsService,
+            IRaffleCommandsService raffleCommandsService,
+            IPollingTasksService pollingTasksService,
+            IPlayerService playerService,
             IDatabaseContext databaseContext,
             IDataModelGenerationService dataModelGenerator)
         {
@@ -46,11 +49,12 @@ namespace Controller.Discord
             _loggingService = loggingService;
             _cacheService = cacheService;
             _messageGenerationService = messageGenerationService;
-            _genericCommands = genericCommands;
-            _verifyCommands = verifyCommands;
-            _pointsCommands = pointsCommands;
-            _raffleCommands = raffleCommands;
-            _pollingTasks = pollingTasks;
+            _genericCommandsService = genericCommandsService;
+            _verifyCommandsService = verifyCommandsService;
+            _pointsCommandsService = pointsCommandsService;
+            _raffleCommandsService = raffleCommandsService;
+            _pollingTasksService = pollingTasksService;
+            _playerService = playerService;
             _dataModelGenerator = dataModelGenerator;
             _databaseContext = databaseContext.GetDatabaseContext();
 
@@ -75,7 +79,7 @@ namespace Controller.Discord
             }
             Console.WriteLine("[DON] GW2-DonBot connected in");
 
-            await RegisterCommands(_client);
+            //await RegisterCommands(_client);
             _client.MessageReceived += MessageReceivedAsync;
             _client.Log += _loggingService.Log;
             _client.SlashCommandExecuted += SlashCommandExecutedAsync;
@@ -195,80 +199,80 @@ namespace Controller.Discord
         {
             switch (command.Data.Name)
             {
-                case        "help":                   await HelpCommandExecuted(command);                break;
-                case        "verify":                 await VerifyCommandExecuted(command);              break;
-                case        "deverify":               await DeverifyCommandExecuted(command);            break;
-                case        "points":                 await PointsCommandExecuted(command);              break;
-                case        "create_raffle":          await CreateRaffleCommandExecuted(command);        break;
-                case        "create_event_raffle":    await CreateEventRaffleCommandExecuted(command);   break;
-                case        "enter_raffle":           await RaffleCommandExecuted(command);              break;
-                case        "enter_event_raffle":     await EventRaffleCommandExecuted(command);         break;
-                case        "complete_raffle":        await CompleteRaffleCommandExecuted(command);      break;
-                case        "complete_event_raffle":  await CompleteEventRaffleCommandExecuted(command); break;
-                case        "reopen_raffle":          await ReopenRaffleCommandExecuted(command);        break;
-                case        "reopen_event_raffle":    await ReopenEventRaffleCommandExecuted(command);   break;
-                default:                              await DefaultCommandExecuted(command);             break;
+                case        "help":                     await HelpCommandExecuted(command);                  break;
+                case        "verify":                   await VerifyCommandExecuted(command);                break;
+                case        "deverify":                 await DeverifyCommandExecuted(command);              break;
+                case        "points":                   await PointsCommandExecuted(command);                break;
+                case        "create_raffle":            await CreateRaffleCommandExecuted(command);          break;
+                case        "create_event_raffle":      await CreateEventRaffleCommandExecuted(command);     break;
+                case        "enter_raffle":             await RaffleCommandExecuted(command);                break;
+                case        "enter_event_raffle":       await EventRaffleCommandExecuted(command);           break;
+                case        "complete_raffle":          await CompleteRaffleCommandExecuted(command);        break;
+                case        "complete_event_raffle":    await CompleteEventRaffleCommandExecuted(command);   break;
+                case        "reopen_raffle":            await ReopenRaffleCommandExecuted(command);          break;
+                case        "reopen_event_raffle":      await ReopenEventRaffleCommandExecuted(command);     break;
+                default:                                await DefaultCommandExecuted(command);               break;
             }
         }
 
         private async Task HelpCommandExecuted(SocketSlashCommand command)
         {
-            await _genericCommands.HelpCommandExecuted(command);
+            await _genericCommandsService.HelpCommandExecuted(command);
         }
 
         private async Task ReopenRaffleCommandExecuted(SocketSlashCommand command)
         {
-            await _raffleCommands.ReopenRaffleCommandExecuted(command, _client);
+            await _raffleCommandsService.ReopenRaffleCommandExecuted(command, _client);
         }
 
         private async Task ReopenEventRaffleCommandExecuted(SocketSlashCommand command)
         {
-            await _raffleCommands.ReopenEventRaffleCommandExecuted(command, _client);
+            await _raffleCommandsService.ReopenEventRaffleCommandExecuted(command, _client);
         }
 
         private async Task CompleteRaffleCommandExecuted(SocketSlashCommand command)
         {
-            await _raffleCommands.CompleteRaffleCommandExecuted(command, _client);
+            await _raffleCommandsService.CompleteRaffleCommandExecuted(command, _client);
         }
 
         private async Task CompleteEventRaffleCommandExecuted(SocketSlashCommand command)
         {
-            await _raffleCommands.CompleteEventRaffleCommandExecuted(command, _client);
+            await _raffleCommandsService.CompleteEventRaffleCommandExecuted(command, _client);
         }
 
         private async Task RaffleCommandExecuted(SocketSlashCommand command)
         {
-            await _raffleCommands.RaffleCommandExecuted(command, _client);
+            await _raffleCommandsService.RaffleCommandExecuted(command, _client);
         }
 
         private async Task EventRaffleCommandExecuted(SocketSlashCommand command)
         {
-            await _raffleCommands.EventRaffleCommandExecuted(command, _client);
+            await _raffleCommandsService.EventRaffleCommandExecuted(command, _client);
         }
 
         private async Task CreateRaffleCommandExecuted(SocketSlashCommand command)
         {
-            await _raffleCommands.CreateRaffleCommandExecuted(command, _client);
+            await _raffleCommandsService.CreateRaffleCommandExecuted(command, _client);
         }
 
         private async Task CreateEventRaffleCommandExecuted(SocketSlashCommand command)
         {
-            await _raffleCommands.CreateEventRaffleCommandExecuted(command, _client);
+            await _raffleCommandsService.CreateEventRaffleCommandExecuted(command, _client);
         }
 
         private async Task VerifyCommandExecuted(SocketSlashCommand command)
         {
-            await _verifyCommands.VerifyCommandExecuted(command, _client);
+            await _verifyCommandsService.VerifyCommandExecuted(command, _client);
         }
 
         private async Task DeverifyCommandExecuted(SocketSlashCommand command)
         {
-            await _verifyCommands.DeverifyCommandExecuted(command, _client);
+            await _verifyCommandsService.DeverifyCommandExecuted(command, _client);
         }
 
         private async Task PointsCommandExecuted(SocketSlashCommand command)
         {
-            await _pointsCommands.PointsCommandExecuted(command);
+            await _pointsCommandsService.PointsCommandExecuted(command);
         }
 
         private async Task DefaultCommandExecuted(SocketSlashCommand command)
@@ -287,7 +291,7 @@ namespace Controller.Discord
 
         private async Task PollingRoles()
         {
-            _pollingTasks.PollingRoles(_client);
+            _pollingTasksService.PollingRoles(_client);
         }
 
         private async Task MessageReceivedAsync(SocketMessage seenMessage)
@@ -325,7 +329,7 @@ namespace Controller.Discord
                 foreach (var url in trimmedUrls)
                 {
                     Console.WriteLine($"[DON] Assessing: {url}");
-                    AnalyseAndReportOnUrl(url, channel.Guild.Id, channel.Guild, webhookUrl);
+                    AnalyseAndReportOnUrl(url, channel.Guild.Id, webhookUrl);
                 }
             }
             catch (Exception e)
@@ -334,7 +338,7 @@ namespace Controller.Discord
             }
         }
 
-        private async Task AnalyseAndReportOnUrl(string url, ulong guildId, SocketGuild socketGuild, string webhookUrl)
+        private async Task AnalyseAndReportOnUrl(string url, ulong guildId, string webhookUrl)
         {
             var seenUrls = _cacheService.Get<List<string>>(CacheKey.SeenUrls) ?? new List<string>();
 
@@ -371,10 +375,10 @@ namespace Controller.Discord
             if (data.Wvw)
             {
                 var advancePlayerReportWebhook = new DiscordWebhookClient(guild.AdminAdvancePlayerReportWebhook);
-                var advancedMessage = await _messageGenerationService.GenerateWvWFightSummary(data, true, false, guild);
+                var advancedMessage = _messageGenerationService.GenerateWvWFightSummary(data, true, guild);
 
                 var playerReportWebhook = new DiscordWebhookClient(guild.AdminPlayerReportWebhook);
-                var playerMessage = await _messageGenerationService.GenerateWvWPlayerSummary(socketGuild, guild);
+                var playerMessage = await _messageGenerationService.GenerateWvWPlayerSummary(guild);
 
                 await advancePlayerReportWebhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { advancedMessage });
 
@@ -384,7 +388,9 @@ namespace Controller.Discord
                     await playerChannel.DeleteMessagesAsync(messages);
                     await playerReportWebhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { playerMessage });
                 }
-                message = await _messageGenerationService.GenerateWvWFightSummary(data, false, true, guild);
+                
+                message = _messageGenerationService.GenerateWvWFightSummary(data, false, guild);
+                await _playerService.SetPlayerPoints(data);
             }
             else
             {

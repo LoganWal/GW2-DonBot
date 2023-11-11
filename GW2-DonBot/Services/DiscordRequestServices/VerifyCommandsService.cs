@@ -7,11 +7,11 @@ using Newtonsoft.Json;
 
 namespace Services.DiscordRequestServices
 {
-    public class VerifyCommands : IVerifyCommands
+    public class VerifyCommandsService : IVerifyCommandsService
     {
         private readonly DatabaseContext _databaseContext;
 
-        public VerifyCommands(IDatabaseContext databaseContext)
+        public VerifyCommandsService(IDatabaseContext databaseContext)
         {
             _databaseContext = databaseContext.GetDatabaseContext();
         }

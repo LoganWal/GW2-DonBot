@@ -3,7 +3,7 @@ using System.Text;
 
 namespace Services.DiscordRequestServices
 {
-    public class GenericCommands : IGenericCommands
+    public class GenericCommandsService : IGenericCommandsService
     {
         public async Task HelpCommandExecuted(SocketSlashCommand command)
         {

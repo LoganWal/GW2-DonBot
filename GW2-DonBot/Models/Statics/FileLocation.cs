@@ -1,4 +1,4 @@
-﻿namespace GW2DonBot.Models.Statics
+﻿namespace Models.Statics
 {
     static class FileLocation
     {

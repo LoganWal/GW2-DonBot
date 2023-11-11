@@ -2,7 +2,7 @@ using Discord.WebSocket;
 
 namespace Services.DiscordRequestServices
 {
-    public interface IRaffleCommands
+    public interface IRaffleCommandsService
     {
         public Task CreateRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient);
         public Task CreateEventRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient);

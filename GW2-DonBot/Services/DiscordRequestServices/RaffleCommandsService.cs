@@ -1,20 +1,25 @@
 using Discord;
 using Discord.Webhook;
 using Discord.WebSocket;
+using Handlers.MessageGenerationHandlers;
 using Microsoft.EntityFrameworkCore;
 using Models.Entities;
 using Models.Enums;
-using Services.LogGenerationServices;
 
 namespace Services.DiscordRequestServices
 {
-    public class RaffleCommands : IRaffleCommands
+    public class RaffleCommandsService : IRaffleCommandsService
     {
         private readonly DatabaseContext _databaseContext;
-        public RaffleCommands(IDatabaseContext databaseContext)
+
+        private readonly FooterHandler _footerHandler;
+
+        public RaffleCommandsService(IDatabaseContext databaseContext, FooterHandler footerHandler)
         {
             _databaseContext = databaseContext.GetDatabaseContext();
+            _footerHandler = footerHandler;
         }
+
         public async Task CreateRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
         {
             await command.DeferAsync(ephemeral: true);
@@ -80,7 +85,7 @@ namespace Services.DiscordRequestServices
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{MessageGenerationService.GetJokeFooter()}",
+                    Text = $"{_footerHandler.Generate()}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 // Timestamp
@@ -172,7 +177,7 @@ namespace Services.DiscordRequestServices
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{MessageGenerationService.GetJokeFooter()}",
+                    Text = $"{_footerHandler.Generate()}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 // Timestamp
@@ -485,7 +490,7 @@ namespace Services.DiscordRequestServices
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{MessageGenerationService.GetJokeFooter()}",
+                    Text = $"{_footerHandler.Generate()}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 Timestamp = DateTime.Now
@@ -620,7 +625,7 @@ namespace Services.DiscordRequestServices
                     },
                     Footer = new EmbedFooterBuilder()
                     {
-                        Text = $"{MessageGenerationService.GetJokeFooter()}",
+                        Text = $"{_footerHandler.Generate()}",
                         IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                     },
                     Timestamp = DateTime.Now
@@ -721,7 +726,7 @@ namespace Services.DiscordRequestServices
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{MessageGenerationService.GetJokeFooter()}",
+                    Text = $"{_footerHandler.Generate()}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 // Timestamp
@@ -818,7 +823,7 @@ namespace Services.DiscordRequestServices
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{MessageGenerationService.GetJokeFooter()}",
+                    Text = $"{_footerHandler.Generate()}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 // Timestamp

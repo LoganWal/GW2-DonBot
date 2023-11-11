@@ -2,7 +2,7 @@ using Discord.WebSocket;
 
 namespace Services.DiscordRequestServices
 {
-    public interface IPointsCommands
+    public interface IPointsCommandsService
     {
         public Task PointsCommandExecuted(SocketSlashCommand command);
     }

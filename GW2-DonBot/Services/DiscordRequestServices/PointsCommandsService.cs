@@ -4,11 +4,11 @@ using Models.Entities;
 
 namespace Services.DiscordRequestServices
 {
-    public class PointsCommands : IPointsCommands
+    public class PointsCommandsService : IPointsCommandsService
     {
         private readonly DatabaseContext _databaseContext;
 
-        public PointsCommands(IDatabaseContext databaseContext)
+        public PointsCommandsService(IDatabaseContext databaseContext)
         {
             _databaseContext = databaseContext.GetDatabaseContext();
         }

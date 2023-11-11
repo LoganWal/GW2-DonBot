@@ -1,4 +1,5 @@
 using Discord;
+using Discord.Webhook;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
 using Models.Entities;
@@ -8,12 +9,12 @@ using Services.LogGenerationServices;
 
 namespace Services.DiscordRequestServices
 {
-    public class PollingTasks : IPollingTasks
+    public class PollingTasksService : IPollingTasksService
     {
         private readonly DatabaseContext _databaseContext;
         private readonly IMessageGenerationService _messageGenerationService;
 
-        public PollingTasks(IDatabaseContext databaseContext, IMessageGenerationService messageGenerationService)
+        public PollingTasksService(IDatabaseContext databaseContext, IMessageGenerationService messageGenerationService)
         {
             _databaseContext = databaseContext.GetDatabaseContext();
             _messageGenerationService = messageGenerationService;
@@ -174,8 +175,10 @@ namespace Services.DiscordRequestServices
                 {
                     var messages = await playerChannel.GetMessagesAsync(100).FlattenAsync();
                     await playerChannel.DeleteMessagesAsync(messages);
-
-                    _messageGenerationService.GenerateWvWPlayerReport(guildConfiguration, clientGuild, guildConfiguration.WvwPlayerActivityReportWebhook);
+                    var playerReportMessage = await _messageGenerationService.GenerateWvWPlayerReport();
+                    
+                    var playerReport = new DiscordWebhookClient(guildConfiguration.WvwPlayerActivityReportWebhook);
+                    await playerReport.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { playerReportMessage });
                 }
             }
             catch (Exception ex)

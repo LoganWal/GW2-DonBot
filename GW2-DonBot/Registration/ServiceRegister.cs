@@ -20,6 +20,7 @@ namespace Registration
         private static IContainer RegisterServices()
         {
             var builder = new ContainerBuilder();
+
             // handlers
             builder.RegisterType<FooterHandler>();
             builder.RegisterType<PvEFightSummaryHandler>();

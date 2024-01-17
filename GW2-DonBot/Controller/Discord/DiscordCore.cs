@@ -291,24 +291,24 @@ namespace Controller.Discord
 
         private async Task PollingRoles()
         {
-            _pollingTasksService.PollingRoles(_client);
+            await _pollingTasksService.PollingRoles(_client);
         }
 
-        private async Task MessageReceivedAsync(SocketMessage seenMessage)
+        private Task MessageReceivedAsync(SocketMessage seenMessage)
         {
             try
             {
-                if (!(seenMessage.Channel is SocketGuildChannel channel))
+                if (seenMessage.Channel is not SocketGuildChannel channel)
                 {
                     Console.WriteLine($"Did not find user {seenMessage.Author.Username} in guild");
-                    return;
+                    return Task.CompletedTask;
                 }
 
-                var guild = await _databaseContext.Guild.FirstOrDefaultAsync(g => g.GuildId == (long)channel.Guild.Id);
+                var guild = _databaseContext.Guild.FirstOrDefaultAsync(g => g.GuildId == (long)channel.Guild.Id).Result;
                 if (guild == null || !guild.DebugWebhookChannelId.HasValue || !guild.WebhookChannelId.HasValue)
                 {
                     Console.WriteLine($"Unable to find guild {channel.Guild.Id} or empty value for guild.DebugWebhookChannelId '{guild?.DebugWebhookChannelId}' or guild.WebhookChannelId '{guild?.WebhookChannelId}'");
-                    return;
+                    return Task.CompletedTask;
                 }
 
                 // Ignore messages outside webhook, in upload channel, or from Don
@@ -316,7 +316,7 @@ namespace Controller.Discord
                     (seenMessage.Channel.Id != (ulong)guild.DebugWebhookChannelId && seenMessage.Channel.Id != (ulong)guild.WebhookChannelId) || 
                     seenMessage.Author.Username.Contains("GW2-DonBot", StringComparison.OrdinalIgnoreCase)) 
                 {
-                    return;
+                    return Task.CompletedTask;
                 }
 
                 var webhookUrl = seenMessage.Channel.Id == (ulong)guild.DebugWebhookChannelId ? guild.DebugWebhook : guild.Webhook;
@@ -336,6 +336,8 @@ namespace Controller.Discord
             {
                 Console.WriteLine($"Unable to parse user as socket guild user. Did not find user {seenMessage.Author.Username} in guild. Error: {e.Message}");
             }
+
+            return Task.CompletedTask;
         }
 
         private async Task AnalyseAndReportOnUrl(string url, ulong guildId, string webhookUrl)

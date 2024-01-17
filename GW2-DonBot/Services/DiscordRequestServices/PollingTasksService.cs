@@ -48,7 +48,7 @@ namespace Services.DiscordRequestServices
                     return;
                 }
 
-                await RemoveRolesFromNonServerAccounts(clientGuild, accounts);
+                //await RemoveRolesFromNonServerAccounts(clientGuild, accounts);
 
                 await HandleGuildUsers(clientGuild, guildConfiguration, guildWars2Data);
 
@@ -114,6 +114,9 @@ namespace Services.DiscordRequestServices
             var secondaryRoleId = guildConfiguration.DiscordSecondaryMemberRoleId;
             var verifiedRoleId = guildConfiguration.DiscordVerifiedRoleId;
 
+            var guildId = guildConfiguration.Gw2GuildMemberRoleId;
+            var secondaryGuildIds = guildConfiguration.Gw2SecondaryMemberRoleIds?.Split(',').ToList() ?? new List<string>();
+
             if (primaryRoleId == null || secondaryRoleId == null || verifiedRoleId == null)
             {
                 return;
@@ -151,7 +154,7 @@ namespace Services.DiscordRequestServices
 
                 if (guildWars2Data.TryGetValue(account.DiscordId, out var accountData))
                 {
-                    await HandleUserRoles(user, accountData, primaryRoleId.Value, secondaryRoleId.Value, verifiedRoleId.Value);
+                    await HandleUserRoles(user, accountData, primaryRoleId.Value, secondaryRoleId.Value, verifiedRoleId.Value, guildId, secondaryGuildIds);
 
                     continue;
                 }
@@ -210,27 +213,23 @@ namespace Services.DiscordRequestServices
             }
         }
 
-        private async Task HandleUserRoles(SocketGuildUser user, GW2AccountDataModel? accountData, long primaryRoleId, long secondaryRoleId, long verifiedRoleId)
+        private async Task HandleUserRoles(SocketGuildUser user, GW2AccountDataModel? accountData, long primaryRoleId, long secondaryRoleId, long verifiedRoleId, string? guildId, List<string> secondaryGuildIds)
         {
-            var primaryGuildId = accountData?.Guilds.FirstOrDefault();
-            var secondaryGuildIds = accountData?.Guilds.Skip(1).ToList() ?? new List<string>();
+            var inPrimary = accountData?.Guilds.Contains(guildId) ?? false;
+            var inSecondary = secondaryGuildIds.Any(guild => accountData?.Guilds.Contains(guild) ?? false);
+
             var roles = user.Roles.Select(s => s.Id).ToList();
 
-            if (primaryGuildId != null)
-            {
-                await HandlePrimaryGuildRole(user, primaryGuildId, primaryRoleId, roles);
-            }
+            await HandlePrimaryGuildRole(user, inPrimary, primaryRoleId, roles);
 
-            await HandleSecondaryGuildRoles(user, secondaryGuildIds, secondaryRoleId, roles);
+            await HandleSecondaryGuildRoles(user, inSecondary, secondaryRoleId, roles);
 
             await HandleVerifiedRole(user, verifiedRoleId, roles);
         }
 
         
-        private async Task HandlePrimaryGuildRole(SocketGuildUser user, string primaryGuildId, long primaryRoleId, List<ulong> roles)
+        private async Task HandlePrimaryGuildRole(SocketGuildUser user, bool inPrimaryGuild, long primaryRoleId, List<ulong> roles)
         {
-            var inPrimaryGuild = primaryGuildId == primaryRoleId.ToString();
-
             if (roles.Contains((ulong)primaryRoleId) && !inPrimaryGuild)
             {
                 await user.RemoveRoleAsync((ulong)primaryRoleId);
@@ -243,22 +242,17 @@ namespace Services.DiscordRequestServices
             }
         }
 
-        private async Task HandleSecondaryGuildRoles(SocketGuildUser user, List<string> secondaryGuildIds, long secondaryRoleId, List<ulong> roles)
+        private async Task HandleSecondaryGuildRoles(SocketGuildUser user, bool inSecondaryGuild, long secondaryRoleId, List<ulong> roles)
         {
-            foreach (var secondaryGuildId in secondaryGuildIds)
+            if (roles.Contains((ulong)secondaryRoleId) && !inSecondaryGuild)
             {
-                var inSecondaryGuild = secondaryGuildId == secondaryRoleId.ToString();
-
-                if (roles.Contains((ulong)secondaryRoleId) && !inSecondaryGuild)
-                {
-                    await user.RemoveRoleAsync((ulong)secondaryRoleId);
-                    Console.WriteLine(" - Removing Secondary Role");
-                }
-                else if (!roles.Contains((ulong)secondaryRoleId) && inSecondaryGuild)
-                {
-                    await user.AddRoleAsync((ulong)secondaryRoleId);
-                    Console.WriteLine(" + Adding Secondary Role");
-                }
+                await user.RemoveRoleAsync((ulong)secondaryRoleId);
+                Console.WriteLine(" - Removing Secondary Role");
+            }
+            else if (!roles.Contains((ulong)secondaryRoleId) && inSecondaryGuild)
+            {
+                await user.AddRoleAsync((ulong)secondaryRoleId);
+                Console.WriteLine(" + Adding Secondary Role");
             }
         }
 

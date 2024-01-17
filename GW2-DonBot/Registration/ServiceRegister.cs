@@ -3,9 +3,11 @@ using Controller.Discord;
 using Handlers.MessageGenerationHandlers;
 using Models.Entities;
 using Services.CacheServices;
+using Services.DiscordApiServices;
 using Services.DiscordRequestServices;
 using Services.LogGenerationServices;
 using Services.Logging;
+using Services.PlayerServices;
 using Services.SecretsServices;
 
 namespace Registration
@@ -39,8 +41,11 @@ namespace Registration
             builder.RegisterType<VerifyCommandsService>().As<IVerifyCommandsService>();
             builder.RegisterType<PointsCommandsService>().As<IPointsCommandsService>();
             builder.RegisterType<RaffleCommandsService>().As<IRaffleCommandsService>();
+            builder.RegisterType<PlayerService>().As<IPlayerService>();
+
             builder.RegisterType<PollingTasksService>().As<IPollingTasksService>();
-            
+            builder.RegisterType<DiscordApiService>().As<IDiscordApiService>();
+
             // db
             builder.RegisterType<DatabaseContext>().As<IDatabaseContext>();
 

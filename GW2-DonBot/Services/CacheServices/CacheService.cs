@@ -2,7 +2,7 @@
 
 namespace Services.CacheServices
 {
-    internal class CacheService : ICacheService
+    class CacheService : ICacheService
     {
         private readonly MemoryCache cache = MemoryCache.Default;
 

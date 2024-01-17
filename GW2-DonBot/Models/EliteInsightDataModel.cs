@@ -1115,7 +1115,7 @@
         public static implicit operator To(string String) => new To { String = String };
     }
 
-    internal static class Converter
+    static class Converter
     {
         public static readonly JsonSerializerSettings Settings = new JsonSerializerSettings
         {
@@ -1131,7 +1131,7 @@
         };
     }
 
-    internal class DistributionConverter : JsonConverter
+    class DistributionConverter : JsonConverter
     {
         public override bool CanConvert(Type t) => t == typeof(Distribution) || t == typeof(Distribution?);
 
@@ -1169,7 +1169,7 @@
         public static readonly DistributionConverter Singleton = new DistributionConverter();
     }
 
-    internal class DefStatConverter : JsonConverter
+    class DefStatConverter : JsonConverter
     {
         public override bool CanConvert(Type t) => t == typeof(DefStat) || t == typeof(DefStat?);
 
@@ -1208,7 +1208,7 @@
         public static readonly DefStatConverter Singleton = new DefStatConverter();
     }
 
-    internal class ToConverter : JsonConverter
+    class ToConverter : JsonConverter
     {
         public override bool CanConvert(Type t) => t == typeof(To) || t == typeof(To?);
 

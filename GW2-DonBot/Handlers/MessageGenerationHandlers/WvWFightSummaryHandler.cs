@@ -82,7 +82,7 @@ namespace Handlers.MessageGenerationHandlers
             var enemyDownsStr = enemyDowns.ToString().PadCenter(7);
             var enemyDeathsStr = enemyDeaths.ToString().PadCenter(7);
 
-            if (!advancedLog)
+            if (!advancedLog && !string.IsNullOrEmpty(guild.StreamLogsWebhook))
             {
                 var streamMessage =
 $@"```

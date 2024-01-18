@@ -65,7 +65,6 @@ namespace Services.Logging
                 existingPlayer.Cleanses += supportStats?.Count >= ArcDpsDataIndices.PlayerCleansesIndex + 1 ? supportStats[ArcDpsDataIndices.PlayerCleansesIndex] : 0;
                 existingPlayer.Strips = supportStats?.Count >= ArcDpsDataIndices.PlayerStripsIndex + 1 ? supportStats[ArcDpsDataIndices.PlayerStripsIndex] : 0;
                 existingPlayer.StabUpTime = boonGenSquadStats?.Data?.CheckIndexIsValid(ArcDpsDataIndices.BoonStabDimension1Index, ArcDpsDataIndices.BoonStabDimension2Index) ?? false ? boonGenSquadStats.Data[ArcDpsDataIndices.BoonStabDimension1Index][ArcDpsDataIndices.BoonStabDimension2Index] : 0;
-                existingPlayer.StabUpTime *= fightPhase.Duration / 1000 / 60;
                 existingPlayer.Healing = healingStatsTargets?.Sum(s => s.FirstOrDefault()) ?? 0;
                 existingPlayer.Barrier = barrierStats?.FirstOrDefault() ?? 0;
                 existingPlayer.DistanceFromTag = gameplayStats?[ArcDpsDataIndices.DistanceFromTagIndex] ?? 0;

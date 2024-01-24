@@ -107,7 +107,7 @@ namespace Services.Logging
             }
 
             _databaseContext.UpdateRange(accounts);
-            _databaseContext.SaveChanges();
+            await _databaseContext.SaveChangesAsync();
 
             foreach (var player in gw2Players)
             {
@@ -119,12 +119,12 @@ namespace Services.Logging
 
                 var totalPoints = 0d;
 
-                totalPoints += Math.Min(player.Damage / 50000, 10);
-                totalPoints += Math.Min(player.Cleanses / 100, 5);
-                totalPoints += Math.Min(player.Strips / 30, 3);
-                totalPoints += Math.Min(player.StabUpTime / 0.15 * (secondsOfFight < 30 ? 1 : secondsOfFight / 30), 6);
-                totalPoints += Math.Min(player.Healing / 50000, 4);
-                totalPoints += Math.Min(player.Barrier / 40000, 3);
+                totalPoints += Math.Min(Convert.ToDouble(player.Damage)  / 50000d, 10);
+                totalPoints += Math.Min(Convert.ToDouble(player.Cleanses) / 100d, 5);
+                totalPoints += Math.Min(Convert.ToDouble(player.Strips) / 30d, 3);
+                totalPoints += Math.Min(Convert.ToDouble(player.StabUpTime) / 0.15d * (secondsOfFight < 30d ? 1d : secondsOfFight / 30d), 6);
+                totalPoints += Math.Min(Convert.ToDouble(player.Healing) / 50000d, 4);
+                totalPoints += Math.Min(Convert.ToDouble(player.Barrier) / 40000d, 3);
 
                 totalPoints = Math.Max(4, Math.Min(12, totalPoints));
 

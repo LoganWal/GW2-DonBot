@@ -383,18 +383,18 @@ namespace Controller.Discord
                     await advancePlayerReportWebhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { advancedMessage });
                 }
 
-                if (guild.PlayerReportChannelId != null && _client.GetChannel((ulong)guild.PlayerReportChannelId) is SocketTextChannel playerChannel)
-                {
-                    var playerReportWebhook = new DiscordWebhookClient(guild.AdminPlayerReportWebhook);
-                    var playerMessage = await _messageGenerationService.GenerateWvWPlayerSummary(guild);
-
-                    var messages = await playerChannel.GetMessagesAsync(10).FlattenAsync();
-                    await playerChannel.DeleteMessagesAsync(messages);
-                    await playerReportWebhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { playerMessage });
-                }
-                
                 message = _messageGenerationService.GenerateWvWFightSummary(data, false, guild);
                 await _playerService.SetPlayerPoints(data);
+
+                if (guild.PlayerReportChannelId != null && _client.GetChannel((ulong)guild.PlayerReportChannelId) is SocketTextChannel playerChannel)
+                {
+                    var messages = await playerChannel.GetMessagesAsync(10).FlattenAsync();
+                    await playerChannel.DeleteMessagesAsync(messages);
+
+                    var playerReportWebhook = new DiscordWebhookClient(guild.AdminPlayerReportWebhook);
+                    var playerMessage = await _messageGenerationService.GenerateWvWPlayerSummary(guild);
+                    await playerReportWebhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { playerMessage });
+                }
             }
             else
             {

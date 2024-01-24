@@ -73,15 +73,14 @@ namespace Services.DiscordRequestServices
 
                     account.FailedApiPullCount = 0;
                     account.World = Convert.ToInt32(accountData.World);
+                    account.Guilds = string.Join(",", accountData.Guilds);
 
                     return accountData;
                 }
-                else
-                {
-                    account.FailedApiPullCount = account.FailedApiPullCount == null ? 1 : account.FailedApiPullCount + 1;
 
-                    return null;
-                }
+                account.FailedApiPullCount = account.FailedApiPullCount == null ? 1 : account.FailedApiPullCount + 1;
+
+                return null;
             }
             catch (Exception ex)
             {

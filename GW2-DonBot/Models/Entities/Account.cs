@@ -11,7 +11,7 @@ namespace Models.Entities
 
         public string Gw2AccountName { get; set; }
 
-        public string? Gw2ApiKey { get; set; }
+        public string Gw2ApiKey { get; set; }
 
         public decimal Points { get; set; }
 
@@ -24,5 +24,7 @@ namespace Models.Entities
         public int? World { get; set; }
 
         public int? FailedApiPullCount { get; set; }
+
+        public string Guilds { get; set; }
     }
 }

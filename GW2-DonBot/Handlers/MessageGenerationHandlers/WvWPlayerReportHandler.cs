@@ -20,7 +20,10 @@ namespace Handlers.MessageGenerationHandlers
 
         public async Task<Embed> Generate()
         {
-            var accounts = await _databaseContext.Account.Where(acc => acc.Gw2ApiKey != null).ToListAsync();
+            // TODO: UPDATE THIS TO BE PER GUILD
+            var guild = _databaseContext.Guild.First(guild => guild.GuildId == 415441457151737870);
+            var accounts = await _databaseContext.Account.ToListAsync();
+            accounts = accounts.Where(acc => acc.Guilds.Split(",", StringSplitOptions.TrimEntries).Contains(guild.Gw2GuildMemberRoleId)).ToList();
             var position = 1;
             var accountsPerMessage = 15;
 

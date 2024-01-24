@@ -79,7 +79,7 @@ namespace Controller.Discord
             }
             Console.WriteLine("[DON] GW2-DonBot connected in");
 
-            //await RegisterCommands(_client);
+            await RegisterCommands(_client);
             _client.MessageReceived += MessageReceivedAsync;
             _client.Log += _loggingService.Log;
             _client.SlashCommandExecuted += SlashCommandExecutedAsync;

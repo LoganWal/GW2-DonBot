@@ -45,7 +45,7 @@ namespace Services.DiscordRequestServices
 
                 if (guildConfiguration == null)
                 {
-                    return;
+                    continue;
                 }
 
                 //await RemoveRolesFromNonServerAccounts(clientGuild, accounts);

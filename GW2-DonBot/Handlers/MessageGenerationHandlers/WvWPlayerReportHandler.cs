@@ -23,7 +23,7 @@ namespace Handlers.MessageGenerationHandlers
             // TODO: UPDATE THIS TO BE PER GUILD
             var guild = _databaseContext.Guild.First(guild => guild.GuildId == 415441457151737870);
             var accounts = await _databaseContext.Account.ToListAsync();
-            accounts = accounts.Where(acc => acc.Guilds.Split(",", StringSplitOptions.TrimEntries).Contains(guild.Gw2GuildMemberRoleId)).ToList();
+            accounts = accounts.Where(acc => acc.Guilds?.Split(",", StringSplitOptions.TrimEntries).Contains(guild.Gw2GuildMemberRoleId) ?? false).ToList();
             var position = 1;
             var accountsPerMessage = 15;
 
@@ -49,7 +49,6 @@ namespace Handlers.MessageGenerationHandlers
             for (var i = 0; i < accounts.Count / accountsPerMessage + 1; i++)
             {
                 var accountOverview = "```";
-                message = new EmbedBuilder();
                 var useLimit = false;
                 var limit = 0;
 

@@ -125,7 +125,7 @@ namespace Services.DiscordRequestServices
             {
                 Console.WriteLine($"=== HANDLING {user.DisplayName} ===");
 
-                var account = _databaseContext.Account.FirstOrDefault(f => f.DiscordId == (long)user.Id);
+                var account = _databaseContext.Account.FirstOrDefault(f => f.DiscordId == (long)user.Id && !string.IsNullOrEmpty(f.Gw2ApiKey));
 
                 if (account == null)
                 {

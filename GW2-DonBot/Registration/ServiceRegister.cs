@@ -47,7 +47,7 @@ namespace Registration
             builder.RegisterType<DiscordApiService>().As<IDiscordApiService>();
 
             // db
-            builder.RegisterType<DatabaseContext>().As<IDatabaseContext>();
+            builder.RegisterType<DatabaseContext>().AsSelf().InstancePerLifetimeScope();
 
             return builder.Build();
         }

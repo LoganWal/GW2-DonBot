@@ -3,7 +3,7 @@ using Services.SecretsServices;
 
 namespace Models.Entities
 {
-    public class DatabaseContext : DbContext, IDatabaseContext
+    public class DatabaseContext : DbContext
     {
         private readonly ISecretService _secretService;
 
@@ -17,11 +17,6 @@ namespace Models.Entities
         public DbSet<Raffle> Raffle { get; set; } = null!;
         public DbSet<PlayerRaffleBid> PlayerRaffleBid { get; set; } = null!;
 
-        DatabaseContext IDatabaseContext.GetDatabaseContext()
-        {
-            return this;
-        }
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<PlayerRaffleBid>().HasKey(prb => new { prb.RaffleId, prb.DiscordId });
@@ -31,6 +26,7 @@ namespace Models.Entities
         {
             var connection = _secretService.FetchDonBotSqlConnectionString();
             optionsBuilder.UseSqlServer(connection);
+            optionsBuilder.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
         }
     }
 }

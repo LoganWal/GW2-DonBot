@@ -12,9 +12,9 @@ namespace Handlers.MessageGenerationHandlers
 
         private readonly FooterHandler _footerHandler;
 
-        public WvWPlayerReportHandler(IDatabaseContext databaseContext, FooterHandler footerHandler)
+        public WvWPlayerReportHandler(DatabaseContext databaseContext, FooterHandler footerHandler)
         {
-            _databaseContext = databaseContext.GetDatabaseContext();
+            _databaseContext = databaseContext;
             _footerHandler = footerHandler;
         }
 

@@ -8,9 +8,9 @@ namespace Services.DiscordRequestServices
     {
         private readonly DatabaseContext _databaseContext;
 
-        public PointsCommandsService(IDatabaseContext databaseContext)
+        public PointsCommandsService(DatabaseContext databaseContext)
         {
-            _databaseContext = databaseContext.GetDatabaseContext();
+            _databaseContext = databaseContext;
         }
 
         public async Task PointsCommandExecuted(SocketSlashCommand command)

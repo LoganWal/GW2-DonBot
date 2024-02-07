@@ -11,9 +11,9 @@ namespace Services.DiscordRequestServices
     {
         private readonly DatabaseContext _databaseContext;
 
-        public VerifyCommandsService(IDatabaseContext databaseContext)
+        public VerifyCommandsService(DatabaseContext databaseContext)
         {
-            _databaseContext = databaseContext.GetDatabaseContext();
+            _databaseContext = databaseContext;
         }
 
         public async Task VerifyCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)

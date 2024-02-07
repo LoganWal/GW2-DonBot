@@ -14,9 +14,9 @@ namespace Services.DiscordRequestServices
 
         private readonly FooterHandler _footerHandler;
 
-        public RaffleCommandsService(IDatabaseContext databaseContext, FooterHandler footerHandler)
+        public RaffleCommandsService(DatabaseContext databaseContext, FooterHandler footerHandler)
         {
-            _databaseContext = databaseContext.GetDatabaseContext();
+            _databaseContext = databaseContext;
             _footerHandler = footerHandler;
         }
 

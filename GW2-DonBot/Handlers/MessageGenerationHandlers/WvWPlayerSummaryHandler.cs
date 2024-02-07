@@ -11,9 +11,9 @@ namespace Handlers.MessageGenerationHandlers
         
         private readonly FooterHandler _footerHandler;
 
-        public WvWPlayerSummaryHandler(IDatabaseContext databaseContext, FooterHandler footerHandler)
+        public WvWPlayerSummaryHandler(DatabaseContext databaseContext, FooterHandler footerHandler)
         {
-            _databaseContext = databaseContext.GetDatabaseContext();
+            _databaseContext = databaseContext;
             _footerHandler = footerHandler;
         }
 

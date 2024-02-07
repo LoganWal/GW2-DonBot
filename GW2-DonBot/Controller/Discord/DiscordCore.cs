@@ -42,8 +42,8 @@ namespace Controller.Discord
             IRaffleCommandsService raffleCommandsService,
             IPollingTasksService pollingTasksService,
             IPlayerService playerService,
-            IDatabaseContext databaseContext,
-            IDataModelGenerationService dataModelGenerator)
+            IDataModelGenerationService dataModelGenerator,
+            DatabaseContext databaseContext)
         {
             _secretService = secretService;
             _loggingService = loggingService;
@@ -56,7 +56,7 @@ namespace Controller.Discord
             _pollingTasksService = pollingTasksService;
             _playerService = playerService;
             _dataModelGenerator = dataModelGenerator;
-            _databaseContext = databaseContext.GetDatabaseContext();
+            _databaseContext = databaseContext;
 
             var config = new DiscordSocketConfig()
             {

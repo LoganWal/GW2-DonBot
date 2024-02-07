@@ -11,9 +11,9 @@ namespace Services.Logging
     {
         private readonly DatabaseContext _databaseContext;
 
-        public PlayerService(IDatabaseContext databaseContext)
+        public PlayerService(DatabaseContext databaseContext)
         {
-            _databaseContext = databaseContext.GetDatabaseContext();
+            _databaseContext = databaseContext;
         }
 
         public List<Gw2Player> GetGw2Players(EliteInsightDataModel data, ArcDpsPhase fightPhase, HealingPhase healingPhase, BarrierPhase barrierPhase)

@@ -14,9 +14,9 @@ namespace Services.DiscordRequestServices
         private readonly DatabaseContext _databaseContext;
         private readonly IMessageGenerationService _messageGenerationService;
 
-        public PollingTasksService(IDatabaseContext databaseContext, IMessageGenerationService messageGenerationService)
+        public PollingTasksService(DatabaseContext databaseContext, IMessageGenerationService messageGenerationService)
         {
-            _databaseContext = databaseContext.GetDatabaseContext();
+            _databaseContext = databaseContext;
             _messageGenerationService = messageGenerationService;
         }
 

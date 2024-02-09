@@ -1,15 +1,16 @@
 ﻿using Discord;
 using Discord.Webhook;
 using Discord.WebSocket;
-using GW2DonBot.Models;
 using Microsoft.EntityFrameworkCore;
 using Models.Entities;
+using Models.Statics;
 using Services.CacheServices;
 using Services.DiscordRequestServices;
 using Services.LogGenerationServices;
 using Services.Logging;
 using Services.PlayerServices;
 using Services.SecretsServices;
+using CacheKey = GW2DonBot.Models.CacheKey;
 using ConnectionState = Discord.ConnectionState;
 
 namespace Controller.Discord
@@ -83,6 +84,47 @@ namespace Controller.Discord
             _client.MessageReceived += MessageReceivedAsync;
             _client.Log += _loggingService.Log;
             _client.SlashCommandExecuted += SlashCommandExecutedAsync;
+            _client.ButtonExecuted += async (buttonComponent) =>
+            {
+                switch (buttonComponent.Data.CustomId)
+                {
+                    case ButtonId.Raffle1:
+                        await _raffleCommandsService.HandleRaffleButton1(buttonComponent);
+                        break;
+                    case ButtonId.Raffle50:
+                        await _raffleCommandsService.HandleRaffleButton50(buttonComponent);
+                        break;
+                    case ButtonId.Raffle100:
+                        await _raffleCommandsService.HandleRaffleButton100(buttonComponent);
+                        break;
+                    case ButtonId.Raffle1000:
+                        await _raffleCommandsService.HandleRaffleButton1000(buttonComponent);
+                        break;
+                    case ButtonId.RaffleRandom:
+                        await _raffleCommandsService.HandleRaffleButtonRandom(buttonComponent);
+                        break;
+                    case ButtonId.RaffleEvent1:
+                        await _raffleCommandsService.HandleEventRaffleButton1(buttonComponent);
+                        break;
+                    case ButtonId.RaffleEvent50:
+                        await _raffleCommandsService.HandleEventRaffleButton50(buttonComponent);
+                        break;
+                    case ButtonId.RaffleEvent100:
+                        await _raffleCommandsService.HandleEventRaffleButton100(buttonComponent);
+                        break;
+                    case ButtonId.RaffleEvent1000:
+                        await _raffleCommandsService.HandleEventRaffleButton1000(buttonComponent);
+                        break;
+                    case ButtonId.RaffleEventRandom:
+                        await _raffleCommandsService.HandleEventRaffleButtonRandom(buttonComponent);
+                        break;
+                    case ButtonId.RafflePoints:
+                        await _pointsCommandsService.PointsCommandExecuted(buttonComponent);
+                        break;
+                    default:
+                        break;
+                }
+            };
 
             var pollingRolesCancellationToken = new CancellationToken();
             PollingRolesTask(TimeSpan.FromMinutes(30), pollingRolesCancellationToken);

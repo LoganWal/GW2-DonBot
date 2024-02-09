@@ -43,6 +43,8 @@ namespace Models.Entities
 
         public string? AnnouncementWebhook { get; set; }
 
+        public long? AnnouncementChannelId { get; set; }
+
         public string? WvwPlayerActivityReportWebhook { get; set; }
 
         public long? WvwPlayerActivityReportChannelId { get; set; }

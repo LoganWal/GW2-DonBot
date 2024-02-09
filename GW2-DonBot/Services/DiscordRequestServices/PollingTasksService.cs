@@ -37,7 +37,7 @@ namespace Services.DiscordRequestServices
                 _databaseContext.Update(account);
             }
 
-            await _databaseContext.SaveChangesAsync();
+            _databaseContext.SaveChanges();
 
             foreach (var clientGuild in discordClient.Guilds)
             {
@@ -102,8 +102,7 @@ namespace Services.DiscordRequestServices
             {
                 nonServerAccount.Gw2ApiKey = null;
                 _databaseContext.Update(nonServerAccount);
-
-                await _databaseContext.SaveChangesAsync();
+                _databaseContext.SaveChanges();
             }
         }
 
@@ -143,7 +142,7 @@ namespace Services.DiscordRequestServices
                     account.Gw2ApiKey = null;
                     _databaseContext.Update(account);
 
-                    await _databaseContext.SaveChangesAsync();
+                    _databaseContext.SaveChanges();
 
                     var dmChannel = await user.CreateDMChannelAsync();
                     await dmChannel.SendMessageAsync($"Heyo {user.DisplayName}, I failed to pull your GW2 data using your API key throughout the day and have removed your roles for the server {guild.Name}, to get back the roles just use /verify in any channel in {guild.Name}.");

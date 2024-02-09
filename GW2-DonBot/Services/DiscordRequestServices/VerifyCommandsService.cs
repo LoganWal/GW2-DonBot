@@ -81,7 +81,7 @@ namespace Services.DiscordRequestServices
                     _databaseContext.Add(account);
                 }
 
-                await _databaseContext.SaveChangesAsync();
+                _databaseContext.SaveChanges();
 
                 // Get the guild from the database
                 var guild = await _databaseContext.Guild.FirstOrDefaultAsync(g => g.GuildId == (long)command.GuildId);
@@ -144,7 +144,7 @@ namespace Services.DiscordRequestServices
                 _databaseContext.Update(account);
             }
 
-            await _databaseContext.SaveChangesAsync();
+            _databaseContext.SaveChanges();
 
             // Generate output message
             output += accountFound ?

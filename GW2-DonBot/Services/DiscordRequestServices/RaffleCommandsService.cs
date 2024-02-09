@@ -5,6 +5,7 @@ using Handlers.MessageGenerationHandlers;
 using Microsoft.EntityFrameworkCore;
 using Models.Entities;
 using Models.Enums;
+using Models.Statics;
 
 namespace Services.DiscordRequestServices
 {
@@ -44,22 +45,29 @@ namespace Services.DiscordRequestServices
                 return;
             }
 
-            // Get the guild from the database
-            if (guildUser == null)
-            {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "You don't belong to the discord server, try the command in the discord you want the raffle in!");
-                return;
-            }
-
+            // Database operations using guild information
             var guilds = await _databaseContext.Guild.ToListAsync();
             var guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
             if (guild == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Cannot find the discord this should apply to, try the command in the discord you want the raffle in!");
+                await command.ModifyOriginalResponseAsync(m => m.Content = "Cannot find the related discord, try the command in the discord you want the raffle in!");
                 return;
             }
 
-            // Check if there is already an active raffle
+            if (guild.AnnouncementChannelId == null)
+            {
+                await command.ModifyOriginalResponseAsync(m => m.Content = "No Announcement Channel Set");
+                return;
+            }
+
+            // Target channel directly (remove webhook use)
+            if (discordClient.GetChannel((ulong)guild.AnnouncementChannelId) is not ITextChannel targetChannel)
+            {
+                await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to find the target channel.");
+                return;
+            }
+
+            // Check for existing active raffles
             var raffles = await _databaseContext.Raffle.ToListAsync();
             if (raffles.Any(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId))
             {
@@ -67,12 +75,8 @@ namespace Services.DiscordRequestServices
                 return;
             }
 
-            // Get the webhook for the guild
-            var webhookUrl = guild.AnnouncementWebhook;
-            var webhook = new DiscordWebhookClient(webhookUrl);
-
-            // Build the message for the raffle
-            var message = new EmbedBuilder
+            // Embed and button component construction
+            var message = new EmbedBuilder()
             {
                 Title = "Raffle!\n",
                 Description = $"{command.Data.Options.First().Value}{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /enter_raffle <points> to enter!",
@@ -88,11 +92,19 @@ namespace Services.DiscordRequestServices
                     Text = $"{_footerHandler.Generate()}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
-                // Timestamp
                 Timestamp = DateTime.Now
             };
 
-            // Create the raffle in the database
+            var buttonBuilder = new ComponentBuilder()
+                .WithButton("Points", ButtonId.RafflePoints, ButtonStyle.Success)
+                .WithButton("1 Point", ButtonId.Raffle1, ButtonStyle.Primary)
+                .WithButton("50 Points", ButtonId.Raffle50, ButtonStyle.Primary)
+                .WithButton("100 Points", ButtonId.Raffle100, ButtonStyle.Primary)
+                .WithButton("1000 Points", ButtonId.Raffle1000, ButtonStyle.Danger)
+                .WithButton("Random!", ButtonId.RaffleRandom, ButtonStyle.Success)
+                .Build();
+
+            // Database creation of the raffle
             var raffle = new Raffle
             {
                 Description = $"{command.Data.Options.First().Value}",
@@ -102,12 +114,63 @@ namespace Services.DiscordRequestServices
             };
 
             _databaseContext.Add(raffle);
-            await _databaseContext.SaveChangesAsync();
+            _databaseContext.SaveChanges();
 
-            // Send the message to the webhook
-            await webhook.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { message.Build() });
+            // Send to target channel with components
+            await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: new[] { message.Build() }, components: buttonBuilder);
 
             await command.ModifyOriginalResponseAsync(m => m.Content = "Created!");
+        }
+
+        // Assuming this is within the same class handling  'CreateRaffleCommandExecuted'
+        public async Task HandleRaffleButton1(SocketMessageComponent command)
+        {
+            await HandleRaffleEnter(command, 1);
+        }
+
+        public async Task HandleRaffleButton50(SocketMessageComponent command)
+        {
+            await HandleRaffleEnter(command, 50);
+        }
+
+        public async Task HandleRaffleButton100(SocketMessageComponent command)
+        {
+            await HandleRaffleEnter(command, 100);
+        }
+
+        public async Task HandleRaffleButton1000(SocketMessageComponent command)
+        {
+            await HandleRaffleEnter(command, 1000);
+        }
+
+        public async Task HandleRaffleButtonRandom(SocketMessageComponent command)
+        {
+            await HandleRaffleEnter(command, -1);
+        }
+
+        public async Task HandleEventRaffleButton1(SocketMessageComponent command)
+        {
+            await HandleEventRaffleEnter(command, 1);
+        }
+
+        public async Task HandleEventRaffleButton50(SocketMessageComponent command)
+        {
+            await HandleEventRaffleEnter(command, 50);
+        }
+
+        public async Task HandleEventRaffleButton100(SocketMessageComponent command)
+        {
+            await HandleEventRaffleEnter(command, 100);
+        }
+
+        public async Task HandleEventRaffleButton1000(SocketMessageComponent command)
+        {
+            await HandleEventRaffleEnter(command, 1000);
+        }
+
+        public async Task HandleEventRaffleButtonRandom(SocketMessageComponent command)
+        {
+            await HandleEventRaffleEnter(command, -1);
         }
 
         public async Task CreateEventRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
@@ -151,6 +214,19 @@ namespace Services.DiscordRequestServices
                 return;
             }
 
+            if (guild.AnnouncementChannelId == null)
+            {
+                await command.ModifyOriginalResponseAsync(m => m.Content = "No Announcement Channel Set");
+                return;
+            }
+
+            // Target channel directly (remove webhook use)
+            if (discordClient.GetChannel((ulong)guild.AnnouncementChannelId) is not ITextChannel targetChannel)
+            {
+                await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to find the target channel.");
+                return;
+            }
+
             // Check if there is already an active event raffle
             var raffles = await _databaseContext.Raffle.ToListAsync();
             if (raffles.Any(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Event && raf.GuildId == guild.GuildId))
@@ -158,10 +234,6 @@ namespace Services.DiscordRequestServices
                 await command.ModifyOriginalResponseAsync(m => m.Content = "There already is a running raffle, close that one first!");
                 return;
             }
-
-            // Get the webhook for the guild
-            var webhookUrl = guild.AnnouncementWebhook;
-            var webhook = new DiscordWebhookClient(webhookUrl);
 
             // Build the message for the raffle
             var message = new EmbedBuilder
@@ -184,6 +256,15 @@ namespace Services.DiscordRequestServices
                 Timestamp = DateTime.Now
             };
 
+            var buttonBuilder = new ComponentBuilder()
+                .WithButton("Points", ButtonId.RafflePoints, ButtonStyle.Success)
+                .WithButton("1 Point", ButtonId.RaffleEvent1, ButtonStyle.Primary)
+                .WithButton("50 Points", ButtonId.RaffleEvent50, ButtonStyle.Primary)
+                .WithButton("100 Points", ButtonId.RaffleEvent100, ButtonStyle.Primary)
+                .WithButton("1000 Points", ButtonId.RaffleEvent1000, ButtonStyle.Danger)
+                .WithButton("Random!", ButtonId.RaffleEventRandom, ButtonStyle.Success)
+                .Build();
+
             // Create the raffle in the database
             var raffle = new Raffle
             {
@@ -194,10 +275,10 @@ namespace Services.DiscordRequestServices
             };
 
             _databaseContext.Add(raffle);
-            await _databaseContext.SaveChangesAsync();
+            _databaseContext.SaveChanges();
 
-            // Send the message to the webhook
-            await webhook.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { message.Build() });
+            // Send to target channel with components
+            await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: new[] { message.Build() }, components: buttonBuilder);
 
             await command.ModifyOriginalResponseAsync(m => m.Content = "Created!");
         }
@@ -292,7 +373,7 @@ namespace Services.DiscordRequestServices
             _databaseContext.Update(account);
 
             // Save the changes to the database
-            await _databaseContext.SaveChangesAsync();
+            _databaseContext.SaveChanges();
 
             // Respond to the command with the points added
             await command.ModifyOriginalResponseAsync(m => m.Content = $"Added {pointsToSpend} points!{Environment.NewLine}Total points in current raffle is: {currentBid.PointsSpent}");
@@ -395,10 +476,10 @@ namespace Services.DiscordRequestServices
             // Update the available points of the user and save changes to the database
             account.AvailablePoints -= pointsToSpend;
             _databaseContext.Update(account);
-            await _databaseContext.SaveChangesAsync();
+            _databaseContext.SaveChanges();
 
             // Send a response with the points spent and the total points in the current event raffle
-            await command.ModifyOriginalResponseAsync(m => m.Content = $"Added {pointsToSpend} points!{Environment.NewLine}Total points in current raffle is: {currentBid.PointsSpent}");
+            await command.ModifyOriginalResponseAsync(m => m.Content = $"Added {pointsToSpend} points!{Environment.NewLine}Total points in current event raffle is: {currentBid.PointsSpent}");
         }
 
         public async Task CompleteRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
@@ -502,7 +583,7 @@ namespace Services.DiscordRequestServices
             currentRaffle.IsActive = false;
 
             _databaseContext.Update(currentRaffle);
-            await _databaseContext.SaveChangesAsync();
+            _databaseContext.SaveChanges();
 
             // Send the message to the webhook
             await webhook.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { builtMessage });
@@ -635,7 +716,7 @@ namespace Services.DiscordRequestServices
                 // Update the raffle to be inactive
                 currentRaffle.IsActive = false;
                 _databaseContext.Update(currentRaffle);
-                await _databaseContext.SaveChangesAsync();
+                _databaseContext.SaveChanges();
 
                 // Send the message announcing the winners to the webhook
                 await webhook.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { builtMessage });
@@ -738,7 +819,7 @@ namespace Services.DiscordRequestServices
 
             // Update the latest raffle
             _databaseContext.Update(latestRaffle);
-            await _databaseContext.SaveChangesAsync();
+            _databaseContext.SaveChanges();
 
             // Send the message to the webhook
             await webhook.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { builtMessage });
@@ -835,13 +916,193 @@ namespace Services.DiscordRequestServices
 
             // Update the database with the latest event raffle
             _databaseContext.Update(latestRaffle);
-            await _databaseContext.SaveChangesAsync();
+            _databaseContext.SaveChanges();
 
             // Send the message to the webhook
             await webhook.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { builtMessage });
 
             // Modify the original response to show that the event raffle has been reopened
             await command.ModifyOriginalResponseAsync(m => m.Content = "Reopened!");
+        }
+
+        private async Task HandleRaffleEnter(SocketMessageComponent command, int pointsToSpend)
+        {
+            // Ensure it's a guild-based button interaction
+            if (command.Channel is not SocketGuildChannel guildChannel)
+            {
+                return;
+            }
+
+            // Get GuildUser
+            var guildUser = guildChannel.GetUser(command.User.Id);
+
+            // Get the guild from the database
+            Guild? guild = await _databaseContext.Guild.FirstOrDefaultAsync(g => g.GuildId == (long)guildUser.Guild.Id);
+            if (guild == null)
+            {
+                await command.RespondAsync("This message does not appear to be a part of a server, are you messaging in a server where the bot is running?", ephemeral: true);
+                return;
+            }
+
+            // Get the current active raffle from the database
+            Raffle? currentRaffle = await _databaseContext.Raffle.FirstOrDefaultAsync(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId);
+            if (currentRaffle == null)
+            {
+                await command.RespondAsync("There are currently no raffles.", ephemeral: true);
+                return;
+            }
+
+            // Get the account of the user from the database
+            Account? account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id && a.Gw2ApiKey != null);
+            if (account == null)
+            {
+                await command.RespondAsync("Could not find an account for you, have you verified?", ephemeral: true);
+                return;
+            }
+
+            var errorMessage = $"You do not have enough points for that, you currently have {Convert.ToInt32(Math.Floor(account.AvailablePoints))} points to spend.";
+            if (account.AvailablePoints <= 1)
+            {
+                await command.RespondAsync(errorMessage, ephemeral: true);
+                return;
+            }
+
+            if (pointsToSpend == -1)
+            {
+                pointsToSpend = new Random().Next(1, Convert.ToInt32(Math.Floor(account.AvailablePoints)));
+            }
+
+            // Check if the user has enough points to spend
+            if (account.AvailablePoints < pointsToSpend)
+            {
+                await command.RespondAsync(errorMessage, ephemeral: true);
+                return;
+            }
+
+            // Get the current bid of the user from the database
+            PlayerRaffleBid? currentBid = await _databaseContext.PlayerRaffleBid.FirstOrDefaultAsync(bid => bid.RaffleId == currentRaffle.Id && bid.DiscordId == account.DiscordId);
+            if (currentBid != null)
+            {
+                // If the user has already bid, increase the points spent
+                currentBid.PointsSpent += pointsToSpend;
+                _databaseContext.Update(currentBid);
+            }
+            else
+            {
+                // If the user has not bid yet, create a new bid
+                currentBid = new PlayerRaffleBid
+                {
+                    RaffleId = currentRaffle.Id,
+                    DiscordId = account.DiscordId,
+                    PointsSpent = pointsToSpend
+                };
+
+                _databaseContext.Add(currentBid);
+            }
+
+            // Decrease the available points of the account
+            account.AvailablePoints -= pointsToSpend;
+            _databaseContext.Update(account);
+
+            // Save the changes to the database
+            _databaseContext.SaveChanges();
+
+            // Respond to the command with the points added
+            await command.RespondAsync($"Added {pointsToSpend} points!{Environment.NewLine}Total points in current raffle is: {currentBid.PointsSpent}", ephemeral: true);
+        }
+
+        private async Task HandleEventRaffleEnter(SocketMessageComponent command, int pointsToSpend)
+        {
+            // Ensure it's a guild-based button interaction
+            if (command.Channel is not SocketGuildChannel guildChannel)
+            {
+                return;
+            }
+
+            // Get GuildUser
+            var guildUser = guildChannel.GetUser(command.User.Id);
+
+            // Get the guild from the database
+            var guilds = await _databaseContext.Guild.ToListAsync();
+            var guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
+
+            // Check if the guild exists
+            if (guild == null)
+            {
+                await command.RespondAsync("This message does not appear to be apart of a server, are you messaging in a server where the bot is running?", ephemeral: true);
+                return;
+            }
+
+            // Get the current event raffle
+            var raffles = await _databaseContext.Raffle.ToListAsync();
+            var currentRaffle = raffles.FirstOrDefault(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Event && raf.GuildId == guild.GuildId);
+
+            // Check if there is an active event raffle
+            if (currentRaffle == null)
+            {
+                await command.RespondAsync("There are currently no raffles.", ephemeral: true);
+                return;
+            }
+
+            // Get the account of the user who executed the command
+            var accounts = await _databaseContext.Account.Where(acc => acc.Gw2ApiKey != null).ToListAsync();
+            var account = accounts.FirstOrDefault(a => (ulong)a.DiscordId == command.User.Id);
+
+            // Check if the account exists
+            if (account == null)
+            {
+                await command.RespondAsync("Could not find an account for you, have you verified?", ephemeral: true);
+                return;
+            }
+
+            var errorMessage = $"You do not have enough points for that, you currently have {Convert.ToInt32(Math.Floor(account.AvailablePoints))} points to spend.";
+            if (account.AvailablePoints <= 1)
+            {
+                await command.RespondAsync(errorMessage, ephemeral: true);
+                return;
+            }
+
+            if (pointsToSpend == -1)
+            {
+                pointsToSpend = new Random().Next(1, Convert.ToInt32(Math.Floor(account.AvailablePoints)));
+            }
+
+            // Check if the user has enough points to spend
+            if (account.AvailablePoints < pointsToSpend)
+            {
+                await command.RespondAsync(errorMessage, ephemeral: true);
+                return;
+            }
+
+            // Get the current bid of the user for the current event raffle
+            var bids = await _databaseContext.PlayerRaffleBid.ToListAsync();
+            var currentBid = bids.FirstOrDefault(bid => bid.RaffleId == currentRaffle.Id && bid.DiscordId == account.DiscordId);
+
+            // Update the current bid or create a new one if it doesn't exist
+            if (currentBid != null)
+            {
+                currentBid.PointsSpent += pointsToSpend;
+                _databaseContext.Update(currentBid);
+            }
+            else
+            {
+                currentBid = new PlayerRaffleBid
+                {
+                    RaffleId = currentRaffle.Id,
+                    DiscordId = account.DiscordId,
+                    PointsSpent = pointsToSpend
+                };
+
+                _databaseContext.Add(currentBid);
+            }
+
+            // Update the available points of the user and save changes to the database
+            account.AvailablePoints -= pointsToSpend;
+            _databaseContext.Update(account);
+            _databaseContext.SaveChanges();
+
+            // Send a response with the points spent and the total points in the current event raffle
+            await command.RespondAsync($"Added {pointsToSpend} points!{Environment.NewLine}Total points in current raffle is: {currentBid.PointsSpent}", ephemeral: true);
         }
     }
 }

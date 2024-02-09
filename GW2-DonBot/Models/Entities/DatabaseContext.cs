@@ -12,10 +12,10 @@ namespace Models.Entities
             _secretService = secretService;
         }
 
-        public DbSet<Account> Account { get; set; } = null!;
-        public DbSet<Guild> Guild { get; set; } = null!;
-        public DbSet<Raffle> Raffle { get; set; } = null!;
-        public DbSet<PlayerRaffleBid> PlayerRaffleBid { get; set; } = null!;
+        public DbSet<Account> Account { get; set; }
+        public DbSet<Guild> Guild { get; set; }
+        public DbSet<Raffle> Raffle { get; set; }
+        public DbSet<PlayerRaffleBid> PlayerRaffleBid { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -26,7 +26,6 @@ namespace Models.Entities
         {
             var connection = _secretService.FetchDonBotSqlConnectionString();
             optionsBuilder.UseSqlServer(connection);
-            optionsBuilder.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
         }
     }
 }

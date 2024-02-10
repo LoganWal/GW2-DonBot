@@ -6,7 +6,7 @@
     using Newtonsoft.Json;
     using Newtonsoft.Json.Converters;
 
-    public partial class EliteInsightDataModel
+    public class EliteInsightDataModel
     {
         [JsonProperty("url")]
         public string? Url { get; set; }
@@ -165,7 +165,7 @@
         public List<List<string>>? PlayersRunningExtensions { get; set; }
     }
 
-    public partial class BarrierStatsExtension
+    public class BarrierStatsExtension
     {
         [JsonProperty("barrierPhases")]
         public List<BarrierPhase>? BarrierPhases { get; set; }
@@ -177,7 +177,7 @@
         public List<List<PlayerBarrierChart>>? PlayerBarrierCharts { get; set; }
     }
 
-    public partial class BarrierPhase
+    public class BarrierPhase
     {
         [JsonProperty("outgoingBarrierStats")]
         public List<List<long>>? OutgoingBarrierStats { get; set; }
@@ -189,13 +189,13 @@
         public List<List<long>>? IncomingBarrierStats { get; set; }
     }
 
-    public partial class PlayerBarrierChart
+    public class PlayerBarrierChart
     {
         [JsonProperty("barrier")]
         public Barrier? Barrier { get; set; }
     }
 
-    public partial class Barrier
+    public class Barrier
     {
         [JsonProperty("targets")]
         public List<List<long>>? Targets { get; set; }
@@ -204,7 +204,7 @@
         public List<double>? Total { get; set; }
     }
 
-    public partial class PlayerBarrierDetail
+    public class PlayerBarrierDetail
     {
         [JsonProperty("barrierDistributions")]
         public List<BarrierDistribution>? BarrierDistributions { get; set; }
@@ -219,7 +219,7 @@
         public List<PlayerBarrierDetailMinion>? Minions { get; set; }
     }
 
-    public partial class BarrierDistribution
+    public class BarrierDistribution
     {
         [JsonProperty("contributedBarrier")]
         public long ContributedBarrier { get; set; }
@@ -234,7 +234,7 @@
         public List<List<Distribution>>? Distribution { get; set; }
     }
 
-    public partial class PlayerBarrierDetailMinion
+    public class PlayerBarrierDetailMinion
     {
         [JsonProperty("barrierDistributions")]
         public List<BarrierDistribution>? BarrierDistributions { get; set; }
@@ -243,7 +243,7 @@
         public List<List<BarrierDistribution>>? BarrierDistributionsTargets { get; set; }
     }
 
-    public partial class BuffMap
+    public class BuffMap
     {
         [JsonProperty("stacking")]
         public bool Stacking { get; set; }
@@ -270,7 +270,7 @@
         public string? Description { get; set; }
     }
 
-    public partial class CrData
+    public class CrData
     {
         [JsonProperty("actors")]
         public List<Actor>? Actors { get; set; }
@@ -291,7 +291,7 @@
         public List<Map>? Maps { get; set; }
     }
 
-    public partial class Actor
+    public class Actor
     {
         [JsonProperty("group", NullValueHandling = NullValueHandling.Ignore)]
         public long? Group { get; set; }
@@ -342,7 +342,7 @@
         public string? Color { get; set; }
     }
 
-    public partial class Map
+    public class Map
     {
         [JsonProperty("link")]
         public string? Link { get; set; }
@@ -354,7 +354,7 @@
         public double End { get; set; }
     }
 
-    public partial class DamageModMap
+    public class DamageModMap
     {
         [JsonProperty("id")]
         public long Id { get; set; }
@@ -378,7 +378,7 @@
         public bool Approximate { get; set; }
     }
 
-    public partial class GraphData
+    public class GraphData
     {
         [JsonProperty("phases")]
         public List<GraphDataPhase>? Phases { get; set; }
@@ -387,7 +387,7 @@
         public List<Mechanic>? Mechanics { get; set; }
     }
 
-    public partial class Mechanic
+    public class Mechanic
     {
         [JsonProperty("symbol")]
         public string? Symbol { get; set; }
@@ -405,7 +405,7 @@
         public bool Visible { get; set; }
     }
 
-    public partial class GraphDataPhase
+    public class GraphDataPhase
     {
         [JsonProperty("players")]
         public List<PhasePlayer>? Players { get; set; }
@@ -423,7 +423,7 @@
         public List<object>? TargetsBarrierStatesForCr { get; set; }
     }
 
-    public partial class PhasePlayer
+    public class PhasePlayer
     {
         [JsonProperty("damage")]
         public Barrier? Damage { get; set; }
@@ -444,7 +444,7 @@
         public List<List<double>>? BarrierStates { get; set; }
     }
 
-    public partial class PhaseTarget
+    public class PhaseTarget
     {
         [JsonProperty("total")]
         public List<long>? Total { get; set; }
@@ -459,7 +459,7 @@
         public List<List<double>>? HealthStates { get; set; }
     }
 
-    public partial class HealingStatsExtension
+    public class HealingStatsExtension
     {
         [JsonProperty("healingPhases")]
         public List<HealingPhase>? HealingPhases { get; set; }
@@ -471,7 +471,7 @@
         public List<List<PlayerHealingChart>>? PlayerHealingCharts { get; set; }
     }
 
-    public partial class HealingPhase
+    public class HealingPhase
     {
         [JsonProperty("outgoingHealingStats")]
         public List<List<long>>? OutgoingHealingStats { get; set; }
@@ -483,7 +483,7 @@
         public List<List<long>>? IncomingHealingStats { get; set; }
     }
 
-    public partial class PlayerHealingChart
+    public class PlayerHealingChart
     {
         [JsonProperty("healing")]
         public Barrier? Healing { get; set; }
@@ -495,7 +495,7 @@
         public Barrier? ConversionBasedHealing { get; set; }
     }
 
-    public partial class PlayerHealingDetail
+    public class PlayerHealingDetail
     {
         [JsonProperty("healingDistributions")]
         public List<HealingDistribution>? HealingDistributions { get; set; }
@@ -510,7 +510,7 @@
         public List<PlayerHealingDetailMinion>? Minions { get; set; }
     }
 
-    public partial class HealingDistribution
+    public class HealingDistribution
     {
         [JsonProperty("contributedHealing")]
         public long ContributedHealing { get; set; }
@@ -528,7 +528,7 @@
         public List<List<Distribution>>? Distribution { get; set; }
     }
 
-    public partial class PlayerHealingDetailMinion
+    public class PlayerHealingDetailMinion
     {
         [JsonProperty("healingDistributions")]
         public List<HealingDistribution>? HealingDistributions { get; set; }
@@ -537,7 +537,7 @@
         public List<List<HealingDistribution>>? HealingDistributionsTargets { get; set; }
     }
 
-    public partial class MechanicMap
+    public class MechanicMap
     {
         [JsonProperty("name")]
         public string? Name { get; set; }
@@ -558,7 +558,7 @@
         public bool PlayerMech { get; set; }
     }
 
-    public partial class ArcDpsPhase
+    public class ArcDpsPhase
     {
         [JsonProperty("name")]
         public string? Name { get; set; }
@@ -786,7 +786,7 @@
         public List<long>? PlayerActiveTimes { get; set; }
     }
 
-    public partial class BoonActiveStat
+    public class BoonActiveStat
     {
         [JsonProperty("avg")]
         public double Avg { get; set; }
@@ -795,7 +795,7 @@
         public List<List<double>>? Data { get; set; }
     }
 
-    public partial class DmgModifiers
+    public class DmgModifiers
     {
         [JsonProperty("data")]
         public List<List<double>>? Data { get; set; }
@@ -804,7 +804,7 @@
         public List<List<List<double>>>? DataTarget { get; set; }
     }
 
-    public partial class ArcDpsPlayer
+    public class ArcDpsPlayer
     {
         [JsonProperty("group")]
         public long Group { get; set; }
@@ -879,7 +879,7 @@
         public PlayerDetails? Details { get; set; }
     }
 
-    public partial class PlayerDetails
+    public class PlayerDetails
     {
         [JsonProperty("dmgDistributions")]
         public List<DmgDistribution>? DmgDistributions { get; set; }
@@ -906,7 +906,7 @@
         public List<DeathRecap>? DeathRecap { get; set; }
     }
 
-    public partial class BoonGraph
+    public class BoonGraph
     {
         [JsonProperty("id")]
         public long Id { get; set; }
@@ -921,7 +921,7 @@
         public List<List<double>>? States { get; set; }
     }
 
-    public partial class DeathRecap
+    public class DeathRecap
     {
         [JsonProperty("time")]
         public long Time { get; set; }
@@ -933,7 +933,7 @@
         public List<List<To>>? ToKill { get; set; }
     }
 
-    public partial class DmgDistribution
+    public class DmgDistribution
     {
         [JsonProperty("contributedDamage")]
         public long ContributedDamage { get; set; }
@@ -957,7 +957,7 @@
         public List<List<Distribution>>? Distribution { get; set; }
     }
 
-    public partial class Food
+    public class Food
     {
         [JsonProperty("time")]
         public double Time { get; set; }
@@ -975,7 +975,7 @@
         public bool Dimished { get; set; }
     }
 
-    public partial class PurpleMinion
+    public class PurpleMinion
     {
         [JsonProperty("dmgDistributions")]
         public List<DmgDistribution>? DmgDistributions { get; set; }
@@ -984,7 +984,7 @@
         public List<List<DmgDistribution>>? DmgDistributionsTargets { get; set; }
     }
 
-    public partial class PlayerMinion
+    public class PlayerMinion
     {
         [JsonProperty("id")]
         public long Id { get; set; }
@@ -993,7 +993,7 @@
         public string? Name { get; set; }
     }
 
-    public partial class SkillMap
+    public class SkillMap
     {
         [JsonProperty("aa")]
         public bool Aa { get; set; }
@@ -1017,7 +1017,7 @@
         public long HealingMode { get; set; }
     }
 
-    public partial class ArcDpsTarget
+    public class ArcDpsTarget
     {
         [JsonProperty("hbWidth")]
         public long HbWidth { get; set; }
@@ -1062,7 +1062,7 @@
         public TargetDetails? Details { get; set; }
     }
 
-    public partial class TargetDetails
+    public class TargetDetails
     {
         [JsonProperty("dmgDistributions")]
         public List<DmgDistribution>? DmgDistributions { get; set; }
@@ -1080,13 +1080,13 @@
         public List<FluffyMinion>? Minions { get; set; }
     }
 
-    public partial class FluffyMinion
+    public class FluffyMinion
     {
         [JsonProperty("dmgDistributions")]
         public List<DmgDistribution>? DmgDistributions { get; set; }
     }
 
-    public partial struct Distribution
+    public struct Distribution
     {
         public bool? Bool;
         public double? Double;
@@ -1095,7 +1095,7 @@
         public static implicit operator Distribution(double Double) => new Distribution { Double = Double };
     }
 
-    public partial struct DefStat
+    public struct DefStat
     {
         public double? Double;
         public string String;
@@ -1104,7 +1104,7 @@
         public static implicit operator DefStat(string String) => new DefStat { String = String };
     }
 
-    public partial struct To
+    public struct To
     {
         public bool? Bool;
         public long? Integer;
@@ -1115,7 +1115,7 @@
         public static implicit operator To(string String) => new To { String = String };
     }
 
-    internal static class Converter
+    static class Converter
     {
         public static readonly JsonSerializerSettings Settings = new JsonSerializerSettings
         {
@@ -1131,7 +1131,7 @@
         };
     }
 
-    internal class DistributionConverter : JsonConverter
+    class DistributionConverter : JsonConverter
     {
         public override bool CanConvert(Type t) => t == typeof(Distribution) || t == typeof(Distribution?);
 
@@ -1169,7 +1169,7 @@
         public static readonly DistributionConverter Singleton = new DistributionConverter();
     }
 
-    internal class DefStatConverter : JsonConverter
+    class DefStatConverter : JsonConverter
     {
         public override bool CanConvert(Type t) => t == typeof(DefStat) || t == typeof(DefStat?);
 
@@ -1208,7 +1208,7 @@
         public static readonly DefStatConverter Singleton = new DefStatConverter();
     }
 
-    internal class ToConverter : JsonConverter
+    class ToConverter : JsonConverter
     {
         public override bool CanConvert(Type t) => t == typeof(To) || t == typeof(To?);
 

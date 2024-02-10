@@ -1,5 +1,4 @@
 ﻿using Newtonsoft.Json;
-using static Controller.Discord.DiscordCore;
 
 namespace Models.GW2Api
 {
@@ -36,7 +35,7 @@ namespace Models.GW2Api
         public GW2GuildEmblemDataModel Emblem { get; set; }
     }
 
-    public partial class GW2GuildEmblemDataModel
+    public class GW2GuildEmblemDataModel
     {
         [JsonProperty("background")]
         public GW2GuildGroundDataModel Background { get; set; }
@@ -48,7 +47,7 @@ namespace Models.GW2Api
         public string[] Flags { get; set; }
     }
 
-    public partial class GW2GuildGroundDataModel
+    public class GW2GuildGroundDataModel
     {
         [JsonProperty("id")]
         public long Id { get; set; }

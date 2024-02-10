@@ -1,6 +1,4 @@
-﻿using Models;
-
-namespace Services.SecretsServices
+﻿namespace Services.SecretsServices
 {
     public interface ISecretService
     {

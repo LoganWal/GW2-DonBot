@@ -5,23 +5,18 @@ namespace Models.Entities
 {
     public class DatabaseContext : DbContext
     {
-        private ISecretService _secretService;
+        private readonly ISecretService _secretService;
 
-        public DbSet<Account> Account { get; set; }
-
-        public DbSet<Guild> Guild { get; set; }
-
-        public DbSet<Raffle> Raffle { get; set; }
-
-        public DbSet<PlayerRaffleBid> PlayerRaffleBid { get; set; }
-
-        public string DatabasePath { get; }
-
-        public DatabaseContext SetSecretService(ISecretService secretService)
+        public DatabaseContext(ISecretService secretService)
         {
             _secretService = secretService;
-            return this;
         }
+
+        public DbSet<Account> Account { get; set; }
+        public DbSet<Guild> Guild { get; set; }
+        public DbSet<Raffle> Raffle { get; set; }
+        public DbSet<PlayerRaffleBid> PlayerRaffleBid { get; set; }
+        public DbSet<GuildWarsAccount> GuildWarsAccount { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

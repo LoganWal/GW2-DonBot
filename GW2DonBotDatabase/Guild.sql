@@ -1,17 +1,20 @@
-﻿CREATE TABLE [dbo].[Guild]
+﻿CREATE TABLE [dbo].[Guild](
+	[GuildId] [bigint] NOT NULL,
+	[LogDropOffChannelId] [bigint] NULL,
+	[DiscordGuildMemberRoleId] [bigint] NULL,
+	[DiscordSecondaryMemberRoleId] [bigint] NULL,
+	[DiscordVerifiedRoleId] [bigint] NULL,
+	[Gw2GuildMemberRoleId] [nvarchar](128) NULL,
+	[Gw2SecondaryMemberRoleIds] [nvarchar](1000) NULL,
+	[PlayerReportChannelId] [bigint] NULL,
+	[WvwPlayerActivityReportChannelId] [bigint] NULL,
+	[AnnouncementChannelId] [bigint] NULL,
+	[LogReportChannelId] [bigint] NULL,
+	[AdvanceLogReportChannelId] [bigint] NULL,
+	[StreamLogChannelId] [bigint] NULL,
+PRIMARY KEY CLUSTERED 
 (
-	[GuildId] BIGINT NOT NULL PRIMARY KEY, 
-    [CommandPassword] NVARCHAR(256) NULL,
-    [WebhookChannelId] BIGINT NULL, 
-    [PostChannelId] BIGINT NULL,
-    [Webhook] NVARCHAR(256) NULL,
-    [DebugWebhookChannelId] BIGINT NULL, 
-    [DebugPostChannelId] BIGINT NULL,
-    [DebugWebhook] NVARCHAR(256) NULL,
-    [DiscordGuildMemberRoleId] BIGINT NULL,
-    [DiscordSecondaryMemberRoleId] BIGINT NULL,
-    [DiscordVerifiedRoleId] BIGINT NULL,
-    [Gw2GuildMemberRoleId] NVARCHAR(128) NULL,
-    [Gw2SecondaryMemberRoleIds] NVARCHAR(1000) NULL, 
-    [AnnouncementWebhook] NVARCHAR(256) NULL
-)
+	[GuildId] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+GO

@@ -44,5 +44,10 @@ namespace Services.LogGenerationServices
         {
             return await _wvwPlayerSummaryHandler.Generate(gw2Guild);
         }
+
+        public async Task<Embed> GenerateWvWActivePlayerSummary(Guild gw2Guild)
+        {
+            return await _wvwPlayerSummaryHandler.GenerateActive(gw2Guild);
+        }
     }
 }

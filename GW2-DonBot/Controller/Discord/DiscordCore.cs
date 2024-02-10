@@ -445,6 +445,9 @@ namespace Controller.Discord
                     var messages = await playerChannel.GetMessagesAsync(10).FlattenAsync();
                     await playerChannel.DeleteMessagesAsync(messages);
 
+                    var activePlayerMessage = await _messageGenerationService.GenerateWvWActivePlayerSummary(guild);
+                    await playerChannel.SendMessageAsync(text: "", embeds: new[] { activePlayerMessage });
+
                     var playerMessage = await _messageGenerationService.GenerateWvWPlayerSummary(guild);
                     await playerChannel.SendMessageAsync(text: "", embeds: new[] { playerMessage });
                 }

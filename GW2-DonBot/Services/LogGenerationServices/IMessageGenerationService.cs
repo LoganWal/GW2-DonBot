@@ -14,5 +14,7 @@ namespace Services.LogGenerationServices
         public Embed GeneratePvEFightSummary(EliteInsightDataModel data);
 
         public Task<Embed> GenerateWvWPlayerSummary(Guild gw2Guild);
+
+        public Task<Embed> GenerateWvWActivePlayerSummary(Guild gw2Guild);
     }
 }

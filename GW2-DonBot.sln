@@ -7,6 +7,13 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GW2-DonBot", "GW2-DonBot\GW
 EndProject
 Project("{00D1A9C2-B5F0-4AF3-8072-F6C62B433612}") = "GW2DonBotDatabase", "GW2DonBotDatabase\GW2DonBotDatabase.sqlproj", "{7353B074-97F2-4D97-A251-27AADE614F4E}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{C51148D5-E3BF-4C90-AB9D-2042ED2B72D9}"
+	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
+		.github\workflows\main_gw2donbotapp.yml = .github\workflows\main_gw2donbotapp.yml
+		README.md = README.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

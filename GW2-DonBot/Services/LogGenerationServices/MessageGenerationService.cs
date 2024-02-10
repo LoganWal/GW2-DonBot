@@ -1,11 +1,12 @@
 ﻿using Discord;
+using Discord.WebSocket;
 using Handlers.MessageGenerationHandlers;
 using Models;
 using Models.Entities;
 
 namespace Services.LogGenerationServices
 {
-    public partial class MessageGenerationService: IMessageGenerationService
+    public class MessageGenerationService: IMessageGenerationService
     {
         private readonly WvWFightSummaryHandler _wvwFightSummaryHandler;
         private readonly WvWPlayerReportHandler _wvwPlayerReportHandler;
@@ -24,9 +25,9 @@ namespace Services.LogGenerationServices
             _wvwPlayerSummaryHandler = wvwPlayerSummaryHandler;
         }
 
-        public Embed GenerateWvWFightSummary(EliteInsightDataModel data, bool advancedLog, Guild guild)
+        public Embed GenerateWvWFightSummary(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
         {
-            return _wvwFightSummaryHandler.Generate(data, advancedLog, guild);
+            return _wvwFightSummaryHandler.Generate(data, advancedLog, guild, client);
         }
 
         public async Task<Embed> GenerateWvWPlayerReport()

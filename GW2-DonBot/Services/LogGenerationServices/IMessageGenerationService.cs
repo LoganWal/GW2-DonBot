@@ -1,4 +1,5 @@
 ﻿using Discord;
+using Discord.WebSocket;
 using Models;
 using Models.Entities;
 
@@ -6,7 +7,7 @@ namespace Services.LogGenerationServices
 {
     public interface IMessageGenerationService
     {
-        public Embed GenerateWvWFightSummary(EliteInsightDataModel data, bool advancedLog, Guild guild);
+        public Embed GenerateWvWFightSummary(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client);
 
         public Task<Embed> GenerateWvWPlayerReport();
 

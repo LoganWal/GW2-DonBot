@@ -1,5 +1,4 @@
 ﻿using Discord;
-using Discord.Webhook;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
 using Models.Entities;
@@ -347,21 +346,19 @@ namespace Controller.Discord
                 }
 
                 var guild = _databaseContext.Guild.FirstOrDefaultAsync(g => g.GuildId == (long)channel.Guild.Id).Result;
-                if (guild == null || !guild.DebugWebhookChannelId.HasValue || !guild.WebhookChannelId.HasValue)
+                if (guild == null || !guild.LogDropOffChannelId.HasValue)
                 {
-                    Console.WriteLine($"Unable to find guild {channel.Guild.Id} or empty value for guild.DebugWebhookChannelId '{guild?.DebugWebhookChannelId}' or guild.WebhookChannelId '{guild?.WebhookChannelId}'");
+                    Console.WriteLine($"Unable to find guild {channel.Guild.Id}");
                     return Task.CompletedTask;
                 }
 
                 // Ignore messages outside webhook, in upload channel, or from Don
                 if (seenMessage.Source != MessageSource.Webhook || 
-                    (seenMessage.Channel.Id != (ulong)guild.DebugWebhookChannelId && seenMessage.Channel.Id != (ulong)guild.WebhookChannelId) || 
+                    (seenMessage.Channel.Id != (ulong)guild.LogDropOffChannelId) || 
                     seenMessage.Author.Username.Contains("GW2-DonBot", StringComparison.OrdinalIgnoreCase)) 
                 {
                     return Task.CompletedTask;
                 }
-
-                var webhookUrl = seenMessage.Channel.Id == (ulong)guild.DebugWebhookChannelId ? guild.DebugWebhook : guild.Webhook;
 
                 var urls = seenMessage.Embeds.SelectMany(x => x.Fields.SelectMany(y => y.Value.Split('('))).Where(x => x.Contains(")")).ToList();
                 urls.AddRange(seenMessage.Embeds.Select(x => x.Url).Where(x => !string.IsNullOrEmpty(x)));
@@ -371,7 +368,7 @@ namespace Controller.Discord
                 foreach (var url in trimmedUrls)
                 {
                     Console.WriteLine($"[DON] Assessing: {url}");
-                    AnalyseAndReportOnUrl(url, channel.Guild.Id, webhookUrl);
+                    AnalyseAndReportOnUrl(url, channel.Guild.Id);
                 }
             }
             catch (Exception e)
@@ -382,7 +379,7 @@ namespace Controller.Discord
             return Task.CompletedTask;
         }
 
-        private async Task AnalyseAndReportOnUrl(string url, ulong guildId, string webhookUrl)
+        private async Task AnalyseAndReportOnUrl(string url, ulong guildId)
         {
             var seenUrls = _cacheService.Get<List<string>>(CacheKey.SeenUrls) ?? new List<string>();
 
@@ -413,19 +410,34 @@ namespace Controller.Discord
 
             Console.WriteLine($"[DON] Generating fight summary: {url}");
 
-            var webhook = new DiscordWebhookClient(webhookUrl);
+            if (guild.LogReportChannelId == null)
+            {
+                Console.WriteLine($"[DON] no log report channel id for guild id `{guild.GuildId}`");
+                return;
+            }
+
+            if (_client.GetChannel((ulong)guild.LogReportChannelId) is not ITextChannel logReportChannel)
+            {
+                Console.WriteLine($"[DON] Failed to find the target channel {guild.LogReportChannelId}");
+                return;
+            }
 
             Embed message;
             if (data.Wvw)
             {
-                if (!string.IsNullOrEmpty(guild.AdminAdvancePlayerReportWebhook))
+                if (guild.AdvanceLogReportChannelId != null)
                 {
-                    var advancePlayerReportWebhook = new DiscordWebhookClient(guild.AdminAdvancePlayerReportWebhook);
-                    var advancedMessage = _messageGenerationService.GenerateWvWFightSummary(data, true, guild);
-                    await advancePlayerReportWebhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { advancedMessage });
+                    if (_client.GetChannel((ulong)guild.AdvanceLogReportChannelId) is not ITextChannel advanceLogReportChannel)
+                    {
+                        Console.WriteLine($"[DON] Failed to find the target channel {guild.AdvanceLogReportChannelId}");
+                        return;
+                    }
+
+                    var advancedMessage = _messageGenerationService.GenerateWvWFightSummary(data, true, guild, _client);
+                    await advanceLogReportChannel.SendMessageAsync(text: "", embeds: new[] { advancedMessage });
                 }
 
-                message = _messageGenerationService.GenerateWvWFightSummary(data, false, guild);
+                message = _messageGenerationService.GenerateWvWFightSummary(data, false, guild, _client);
                 await _playerService.SetPlayerPoints(data);
 
                 if (guild.PlayerReportChannelId != null && _client.GetChannel((ulong)guild.PlayerReportChannelId) is SocketTextChannel playerChannel)
@@ -433,9 +445,8 @@ namespace Controller.Discord
                     var messages = await playerChannel.GetMessagesAsync(10).FlattenAsync();
                     await playerChannel.DeleteMessagesAsync(messages);
 
-                    var playerReportWebhook = new DiscordWebhookClient(guild.AdminPlayerReportWebhook);
                     var playerMessage = await _messageGenerationService.GenerateWvWPlayerSummary(guild);
-                    await playerReportWebhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { playerMessage });
+                    await playerChannel.SendMessageAsync(text: "", embeds: new[] { playerMessage });
                 }
             }
             else
@@ -443,7 +454,7 @@ namespace Controller.Discord
                 message = _messageGenerationService.GeneratePvEFightSummary(data);
             }
 
-            await webhook.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { message });
+            await logReportChannel.SendMessageAsync(text: "", embeds: new[] { message });
             Console.WriteLine($"[DON] Completed and posted report on: {url}");
         }
     }

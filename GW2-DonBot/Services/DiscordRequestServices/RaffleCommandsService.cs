@@ -60,7 +60,6 @@ namespace Services.DiscordRequestServices
                 return;
             }
 
-            // Target channel directly (remove webhook use)
             if (discordClient.GetChannel((ulong)guild.AnnouncementChannelId) is not ITextChannel targetChannel)
             {
                 await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to find the target channel.");
@@ -220,7 +219,6 @@ namespace Services.DiscordRequestServices
                 return;
             }
 
-            // Target channel directly (remove webhook use)
             if (discordClient.GetChannel((ulong)guild.AnnouncementChannelId) is not ITextChannel targetChannel)
             {
                 await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to find the target channel.");
@@ -309,7 +307,7 @@ namespace Services.DiscordRequestServices
             }
 
             // Get the user who executed the command
-            SocketGuildUser? guildUser = discordClient.GetGuild(command.GuildId.Value)?.GetUser(command.User.Id);
+            var guildUser = discordClient.GetGuild(command.GuildId.Value)?.GetUser(command.User.Id);
             if (guildUser == null)
             {
                 await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to create raffle, please try again, or yell at someone.");
@@ -317,7 +315,7 @@ namespace Services.DiscordRequestServices
             }
 
             // Get the guild from the database
-            Guild? guild = await _databaseContext.Guild.FirstOrDefaultAsync(g => g.GuildId == (long)guildUser.Guild.Id);
+            var guild = await _databaseContext.Guild.FirstOrDefaultAsync(g => g.GuildId == (long)guildUser.Guild.Id);
             if (guild == null)
             {
                 await command.ModifyOriginalResponseAsync(m => m.Content = "This message does not appear to be a part of a server, are you messaging in a server where the bot is running?");
@@ -325,7 +323,7 @@ namespace Services.DiscordRequestServices
             }
 
             // Get the current active raffle from the database
-            Raffle? currentRaffle = await _databaseContext.Raffle.FirstOrDefaultAsync(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId);
+            var currentRaffle = await _databaseContext.Raffle.FirstOrDefaultAsync(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId);
             if (currentRaffle == null)
             {
                 await command.ModifyOriginalResponseAsync(m => m.Content = "There are currently no raffles.");
@@ -333,7 +331,7 @@ namespace Services.DiscordRequestServices
             }
 
             // Get the account of the user from the database
-            Account? account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id && a.Gw2ApiKey != null);
+            var account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id && a.Gw2ApiKey != null);
             if (account == null)
             {
                 await command.ModifyOriginalResponseAsync(m => m.Content = "Could not find an account for you, have you verified?");
@@ -348,7 +346,7 @@ namespace Services.DiscordRequestServices
             }
 
             // Get the current bid of the user from the database
-            PlayerRaffleBid? currentBid = await _databaseContext.PlayerRaffleBid.FirstOrDefaultAsync(bid => bid.RaffleId == currentRaffle.Id && bid.DiscordId == account.DiscordId);
+            var currentBid = await _databaseContext.PlayerRaffleBid.FirstOrDefaultAsync(bid => bid.RaffleId == currentRaffle.Id && bid.DiscordId == account.DiscordId);
             if (currentBid != null)
             {
                 // If the user has already bid, increase the points spent
@@ -553,9 +551,17 @@ namespace Services.DiscordRequestServices
                 return;
             }
 
-            // Get the webhook for the guild
-            var webhookUrl = guild.AnnouncementWebhook;
-            var webhook = new DiscordWebhookClient(webhookUrl);
+            if (guild.AnnouncementChannelId == null)
+            {
+                await command.ModifyOriginalResponseAsync(m => m.Content = "No Announcement Channel Set");
+                return;
+            }
+
+            if (discordClient.GetChannel((ulong)guild.AnnouncementChannelId) is not ITextChannel targetChannel)
+            {
+                await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to find the target channel.");
+                return;
+            }
 
             // Build the message to announce the winner
             var message = new EmbedBuilder
@@ -586,7 +592,7 @@ namespace Services.DiscordRequestServices
             _databaseContext.SaveChanges();
 
             // Send the message to the webhook
-            await webhook.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { builtMessage });
+            await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: new[] { builtMessage });
 
             // Modify the original response to indicate success
             await command.ModifyOriginalResponseAsync(m => m.Content = "Selected!");
@@ -655,7 +661,7 @@ namespace Services.DiscordRequestServices
 
                 // Pick the winners
                 var winners = new List<long>();
-                for (int i = 0; i < winnersCount; i++)
+                for (var i = 0; i < winnersCount; i++)
                 {
                     var random = new Random();
                     var pickedBid = random.Next(1, totalBids);
@@ -685,8 +691,18 @@ namespace Services.DiscordRequestServices
                 }
 
                 // Build the message to announce the winners
-                var webhookUrl = guild.AnnouncementWebhook;
-                var webhook = new DiscordWebhookClient(webhookUrl);
+                if (guild.AnnouncementChannelId == null)
+                {
+                    await command.ModifyOriginalResponseAsync(m => m.Content = "No Announcement Channel Set");
+                    return;
+                }
+
+                if (discordClient.GetChannel((ulong)guild.AnnouncementChannelId) is not ITextChannel targetChannel)
+                {
+                    await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to find the target channel.");
+                    return;
+                }
+
                 var description = "and the winners are:\n";
                 foreach (var (winner, index) in winners.Select((value, i) => (value, i)))
                 {
@@ -719,7 +735,7 @@ namespace Services.DiscordRequestServices
                 _databaseContext.SaveChanges();
 
                 // Send the message announcing the winners to the webhook
-                await webhook.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { builtMessage });
+                await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: new[] { builtMessage });
 
                 // Modify the original response to indicate that the command was successful
                 await command.ModifyOriginalResponseAsync(m => m.Content = "Selected!");
@@ -789,9 +805,17 @@ namespace Services.DiscordRequestServices
                 return;
             }
 
-            // Get the webhook
-            var webhookUrl = guild.AnnouncementWebhook;
-            var webhook = new DiscordWebhookClient(webhookUrl);
+            if (guild.AnnouncementChannelId == null)
+            {
+                await command.ModifyOriginalResponseAsync(m => m.Content = "No Announcement Channel Set");
+                return;
+            }
+
+            if (discordClient.GetChannel((ulong)guild.AnnouncementChannelId) is not ITextChannel targetChannel)
+            {
+                await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to find the target channel.");
+                return;
+            }
 
             // Build the message
             var message = new EmbedBuilder
@@ -822,7 +846,7 @@ namespace Services.DiscordRequestServices
             _databaseContext.SaveChanges();
 
             // Send the message to the webhook
-            await webhook.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { builtMessage });
+            await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: new[] { builtMessage });
 
             // Modify the original response to indicate success
             await command.ModifyOriginalResponseAsync(m => m.Content = "Reopened!");
@@ -886,9 +910,17 @@ namespace Services.DiscordRequestServices
             // Set the latest event raffle to active
             latestRaffle.IsActive = true;
 
-            // Get the webhook for the guild
-            var webhookUrl = guild.AnnouncementWebhook;
-            var webhook = new DiscordWebhookClient(webhookUrl);
+            if (guild.AnnouncementChannelId == null)
+            {
+                await command.ModifyOriginalResponseAsync(m => m.Content = "No Announcement Channel Set");
+                return;
+            }
+
+            if (discordClient.GetChannel((ulong)guild.AnnouncementChannelId) is not ITextChannel targetChannel)
+            {
+                await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to find the target channel.");
+                return;
+            }
 
             // Build the message for the event raffle
             var message = new EmbedBuilder
@@ -919,7 +951,7 @@ namespace Services.DiscordRequestServices
             _databaseContext.SaveChanges();
 
             // Send the message to the webhook
-            await webhook.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { builtMessage });
+            await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: new[] { builtMessage });
 
             // Modify the original response to show that the event raffle has been reopened
             await command.ModifyOriginalResponseAsync(m => m.Content = "Reopened!");
@@ -937,7 +969,7 @@ namespace Services.DiscordRequestServices
             var guildUser = guildChannel.GetUser(command.User.Id);
 
             // Get the guild from the database
-            Guild? guild = await _databaseContext.Guild.FirstOrDefaultAsync(g => g.GuildId == (long)guildUser.Guild.Id);
+            var guild = await _databaseContext.Guild.FirstOrDefaultAsync(g => g.GuildId == (long)guildUser.Guild.Id);
             if (guild == null)
             {
                 await command.RespondAsync("This message does not appear to be a part of a server, are you messaging in a server where the bot is running?", ephemeral: true);
@@ -945,7 +977,7 @@ namespace Services.DiscordRequestServices
             }
 
             // Get the current active raffle from the database
-            Raffle? currentRaffle = await _databaseContext.Raffle.FirstOrDefaultAsync(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId);
+            var currentRaffle = await _databaseContext.Raffle.FirstOrDefaultAsync(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId);
             if (currentRaffle == null)
             {
                 await command.RespondAsync("There are currently no raffles.", ephemeral: true);
@@ -953,7 +985,7 @@ namespace Services.DiscordRequestServices
             }
 
             // Get the account of the user from the database
-            Account? account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id && a.Gw2ApiKey != null);
+            var account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id && a.Gw2ApiKey != null);
             if (account == null)
             {
                 await command.RespondAsync("Could not find an account for you, have you verified?", ephemeral: true);
@@ -980,7 +1012,7 @@ namespace Services.DiscordRequestServices
             }
 
             // Get the current bid of the user from the database
-            PlayerRaffleBid? currentBid = await _databaseContext.PlayerRaffleBid.FirstOrDefaultAsync(bid => bid.RaffleId == currentRaffle.Id && bid.DiscordId == account.DiscordId);
+            var currentBid = await _databaseContext.PlayerRaffleBid.FirstOrDefaultAsync(bid => bid.RaffleId == currentRaffle.Id && bid.DiscordId == account.DiscordId);
             if (currentBid != null)
             {
                 // If the user has already bid, increase the points spent

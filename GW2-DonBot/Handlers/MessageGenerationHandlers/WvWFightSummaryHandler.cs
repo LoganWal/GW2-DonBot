@@ -1,11 +1,13 @@
 using System.Globalization;
 using Discord;
 using Discord.Webhook;
+using Discord.WebSocket;
 using Extensions;
 using Models;
 using Models.Entities;
 using Models.Statics;
 using Services.PlayerServices;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 
 namespace Handlers.MessageGenerationHandlers
 {
@@ -21,7 +23,7 @@ namespace Handlers.MessageGenerationHandlers
             _footerHandler = footerHandler;
         }
 
-        public Embed Generate(EliteInsightDataModel data, bool advancedLog, Guild guild)
+        public Embed Generate(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
         {
             var playerCount = advancedLog ? ArcDpsDataIndices.AdvancedPlayersListed : ArcDpsDataIndices.PlayersListed;
 
@@ -82,7 +84,7 @@ namespace Handlers.MessageGenerationHandlers
             var enemyDownsStr = enemyDowns.ToString().PadCenter(7);
             var enemyDeathsStr = enemyDeaths.ToString().PadCenter(7);
 
-            if (!advancedLog && !string.IsNullOrEmpty(guild.StreamLogsWebhook))
+            if (!advancedLog && guild.StreamLogChannelId.HasValue)
             {
                 var streamMessage =
 $@"```
@@ -91,8 +93,10 @@ Friends {friendlyCountStr.Trim(),-3}      {friendlyDamageStr.Trim(),-7}     {fri
 Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsStr.Trim(),-6}    {enemyDownsStr.Trim(),-3}       {enemyDeathsStr.Trim(),-3}
 ```";
 
-                var playerReportWebhook = new DiscordWebhookClient(guild.StreamLogsWebhook);
-                playerReportWebhook.SendMessageAsync(text: streamMessage, username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png");
+                if (client.GetChannel((ulong)guild.StreamLogChannelId) is ITextChannel streamLogChannel)
+                {
+                    streamLogChannel.SendMessageAsync(text: streamMessage);
+                }
             }
 
             // Battleground parsing

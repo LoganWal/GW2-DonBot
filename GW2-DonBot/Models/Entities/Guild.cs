@@ -7,29 +7,7 @@ namespace Models.Entities
         [Key]
         public long GuildId { get; set; }
 
-        public string? CommandPassword { get; set; }
-
-        public long? WebhookChannelId { get; set; }
-
-        public long? PostChannelId { get; set; }
-
-        public string? Webhook { get; set; }
-
-        public string? PlayerReportWebhook { get; set; }
-
-        public string? AdminPlayerReportWebhook { get; set; }
-
-        public string? AdminAdvancePlayerReportWebhook { get; set; }
-
-        public string? StreamLogsWebhook { get; set; }
-
-        public long? PlayerReportChannelId { get; set; }
-
-        public long? DebugWebhookChannelId { get; set; }
-
-        public long? DebugPostChannelId { get; set; }
-
-        public string? DebugWebhook { get; set; }
+        public long? LogDropOffChannelId { get; set; }
 
         public long? DiscordGuildMemberRoleId { get; set; }
 
@@ -41,12 +19,16 @@ namespace Models.Entities
 
         public string? Gw2SecondaryMemberRoleIds { get; set; }
 
-        public string? AnnouncementWebhook { get; set; }
+        public long? PlayerReportChannelId { get; set; }
+
+        public long? WvwPlayerActivityReportChannelId { get; set; }
 
         public long? AnnouncementChannelId { get; set; }
 
-        public string? WvwPlayerActivityReportWebhook { get; set; }
+        public long? LogReportChannelId { get; set; }
 
-        public long? WvwPlayerActivityReportChannelId { get; set; }
+        public long? AdvanceLogReportChannelId { get; set; }
+
+        public long? StreamLogChannelId { get; set; }
     }
 }

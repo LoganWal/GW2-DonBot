@@ -172,14 +172,13 @@ namespace Services.DiscordRequestServices
                     return;
                 }
 
-                if (guildConfiguration.WvwPlayerActivityReportWebhook != null && clientGuild.GetChannel((ulong)guildConfiguration.WvwPlayerActivityReportChannelId) is SocketTextChannel playerChannel)
+                if (clientGuild.GetChannel((ulong)guildConfiguration.WvwPlayerActivityReportChannelId) is SocketTextChannel playerActivityReportChannel)
                 {
-                    var messages = await playerChannel.GetMessagesAsync(100).FlattenAsync();
-                    await playerChannel.DeleteMessagesAsync(messages);
+                    var messages = await playerActivityReportChannel.GetMessagesAsync(100).FlattenAsync();
+                    await playerActivityReportChannel.DeleteMessagesAsync(messages);
                     var playerReportMessage = await _messageGenerationService.GenerateWvWPlayerReport();
                     
-                    var playerReport = new DiscordWebhookClient(guildConfiguration.WvwPlayerActivityReportWebhook);
-                    await playerReport.SendMessageAsync(text: "", username: "GW2-DonBot", avatarUrl: "https://i.imgur.com/tQ4LD6H.png", embeds: new[] { playerReportMessage });
+                    await playerActivityReportChannel.SendMessageAsync(embeds: new[] { playerReportMessage });
                 }
             }
             catch (Exception ex)

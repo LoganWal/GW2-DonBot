@@ -1,13 +1,11 @@
 using System.Globalization;
 using Discord;
-using Discord.Webhook;
 using Discord.WebSocket;
 using Extensions;
 using Models;
 using Models.Entities;
 using Models.Statics;
 using Services.PlayerServices;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 
 namespace Handlers.MessageGenerationHandlers
 {

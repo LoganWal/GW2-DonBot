@@ -16,6 +16,7 @@ namespace Models.Entities
         public DbSet<Guild> Guild { get; set; }
         public DbSet<Raffle> Raffle { get; set; }
         public DbSet<PlayerRaffleBid> PlayerRaffleBid { get; set; }
+        public DbSet<GuildWarsAccount> GuildWarsAccount { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

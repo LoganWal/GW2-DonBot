@@ -18,9 +18,9 @@ namespace Services.DiscordRequestServices
             await command.DeferAsync(ephemeral: true);
 
             // Fetch accounts with non-null Gw2ApiKey
-            var accounts = await _databaseContext.Account
-                .Where(acc => acc.Gw2ApiKey != null)
-                .ToListAsync();
+            var accounts = await _databaseContext.Account.ToListAsync();
+            var gw2Accounts = await _databaseContext.GuildWarsAccount.ToListAsync();
+            accounts = accounts.Where(s => gw2Accounts.Any(acc => acc.DiscordId == s.DiscordId)).ToList();
 
             // Find the account of the user who executed the command
             var account = accounts.FirstOrDefault(m => (ulong)m.DiscordId == command.User.Id);
@@ -41,9 +41,9 @@ namespace Services.DiscordRequestServices
         public async Task PointsCommandExecuted(SocketMessageComponent command)
         {
             // Fetch accounts with non-null Gw2ApiKey
-            var accounts = await _databaseContext.Account
-                .Where(acc => acc.Gw2ApiKey != null)
-                .ToListAsync();
+            var accounts = await _databaseContext.Account.ToListAsync();
+            var gw2Accounts = await _databaseContext.GuildWarsAccount.ToListAsync();
+            accounts = accounts.Where(s => gw2Accounts.Any(acc => acc.DiscordId == s.DiscordId)).ToList();
 
             // Find the account of the user who executed the command
             var account = accounts.FirstOrDefault(m => (ulong)m.DiscordId == command.User.Id);

@@ -5,7 +5,7 @@ namespace Models.GW2Api
     public class GW2AccountDataModel
     {
         [JsonProperty("id")]
-        public string Id { get; set; }
+        public Guid Id { get; set; }
 
         [JsonProperty("age")]
         public long Age { get; set; }

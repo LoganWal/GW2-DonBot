@@ -30,9 +30,9 @@ namespace Services.LogGenerationServices
             return _wvwFightSummaryHandler.Generate(data, advancedLog, guild, client);
         }
 
-        public async Task<Embed> GenerateWvWPlayerReport()
+        public async Task<Embed> GenerateWvWPlayerReport(Guild guildConfiguration)
         {
-            return await _wvwPlayerReportHandler.Generate();
+            return await _wvwPlayerReportHandler.Generate(guildConfiguration);
         }
 
         public Embed GeneratePvEFightSummary(EliteInsightDataModel data)

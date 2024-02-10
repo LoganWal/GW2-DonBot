@@ -1,5 +1,4 @@
-﻿using GW2DonBot.Models;
-using Models;
+﻿using Models;
 
 namespace Services.PlayerServices
 {

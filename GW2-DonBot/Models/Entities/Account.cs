@@ -7,12 +7,6 @@ namespace Models.Entities
         [Key]
         public long DiscordId { get; set; }
 
-        public string Gw2AccountId { get; set; }
-
-        public string Gw2AccountName { get; set; }
-
-        public string? Gw2ApiKey { get; set; }
-
         public decimal Points { get; set; }
 
         public decimal PreviousPoints { get; set; }
@@ -20,11 +14,5 @@ namespace Models.Entities
         public decimal AvailablePoints { get; set; }
 
         public DateTime? LastWvwLogDateTime { get; set; }
-
-        public int? World { get; set; }
-
-        public int? FailedApiPullCount { get; set; }
-
-        public string? Guilds { get; set; }
     }
 }

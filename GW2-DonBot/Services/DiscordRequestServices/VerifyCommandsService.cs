@@ -60,12 +60,31 @@ namespace Services.DiscordRequestServices
 
                 if (account != null)
                 {
-                    // Update the existing account
-                    account.Gw2AccountId = accountData.Id;
-                    account.Gw2AccountName = accountData.Name;
-                    account.Gw2ApiKey = apiKey;
+                    // Update existing
+                    var gw2Account = _databaseContext.GuildWarsAccount.FirstOrDefault(s => s.DiscordId == account.DiscordId && s.GuildWarsAccountId == accountData.Id);
+                    if (gw2Account != null)
+                    {
+                        gw2Account.GuildWarsAccountId = accountData.Id;
+                        gw2Account.GuildWarsAccountName = accountData.Name;
+                        gw2Account.GuildWarsApiKey = apiKey;
+                        gw2Account.FailedApiPullCount = 0;
+                        _databaseContext.Update(gw2Account);
+                    }
+                    else
+                    {
+                        gw2Account = new GuildWarsAccount
+                        {
+                            GuildWarsAccountId = accountData.Id,
+                            DiscordId = account.DiscordId,
+                            GuildWarsApiKey = apiKey,
+                            GuildWarsAccountName = accountData.Name,
+                            GuildWarsGuilds = string.Join(',', accountData.Guilds),
+                            World = Convert.ToInt32(accountData.World),
+                            FailedApiPullCount = 0
+                        };
 
-                    _databaseContext.Update(account);
+                        _databaseContext.Add(gw2Account);
+                    }
                 }
                 else
                 {
@@ -73,12 +92,22 @@ namespace Services.DiscordRequestServices
                     isNewAccount = true;
                     account = new Account()
                     {
-                        DiscordId = (long)command.User.Id,
-                        Gw2AccountId = accountData.Id,
-                        Gw2AccountName = accountData.Name,
-                        Gw2ApiKey = apiKey
+                        DiscordId = (long)command.User.Id
                     };
+
+                    var gw2Account = new GuildWarsAccount
+                    {
+                        GuildWarsAccountId = accountData.Id,
+                        DiscordId = account.DiscordId,
+                        GuildWarsApiKey = apiKey,
+                        GuildWarsAccountName = accountData.Name,
+                        GuildWarsGuilds = string.Join(',', accountData.Guilds),
+                        World = Convert.ToInt32(accountData.World),
+                        FailedApiPullCount = 0
+                    };
+
                     _databaseContext.Add(account);
+                    _databaseContext.Add(gw2Account);
                 }
 
                 _databaseContext.SaveChanges();
@@ -132,18 +161,11 @@ namespace Services.DiscordRequestServices
             await command.DeferAsync(ephemeral: true);
 
             // Check if the account exists in the database
-            var accountFound = false;
             var output = "";
-            var model = await _databaseContext.Account.Where(acc => acc.Gw2ApiKey != null).ToListAsync();
-            var account = model.FirstOrDefault(m => (ulong)m.DiscordId == command.User.Id);
+            var gw2Accounts = await _databaseContext.GuildWarsAccount.Where(acc => acc.DiscordId == (long)command.User.Id).ToListAsync();
+            var accountFound = gw2Accounts.Any();
 
-            if (account != null)
-            {
-                accountFound = true;
-                account.Gw2ApiKey = null;
-                _databaseContext.Update(account);
-            }
-
+            _databaseContext.RemoveRange(gw2Accounts);
             _databaseContext.SaveChanges();
 
             // Generate output message

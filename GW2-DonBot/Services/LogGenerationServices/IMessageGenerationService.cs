@@ -9,7 +9,7 @@ namespace Services.LogGenerationServices
     {
         public Embed GenerateWvWFightSummary(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client);
 
-        public Task<Embed> GenerateWvWPlayerReport();
+        public Task<Embed> GenerateWvWPlayerReport(Guild guildConfiguration);
 
         public Embed GeneratePvEFightSummary(EliteInsightDataModel data);
 

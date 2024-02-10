@@ -1,5 +1,4 @@
 using Discord;
-using Discord.Webhook;
 using Discord.WebSocket;
 using Handlers.MessageGenerationHandlers;
 using Microsoft.EntityFrameworkCore;
@@ -331,10 +330,17 @@ namespace Services.DiscordRequestServices
             }
 
             // Get the account of the user from the database
-            var account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id && a.Gw2ApiKey != null);
+            var account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
             if (account == null)
             {
                 await command.ModifyOriginalResponseAsync(m => m.Content = "Could not find an account for you, have you verified?");
+                return;
+            }
+
+            var gw2Accounts = await _databaseContext.GuildWarsAccount.Where(s => s.DiscordId == account.DiscordId).ToListAsync();
+            if (!gw2Accounts.Any())
+            {
+                await command.ModifyOriginalResponseAsync(m => m.Content = "Could not find a guild wars 2 account for you, have you verified?");
                 return;
             }
 
@@ -432,13 +438,18 @@ namespace Services.DiscordRequestServices
             }
 
             // Get the account of the user who executed the command
-            var accounts = await _databaseContext.Account.Where(acc => acc.Gw2ApiKey != null).ToListAsync();
-            var account = accounts.FirstOrDefault(a => (ulong)a.DiscordId == command.User.Id);
-
-            // Check if the account exists
+            // Get the account of the user from the database
+            var account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
             if (account == null)
             {
                 await command.ModifyOriginalResponseAsync(m => m.Content = "Could not find an account for you, have you verified?");
+                return;
+            }
+
+            var gw2Accounts = await _databaseContext.GuildWarsAccount.Where(s => s.DiscordId == account.DiscordId).ToListAsync();
+            if (!gw2Accounts.Any())
+            {
+                await command.ModifyOriginalResponseAsync(m => m.Content = "Could not find a guild wars 2 account for you, have you verified?");
                 return;
             }
 
@@ -539,8 +550,7 @@ namespace Services.DiscordRequestServices
                 if (pickedBid < rollingTotal)
                 {
                     // Get the account associated with the winning bid
-                    var accounts = await _databaseContext.Account.Where(acc => acc.Gw2ApiKey != null).ToListAsync();
-                    account = accounts.FirstOrDefault(a => a.DiscordId == currentRaffleBid.DiscordId);
+                    account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
                     break;
                 }
             }
@@ -673,8 +683,7 @@ namespace Services.DiscordRequestServices
                         if (pickedBid < rollingTotal)
                         {
                             // Get the account of the winner
-                            var accounts = await _databaseContext.Account.Where(acc => acc.Gw2ApiKey != null).ToListAsync();
-                            account = accounts.FirstOrDefault(a => a.DiscordId == currentRaffleBid.DiscordId);
+                            account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
 
                             if (account == null)
                             {
@@ -985,10 +994,17 @@ namespace Services.DiscordRequestServices
             }
 
             // Get the account of the user from the database
-            var account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id && a.Gw2ApiKey != null);
+            var account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
             if (account == null)
             {
-                await command.RespondAsync("Could not find an account for you, have you verified?", ephemeral: true);
+                await command.ModifyOriginalResponseAsync(m => m.Content = "Could not find an account for you, have you verified?");
+                return;
+            }
+
+            var gw2Accounts = await _databaseContext.GuildWarsAccount.Where(s => s.DiscordId == account.DiscordId).ToListAsync();
+            if (!gw2Accounts.Any())
+            {
+                await command.ModifyOriginalResponseAsync(m => m.Content = "Could not find a guild wars 2 account for you, have you verified?");
                 return;
             }
 
@@ -1076,14 +1092,17 @@ namespace Services.DiscordRequestServices
                 return;
             }
 
-            // Get the account of the user who executed the command
-            var accounts = await _databaseContext.Account.Where(acc => acc.Gw2ApiKey != null).ToListAsync();
-            var account = accounts.FirstOrDefault(a => (ulong)a.DiscordId == command.User.Id);
-
-            // Check if the account exists
+            var account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
             if (account == null)
             {
-                await command.RespondAsync("Could not find an account for you, have you verified?", ephemeral: true);
+                await command.ModifyOriginalResponseAsync(m => m.Content = "Could not find an account for you, have you verified?");
+                return;
+            }
+
+            var gw2Accounts = await _databaseContext.GuildWarsAccount.Where(s => s.DiscordId == account.DiscordId).ToListAsync();
+            if (!gw2Accounts.Any())
+            {
+                await command.ModifyOriginalResponseAsync(m => m.Content = "Could not find a guild wars 2 account for you, have you verified?");
                 return;
             }
 

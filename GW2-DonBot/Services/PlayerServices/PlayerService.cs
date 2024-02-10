@@ -82,7 +82,9 @@ namespace Services.Logging
                 return;
             }
 
-            var accounts = await _databaseContext.Account.Where(acc => acc.Gw2ApiKey != null).ToListAsync();
+            var accounts = await _databaseContext.Account.ToListAsync();
+            var gw2Accounts = await _databaseContext.GuildWarsAccount.ToListAsync();
+            accounts = accounts.Where(s => gw2Accounts.Any(acc => acc.DiscordId == s.DiscordId)).ToList();
             if (!accounts.Any())
             {
                 return;
@@ -111,7 +113,13 @@ namespace Services.Logging
 
             foreach (var player in gw2Players)
             {
-                var account = accounts.FirstOrDefault(a => a.Gw2AccountName == player.AccountName);
+                var gw2Account = gw2Accounts.FirstOrDefault(a => string.Equals(a.GuildWarsAccountName, player.AccountName, StringComparison.OrdinalIgnoreCase));
+                if (gw2Account == null)
+                {
+                    continue;
+                }
+
+                var account = _databaseContext.Account.FirstOrDefault(s => s.DiscordId == gw2Account.DiscordId);
                 if (account == null)
                 {
                     continue;

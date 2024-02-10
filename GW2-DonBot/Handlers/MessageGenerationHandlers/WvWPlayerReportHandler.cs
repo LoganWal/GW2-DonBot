@@ -18,12 +18,12 @@ namespace Handlers.MessageGenerationHandlers
             _footerHandler = footerHandler;
         }
 
-        public async Task<Embed> Generate()
+        public async Task<Embed> Generate(Guild guildConfiguration)
         {
-            // TODO: UPDATE THIS TO BE PER GUILD
-            var guild = _databaseContext.Guild.First(guild => guild.GuildId == 415441457151737870);
             var accounts = await _databaseContext.Account.ToListAsync();
-            accounts = accounts.Where(acc => acc.Guilds?.Split(",", StringSplitOptions.TrimEntries).Contains(guild.Gw2GuildMemberRoleId) ?? false).ToList();
+            var gw2Accounts = await _databaseContext.GuildWarsAccount.ToListAsync();
+            gw2Accounts = gw2Accounts.Where(guildWarsAccount => guildWarsAccount.GuildWarsGuilds?.Split(',', StringSplitOptions.TrimEntries).Contains(guildConfiguration.Gw2GuildMemberRoleId) ?? false).ToList();
+
             var position = 1;
             var accountsPerMessage = 15;
 
@@ -46,34 +46,36 @@ namespace Handlers.MessageGenerationHandlers
                 Timestamp = DateTime.Now
             };
 
-            for (var i = 0; i < accounts.Count / accountsPerMessage + 1; i++)
+            for (var i = 0; i < gw2Accounts.Count / accountsPerMessage + 1; i++)
             {
                 var accountOverview = "```";
                 var useLimit = false;
                 var limit = 0;
 
-                if (position + accountsPerMessage > accounts.Count)
+                if (position + accountsPerMessage > gw2Accounts.Count)
                 {
-                    limit = accounts.Count % accountsPerMessage;
+                    limit = gw2Accounts.Count % accountsPerMessage;
                 }
 
-                var playerBatch = accounts.OrderByDescending(o => o.LastWvwLogDateTime).Take(new Range(accountsPerMessage * i, !useLimit ? accountsPerMessage * i + accountsPerMessage : limit)).ToList();
+                var playerBatch = gw2Accounts.OrderByDescending(o => o.World).Take(new Range(accountsPerMessage * i, !useLimit ? accountsPerMessage * i + accountsPerMessage : limit)).ToList();
 
                 if (!playerBatch.Any())
                 {
                     break;
                 }
 
-                foreach (var account in playerBatch)
+                foreach (var gw2Account in playerBatch)
                 {
-                    var name = account.Gw2AccountName;
-                    var server = "Unknown";
-                    if (account.World.HasValue)
-                    {
-                        server = ((GW2WorldEnum)account.World).ToString();
-                    }
+                    var name = gw2Account.GuildWarsAccountName ?? gw2Account.DiscordId.ToString();
+                    var server = ((GW2WorldEnum)gw2Account.World).ToString();
+                    var account = accounts.FirstOrDefault(s => s.DiscordId == gw2Account.DiscordId);
 
-                    var lastLogDateTime = account.LastWvwLogDateTime.HasValue ? account.LastWvwLogDateTime.Value.AddHours(10).ToString("yyyy-MM-dd") : "Never";
+                    var lastLogDateTime = "Never";
+
+                    if (account != null)
+                    {
+                        lastLogDateTime = account.LastWvwLogDateTime.HasValue ? account.LastWvwLogDateTime.Value.AddHours(10).ToString("yyyy-MM-dd") : "Never";
+                    }
 
                     accountOverview += $"{name.ClipAt(34),-34} {server.ClipAt(7),-7}   {lastLogDateTime.ClipAt(12),-12} \n";
                     position++;

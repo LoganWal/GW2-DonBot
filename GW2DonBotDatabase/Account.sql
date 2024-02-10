@@ -8,17 +8,17 @@
 	[AvailablePoints] [decimal](16, 3) NOT NULL,
 	[LastWvwLogDateTime] [datetime] NULL,
 	[World] [int] NULL,
-	[FailedApiPullCount] [int] NULL
-) ON [PRIMARY]
-GO
-ALTER TABLE [dbo].[Account] ADD PRIMARY KEY CLUSTERED 
+	[FailedApiPullCount] [int] NULL,
+	[Guilds] [nvarchar](1000) NULL,
+PRIMARY KEY CLUSTERED 
 (
 	[DiscordId] ASC
-)WITH (STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ONLINE = OFF) ON [PRIMARY]
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
 GO
-ALTER TABLE [dbo].[Account] ADD  DEFAULT (0) FOR [Points]
+ALTER TABLE [dbo].[Account] ADD  DEFAULT ((0)) FOR [Points]
 GO
-ALTER TABLE [dbo].[Account] ADD  DEFAULT (0) FOR [PreviousPoints]
+ALTER TABLE [dbo].[Account] ADD  DEFAULT ((0)) FOR [PreviousPoints]
 GO
-ALTER TABLE [dbo].[Account] ADD  DEFAULT (0) FOR [AvailablePoints]
+ALTER TABLE [dbo].[Account] ADD  DEFAULT ((0)) FOR [AvailablePoints]
 GO

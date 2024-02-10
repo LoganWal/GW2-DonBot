@@ -1,29 +1,20 @@
 ﻿CREATE TABLE [dbo].[Guild](
 	[GuildId] [bigint] NOT NULL,
-	[CommandPassword] [nvarchar](256) NULL,
-	[WebhookChannelId] [bigint] NULL,
-	[PostChannelId] [bigint] NULL,
-	[Webhook] [nvarchar](256) NULL,
-	[DebugWebhookChannelId] [bigint] NULL,
-	[DebugPostChannelId] [bigint] NULL,
-	[DebugWebhook] [nvarchar](256) NULL,
+	[LogDropOffChannelId] [bigint] NULL,
 	[DiscordGuildMemberRoleId] [bigint] NULL,
 	[DiscordSecondaryMemberRoleId] [bigint] NULL,
 	[DiscordVerifiedRoleId] [bigint] NULL,
 	[Gw2GuildMemberRoleId] [nvarchar](128) NULL,
 	[Gw2SecondaryMemberRoleIds] [nvarchar](1000) NULL,
-	[PlayerReportWebhook] [nvarchar](256) NULL,
-	[AdminPlayerReportWebhook] [nvarchar](256) NULL,
-	[AnnouncementWebhook] [nvarchar](256) NULL,
-	[AdminAdvancePlayerReportWebhook] [nvarchar](256) NULL,
-	[StreamLogsWebhook] [nvarchar](256) NULL,
 	[PlayerReportChannelId] [bigint] NULL,
-	[WvwPlayerActivityReportWebhook] [nvarchar](256) NULL,
-	[WvwPlayerActivityReportChannelId] [bigint] NULL
-) ON [PRIMARY]
-GO
-ALTER TABLE [dbo].[Guild] ADD PRIMARY KEY CLUSTERED 
+	[WvwPlayerActivityReportChannelId] [bigint] NULL,
+	[AnnouncementChannelId] [bigint] NULL,
+	[LogReportChannelId] [bigint] NULL,
+	[AdvanceLogReportChannelId] [bigint] NULL,
+	[StreamLogChannelId] [bigint] NULL,
+PRIMARY KEY CLUSTERED 
 (
 	[GuildId] ASC
-)WITH (STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ONLINE = OFF) ON [PRIMARY]
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
 GO

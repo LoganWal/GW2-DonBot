@@ -19,9 +19,10 @@ namespace Handlers.MessageGenerationHandlers
 
         public async Task<Embed> Generate(Guild gw2Guild)
         {
-            var accounts = await _databaseContext.Account.Where(acc => acc.Gw2ApiKey != null)
-                .OrderByDescending(o => o.Points)
-                .ToListAsync();
+            var accounts = await _databaseContext.Account.OrderByDescending(o => o.Points).ToListAsync();
+            var gw2Accounts = await _databaseContext.GuildWarsAccount.ToListAsync();
+
+            accounts = accounts.Where(s => gw2Accounts.Any(acc => acc.DiscordId == s.DiscordId)).ToList();
 
             var position = 1;
 
@@ -60,8 +61,9 @@ namespace Handlers.MessageGenerationHandlers
 
                     foreach (var account in playerBatch)
                     {
+                        var gw2Account = gw2Accounts.FirstOrDefault(s => s.DiscordId == account.DiscordId);
                         var points = account.Points;
-                        var name = account.Gw2AccountName;
+                        var name = gw2Account?.GuildWarsAccountName ?? $"Unknown - {account.DiscordId}";
                         var pointsDiff = Math.Round(account.Points - account.PreviousPoints);
 
                         accountOverview += $"{position.ToString().PadLeft(3, '0')}  {name.ClipAt(23),-23}  {Convert.ToInt32(points)}(+{Convert.ToInt32(pointsDiff)})\n";
@@ -94,11 +96,12 @@ namespace Handlers.MessageGenerationHandlers
 
         public async Task<Embed> GenerateActive(Guild gw2Guild)
         {
-            var accounts = await _databaseContext.Account.Where(acc => acc.Gw2ApiKey != null).ToListAsync();
+            var accounts = await _databaseContext.Account.ToListAsync();
             accounts = accounts.Where(account => (account.Points - account.PreviousPoints) > 0)
                 .OrderByDescending(account => account.Points - account.PreviousPoints)
                 .ToList();
 
+            var gw2Accounts = await _databaseContext.GuildWarsAccount.ToListAsync();
             var position = 1;
 
             var message = new EmbedBuilder
@@ -136,7 +139,8 @@ namespace Handlers.MessageGenerationHandlers
 
                     foreach (var account in playerBatch)
                     {
-                        var name = account.Gw2AccountName;
+                        var gw2Account = gw2Accounts.FirstOrDefault(s => s.DiscordId == account.DiscordId);
+                        var name = gw2Account?.GuildWarsAccountName ?? $"Unknown - {account.DiscordId}";
                         var pointsDiff = Math.Round(account.Points - account.PreviousPoints);
 
                         accountOverview += $"{position.ToString().PadLeft(3, '0')}  {name.ClipAt(23),-23}  (+{Convert.ToInt32(pointsDiff)})\n";

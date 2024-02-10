@@ -9,7 +9,6 @@ using Services.LogGenerationServices;
 using Services.Logging;
 using Services.PlayerServices;
 using Services.SecretsServices;
-using CacheKey = GW2DonBot.Models.CacheKey;
 using ConnectionState = Discord.ConnectionState;
 
 namespace Controller.Discord

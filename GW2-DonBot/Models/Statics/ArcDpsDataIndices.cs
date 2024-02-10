@@ -20,5 +20,6 @@
         public const int AdvancedPlayersListed = 10;
         public const int EmbedTitleCharacterLength = 52;
         public const int EmbedBarCharacterLength = 23;
+        public const int DamageDownContribution = 17;
     }
 }

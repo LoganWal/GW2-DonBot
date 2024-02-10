@@ -70,6 +70,7 @@ namespace Services.Logging
                 existingPlayer.DistanceFromTag = gameplayStats?[ArcDpsDataIndices.DistanceFromTagIndex] ?? 0;
                 existingPlayer.TimesDowned = defStats?[ArcDpsDataIndices.FriendlyDownIndex].Double ?? 0;
                 existingPlayer.Interrupts = offensiveStats?[ArcDpsDataIndices.InterruptsIndex] ?? 0;
+                existingPlayer.DamageDownContribution = offensiveStats?[ArcDpsDataIndices.DamageDownContribution] ?? 0;
             }
 
             return gw2Players;

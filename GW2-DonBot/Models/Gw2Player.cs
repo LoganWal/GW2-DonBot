@@ -12,6 +12,8 @@
 
         public long Damage { get; set; }
 
+        public long DamageDownContribution { get; set; }
+
         public double Cleanses { get; set; }
 
         public double Strips { get; set; }

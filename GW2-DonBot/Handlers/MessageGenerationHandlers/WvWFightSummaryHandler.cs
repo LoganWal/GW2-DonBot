@@ -135,6 +135,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             var damageOverview = "```";
 
             var maxDamage = -1.0f;
+            var maxDownContribution = -1.0f;
             var topDamage = gw2Players.OrderByDescending(s => s.Damage).Take(playerCount).ToList();
             var damageIndex = 1;
             foreach (var gw2Player in topDamage)
@@ -147,7 +148,13 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                     maxDamage = damageFloat;
                 }
 
-                damageOverview += $"{damageIndex.ToString().PadLeft(2, '0')}  {name?.ClipAt(ArcDpsDataIndices.NameClipLength) + EliteInsightExtensions.GetClassAppend(prof),-ArcDpsDataIndices.NameSizeLength}  {damageFloat.FormatNumber(maxDamage).PadCenter(7)}  {(damageFloat / logLength).FormatNumber(maxDamage / logLength).PadCenter(7)}\n";
+                var downContribution = (float)gw2Player.DamageDownContribution;
+                if (maxDownContribution <= 0.0f)
+                {
+                    maxDownContribution = downContribution;
+                }
+
+                damageOverview += $"{damageIndex.ToString().PadLeft(2, '0')}  {name?.ClipAt(ArcDpsDataIndices.NameClipLength) + EliteInsightExtensions.GetClassAppend(prof),-ArcDpsDataIndices.NameSizeLength}  {damageFloat.FormatNumber(maxDamage).PadCenter(7)}  {downContribution.FormatNumber(maxDownContribution).PadCenter(7)}\n";
                 damageIndex++;
             }
 
@@ -314,7 +321,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
             message.AddField(x =>
             {
-                x.Name = "```  #            Name              Damage      DPS    ```";
+                x.Name = "```  #            Name             Damage      Down C  ```";
                 x.Value = $"{damageOverview}";
                 x.IsInline = false;
             });

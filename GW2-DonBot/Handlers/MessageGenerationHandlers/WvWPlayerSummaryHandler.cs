@@ -104,7 +104,7 @@ namespace Handlers.MessageGenerationHandlers
             var message = new EmbedBuilder
             {
                 Title = "Report - WvW points\n",
-                Description = "**WvW current fight player Details:**\n",
+                Description = "**WvW Last fight points:**\n",
                 Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
                 Author = new EmbedAuthorBuilder()
                 {

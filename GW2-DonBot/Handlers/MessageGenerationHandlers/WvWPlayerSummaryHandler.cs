@@ -102,6 +102,8 @@ namespace Handlers.MessageGenerationHandlers
                 .ToList();
 
             var gw2Accounts = await _databaseContext.GuildWarsAccount.ToListAsync();
+            accounts = accounts.Where(s => gw2Accounts.Any(acc => acc.DiscordId == s.DiscordId)).ToList();
+
             var position = 1;
 
             var message = new EmbedBuilder

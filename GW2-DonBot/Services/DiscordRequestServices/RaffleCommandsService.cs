@@ -550,7 +550,7 @@ namespace Services.DiscordRequestServices
                 if (pickedBid < rollingTotal)
                 {
                     // Get the account associated with the winning bid
-                    account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
+                    account = await _databaseContext.Account.FirstOrDefaultAsync(a => a.DiscordId == currentRaffleBid.DiscordId);
                     break;
                 }
             }
@@ -683,7 +683,7 @@ namespace Services.DiscordRequestServices
                         if (pickedBid < rollingTotal)
                         {
                             // Get the account of the winner
-                            account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
+                            account = await _databaseContext.Account.FirstOrDefaultAsync(a => a.DiscordId == currentRaffleBid.DiscordId);
 
                             if (account == null)
                             {

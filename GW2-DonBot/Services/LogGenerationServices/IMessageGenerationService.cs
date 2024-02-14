@@ -15,6 +15,6 @@ namespace Services.LogGenerationServices
 
         public Task<Embed> GenerateWvWPlayerSummary(Guild gw2Guild);
 
-        public Task<Embed> GenerateWvWActivePlayerSummary(Guild gw2Guild);
+        public Task<Embed> GenerateWvWActivePlayerSummary(Guild gw2Guild, string fightLogUrl);
     }
 }

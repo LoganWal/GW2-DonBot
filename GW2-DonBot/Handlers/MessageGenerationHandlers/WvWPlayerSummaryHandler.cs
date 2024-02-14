@@ -94,7 +94,7 @@ namespace Handlers.MessageGenerationHandlers
             return message.Build();
         }
 
-        public async Task<Embed> GenerateActive(Guild gw2Guild)
+        public async Task<Embed> GenerateActive(Guild gw2Guild, string fightLogUrl)
         {
             var accounts = await _databaseContext.Account.ToListAsync();
             accounts = accounts.Where(account => (account.Points - account.PreviousPoints) > 0)
@@ -117,6 +117,7 @@ namespace Handlers.MessageGenerationHandlers
                     Url = "https://github.com/LoganWal/GW2-DonBot",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
+                Url = $"{fightLogUrl}"
             };
 
             if (gw2Guild.DiscordGuildMemberRoleId != null)

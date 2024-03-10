@@ -66,11 +66,18 @@ namespace Services.Logging
                 existingPlayer.Strips = supportStats?.Count >= ArcDpsDataIndices.PlayerStripsIndex + 1 ? supportStats[ArcDpsDataIndices.PlayerStripsIndex] : 0;
                 existingPlayer.StabUpTime = boonGenSquadStats?.Data?.CheckIndexIsValid(ArcDpsDataIndices.BoonStabDimension1Index, ArcDpsDataIndices.BoonStabDimension2Index) ?? false ? boonGenSquadStats.Data[ArcDpsDataIndices.BoonStabDimension1Index][ArcDpsDataIndices.BoonStabDimension2Index] : 0;
                 existingPlayer.Healing = healingStatsTargets?.Sum(s => s.FirstOrDefault()) ?? 0;
-                existingPlayer.Barrier = barrierStats?.FirstOrDefault() ?? 0;
+                existingPlayer.BarrierGenerated = barrierStats?.FirstOrDefault() ?? 0;
                 existingPlayer.DistanceFromTag = gameplayStats?[ArcDpsDataIndices.DistanceFromTagIndex] ?? 0;
                 existingPlayer.TimesDowned = defStats?[ArcDpsDataIndices.FriendlyDownIndex].Double ?? 0;
                 existingPlayer.Interrupts = offensiveStats?[ArcDpsDataIndices.InterruptsIndex] ?? 0;
                 existingPlayer.DamageDownContribution = offensiveStats?[ArcDpsDataIndices.DamageDownContribution] ?? 0;
+                existingPlayer.NumberOfHitsWhileBlinded = offensiveStats?[ArcDpsDataIndices.NumberOfHitsWhileBlindedIndex] ?? 0;
+                existingPlayer.NumberOfMissesAgainst = defStats?[ArcDpsDataIndices.NumberOfMissesAgainstIndex].Double ?? 0;
+                existingPlayer.NumberOfTimesBlockedAttack = defStats?[ArcDpsDataIndices.NumberOfTimesBlockedAttackIndex].Double ?? 0;
+                existingPlayer.NumberOfTimesEnemyBlockedAttack = offensiveStats?[ArcDpsDataIndices.NumberOfTimesEnemyBlockedAttackIndex] ?? 0;
+                existingPlayer.NumberOfBoonsRipped = defStats?[ArcDpsDataIndices.NumberOfBoonsRippedIndex].Double ?? 0;
+                existingPlayer.DamageTaken = defStats?[ArcDpsDataIndices.DamageTakenIndex].Double ?? 0;
+                existingPlayer.BarrierMitigation = defStats?[ArcDpsDataIndices.BarrierMitigationIndex].Double ?? 0;
             }
 
             return gw2Players;
@@ -133,7 +140,7 @@ namespace Services.Logging
                 totalPoints += Math.Min(Convert.ToDouble(player.Strips) / 30d, 3);
                 totalPoints += Math.Min(Convert.ToDouble(player.StabUpTime) / 0.15d * (secondsOfFight < 30d ? 1d : secondsOfFight / 30d), 6);
                 totalPoints += Math.Min(Convert.ToDouble(player.Healing) / 50000d, 4);
-                totalPoints += Math.Min(Convert.ToDouble(player.Barrier) / 40000d, 3);
+                totalPoints += Math.Min(Convert.ToDouble(player.BarrierGenerated) / 40000d, 3);
 
                 totalPoints = Math.Max(4, Math.Min(12, totalPoints));
 

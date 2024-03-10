@@ -16,10 +16,15 @@
         public const int HealingDimension2Index = 0;
         public const int NameClipLength = 15;
         public const int NameSizeLength = 21;
-        public const int PlayersListed = 5;
-        public const int AdvancedPlayersListed = 10;
         public const int EmbedTitleCharacterLength = 52;
         public const int EmbedBarCharacterLength = 23;
         public const int DamageDownContribution = 17;
+        public const int NumberOfHitsWhileBlindedIndex = 6;
+        public const int NumberOfMissesAgainstIndex = 2;
+        public const int NumberOfTimesBlockedAttackIndex = 6;
+        public const int NumberOfTimesEnemyBlockedAttackIndex = 10;
+        public const int NumberOfBoonsRippedIndex = 10;
+        public const int DamageTakenIndex = 0;
+        public const int BarrierMitigationIndex = 1;
     }
 }

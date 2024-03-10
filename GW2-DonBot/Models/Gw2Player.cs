@@ -22,12 +22,26 @@
 
         public long Healing { get; set; }
 
-        public long Barrier { get; set; }
+        public long BarrierGenerated { get; set; }
 
         public double DistanceFromTag { get; set; }
 
         public double TimesDowned { get; set; }
 
         public long Interrupts { get; set; }
+
+        public long NumberOfHitsWhileBlinded { get; set; }
+
+        public double NumberOfMissesAgainst { get; set; }
+
+        public double NumberOfTimesBlockedAttack { get; set; }
+
+        public long NumberOfTimesEnemyBlockedAttack { get; set; }
+
+        public double NumberOfBoonsRipped { get; set; }
+
+        public double DamageTaken { get; set; }
+
+        public double BarrierMitigation { get; set; }
     }
 }

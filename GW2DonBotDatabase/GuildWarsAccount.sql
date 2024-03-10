@@ -1,7 +1,7 @@
 ﻿CREATE TABLE [dbo].[GuildWarsAccount](
 	[GuildWarsAccountId] [uniqueidentifier] NOT NULL,
 	[DiscordId] [bigint] NOT NULL,
-	[GuildWarsApiKey] [nvarchar](1000) NOT NULL,
+	[GuildWarsApiKey] [nvarchar](1000) NULL,
 	[GuildWarsAccountName] [nvarchar](1000) NOT NULL,
 	[GuildWarsGuilds] [nvarchar](1000) NULL,
 	[World] [int] NOT NULL,

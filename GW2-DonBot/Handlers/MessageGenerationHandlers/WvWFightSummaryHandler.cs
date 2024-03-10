@@ -23,7 +23,7 @@ namespace Handlers.MessageGenerationHandlers
 
         public Embed Generate(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
         {
-            var playerCount = advancedLog ? ArcDpsDataIndices.AdvancedPlayersListed : ArcDpsDataIndices.PlayersListed;
+            var playerCount = 5;
 
             // Building the actual message to be sent
             var logLength = data.EncounterDuration?.TimeToSeconds() ?? 0;
@@ -232,23 +232,27 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             var timesDownedOverview = "```";
             var interruptedEnemyOverview = "```";
             var barrierOverview = "```";
+            var blindsAggregation = "```";
+            var blocksAggregation = "```";
+            var stripsAggregation = "```";
+            var barrierAggregation = "```";
 
             if (advancedLog)
             {
-                var topBarrier = gw2Players.OrderByDescending(s => s.Barrier).Take(playerCount).ToList();
+                var topBarrier = gw2Players.OrderByDescending(s => s.BarrierGenerated).Take(playerCount).ToList();
                 var barrierIndex = 1;
                 foreach (var gw2Player in topBarrier)
                 {
-                    var barrier = gw2Player.Barrier;
+                    var barrier = gw2Player.BarrierGenerated;
                     var name = gw2Player.CharacterName;
                     var prof = gw2Player.Profession;
 
-                    barrierOverview += $"{barrierIndex.ToString().PadLeft(2, '0')}  {name?.ClipAt(ArcDpsDataIndices.NameClipLength) + EliteInsightExtensions.GetClassAppend(prof),-ArcDpsDataIndices.NameSizeLength}  {barrier.ToString(CultureInfo.InvariantCulture).PadCenter(16)}\n";
+                    barrierOverview += $"{barrierIndex.ToString().PadLeft(2, '0')}  {name?.ClipAt(ArcDpsDataIndices.NameClipLength) + EliteInsightExtensions.GetClassAppend(prof),-ArcDpsDataIndices.NameSizeLength} {string.Empty,5} {barrier.ToString(CultureInfo.InvariantCulture)}\n";
                     barrierIndex++;
                 }
                 barrierOverview += "```";
 
-                var topDistance = gw2Players.OrderBy(s => s.DistanceFromTag).Take(playerCount * 2).ToList();
+                var topDistance = gw2Players.OrderByDescending(s => s.DistanceFromTag).Take(playerCount).ToList();
                 var distanceIndex = 1;
                 foreach (var gw2Player in topDistance)
                 {
@@ -256,7 +260,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                     var name = gw2Player.CharacterName;
                     var prof = gw2Player.Profession;
 
-                    distanceOverview += $"{distanceIndex.ToString().PadLeft(2, '0')}  {name?.ClipAt(ArcDpsDataIndices.NameClipLength) + EliteInsightExtensions.GetClassAppend(prof),-ArcDpsDataIndices.NameSizeLength}  {distance.ToString(CultureInfo.InvariantCulture).PadCenter(16)}\n";
+                    distanceOverview += $"{distanceIndex.ToString().PadLeft(2, '0')}  {name?.ClipAt(ArcDpsDataIndices.NameClipLength) + EliteInsightExtensions.GetClassAppend(prof),-ArcDpsDataIndices.NameSizeLength} {string.Empty,1} {distance.ToString(CultureInfo.InvariantCulture)}\n";
                     distanceIndex++;
                 }
                 distanceOverview += "```";
@@ -269,25 +273,26 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                     var name = gw2Player.CharacterName;
                     var prof = gw2Player.Profession;
 
-                    timesDownedOverview += $"{timesDownedIndex.ToString().PadLeft(2, '0')}  {name?.ClipAt(ArcDpsDataIndices.NameClipLength) + EliteInsightExtensions.GetClassAppend(prof),-ArcDpsDataIndices.NameSizeLength}  {timesDowned.ToString(CultureInfo.InvariantCulture).PadCenter(16)}\n";
+                    timesDownedOverview += $"{timesDownedIndex.ToString().PadLeft(2, '0')}  {name?.ClipAt(ArcDpsDataIndices.NameClipLength) + EliteInsightExtensions.GetClassAppend(prof),-ArcDpsDataIndices.NameSizeLength} {string.Empty,3} {timesDowned.ToString(CultureInfo.InvariantCulture)}\n";
                     timesDownedIndex++;
                 }
-
+                
                 timesDownedOverview += "```";
 
-                var topInterruptedEnemy = gw2Players.OrderByDescending(s => s.Interrupts).Take(playerCount).ToList();
-                var interruptedEnemyIndex = 1;
-                foreach (var gw2Player in topInterruptedEnemy)
-                {
-                    var interrupts = gw2Player.Interrupts;
-                    var name = gw2Player.CharacterName;
-                    var prof = gw2Player.Profession;
+                blindsAggregation += $"{string.Empty.PadLeft(21) + gw2Players.Sum(s => s.NumberOfHitsWhileBlinded).ToString().PadRight(4) + string.Empty.PadLeft(10) + gw2Players.Sum(s => s.NumberOfMissesAgainst).ToString(CultureInfo.CurrentCulture)}";
+                blindsAggregation += "```";
 
-                    interruptedEnemyOverview += $"{interruptedEnemyIndex.ToString().PadLeft(2, '0')}  {name?.ClipAt(ArcDpsDataIndices.NameClipLength) + EliteInsightExtensions.GetClassAppend(prof),-ArcDpsDataIndices.NameSizeLength}  {interrupts.ToString(CultureInfo.InvariantCulture).PadCenter(16)}\n";
-                    interruptedEnemyIndex++;
-                }
+                blocksAggregation += $"{string.Empty.PadLeft(21) + gw2Players.Sum(s => s.NumberOfTimesBlockedAttack).ToString(CultureInfo.CurrentCulture).PadRight(4) + string.Empty.PadLeft(10) + gw2Players.Sum(s => s.NumberOfTimesEnemyBlockedAttack)}";
+                blocksAggregation += "```";
 
-                interruptedEnemyOverview += "```";
+                stripsAggregation += $"{string.Empty.PadLeft(21) + gw2Players.Sum(s => s.Strips).ToString(CultureInfo.CurrentCulture).PadRight(4) + string.Empty.PadLeft(10) + gw2Players.Sum(s => s.NumberOfBoonsRipped).ToString(CultureInfo.CurrentCulture)}";
+                stripsAggregation += "```";
+
+                var totalDmg = Convert.ToSingle(gw2Players.Sum(s => s.DamageTaken));
+                var totalBarrierMitigation = Convert.ToSingle(gw2Players.Sum(s => s.BarrierMitigation));
+
+                barrierAggregation += $"{string.Empty.PadLeft(1) + totalDmg.FormatNumber(totalDmg).ToString(CultureInfo.CurrentCulture).PadRight(6) + string.Empty.PadLeft(9) + totalBarrierMitigation.FormatNumber(totalBarrierMitigation).ToString(CultureInfo.CurrentCulture).PadRight(6) + string.Empty.PadLeft(10) + (totalDmg - totalBarrierMitigation).FormatNumber(totalDmg - totalBarrierMitigation).ToString(CultureInfo.CurrentCulture)}";
+                barrierAggregation += "```";
             }
 
             // Building the message via embeds
@@ -319,56 +324,64 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                 x.IsInline = false;
             });
 
-            message.AddField(x =>
+            if (!advancedLog)
             {
-                x.Name = "```  #            Name             Damage      Down C  ```";
-                x.Value = $"{damageOverview}";
-                x.IsInline = false;
-            });
+                message.AddField(x =>
+                {
+                    x.Name = "```  #            Name             Damage      Down C  ```";
+                    x.Value = $"{damageOverview}";
+                    x.IsInline = false;
+                });
 
-            message.AddField(x =>
-            {
-                x.Name = "```  #            Name                  Cleanses       ```";
-                x.Value = $"{cleanseOverview}";
-                x.IsInline = false;
-            });
+                message.AddField(x =>
+                {
+                    x.Name = "```  #            Name                  Cleanses       ```";
+                    x.Value = $"{cleanseOverview}";
+                    x.IsInline = false;
+                });
 
-            message.AddField(x =>
-            {
-                x.Name = "```  #            Name                   Strips        ```";
-                x.Value = $"{stripOverview}";
-                x.IsInline = false;
-            });
+                message.AddField(x =>
+                {
+                    x.Name = "```  #            Name                   Strips        ```";
+                    x.Value = $"{stripOverview}";
+                    x.IsInline = false;
+                });
 
-            message.AddField(x =>
-            {
-                x.Name = "```  #            Name              Sub      Stab      ```";
-                x.Value = $"{stabOverview}";
-                x.IsInline = false;
-            });
+                message.AddField(x =>
+                {
+                    x.Name = "```  #            Name              Sub      Stab      ```";
+                    x.Value = $"{stabOverview}";
+                    x.IsInline = false;
+                });
 
-            message.AddField(x =>
-            {
-                x.Name = "```  #            Name                   Healing       ```";
-                x.Value = $"{healingOverview}";
-                x.IsInline = false;
-            });
-
+                message.AddField(x =>
+                {
+                    x.Name = "```  #            Name                   Healing       ```";
+                    x.Value = $"{healingOverview}";
+                    x.IsInline = false;
+                });
+            }
+            
             if (advancedLog)
             {
                 message.AddField(x =>
                 {
-                    x.Name = "```  #            Name                   Barrier       ```";
+                    x.Name = "```  #            Name                   Barrier Gen   ```";
                     x.Value = $"{barrierOverview}";
                     x.IsInline = false;
                 });
-                message.AddField(x =>
-                {
-                    x.Name = "```  #            Name                  Interrupts     ```";
-                    x.Value = $"{interruptedEnemyOverview}";
-                    x.IsInline = false;
-                });
 
+                // TODO: update all this to be config driven per guild
+                if (false)
+                {
+                    message.AddField(x =>
+                    {
+                        x.Name = "```  #            Name                  Interrupts     ```";
+                        x.Value = $"{interruptedEnemyOverview}";
+                        x.IsInline = false;
+                    });
+                }
+                
                 message.AddField(x =>
                 {
                     x.Name = "```  #            Name                Times Downed     ```";
@@ -380,6 +393,34 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                 {
                     x.Name = "```  #            Name              Distance From Tag  ```";
                     x.Value = $"{distanceOverview}";
+                    x.IsInline = false;
+                });
+
+                message.AddField(x =>
+                {
+                    x.Name = "```  Attacks Missed         Ours            Theirs     ```";
+                    x.Value = $"{blindsAggregation}";      
+                    x.IsInline = false;
+                });
+
+                message.AddField(x =>
+                {
+                    x.Name = "```  Attacks Blocked        Ours            Theirs     ```";
+                    x.Value = $"{blocksAggregation}";
+                    x.IsInline = false;
+                });
+
+                message.AddField(x =>
+                {
+                    x.Name = "```  Boons Stripped         Ours            Theirs     ```";
+                    x.Value = $"{stripsAggregation}";
+                    x.IsInline = false;
+                });
+
+                message.AddField(x =>
+                {
+                    x.Name = "```  Damage Taken     Barrier Mit        Diff          ```";
+                    x.Value = $"{barrierAggregation}";
                     x.IsInline = false;
                 });
             }

@@ -291,7 +291,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                 var totalDmg = Convert.ToSingle(gw2Players.Sum(s => s.DamageTaken));
                 var totalBarrierMitigation = Convert.ToSingle(gw2Players.Sum(s => s.BarrierMitigation));
 
-                barrierAggregation += $"{string.Empty.PadLeft(1) + totalDmg.FormatNumber(totalDmg).ToString(CultureInfo.CurrentCulture).PadRight(6) + string.Empty.PadLeft(9) + totalBarrierMitigation.FormatNumber(totalBarrierMitigation).ToString(CultureInfo.CurrentCulture).PadRight(6) + string.Empty.PadLeft(10) + (totalDmg - totalBarrierMitigation).FormatNumber(totalDmg - totalBarrierMitigation).ToString(CultureInfo.CurrentCulture)}";
+                barrierAggregation += $"{string.Empty.PadLeft(1) + totalDmg.FormatNumber(totalDmg).ToString(CultureInfo.CurrentCulture).PadRight(6) + string.Empty.PadLeft(9) + totalBarrierMitigation.FormatNumber(totalBarrierMitigation).ToString(CultureInfo.CurrentCulture).PadRight(6) + string.Empty.PadLeft(10) + (totalDmg - totalBarrierMitigation).FormatNumber(totalDmg - totalBarrierMitigation).ToString(CultureInfo.CurrentCulture)} ({Math.Round((totalBarrierMitigation / totalDmg) * 100, 2)}%)";
                 barrierAggregation += "```";
             }
 

@@ -129,10 +129,10 @@
         public List<string>? LogErrors { get; set; }
 
         [JsonProperty("encounterStart")]
-        public string? EncounterStart { get; set; }
+        public string EncounterStart { get; set; } = string.Empty;
 
         [JsonProperty("encounterEnd")]
-        public string? EncounterEnd { get; set; }
+        public string EncounterEnd { get; set; } = string.Empty;
 
         [JsonProperty("arcVersion")]
         public string? ArcVersion { get; set; }
@@ -397,9 +397,6 @@
 
         [JsonProperty("color")]
         public string? Color { get; set; }
-
-        [JsonProperty("points")]
-        public List<List<List<double>>>? Points { get; set; }
 
         [JsonProperty("visible")]
         public bool Visible { get; set; }

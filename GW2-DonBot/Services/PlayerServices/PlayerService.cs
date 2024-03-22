@@ -59,6 +59,7 @@ namespace Services.Logging
                 var gameplayStats = fightPhase.GameplayStats?.Count >= playerIndex + 1 ? fightPhase.GameplayStats[playerIndex] : null;
                 var defStats = fightPhase.DefStats?.Count >= playerIndex + 1 ? fightPhase.DefStats[playerIndex] : null;
                 var offensiveStats = fightPhase.OffensiveStats?.Count >= playerIndex + 1 ? fightPhase.OffensiveStats[playerIndex] : null;
+                var boons = fightPhase.BoonActiveStats?.Count >= playerIndex + 1 ? fightPhase.BoonActiveStats[playerIndex].Data : null;
 
                 existingPlayer.Damage = fightPhaseStats?.Sum(s => s.FirstOrDefault()) ?? 0;
                 existingPlayer.Cleanses = supportStats?.FirstOrDefault() ?? 0;
@@ -78,6 +79,8 @@ namespace Services.Logging
                 existingPlayer.NumberOfBoonsRipped = defStats?[ArcDpsDataIndices.NumberOfBoonsRippedIndex].Double ?? 0;
                 existingPlayer.DamageTaken = defStats?[ArcDpsDataIndices.DamageTakenIndex].Double ?? 0;
                 existingPlayer.BarrierMitigation = defStats?[ArcDpsDataIndices.BarrierMitigationIndex].Double ?? 0;
+                existingPlayer.TotalQuick = boons?[ArcDpsDataIndices.TotalQuick][0] ?? 0;
+                existingPlayer.TotalAlac = boons?[ArcDpsDataIndices.TotalAlac][0] ?? 0;
             }
 
             return gw2Players;

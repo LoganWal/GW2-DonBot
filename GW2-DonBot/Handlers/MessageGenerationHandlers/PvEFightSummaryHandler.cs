@@ -1,20 +1,28 @@
 using Discord;
 using Extensions;
 using Models;
+using Models.Entities;
+using Models.Enums;
 using Models.Statics;
+using Services.PlayerServices;
+using System.Globalization;
 
 namespace Handlers.MessageGenerationHandlers
 {
     public class PvEFightSummaryHandler
     {
         private readonly FooterHandler _footerHandler;
+        private readonly IPlayerService _playerService;
+        private readonly DatabaseContext _databaseContext;
 
-        public PvEFightSummaryHandler(FooterHandler footerHandler)
+        public PvEFightSummaryHandler(FooterHandler footerHandler, IPlayerService playerService, DatabaseContext databaseContext)
         {
             _footerHandler = footerHandler;
+            _playerService = playerService;
+            _databaseContext = databaseContext;
         }
 
-        public Embed Generate(EliteInsightDataModel data)
+        public Embed Generate(EliteInsightDataModel data, ulong guildId)
         {
             // Building the actual message to be sent
             var logLength = data.EncounterDuration?.TimeToSeconds() ?? 0;
@@ -245,6 +253,173 @@ namespace Handlers.MessageGenerationHandlers
 
             // Timestamp
             message.Timestamp = DateTime.Now;
+
+            // Building the message for use
+            return message.Build();
+        }
+
+        public Embed GenerateSimple(EliteInsightDataModel data, long guildId)
+        {
+            var fightPhase = data.Phases?.Any() ?? false
+                ? data.Phases[0]
+                : new ArcDpsPhase();
+
+            var healingPhase = data.HealingStatsExtension?.HealingPhases?.FirstOrDefault() ?? new HealingPhase();
+            var barrierPhase = data.BarrierStatsExtension?.BarrierPhases?.FirstOrDefault() ?? new BarrierPhase();
+
+            var gw2Players = _playerService.GetGw2Players(data, fightPhase, healingPhase, barrierPhase);
+
+            var dateStartString = data.EncounterStart;
+            var dateTimeStart = DateTime.ParseExact(dateStartString, "yyyy-MM-dd HH:mm:ss zzz", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal);
+
+            var dateEndString = data.EncounterEnd;
+            var dateTimeEnd = DateTime.ParseExact(dateEndString, "yyyy-MM-dd HH:mm:ss zzz", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal);
+
+            var duration = dateTimeEnd - dateTimeStart;
+
+            short encounterType;
+            switch (data.EncounterId)
+            {
+                case 131329:
+                    encounterType = (short)FightTypesEnum.vale;
+                    break;
+                case 131330:
+                    encounterType = (short)FightTypesEnum.gors;
+                    break;
+                case 131331:
+                    encounterType = (short)FightTypesEnum.sabe;
+                    break;
+                case 131585:
+                    encounterType = (short)FightTypesEnum.band;
+                    break;
+                case 131587:
+                    encounterType = (short)FightTypesEnum.matt;
+                    break;
+                case 131841:
+                    encounterType = (short)FightTypesEnum.esco;
+                    break;
+                case 131842:
+                    encounterType = (short)FightTypesEnum.keep;
+                    break;
+                case 131843:
+                    encounterType = (short)FightTypesEnum.twis;
+                    break;
+                case 131844:
+                    encounterType = (short)FightTypesEnum.cair;
+                    break;
+                case 132097:
+                    encounterType = (short)FightTypesEnum.cair;
+                    break;
+                case 132098:
+                    encounterType = (short)FightTypesEnum.murs;
+                    break;
+                case 132099:
+                    encounterType = (short)FightTypesEnum.sama;
+                    break;
+                case 132100:
+                    encounterType = (short)FightTypesEnum.deim;
+                    break;
+                case 132353:
+                    encounterType = (short)FightTypesEnum.rive;
+                    break;
+                case 132355:
+                    encounterType = (short)FightTypesEnum.brok;
+                    break;
+                case 132356:
+                    encounterType = (short)FightTypesEnum.eate;
+                    break;
+                case 132357:
+                    encounterType = (short)FightTypesEnum.stat;
+                    break;
+                case 132358:
+                    encounterType = (short)FightTypesEnum.dhuu;
+                    break;
+                case 132609:
+                    encounterType = (short)FightTypesEnum.conj;
+                    break;
+                case 132610:
+                    encounterType = (short)FightTypesEnum.twin;
+                    break;
+                case 132611:
+                    encounterType = (short)FightTypesEnum.qadi;
+                    break;
+                case 132865:
+                    encounterType = (short)FightTypesEnum.adin;
+                    break;
+                case 132866:
+                    encounterType = (short)FightTypesEnum.sabi;
+                    break;
+                case 132867:
+                    encounterType = (short)FightTypesEnum.peer;
+                    break;
+                default:
+                    encounterType = (short)FightTypesEnum.unkn;
+                    break;
+            }
+
+            var fightLog = new FightLog
+            {
+                GuildId = guildId,
+                Url = data.Url ?? string.Empty,
+                FightType = encounterType,
+                FightStart = dateTimeStart,
+                FightDurationInMs = (long)duration.TotalMilliseconds,
+                IsSuccess = data.Success
+            };
+
+            _databaseContext.Add(fightLog);
+            _databaseContext.SaveChanges();
+
+            var playerFights = gw2Players.Select(gw2Player => new PlayerFightLog
+            {
+                FightLogId = fightLog.FightLogId,
+                GuildWarsAccountName = gw2Player.AccountName,
+                Damage = gw2Player.Damage,
+                QuicknessDuration = Convert.ToDecimal(gw2Player.TotalQuick),
+                AlacDuration = Convert.ToDecimal(gw2Player.TotalAlac)
+            })
+            .ToList();
+
+            _databaseContext.AddRange(playerFights);
+
+            var message = new EmbedBuilder
+            {
+                Title = $"Fight Recorded - {data.FightName}\n",
+                Description = $"**Length:** {data.EncounterDuration}\n",
+                Author = new EmbedAuthorBuilder()
+                {
+                    Name = "GW2-DonBot",
+                    Url = "https://github.com/LoganWal/GW2-DonBot",
+                    IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                },
+                Url = $"{data.Url}",
+                Footer = new EmbedFooterBuilder()
+                {
+                    Text = $"{_footerHandler.Generate()}",
+                    IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                },
+                Timestamp = DateTime.Now
+            };
+
+            var playerOverview = "```";
+            foreach (var gw2Player in gw2Players.OrderByDescending(s => s.Damage))
+            {
+                playerOverview += $"{gw2Player.AccountName?.ClipAt(13),-13}  {gw2Player.Damage,9}      {Math.Round(gw2Player.TotalAlac, 2).ToString(CultureInfo.CurrentCulture).PadRight(5, '0')}          {Math.Round(gw2Player.TotalQuick, 2).ToString(CultureInfo.CurrentCulture).PadRight(5, '0')}\n";
+            }
+
+            var don = gw2Players.FirstOrDefault(s => s.AccountName == "Dondarion.9503");
+            playerOverview += $"\nDon Downs = {don?.TimesDowned ?? 0}";
+
+            playerOverview += "```";
+
+            message.AddField(x =>
+            {
+                x.Name = $"``` Player            Total Dmg        Avg Alac          Avg Quick ```";
+                x.Value = $"{playerOverview}";
+                x.IsInline = false;
+            });
+
+            _databaseContext.SaveChanges();
 
             // Building the message for use
             return message.Build();

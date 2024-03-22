@@ -29,6 +29,7 @@ namespace Registration
             builder.RegisterType<WvWFightSummaryHandler>();
             builder.RegisterType<WvWPlayerReportHandler>();
             builder.RegisterType<WvWPlayerSummaryHandler>();
+            builder.RegisterType<PvERaidReportHandler>();
 
             // services
             builder.RegisterType<CacheService>().As<ICacheService>().SingleInstance();
@@ -42,6 +43,7 @@ namespace Registration
             builder.RegisterType<PointsCommandsService>().As<IPointsCommandsService>();
             builder.RegisterType<RaffleCommandsService>().As<IRaffleCommandsService>();
             builder.RegisterType<PlayerService>().As<IPlayerService>();
+            builder.RegisterType<RaidService>().As<IRaidService>();
 
             builder.RegisterType<PollingTasksService>().As<IPollingTasksService>();
             builder.RegisterType<DiscordApiService>().As<IDiscordApiService>();

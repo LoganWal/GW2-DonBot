@@ -43,5 +43,9 @@
         public double DamageTaken { get; set; }
 
         public double BarrierMitigation { get; set; }
+
+        public double TotalQuick { get; set; }
+
+        public double TotalAlac { get; set; }
     }
 }

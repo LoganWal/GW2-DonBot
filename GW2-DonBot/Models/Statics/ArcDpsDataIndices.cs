@@ -26,5 +26,7 @@
         public const int NumberOfBoonsRippedIndex = 10;
         public const int DamageTakenIndex = 0;
         public const int BarrierMitigationIndex = 1;
+        public const int TotalQuick = 2;
+        public const int TotalAlac = 3;
     }
 }

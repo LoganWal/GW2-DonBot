@@ -12,17 +12,20 @@ namespace Services.LogGenerationServices
         private readonly WvWPlayerReportHandler _wvwPlayerReportHandler;
         private readonly PvEFightSummaryHandler _pveFightSummaryHandler;
         private readonly WvWPlayerSummaryHandler _wvwPlayerSummaryHandler;
+        private readonly PvERaidReportHandler _pveRaidReportHandler;
 
         public MessageGenerationService(
             WvWFightSummaryHandler wvwFightSummaryHandler,
             WvWPlayerReportHandler wvwPlayerReportHandler,
             PvEFightSummaryHandler pveFightSummaryHandler,
-            WvWPlayerSummaryHandler wvwPlayerSummaryHandler)
+            WvWPlayerSummaryHandler wvwPlayerSummaryHandler,
+            PvERaidReportHandler pveRaidReportHandler)
         {
             _wvwFightSummaryHandler = wvwFightSummaryHandler;
             _wvwPlayerReportHandler = wvwPlayerReportHandler;
             _pveFightSummaryHandler = pveFightSummaryHandler;
             _wvwPlayerSummaryHandler = wvwPlayerSummaryHandler;
+            _pveRaidReportHandler = pveRaidReportHandler;
         }
 
         public Embed GenerateWvWFightSummary(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
@@ -35,9 +38,9 @@ namespace Services.LogGenerationServices
             return await _wvwPlayerReportHandler.Generate(guildConfiguration);
         }
 
-        public Embed GeneratePvEFightSummary(EliteInsightDataModel data)
+        public Embed GeneratePvEFightSummary(EliteInsightDataModel data, long guildId)
         {
-            return _pveFightSummaryHandler.Generate(data);
+            return _pveFightSummaryHandler.GenerateSimple(data, guildId);
         }
 
         public async Task<Embed> GenerateWvWPlayerSummary(Guild gw2Guild)
@@ -48,6 +51,11 @@ namespace Services.LogGenerationServices
         public async Task<Embed> GenerateWvWActivePlayerSummary(Guild gw2Guild, string fightLogUrl)
         {
             return await _wvwPlayerSummaryHandler.GenerateActive(gw2Guild, fightLogUrl);
+        }
+
+        public Embed? GenerateRaidReport(FightsReport fightsReport)
+        {
+            return _pveRaidReportHandler.Generate(fightsReport);
         }
     }
 }

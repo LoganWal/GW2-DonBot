@@ -752,7 +752,6 @@ namespace Services.DiscordRequestServices
             else
             {
                 await command.ModifyOriginalResponseAsync(m => m.Content = "There are currently no raffles, maybe create one!");
-                return;
             }
         }
 

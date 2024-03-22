@@ -11,10 +11,12 @@ namespace Services.LogGenerationServices
 
         public Task<Embed> GenerateWvWPlayerReport(Guild guildConfiguration);
 
-        public Embed GeneratePvEFightSummary(EliteInsightDataModel data);
+        public Embed GeneratePvEFightSummary(EliteInsightDataModel data, long guildId);
 
         public Task<Embed> GenerateWvWPlayerSummary(Guild gw2Guild);
 
         public Task<Embed> GenerateWvWActivePlayerSummary(Guild gw2Guild, string fightLogUrl);
+
+        public Embed? GenerateRaidReport(FightsReport fightsReportId);
     }
 }

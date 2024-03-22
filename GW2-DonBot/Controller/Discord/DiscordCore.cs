@@ -26,6 +26,7 @@ namespace Controller.Discord
         private readonly IPollingTasksService _pollingTasksService;
         private readonly IPlayerService _playerService;
         private readonly IDataModelGenerationService _dataModelGenerator;
+        private readonly IRaidService _raidService;
 
         private readonly DatabaseContext _databaseContext;
         private readonly DiscordSocketClient _client;
@@ -41,6 +42,7 @@ namespace Controller.Discord
             IRaffleCommandsService raffleCommandsService,
             IPollingTasksService pollingTasksService,
             IPlayerService playerService,
+            IRaidService raidService,
             IDataModelGenerationService dataModelGenerator,
             DatabaseContext databaseContext)
         {
@@ -54,6 +56,7 @@ namespace Controller.Discord
             _raffleCommandsService = raffleCommandsService;
             _pollingTasksService = pollingTasksService;
             _playerService = playerService;
+            _raidService = raidService;
             _dataModelGenerator = dataModelGenerator;
             _databaseContext = databaseContext;
 
@@ -232,6 +235,18 @@ namespace Controller.Discord
                     .WithDescription("Reopen the event raffle.");
 
                 await guild.CreateApplicationCommandAsync(redrawEventRaffleCommand.Build());
+
+                var startRaid = new SlashCommandBuilder()
+                    .WithName("start_raid")
+                    .WithDescription("Starts raid.");
+
+                await guild.CreateApplicationCommandAsync(startRaid.Build());
+
+                var closeRaid = new SlashCommandBuilder()
+                    .WithName("close_raid")
+                    .WithDescription("Closes raid.");
+
+                await guild.CreateApplicationCommandAsync(closeRaid.Build());
             }
         }
 
@@ -251,6 +266,8 @@ namespace Controller.Discord
                 case        "complete_event_raffle":    await CompleteEventRaffleCommandExecuted(command);   break;
                 case        "reopen_raffle":            await ReopenRaffleCommandExecuted(command);          break;
                 case        "reopen_event_raffle":      await ReopenEventRaffleCommandExecuted(command);     break;
+                case        "start_raid":               await StartRaidCommandExecuted(command);             break;
+                case        "close_raid":               await CloseRaidCommandExecuted(command);             break;
                 default:                                await DefaultCommandExecuted(command);               break;
             }
         }
@@ -258,6 +275,16 @@ namespace Controller.Discord
         private async Task HelpCommandExecuted(SocketSlashCommand command)
         {
             await _genericCommandsService.HelpCommandExecuted(command);
+        }
+
+        private async Task StartRaidCommandExecuted(SocketSlashCommand command)
+        {
+            await _raidService.StartRaid(command);
+        }
+
+        private async Task CloseRaidCommandExecuted(SocketSlashCommand command)
+        {
+            await _raidService.CloseRaid(command, _client);
         }
 
         private async Task ReopenRaffleCommandExecuted(SocketSlashCommand command)
@@ -367,7 +394,7 @@ namespace Controller.Discord
                 foreach (var url in trimmedUrls)
                 {
                     Console.WriteLine($"[DON] Assessing: {url}");
-                    AnalyseAndReportOnUrl(url, channel.Guild.Id);
+                    AnalyseAndReportOnUrl(url, channel.Guild.Id).Wait();
                 }
             }
             catch (Exception e)
@@ -393,11 +420,6 @@ namespace Controller.Discord
 
             Console.WriteLine($"[DON] Analysing and reporting on: {url}");
             var data = await _dataModelGenerator.GenerateEliteInsightDataModelFromUrl(url);
-
-            if (data.Success == false)
-            {
-                return;
-            }
 
             var guilds = await _databaseContext.Guild.ToListAsync();
             var guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildId);
@@ -453,7 +475,7 @@ namespace Controller.Discord
             }
             else
             {
-                message = _messageGenerationService.GeneratePvEFightSummary(data);
+                message = _messageGenerationService.GeneratePvEFightSummary(data, (long)guildId);
             }
 
             await logReportChannel.SendMessageAsync(text: "", embeds: new[] { message });

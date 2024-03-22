@@ -64,6 +64,9 @@
     <Build Include="Raffle.sql" />
     <Build Include="PlayerRaffleBid.sql" />
     <Build Include="GuildWarsAccount.sql" />
+    <Build Include="FightLog.sql" />
+    <Build Include="PlayerFightLog.sql" />
+    <Build Include="FightsReport.sql" />
   </ItemGroup>
   <ItemGroup>
     <RefactorLog Include="GW2DonBotDatabase.refactorlog" />

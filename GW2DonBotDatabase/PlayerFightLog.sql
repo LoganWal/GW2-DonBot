@@ -1,10 +1,67 @@
-﻿CREATE TABLE [dbo].[PlayerFightLog]
+﻿CREATE TABLE [dbo].[PlayerFightLog](
+	[PlayerFightLogId] [bigint] IDENTITY(1,1) NOT NULL,
+	[FightLogId] [bigint] NOT NULL,
+	[GuildWarsAccountName] [nvarchar](1000) NOT NULL,
+	[Damage] [bigint] NOT NULL,
+	[QuicknessDuration] [decimal](6, 2) NULL,
+	[AlacDuration] [decimal](6, 2) NULL,
+	[SubGroup] [bigint] NOT NULL,
+	[DamageDownContribution] [bigint] NOT NULL,
+	[Cleanses] [bigint] NOT NULL,
+	[Strips] [bigint] NOT NULL,
+	[StabGenerated] [decimal](6, 2) NOT NULL,
+	[Healing] [bigint] NOT NULL,
+	[BarrierGenerated] [bigint] NOT NULL,
+	[DistanceFromTag] [decimal](16, 2) NOT NULL,
+	[TimesDowned] [int] NOT NULL,
+	[Interrupts] [bigint] NOT NULL,
+	[NumberOfHitsWhileBlinded] [bigint] NOT NULL,
+	[NumberOfMissesAgainst] [bigint] NOT NULL,
+	[NumberOfTimesBlockedAttack] [bigint] NOT NULL,
+	[NumberOfTimesEnemyBlockedAttack] [bigint] NOT NULL,
+	[NumberOfBoonsRipped] [bigint] NOT NULL,
+	[DamageTaken] [bigint] NOT NULL,
+	[BarrierMitigation] [bigint] NOT NULL,
+PRIMARY KEY CLUSTERED 
 (
-    [PlayerFightLogId] BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    [FightLogId] BIGINT NOT NULL,
-    [GuildWarsAccountName] NVARCHAR(1000) NOT NULL,
-    [Damage] BIGINT NOT NULL,
-    [QuicknessDuration] DECIMAL(6,3) NOT NULL,
-    [AlacDuration] DECIMAL(6,3) NOT NULL
-    FOREIGN KEY (FightLogId) REFERENCES FightLog(FightLogId)
-);
+	[PlayerFightLogId] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [SubGroup]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [DamageDownContribution]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [Cleanses]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [Strips]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [StabGenerated]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [Healing]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [BarrierGenerated]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [DistanceFromTag]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [TimesDowned]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [Interrupts]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [NumberOfHitsWhileBlinded]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [NumberOfMissesAgainst]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [NumberOfTimesBlockedAttack]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [NumberOfTimesEnemyBlockedAttack]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [NumberOfBoonsRipped]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [DamageTaken]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [BarrierMitigation]
+GO
+ALTER TABLE [dbo].[PlayerFightLog]  WITH CHECK ADD FOREIGN KEY([FightLogId])
+REFERENCES [dbo].[FightLog] ([FightLogId])
+GO

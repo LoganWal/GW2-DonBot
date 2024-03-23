@@ -29,7 +29,7 @@ namespace Registration
             builder.RegisterType<WvWFightSummaryHandler>();
             builder.RegisterType<WvWPlayerReportHandler>();
             builder.RegisterType<WvWPlayerSummaryHandler>();
-            builder.RegisterType<PvERaidReportHandler>();
+            builder.RegisterType<RaidReportHandler>();
 
             // services
             builder.RegisterType<CacheService>().As<ICacheService>().SingleInstance();

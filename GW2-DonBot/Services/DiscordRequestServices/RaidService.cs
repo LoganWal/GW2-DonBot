@@ -1,7 +1,6 @@
 ﻿using Discord;
 using Discord.WebSocket;
 using Models.Entities;
-using Models.Enums;
 using Services.LogGenerationServices;
 
 namespace Services.DiscordRequestServices
@@ -65,11 +64,8 @@ namespace Services.DiscordRequestServices
 
             existingOpenRaid.FightsEnd = DateTime.UtcNow;
 
-            _databaseContext.Update(existingOpenRaid);
-            _databaseContext.SaveChanges();
-
-            var message = _messageGenerationService.GenerateRaidReport(existingOpenRaid);
-            if (message == null)
+            var messages = _messageGenerationService.GenerateRaidReport(existingOpenRaid, (long)command.GuildId);
+            if (messages == null)
             {
                 await command.ModifyOriginalResponseAsync(m => m.Content = "Error creating report!");
                 return;
@@ -95,7 +91,13 @@ namespace Services.DiscordRequestServices
             }
 
             // Send to target channel with components
-            await targetChannel.SendMessageAsync(embeds: new[] { message });
+            foreach (var message in messages)
+            {
+                await targetChannel.SendMessageAsync(embeds: new[] { message });
+            }
+
+            _databaseContext.Update(existingOpenRaid);
+            _databaseContext.SaveChanges();
 
             await command.ModifyOriginalResponseAsync(m => m.Content = "Created!");
         }

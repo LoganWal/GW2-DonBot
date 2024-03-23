@@ -270,10 +270,10 @@ namespace Handlers.MessageGenerationHandlers
             var gw2Players = _playerService.GetGw2Players(data, fightPhase, healingPhase, barrierPhase);
 
             var dateStartString = data.EncounterStart;
-            var dateTimeStart = DateTime.ParseExact(dateStartString, "yyyy-MM-dd HH:mm:ss zzz", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal);
+            var dateTimeStart = DateTime.ParseExact(dateStartString, "yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
 
             var dateEndString = data.EncounterEnd;
-            var dateTimeEnd = DateTime.ParseExact(dateEndString, "yyyy-MM-dd HH:mm:ss zzz", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal);
+            var dateTimeEnd = DateTime.ParseExact(dateEndString, "yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
 
             var duration = dateTimeEnd - dateTimeStart;
 
@@ -371,16 +371,34 @@ namespace Handlers.MessageGenerationHandlers
             _databaseContext.SaveChanges();
 
             var playerFights = gw2Players.Select(gw2Player => new PlayerFightLog
-            {
-                FightLogId = fightLog.FightLogId,
-                GuildWarsAccountName = gw2Player.AccountName,
-                Damage = gw2Player.Damage,
-                QuicknessDuration = Convert.ToDecimal(gw2Player.TotalQuick),
-                AlacDuration = Convert.ToDecimal(gw2Player.TotalAlac)
+                {
+                    FightLogId = fightLog.FightLogId,
+                    GuildWarsAccountName = gw2Player.AccountName,
+                    Damage = gw2Player.Damage,
+                    QuicknessDuration = Convert.ToDecimal(gw2Player.TotalQuick),
+                    AlacDuration = Convert.ToDecimal(gw2Player.TotalAlac),
+                    SubGroup = gw2Player.SubGroup,
+                    DamageDownContribution = gw2Player.DamageDownContribution,
+                    Cleanses = Convert.ToInt64(gw2Player.Cleanses),
+                    Strips = Convert.ToInt64(gw2Player.Strips),
+                    StabGenerated = Convert.ToDecimal(gw2Player.StabUpTime),
+                    Healing = gw2Player.Healing,
+                    BarrierGenerated = gw2Player.BarrierGenerated,
+                    DistanceFromTag = Convert.ToDecimal(gw2Player.DistanceFromTag),
+                    TimesDowned = Convert.ToInt32(gw2Player.TimesDowned),
+                    Interrupts = gw2Player.Interrupts,
+                    NumberOfHitsWhileBlinded = gw2Player.NumberOfHitsWhileBlinded,
+                    NumberOfMissesAgainst = Convert.ToInt64(gw2Player.NumberOfMissesAgainst),
+                    NumberOfTimesBlockedAttack = Convert.ToInt64(gw2Player.NumberOfTimesBlockedAttack),
+                    NumberOfTimesEnemyBlockedAttack = gw2Player.NumberOfTimesEnemyBlockedAttack,
+                    NumberOfBoonsRipped = Convert.ToInt64(gw2Player.NumberOfBoonsRipped),
+                    DamageTaken = Convert.ToInt64(gw2Player.DamageTaken),
+                    BarrierMitigation = Convert.ToInt64(gw2Player.BarrierMitigation)
             })
             .ToList();
 
             _databaseContext.AddRange(playerFights);
+            _databaseContext.SaveChanges();
 
             var message = new EmbedBuilder
             {
@@ -418,8 +436,6 @@ namespace Handlers.MessageGenerationHandlers
                 x.Value = $"{playerOverview}";
                 x.IsInline = false;
             });
-
-            _databaseContext.SaveChanges();
 
             // Building the message for use
             return message.Build();

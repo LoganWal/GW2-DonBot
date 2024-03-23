@@ -12,20 +12,20 @@ namespace Services.LogGenerationServices
         private readonly WvWPlayerReportHandler _wvwPlayerReportHandler;
         private readonly PvEFightSummaryHandler _pveFightSummaryHandler;
         private readonly WvWPlayerSummaryHandler _wvwPlayerSummaryHandler;
-        private readonly PvERaidReportHandler _pveRaidReportHandler;
+        private readonly RaidReportHandler _raidReportHandler;
 
         public MessageGenerationService(
             WvWFightSummaryHandler wvwFightSummaryHandler,
             WvWPlayerReportHandler wvwPlayerReportHandler,
             PvEFightSummaryHandler pveFightSummaryHandler,
             WvWPlayerSummaryHandler wvwPlayerSummaryHandler,
-            PvERaidReportHandler pveRaidReportHandler)
+            RaidReportHandler raidReportHandler)
         {
             _wvwFightSummaryHandler = wvwFightSummaryHandler;
             _wvwPlayerReportHandler = wvwPlayerReportHandler;
             _pveFightSummaryHandler = pveFightSummaryHandler;
             _wvwPlayerSummaryHandler = wvwPlayerSummaryHandler;
-            _pveRaidReportHandler = pveRaidReportHandler;
+            _raidReportHandler = raidReportHandler;
         }
 
         public Embed GenerateWvWFightSummary(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
@@ -53,9 +53,9 @@ namespace Services.LogGenerationServices
             return await _wvwPlayerSummaryHandler.GenerateActive(gw2Guild, fightLogUrl);
         }
 
-        public Embed? GenerateRaidReport(FightsReport fightsReport)
+        public List<Embed>? GenerateRaidReport(FightsReport fightsReport, long guildId)
         {
-            return _pveRaidReportHandler.Generate(fightsReport);
+            return _raidReportHandler.Generate(fightsReport, guildId);
         }
     }
 }

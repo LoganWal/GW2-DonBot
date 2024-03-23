@@ -57,7 +57,7 @@
 
         public static string GetClassAppend(string className)
         {
-            return $" ({_classShorthands.GetValueOrDefault(className, "???")})";
+            return string.IsNullOrEmpty(className) ? string.Empty : $" ({_classShorthands.GetValueOrDefault(className, "???")})";
         }
     }
 }

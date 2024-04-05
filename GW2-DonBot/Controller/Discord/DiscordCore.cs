@@ -394,7 +394,7 @@ namespace Controller.Discord
                 foreach (var url in trimmedUrls)
                 {
                     Console.WriteLine($"[DON] Assessing: {url}");
-                    AnalyseAndReportOnUrl(url, channel.Guild.Id).Wait();
+                    AnalyseAndReportOnUrl(url, channel.Guild.Id);
                 }
             }
             catch (Exception e)

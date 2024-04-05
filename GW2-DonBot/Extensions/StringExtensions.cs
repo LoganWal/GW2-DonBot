@@ -102,5 +102,10 @@ namespace Extensions
             }
             return time;
         }
+
+        public static string ReplaceSpacesWithNonBreaking(this string text)
+        {
+            return text.Replace(" ", "\u00A0");
+        }
     }
 }

@@ -573,11 +573,14 @@ namespace Services.DiscordRequestServices
                 return;
             }
 
+            var gw2Accounts = _databaseContext.GuildWarsAccount.Where(s => s.DiscordId == account.DiscordId).ToList();
+            var accountNames = string.Join(", ", gw2Accounts.Where(s => !string.IsNullOrEmpty(s.GuildWarsAccountName)).Select(s => s.GuildWarsAccountName).ToList());
+
             // Build the message to announce the winner
             var message = new EmbedBuilder
             {
                 Title = "Raffle!\n",
-                Description = $"and the winner is! <@{account.DiscordId}>\n",
+                Description = $"and the winner is! <@{account.DiscordId}> ({accountNames})\n",
                 Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
                 Author = new EmbedAuthorBuilder()
                 {
@@ -648,20 +651,21 @@ namespace Services.DiscordRequestServices
             }
 
             // Get the guild from the database
-            Guild? guild;
-            Account? account = null;
-            Raffle? currentRaffle;
+            Account? account;
             var guilds = await _databaseContext.Guild.ToListAsync();
-            guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
+            var guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
 
             if (guild == null)
             {
                 return;
             }
 
+            var accounts = _databaseContext.Account.ToList();
+            var gw2Accounts = _databaseContext.GuildWarsAccount.ToList();
+
             // Check if there is an active event raffle for the guild
             var raffles = await _databaseContext.Raffle.ToListAsync();
-            currentRaffle = raffles.FirstOrDefault(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Event && raf.GuildId == guild.GuildId);
+            var currentRaffle = raffles.FirstOrDefault(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Event && raf.GuildId == guild.GuildId);
             if (currentRaffle != null)
             {
                 // Get all the bids for the current raffle
@@ -670,7 +674,7 @@ namespace Services.DiscordRequestServices
                 var totalBids = Convert.ToInt32(currentRaffleBids.Sum(bid => bid.PointsSpent)) + 1;
 
                 // Pick the winners
-                var winners = new List<long>();
+                var winners = new List<Tuple<long, string>>();
                 for (var i = 0; i < winnersCount; i++)
                 {
                     var random = new Random();
@@ -683,7 +687,7 @@ namespace Services.DiscordRequestServices
                         if (pickedBid < rollingTotal)
                         {
                             // Get the account of the winner
-                            account = await _databaseContext.Account.FirstOrDefaultAsync(a => a.DiscordId == currentRaffleBid.DiscordId);
+                            account = accounts.FirstOrDefault(a => a.DiscordId == currentRaffleBid.DiscordId);
 
                             if (account == null)
                             {
@@ -693,7 +697,9 @@ namespace Services.DiscordRequestServices
 
                             totalBids -= Convert.ToInt32(currentRaffleBid.PointsSpent);
                             currentRaffleBids.Remove(currentRaffleBid);
-                            winners.Add(account.DiscordId);
+                            var gw2Account = gw2Accounts.Where(s => s.DiscordId == account.DiscordId).ToList();
+                            var accountNames = string.Join(", ", gw2Account.Where(s => !string.IsNullOrEmpty(s.GuildWarsAccountName)).Select(s => s.GuildWarsAccountName).ToList());
+                            winners.Add(new Tuple<long, string>(account.DiscordId, accountNames));
                             break;
                         }
                     }
@@ -715,7 +721,7 @@ namespace Services.DiscordRequestServices
                 var description = "and the winners are:\n";
                 foreach (var (winner, index) in winners.Select((value, i) => (value, i)))
                 {
-                    description += $"{index + 1}. <@{winner}>\n";
+                    description += $"{index + 1}. <@{winner.Item1}> ({winner.Item2})\n";
                 }
 
                 var message = new EmbedBuilder

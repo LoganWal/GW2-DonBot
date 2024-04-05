@@ -43,7 +43,7 @@ namespace Handlers.MessageGenerationHandlers
             {
                 for (var i = 0; i < accounts.Count / 20 + 1; i++)
                 {
-                    var accountOverview = "```";
+                    var accountOverview = "```#    Name                     Points            \n";
                     var useLimit = false;
                     var limit = 0;
 
@@ -66,7 +66,7 @@ namespace Handlers.MessageGenerationHandlers
                         var name = gw2Account?.GuildWarsAccountName ?? $"Unknown - {account.DiscordId}";
                         var pointsDiff = Math.Round(account.Points - account.PreviousPoints);
 
-                        accountOverview += $"{position.ToString().PadLeft(3, '0')}  {name.ClipAt(23),-23}  {Convert.ToInt32(points)}(+{Convert.ToInt32(pointsDiff)})\n";
+                        accountOverview += $"{position.ToString().PadLeft(3, '0')}{string.Empty,2}{name.ClipAt(23),-23}{string.Empty,2}{Convert.ToInt32(points)}(+{Convert.ToInt32(pointsDiff)})\n";
                         position++;
                     }
 
@@ -74,8 +74,8 @@ namespace Handlers.MessageGenerationHandlers
 
                     message.AddField(x =>
                     {
-                        x.Name = "``` #     Name                        Points         ```\n";
-                        x.Value = $"{accountOverview}";
+                        x.Name = "``` ```\n";
+                        x.Value = $"{accountOverview.ReplaceSpacesWithNonBreaking()}";
                         x.IsInline = false;
                     });
                 }
@@ -124,7 +124,7 @@ namespace Handlers.MessageGenerationHandlers
             {
                 for (var i = 0; i < accounts.Count / 20 + 1; i++)
                 {
-                    var accountOverview = "```";
+                    var accountOverview = "```#    Name                     Points            \n";
                     var useLimit = false;
                     var limit = 0;
 
@@ -154,8 +154,8 @@ namespace Handlers.MessageGenerationHandlers
 
                     message.AddField(x =>
                     {
-                        x.Name = "``` #     Name                        Fights Points  ```\n";
-                        x.Value = $"{accountOverview}";
+                        x.Name = "``` ```\n";
+                        x.Value = $"{accountOverview.ReplaceSpacesWithNonBreaking()}";
                         x.IsInline = false;
                     });
                 }

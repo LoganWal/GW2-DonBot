@@ -29,7 +29,7 @@ namespace Handlers.MessageGenerationHandlers
                 return null;
             }
 
-            var fights = _databaseContext.FightLog.Where(s => s.GuildId == guildId && s.FightStart >= fightsReport.FightsStart && s.FightStart <= fightsReport.FightsEnd).OrderBy(s => s.FightStart).ToList();
+            var fights = _databaseContext.FightLog.Where(s => s.GuildId == guildId && s.FightStart >= fightsReport.FightsStart && s.FightStart <= new DateTime(2024, 04, 01)).OrderBy(s => s.FightStart).ToList();
             var playerFights = _databaseContext.PlayerFightLog.ToList(); 
             playerFights = playerFights.Where(s => fights.Select(f => f.FightLogId).Contains(s.FightLogId)).ToList();
             var groupedPlayerFights = playerFights.GroupBy(s => s.GuildWarsAccountName).OrderByDescending(s => s.Sum(d => d.Damage)).ToList();
@@ -139,35 +139,42 @@ namespace Handlers.MessageGenerationHandlers
                 }
             };
 
-            var fightsOverview = "```";
+            var fightsOverview = "```Fight    Total (t)    Success (t)     Attempts         \n";
             foreach (var groupedFight in groupedFights)
             {
                 var fightsListForType = groupedFight.ToList();
-                fightsOverview += $"{Enum.GetName(typeof(FightTypesEnum), groupedFight.Key)?.PadLeft(5) ?? "uknwn"}   {(fightsListForType.Sum(s => s.FightDurationInMs)/1000).ToString().PadLeft(4, '0')}              {(fightsListForType.Where(s => s.IsSuccess).Sum(s => s.FightDurationInMs) / 1000).ToString().PadLeft(4, '0')}                {fightsListForType.Count}\n";
+
+                var fightTime = TimeSpan.FromMilliseconds(fightsListForType.Sum(s => s.FightDurationInMs));
+                var fightTimeString = $"{fightTime.Minutes:D2}m:{fightTime.Seconds:D2}s";
+
+                var successFightTime = TimeSpan.FromMilliseconds(fightsListForType.Where(s => s.IsSuccess).Sum(s => s.FightDurationInMs));
+                var successFightTimeString = $"{successFightTime.Minutes:D2}m:{successFightTime.Seconds:D2}s";
+
+                fightsOverview += $"{Enum.GetName(typeof(FightTypesEnum), groupedFight.Key)?.PadRight(4) ?? "uknwn"}{string.Empty,5}{fightTimeString,-6}{string.Empty,6}{successFightTimeString,-6}{string.Empty,9}{fightsListForType.Count}\n";
             }
 
             fightsOverview += "```";
 
-            var playerOverview = "```";
+            var playerOverview = "```Player           Dmg       Alac    Quick         \n";
             foreach (var groupedPlayerFight in groupedPlayerFights)
             {
                 var playerFightsListForType = groupedPlayerFight.ToList();
-                playerOverview += $"{groupedPlayerFight.Key?.ClipAt(13),-13}  {playerFightsListForType.Sum(s => s.Damage),9}      {Math.Round(playerFightsListForType.Average(s => s.AlacDuration), 2).ToString(CultureInfo.CurrentCulture).PadRight(5, '0')}          {Math.Round(playerFightsListForType.Average(s => s.QuicknessDuration), 2).ToString(CultureInfo.CurrentCulture).PadRight(5, '0')}\n";
+                playerOverview += $"{groupedPlayerFight.Key?.ClipAt(13),-13}{string.Empty,4}{playerFightsListForType.Sum(s => s.Damage).FormatNumber(),-8}{string.Empty,2}{Math.Round(playerFightsListForType.Average(s => s.AlacDuration), 2).ToString(CultureInfo.CurrentCulture),-5}{string.Empty,3}{Math.Round(playerFightsListForType.Average(s => s.QuicknessDuration), 2).ToString(CultureInfo.CurrentCulture),-5}\n";
             }
 
             playerOverview += "```";
 
             message.AddField(x =>
             {
-                x.Name = $"``` Fight    Total Duration(s)    Success Duration(s)     Attempts ```";
-                x.Value = $"{fightsOverview}";
+                x.Name = $"``` ```";
+                x.Value = $"{fightsOverview.ReplaceSpacesWithNonBreaking()}";
                 x.IsInline = false;
             });
 
             message.AddField(x =>
             {
-                x.Name = $"``` Player            Total Dmg        Avg Alac          Avg Quick ```";
-                x.Value = $"{playerOverview}";
+                x.Name = $"``` ```";
+                x.Value = $"{playerOverview.ReplaceSpacesWithNonBreaking()}";
                 x.IsInline = false;
             });
 

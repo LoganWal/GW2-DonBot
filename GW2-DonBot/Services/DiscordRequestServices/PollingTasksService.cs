@@ -121,6 +121,9 @@ namespace Services.DiscordRequestServices
             var guildId = guildConfiguration.Gw2GuildMemberRoleId;
             var secondaryGuildIds = guildConfiguration.Gw2SecondaryMemberRoleIds?.Split(',').ToList() ?? new List<string>();
 
+            var accounts = _databaseContext.Account.ToList();
+            var gwAccounts = _databaseContext.GuildWarsAccount.ToList();
+
             if (primaryRoleId == null || secondaryRoleId == null || verifiedRoleId == null)
             {
                 return;
@@ -130,10 +133,10 @@ namespace Services.DiscordRequestServices
             {
                 Console.WriteLine($"=== HANDLING {user.DisplayName} ===");
 
-                var account = _databaseContext.Account.FirstOrDefault(f => f.DiscordId == (long)user.Id);
-                var gwAccounts = _databaseContext.GuildWarsAccount.Where(s => s.DiscordId == (long)user.Id);
+                var playerAccount = accounts.FirstOrDefault(f => f.DiscordId == (long)user.Id);
+                var playerGwAccounts = _databaseContext.GuildWarsAccount.Where(s => s.DiscordId == (long)user.Id);
 
-                if (account == null || !gwAccounts.Any() || gwAccounts.All(s => string.IsNullOrEmpty(s.GuildWarsApiKey)))
+                if (playerAccount == null || !playerGwAccounts.Any() || playerGwAccounts.All(s => string.IsNullOrEmpty(s.GuildWarsApiKey)))
                 {
                     await RemoveAllRolesFromUser(user, primaryRoleId.Value, secondaryRoleId.Value, verifiedRoleId.Value);
 
@@ -142,15 +145,15 @@ namespace Services.DiscordRequestServices
                     continue;
                 }
 
-                if (gwAccounts.All(s => s.FailedApiPullCount >= 48))
+                if (playerGwAccounts.All(s => s.FailedApiPullCount >= 48))
                 {
                     await RemoveAllRolesFromUser(user, primaryRoleId.Value, secondaryRoleId.Value, verifiedRoleId.Value);
-                    foreach (var guildWarsAccount in gwAccounts)
+                    foreach (var guildWarsAccount in playerGwAccounts)
                     {
                         guildWarsAccount.GuildWarsApiKey = null;
                     }
 
-                    _databaseContext.UpdateRange(gwAccounts);
+                    _databaseContext.UpdateRange(playerGwAccounts);
                     _databaseContext.SaveChanges();
 
                     var dmChannel = await user.CreateDMChannelAsync();
@@ -159,16 +162,12 @@ namespace Services.DiscordRequestServices
                     continue;
                 }
 
-                if (guildWars2Data.TryGetValue(account.DiscordId, out var accountData))
+                if (!guildWars2Data.TryGetValue(playerAccount.DiscordId, out var accountData))
                 {
-                    await HandleUserRoles(user, accountData, primaryRoleId.Value, secondaryRoleId.Value, verifiedRoleId.Value, guildId, secondaryGuildIds);
-
                     continue;
                 }
 
-                await RemoveAllRolesFromUser(user, primaryRoleId.Value, secondaryRoleId.Value, verifiedRoleId.Value);
-
-                Console.WriteLine($"API KEY no longer valid for {user.DisplayName} GW2 details, removing all roles.");
+                await HandleUserRoles(user, accountData, primaryRoleId.Value, secondaryRoleId.Value, verifiedRoleId.Value, guildId, secondaryGuildIds);
             }
         }
 
@@ -215,7 +214,7 @@ namespace Services.DiscordRequestServices
             if (roles.Contains((ulong)verifiedRoleId))
             {
                 await user.RemoveRoleAsync((ulong)verifiedRoleId);
-                Console.WriteLine(" + Removing Verified Role");
+                Console.WriteLine(" - Removing Verified Role");
             }
         }
 

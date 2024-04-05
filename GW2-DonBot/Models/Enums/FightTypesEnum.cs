@@ -29,6 +29,7 @@
         adin = 24,
         sabi = 25,
         peer = 26,
+        ceru = 32767,
         unkn = short.MaxValue
     }
 }

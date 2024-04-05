@@ -352,6 +352,9 @@ namespace Handlers.MessageGenerationHandlers
                 case 132867:
                     encounterType = (short)FightTypesEnum.peer;
                     break;
+                case 32767:
+                    encounterType = (short)FightTypesEnum.ceru;
+                    break;
                 default:
                     encounterType = (short)FightTypesEnum.unkn;
                     break;
@@ -419,21 +422,18 @@ namespace Handlers.MessageGenerationHandlers
                 Timestamp = DateTime.Now
             };
 
-            var playerOverview = "```";
+            var playerOverview = "```Player           Dmg       Alac    Quick         \n";
             foreach (var gw2Player in gw2Players.OrderByDescending(s => s.Damage))
             {
-                playerOverview += $"{gw2Player.AccountName?.ClipAt(13),-13}  {gw2Player.Damage,9}      {Math.Round(gw2Player.TotalAlac, 2).ToString(CultureInfo.CurrentCulture).PadRight(5, '0')}          {Math.Round(gw2Player.TotalQuick, 2).ToString(CultureInfo.CurrentCulture).PadRight(5, '0')}\n";
+                playerOverview += $"{gw2Player.AccountName?.ClipAt(13),-13}{string.Empty,4}{gw2Player.Damage.FormatNumber(),-8}{string.Empty,2}{Math.Round(gw2Player.TotalAlac, 2).ToString(CultureInfo.CurrentCulture),-5}{string.Empty,3}{Math.Round(gw2Player.TotalQuick, 2).ToString(CultureInfo.CurrentCulture),-5}\n";
             }
-
-            var don = gw2Players.FirstOrDefault(s => s.AccountName == "Dondarion.9503");
-            playerOverview += $"\nDon Downs = {don?.TimesDowned ?? 0}";
 
             playerOverview += "```";
 
             message.AddField(x =>
             {
-                x.Name = $"``` Player            Total Dmg        Avg Alac          Avg Quick ```";
-                x.Value = $"{playerOverview}";
+                x.Name = "``` ```";
+                x.Value = $"{playerOverview.ReplaceSpacesWithNonBreaking()}";
                 x.IsInline = false;
             });
 

@@ -29,7 +29,7 @@ namespace Handlers.MessageGenerationHandlers
                 return null;
             }
 
-            var fights = _databaseContext.FightLog.Where(s => s.GuildId == guildId && s.FightStart >= fightsReport.FightsStart && s.FightStart <= new DateTime(2024, 04, 01)).OrderBy(s => s.FightStart).ToList();
+            var fights = _databaseContext.FightLog.Where(s => s.GuildId == guildId && s.FightStart >= fightsReport.FightsStart && s.FightStart <= fightsReport.FightsEnd).OrderBy(s => s.FightStart).ToList();
             var playerFights = _databaseContext.PlayerFightLog.ToList(); 
             playerFights = playerFights.Where(s => fights.Select(f => f.FightLogId).Contains(s.FightLogId)).ToList();
             var groupedPlayerFights = playerFights.GroupBy(s => s.GuildWarsAccountName).OrderByDescending(s => s.Sum(d => d.Damage)).ToList();

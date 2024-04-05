@@ -352,7 +352,25 @@ namespace Handlers.MessageGenerationHandlers
                 case 132867:
                     encounterType = (short)FightTypesEnum.peer;
                     break;
-                case 32767:
+                case 262913:
+                    encounterType = (short)FightTypesEnum.trin;
+                    break;
+                case 262914:
+                    encounterType = (short)FightTypesEnum.ankk;
+                    break;
+                case 262915:
+                    encounterType = (short)FightTypesEnum.mini;
+                    break;
+                case 262916:
+                    encounterType = (short)FightTypesEnum.drag;
+                    break;
+                case 262917:
+                    encounterType = (short)FightTypesEnum.oldl;
+                    break;
+                case 263425:
+                    encounterType = (short)FightTypesEnum.dagd;
+                    break;
+                case 263426:
                     encounterType = (short)FightTypesEnum.ceru;
                     break;
                 default:

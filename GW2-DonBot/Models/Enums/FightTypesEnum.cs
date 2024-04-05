@@ -29,7 +29,13 @@
         adin = 24,
         sabi = 25,
         peer = 26,
-        ceru = 32767,
+        trin = 27,
+        ankk = 28,
+        mini = 29,
+        drag = 30,
+        oldl = 31,
+        dagd = 32,
+        ceru = 33,
         unkn = short.MaxValue
     }
 }

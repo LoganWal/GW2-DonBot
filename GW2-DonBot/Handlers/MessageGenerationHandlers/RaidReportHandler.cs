@@ -57,6 +57,18 @@ namespace Handlers.MessageGenerationHandlers
             else
             {
                 messages.Add(GeneratePvERaidReport(durationString, groupedFights, groupedPlayerFights, fights));
+                var successLogs = GeneratePvERaidLogReport(durationString, fights, true);
+                if (successLogs != null)
+                {
+                    messages.Add(successLogs);
+
+                }
+
+                var failedLogs = GeneratePvERaidLogReport(durationString, fights, false);
+                if (failedLogs != null)
+                {
+                    messages.Add(failedLogs);
+                }
             }
 
             return messages;
@@ -85,15 +97,15 @@ namespace Handlers.MessageGenerationHandlers
                 var player = playersFights.First();
                 gw2Players.Add(new Gw2Player
                 {
-                    AccountName = player.GuildWarsAccountName,
+                    AccountName = $"({playersFights.Count}) {player.GuildWarsAccountName}",
                     SubGroup = player.SubGroup,
-                    Damage = playersFights.Sum(s => s.Damage),
-                    DamageDownContribution = playersFights.Sum(s => s.DamageDownContribution),
-                    Cleanses = playersFights.Sum(s => s.Cleanses),
-                    Strips = playersFights.Sum(s => s.Strips),
+                    Damage = (long)Math.Round(playersFights.Average(s => s.Damage), 0),
+                    DamageDownContribution = (long)Math.Round(playersFights.Average(s => s.DamageDownContribution), 0),
+                    Cleanses = Math.Round(playersFights.Average(s => s.Cleanses), 0),
+                    Strips = Math.Round(playersFights.Average(s => s.Strips), 0),
                     StabUpTime = Math.Round(Convert.ToDouble(playersFights.Average(s => s.StabGenerated)), 2),
-                    Healing = playersFights.Sum(s => s.Healing),
-                    BarrierGenerated = playersFights.Sum(s => s.BarrierGenerated),
+                    Healing = (long)Math.Round(playersFights.Average(s => s.Healing), 0),
+                    BarrierGenerated = (long)Math.Round(playersFights.Average(s => s.BarrierGenerated), 0),
                     DistanceFromTag = Math.Round(Convert.ToDouble(playersFights.Average(s => s.DistanceFromTag)), 2),
                     TimesDowned = playersFights.Sum(s => s.TimesDowned),
                     Interrupts = playersFights.Sum(s => s.Interrupts),
@@ -119,7 +131,7 @@ namespace Handlers.MessageGenerationHandlers
             message.Timestamp = DateTime.Now;
 
             // Building the message for use
-            return _wvWFightSummaryHandler.GenerateMessage(advancedLog, 5, gw2Players, message);
+            return _wvWFightSummaryHandler.GenerateMessage(advancedLog, 10, gw2Players, message);
         }
 
         private Embed GeneratePvERaidReport(string durationString, IOrderedEnumerable<IGrouping<short, FightLog>> groupedFights, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights)
@@ -179,6 +191,61 @@ namespace Handlers.MessageGenerationHandlers
                 x.Value = $"{playerOverview.ReplaceSpacesWithNonBreaking()}";
                 x.IsInline = false;
             });
+
+            message.Footer = new EmbedFooterBuilder()
+            {
+                Text = $"{_footerHandler.Generate()}",
+                IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+            };
+
+            // Timestamp
+            message.Timestamp = DateTime.Now;
+
+            // Building the message for use
+            return message.Build();
+        }
+
+        private Embed? GeneratePvERaidLogReport(string durationString, List<FightLog> fights, bool isSuccessLogs)
+        {
+            var fightLogs = fights.Where(s => s.IsSuccess == isSuccessLogs).ToList();
+            if (!fightLogs.Any())
+            {
+                return null;
+            }
+
+            // Building the message via embeds
+            var message = new EmbedBuilder
+            {
+                Title = $"{(isSuccessLogs ? "Success" : "Failed")} Report (PvE)\n",
+                Description = $"**Length:** {durationString}",
+                Color = isSuccessLogs ? Color.Green : Color.Red,
+                Author = new EmbedAuthorBuilder()
+                {
+                    Name = "GW2-DonBot",
+                    Url = "https://github.com/LoganWal/GW2-DonBot",
+                    IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                }
+            };
+
+            for (var i = 0; i < fightLogs.Count; i += 12)
+            {
+                // Process the current batch (from index 'i' to a maximum of 'i + 20')
+                var currentBatch = fightLogs.GetRange(i, Math.Min(12, fightLogs.Count - i));
+                var fightUrlOverview = string.Empty;
+
+                foreach (var item in currentBatch)
+                {
+                    var failedPercentageString = !isSuccessLogs ? $"- {item.FightPercent}" : string.Empty;
+                    fightUrlOverview += $"{Enum.GetName(typeof(FightTypesEnum), item.FightType)}{failedPercentageString} - {item.Url}\n";
+                }
+
+                message.AddField(x =>
+                {
+                    x.Name = $"``` ```";
+                    x.Value = $"{fightUrlOverview.ReplaceSpacesWithNonBreaking()}";
+                    x.IsInline = false;
+                });
+            }
 
             message.Footer = new EmbedFooterBuilder()
             {

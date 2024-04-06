@@ -18,5 +18,7 @@ namespace Models.Entities
         public long FightDurationInMs { get; set; }
 
         public bool IsSuccess { get; set; }
+
+        public decimal FightPercent { get; set; }
     }
 }

@@ -385,7 +385,8 @@ namespace Handlers.MessageGenerationHandlers
                 FightType = encounterType,
                 FightStart = dateTimeStart,
                 FightDurationInMs = (long)duration.TotalMilliseconds,
-                IsSuccess = data.Success
+                IsSuccess = data.Success,
+                FightPercent = Math.Round(Convert.ToDecimal(100.00 - (data.Targets?.FirstOrDefault()?.Percent ?? 0)), 2)
             };
 
             _databaseContext.Add(fightLog);
@@ -424,7 +425,8 @@ namespace Handlers.MessageGenerationHandlers
             var message = new EmbedBuilder
             {
                 Title = $"Fight Recorded - {data.FightName}\n",
-                Description = $"**Length:** {data.EncounterDuration}\n",
+                Description = $"**Length:** {data.EncounterDuration}{(data.Success ? string.Empty : $" - {fightLog.FightPercent}%")}\n",
+                Color = data.Success ? Color.Green : Color.Red,
                 Author = new EmbedAuthorBuilder()
                 {
                     Name = "GW2-DonBot",

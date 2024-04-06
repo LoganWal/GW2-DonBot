@@ -1,11 +1,19 @@
-﻿CREATE TABLE [dbo].[FightLog]
+﻿CREATE TABLE [dbo].[FightLog](
+	[FightLogId] [bigint] IDENTITY(1,1) NOT NULL,
+	[GuildId] [bigint] NOT NULL,
+	[Url] [nvarchar](2000) NOT NULL,
+	[FightType] [smallint] NOT NULL,
+	[FightStart] [datetime2](7) NOT NULL,
+	[FightDurationInMs] [bigint] NOT NULL,
+	[IsSuccess] [bit] NOT NULL,
+	[FightPercent] [decimal](6, 2) NOT NULL,
+PRIMARY KEY CLUSTERED 
 (
-    [FightLogId] BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    [GuildId] BIGINT NOT NULL,
-    [Url] NVARCHAR(2000) NOT NULL,
-    [FightType] SMALLINT NOT NULL,
-    [FightStart] DateTime2 NOT NULL,
-    [FightDurationInMs] BIGINT NOT NULL,
-    [IsSuccess] BIT NOT NULL,
-    FOREIGN KEY (GuildId) REFERENCES Guild(GuildId)
-);
+	[FightLogId] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+ALTER TABLE [dbo].[FightLog] ADD  DEFAULT ((0)) FOR [FightPercent]
+GO
+ALTER TABLE [dbo].[FightLog]  WITH CHECK ADD FOREIGN KEY([GuildId])
+REFERENCES [dbo].[Guild] ([GuildId])

@@ -1,10 +1,9 @@
-using System.Globalization;
 using Discord;
 using Extensions;
 using Models;
 using Models.Entities;
 using Models.Enums;
-using Models.Statics;
+using System.Globalization;
 
 namespace Handlers.MessageGenerationHandlers
 {

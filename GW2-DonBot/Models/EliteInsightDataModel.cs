@@ -1023,7 +1023,7 @@
         public long HbHeight { get; set; }
 
         [JsonProperty("percent")]
-        public long Percent { get; set; }
+        public float Percent { get; set; }
 
         [JsonProperty("hpLeft")]
         public long HpLeft { get; set; }

@@ -442,10 +442,11 @@ namespace Handlers.MessageGenerationHandlers
                 Timestamp = DateTime.Now
             };
 
+            var fightInSeconds = (float)fightLog.FightDurationInMs / 1000f;
             var playerOverview = "```Player           Dmg       Alac    Quick         \n";
             foreach (var gw2Player in gw2Players.OrderByDescending(s => s.Damage))
             {
-                playerOverview += $"{gw2Player.AccountName?.ClipAt(13),-13}{string.Empty,4}{gw2Player.Damage.FormatNumber(),-8}{string.Empty,2}{Math.Round(gw2Player.TotalAlac, 2).ToString(CultureInfo.CurrentCulture),-5}{string.Empty,3}{Math.Round(gw2Player.TotalQuick, 2).ToString(CultureInfo.CurrentCulture),-5}\n";
+                playerOverview += $"{gw2Player.AccountName?.ClipAt(13),-13}{string.Empty,4}{((float)gw2Player.Damage / (fightInSeconds)).FormatNumber(true),-8}{string.Empty,2}{Math.Round(gw2Player.TotalAlac, 2).ToString(CultureInfo.CurrentCulture),-5}{string.Empty,3}{Math.Round(gw2Player.TotalQuick, 2).ToString(CultureInfo.CurrentCulture),-5}\n";
             }
 
             playerOverview += "```";

@@ -56,7 +56,7 @@ namespace Handlers.MessageGenerationHandlers
             }
             else
             {
-                messages.Add(GeneratePvERaidReport(durationString, groupedFights, groupedPlayerFights));
+                messages.Add(GeneratePvERaidReport(durationString, groupedFights, groupedPlayerFights, fights));
             }
 
             return messages;
@@ -122,7 +122,7 @@ namespace Handlers.MessageGenerationHandlers
             return _wvWFightSummaryHandler.GenerateMessage(advancedLog, 5, gw2Players, message);
         }
 
-        private Embed GeneratePvERaidReport(string durationString, IOrderedEnumerable<IGrouping<short, FightLog>> groupedFights, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights)
+        private Embed GeneratePvERaidReport(string durationString, IOrderedEnumerable<IGrouping<short, FightLog>> groupedFights, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights)
         {
             // Building the message via embeds
             var message = new EmbedBuilder
@@ -144,10 +144,10 @@ namespace Handlers.MessageGenerationHandlers
                 var fightsListForType = groupedFight.ToList();
 
                 var fightTime = TimeSpan.FromMilliseconds(fightsListForType.Sum(s => s.FightDurationInMs));
-                var fightTimeString = $"{fightTime.Minutes:D2}m:{fightTime.Seconds:D2}s";
+                var fightTimeString = $"{(fightTime.Hours * 60) + fightTime.Minutes:D2}m:{fightTime.Seconds:D2}s";
 
                 var successFightTime = TimeSpan.FromMilliseconds(fightsListForType.Where(s => s.IsSuccess).Sum(s => s.FightDurationInMs));
-                var successFightTimeString = $"{successFightTime.Minutes:D2}m:{successFightTime.Seconds:D2}s";
+                var successFightTimeString = $"{(successFightTime.Hours * 60) + successFightTime.Minutes:D2}m:{successFightTime.Seconds:D2}s";
 
                 fightsOverview += $"{Enum.GetName(typeof(FightTypesEnum), groupedFight.Key)?.PadRight(4) ?? "uknwn"}{string.Empty,5}{fightTimeString,-6}{string.Empty,6}{successFightTimeString,-6}{string.Empty,9}{fightsListForType.Count}\n";
             }
@@ -158,7 +158,10 @@ namespace Handlers.MessageGenerationHandlers
             foreach (var groupedPlayerFight in groupedPlayerFights)
             {
                 var playerFightsListForType = groupedPlayerFight.ToList();
-                playerOverview += $"{groupedPlayerFight.Key?.ClipAt(13),-13}{string.Empty,4}{playerFightsListForType.Sum(s => s.Damage).FormatNumber(),-8}{string.Empty,2}{Math.Round(playerFightsListForType.Average(s => s.AlacDuration), 2).ToString(CultureInfo.CurrentCulture),-5}{string.Empty,3}{Math.Round(playerFightsListForType.Average(s => s.QuicknessDuration), 2).ToString(CultureInfo.CurrentCulture),-5}\n";
+                var playerFights = fights.Where(f => playerFightsListForType.Select(s => s.FightLogId).Contains(f.FightLogId));
+
+                var totalFightTimeSec = (float)(playerFights.Sum(s => s.FightDurationInMs) / 1000f);
+                playerOverview += $"{groupedPlayerFight.Key?.ClipAt(13),-13}{string.Empty,4}{playerFightsListForType.Sum(s => (float)s.Damage / totalFightTimeSec).FormatNumber(true),-8}{string.Empty,2}{Math.Round(playerFightsListForType.Average(s => s.AlacDuration), 2).ToString(CultureInfo.CurrentCulture),-5}{string.Empty,3}{Math.Round(playerFightsListForType.Average(s => s.QuicknessDuration), 2).ToString(CultureInfo.CurrentCulture),-5}\n";
             }
 
             playerOverview += "```";

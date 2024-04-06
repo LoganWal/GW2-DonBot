@@ -16,13 +16,20 @@ namespace Services.DiscordRequestServices
             _databaseContext = databaseContext;
         }
 
-        public async Task StartRaid(SocketSlashCommand command)
+        public async Task StartRaid(SocketSlashCommand command, DiscordSocketClient discordClient)
         {
             // Defer the command execution
             await command.DeferAsync(ephemeral: true);
             if (command.GuildId == null)
             {
                 await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to start raid, make sure to use this command within a discord server.");
+                return;
+            }
+
+            var guild = _databaseContext.Guild.FirstOrDefault(s => s.GuildId == (long)command.GuildId);
+            if (guild == null)
+            {
+                await command.ModifyOriginalResponseAsync(m => m.Content = "This discord server doesn't have raids enabled.");
                 return;
             }
 
@@ -41,6 +48,25 @@ namespace Services.DiscordRequestServices
 
             _databaseContext.Add(raid);
             _databaseContext.SaveChanges();
+
+            if (guild.RaidAlertEnabled)
+            {
+                if (guild.RaidAlertChannelId == null)
+                {
+                    await command.ModifyOriginalResponseAsync(m => m.Content = "There is no raid alert channel set, however the raid has started!");
+                    return;
+                }
+
+                if (discordClient.GetChannel((ulong)guild.RaidAlertChannelId) is not ITextChannel targetChannel)
+                {
+                    await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to find the target channel.");
+                    return;
+                }
+
+                var message = _messageGenerationService.GenerateRaidAlert();
+                await targetChannel.SendMessageAsync(text: "@everyone", embeds: new[] { message });
+                await command.ModifyOriginalResponseAsync(m => m.Content = "Created!");
+            }
 
             await command.ModifyOriginalResponseAsync(m => m.Content = "Raid has started!");
         }
@@ -67,7 +93,9 @@ namespace Services.DiscordRequestServices
             var messages = _messageGenerationService.GenerateRaidReport(existingOpenRaid, (long)command.GuildId);
             if (messages == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Error creating report!");
+                await command.ModifyOriginalResponseAsync(m => m.Content = "No logs found, closing raid!");
+                _databaseContext.Update(existingOpenRaid);
+                _databaseContext.SaveChanges();
                 return;
             }
 

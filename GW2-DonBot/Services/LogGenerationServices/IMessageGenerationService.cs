@@ -18,5 +18,7 @@ namespace Services.LogGenerationServices
         public Task<Embed> GenerateWvWActivePlayerSummary(Guild gw2Guild, string fightLogUrl);
 
         public List<Embed>? GenerateRaidReport(FightsReport fightsReportId, long guildId);
+
+        public Embed GenerateRaidAlert();
     }
 }

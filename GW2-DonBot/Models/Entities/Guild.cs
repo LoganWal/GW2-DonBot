@@ -30,5 +30,9 @@ namespace Models.Entities
         public long? AdvanceLogReportChannelId { get; set; }
 
         public long? StreamLogChannelId { get; set; }
+
+        public bool RaidAlertEnabled { get; set; }
+
+        public long? RaidAlertChannelId { get; set; }
     }
 }

@@ -74,6 +74,31 @@ namespace Handlers.MessageGenerationHandlers
             return messages;
         }
 
+        public Embed GenerateRaidAlert()
+        {
+            // Building the message via embeds
+            var message = new EmbedBuilder
+            {
+                Title = "RAID STARTING!\n",
+                Description = $"***GET IN HERE!***\n",
+                Color = (Color)System.Drawing.Color.Gold,
+                Author = new EmbedAuthorBuilder()
+                {
+                    Name = "GW2-DonBot",
+                    Url = "https://github.com/LoganWal/GW2-DonBot",
+                    IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                },
+                Footer = new EmbedFooterBuilder()
+                {
+                    Text = $"{_footerHandler.Generate()}",
+                    IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                },
+                Timestamp = DateTime.Now
+            };
+
+            return message.Build();
+        }
+
         private Embed GenerateWvWRaidReport(string durationString, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, bool advancedLog)
         {
             // Building the message via embeds

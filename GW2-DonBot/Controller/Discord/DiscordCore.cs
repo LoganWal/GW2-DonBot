@@ -279,7 +279,7 @@ namespace Controller.Discord
 
         private async Task StartRaidCommandExecuted(SocketSlashCommand command)
         {
-            await _raidService.StartRaid(command);
+            await _raidService.StartRaid(command, _client);
         }
 
         private async Task CloseRaidCommandExecuted(SocketSlashCommand command)

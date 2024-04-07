@@ -38,12 +38,14 @@ namespace Registration
             builder.RegisterType<MessageGenerationService>().As<IMessageGenerationService>();
             builder.RegisterType<DiscordCore>().As<IDiscordCore>();
             builder.RegisterType<LoggingService>().As<ILoggingService>();
+            builder.RegisterType<PlayerService>().As<IPlayerService>();
+            builder.RegisterType<RaidService>().As<IRaidService>();
+
             builder.RegisterType<GenericCommandsService>().As<IGenericCommandsService>();
             builder.RegisterType<VerifyCommandsService>().As<IVerifyCommandsService>();
             builder.RegisterType<PointsCommandsService>().As<IPointsCommandsService>();
             builder.RegisterType<RaffleCommandsService>().As<IRaffleCommandsService>();
-            builder.RegisterType<PlayerService>().As<IPlayerService>();
-            builder.RegisterType<RaidService>().As<IRaidService>();
+            builder.RegisterType<DiscordCommandService>().As<IDiscordCommandService>();
 
             builder.RegisterType<PollingTasksService>().As<IPollingTasksService>();
             builder.RegisterType<DiscordApiService>().As<IDiscordApiService>();

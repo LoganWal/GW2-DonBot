@@ -27,6 +27,7 @@ namespace Controller.Discord
         private readonly IPlayerService _playerService;
         private readonly IDataModelGenerationService _dataModelGenerator;
         private readonly IRaidService _raidService;
+        private readonly IDiscordCommandService _discordCommandService;
 
         private readonly DatabaseContext _databaseContext;
         private readonly DiscordSocketClient _client;
@@ -44,7 +45,7 @@ namespace Controller.Discord
             IPlayerService playerService,
             IRaidService raidService,
             IDataModelGenerationService dataModelGenerator,
-            DatabaseContext databaseContext)
+            DatabaseContext databaseContext, IDiscordCommandService discordCommandService)
         {
             _secretService = secretService;
             _loggingService = loggingService;
@@ -59,6 +60,7 @@ namespace Controller.Discord
             _raidService = raidService;
             _dataModelGenerator = dataModelGenerator;
             _databaseContext = databaseContext;
+            _discordCommandService = discordCommandService;
 
             var config = new DiscordSocketConfig()
             {
@@ -247,6 +249,14 @@ namespace Controller.Discord
                     .WithDescription("Closes raid.");
 
                 await guild.CreateApplicationCommandAsync(closeRaid.Build());
+
+                var setLogChannel = new SlashCommandBuilder()
+                    .WithName("set_log_channel")
+                    .WithDescription("Set the channel for simple logs.")
+                    .AddOption("channel", ApplicationCommandOptionType.Channel,
+                        "Which channel?", isRequired: true);
+
+                await guild.CreateApplicationCommandAsync(setLogChannel.Build());
             }
         }
 
@@ -268,6 +278,7 @@ namespace Controller.Discord
                 case        "reopen_event_raffle":      await ReopenEventRaffleCommandExecuted(command);     break;
                 case        "start_raid":               await StartRaidCommandExecuted(command);             break;
                 case        "close_raid":               await CloseRaidCommandExecuted(command);             break;
+                case        "set_log_channel":          await SetLogChannel(command);                        break;
                 default:                                await DefaultCommandExecuted(command);               break;
             }
         }
@@ -340,6 +351,11 @@ namespace Controller.Discord
         private async Task PointsCommandExecuted(SocketSlashCommand command)
         {
             await _pointsCommandsService.PointsCommandExecuted(command);
+        }
+
+        private async Task SetLogChannel(SocketSlashCommand command)
+        {
+            await _discordCommandService.SetLogChannel(command, _client);
         }
 
         private async Task DefaultCommandExecuted(SocketSlashCommand command)

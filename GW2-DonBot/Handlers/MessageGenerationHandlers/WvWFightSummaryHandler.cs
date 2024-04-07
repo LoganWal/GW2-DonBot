@@ -151,7 +151,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                 {
                     GuildId = guild.GuildId,
                     Url = data.Url ?? string.Empty,
-                    FightType = (short)FightTypesEnum.wvw,
+                    FightType = (short)FightTypesEnum.WvW,
                     FightStart = dateTimeStart,
                     FightDurationInMs = (long)duration.TotalMilliseconds,
                     IsSuccess = data.Success

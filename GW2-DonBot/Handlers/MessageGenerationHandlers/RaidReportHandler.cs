@@ -45,8 +45,8 @@ namespace Handlers.MessageGenerationHandlers
             var duration = lastFight.FightStart.AddMilliseconds(lastFight.FightDurationInMs) - firstFight.FightStart;
             var durationString = $"{(int)duration.TotalHours} hrs {(int)duration.TotalMinutes % 60} mins {duration.Seconds} secs";
 
-            var wvwFightCount = fights.Count(s => s.FightType == (short)FightTypesEnum.wvw && s.FightType != (short)FightTypesEnum.unkn);
-            var pveFightCount = fights.Count(s => s.FightType != (short)FightTypesEnum.wvw && s.FightType != (short)FightTypesEnum.unkn);
+            var wvwFightCount = fights.Count(s => s.FightType == (short)FightTypesEnum.WvW && s.FightType != (short)FightTypesEnum.unkn);
+            var pveFightCount = fights.Count(s => s.FightType != (short)FightTypesEnum.WvW && s.FightType != (short)FightTypesEnum.unkn);
 
             if (wvwFightCount > pveFightCount)
             {
@@ -175,7 +175,7 @@ namespace Handlers.MessageGenerationHandlers
                 }
             };
 
-            var fightsOverview = "```Fight    Total (t)    Success (t)     Attempts         \n";
+            var fightsOverview = "```Fight       Total (t)    Success (t)     Attempts         \n";
             foreach (var groupedFight in groupedFights)
             {
                 var fightsListForType = groupedFight.ToList();
@@ -186,7 +186,7 @@ namespace Handlers.MessageGenerationHandlers
                 var successFightTime = TimeSpan.FromMilliseconds(fightsListForType.Where(s => s.IsSuccess).Sum(s => s.FightDurationInMs));
                 var successFightTimeString = $"{(successFightTime.Hours * 60) + successFightTime.Minutes:D2}m:{successFightTime.Seconds:D2}s";
 
-                fightsOverview += $"{Enum.GetName(typeof(FightTypesEnum), groupedFight.Key)?.PadRight(4) ?? "uknwn"}{string.Empty,5}{fightTimeString,-6}{string.Empty,6}{successFightTimeString,-6}{string.Empty,9}{fightsListForType.Count}\n";
+                fightsOverview += $"{Enum.GetName(typeof(FightTypesEnum), groupedFight.Key)?.PadRight(10) ?? "uknwn"}{string.Empty,2}{fightTimeString,-6}{string.Empty,6}{successFightTimeString,-6}{string.Empty,9}{fightsListForType.Count}\n";
             }
 
             fightsOverview += "```";

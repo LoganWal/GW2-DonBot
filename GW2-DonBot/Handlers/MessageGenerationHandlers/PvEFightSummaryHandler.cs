@@ -281,97 +281,133 @@ namespace Handlers.MessageGenerationHandlers
             switch (data.EncounterId)
             {
                 case 131329:
-                    encounterType = (short)FightTypesEnum.vale;
+                    encounterType = (short)FightTypesEnum.Vale;
                     break;
                 case 131330:
-                    encounterType = (short)FightTypesEnum.gors;
+                    encounterType = (short)FightTypesEnum.Gorseval;
                     break;
                 case 131331:
-                    encounterType = (short)FightTypesEnum.sabe;
+                    encounterType = (short)FightTypesEnum.Sabetha;
                     break;
                 case 131585:
-                    encounterType = (short)FightTypesEnum.band;
+                    encounterType = (short)FightTypesEnum.Sloth;
+                    break;
+                case 131586:
+                    encounterType = (short)FightTypesEnum.Trio;
                     break;
                 case 131587:
-                    encounterType = (short)FightTypesEnum.matt;
+                    encounterType = (short)FightTypesEnum.Matthias;
                     break;
                 case 131841:
-                    encounterType = (short)FightTypesEnum.esco;
+                    encounterType = (short)FightTypesEnum.Escort;
                     break;
                 case 131842:
-                    encounterType = (short)FightTypesEnum.keep;
+                    encounterType = (short)FightTypesEnum.KC;
                     break;
                 case 131843:
-                    encounterType = (short)FightTypesEnum.twis;
+                    encounterType = (short)FightTypesEnum.TC;
                     break;
                 case 131844:
-                    encounterType = (short)FightTypesEnum.cair;
+                    encounterType = (short)FightTypesEnum.Xera;
                     break;
                 case 132097:
-                    encounterType = (short)FightTypesEnum.cair;
+                    encounterType = (short)FightTypesEnum.Cairn;
                     break;
                 case 132098:
-                    encounterType = (short)FightTypesEnum.murs;
+                    encounterType = (short)FightTypesEnum.MO;
                     break;
                 case 132099:
-                    encounterType = (short)FightTypesEnum.sama;
+                    encounterType = (short)FightTypesEnum.Samarog;
                     break;
                 case 132100:
-                    encounterType = (short)FightTypesEnum.deim;
+                    encounterType = (short)FightTypesEnum.Deimos;
                     break;
                 case 132353:
-                    encounterType = (short)FightTypesEnum.rive;
+                    encounterType = (short)FightTypesEnum.SH;
+                    break;
+                case 132354:
+                    encounterType = (short)FightTypesEnum.River;
                     break;
                 case 132355:
-                    encounterType = (short)FightTypesEnum.brok;
+                    encounterType = (short)FightTypesEnum.BK;
                     break;
                 case 132356:
-                    encounterType = (short)FightTypesEnum.eate;
+                    encounterType = (short)FightTypesEnum.EoS;
                     break;
                 case 132357:
-                    encounterType = (short)FightTypesEnum.stat;
+                    encounterType = (short)FightTypesEnum.SoD;
                     break;
                 case 132358:
-                    encounterType = (short)FightTypesEnum.dhuu;
+                    encounterType = (short)FightTypesEnum.Dhuum;
                     break;
                 case 132609:
-                    encounterType = (short)FightTypesEnum.conj;
+                    encounterType = (short)FightTypesEnum.CA;
                     break;
                 case 132610:
-                    encounterType = (short)FightTypesEnum.twin;
+                    encounterType = (short)FightTypesEnum.Largos;
                     break;
                 case 132611:
-                    encounterType = (short)FightTypesEnum.qadi;
+                    encounterType = (short)FightTypesEnum.Qadim;
                     break;
                 case 132865:
-                    encounterType = (short)FightTypesEnum.adin;
+                    encounterType = (short)FightTypesEnum.Adina;
                     break;
                 case 132866:
-                    encounterType = (short)FightTypesEnum.sabi;
+                    encounterType = (short)FightTypesEnum.Sabir;
                     break;
                 case 132867:
-                    encounterType = (short)FightTypesEnum.peer;
+                    encounterType = (short)FightTypesEnum.Peerless;
                     break;
                 case 262913:
-                    encounterType = (short)FightTypesEnum.trin;
+                    encounterType = (short)FightTypesEnum.AH;
                     break;
                 case 262914:
-                    encounterType = (short)FightTypesEnum.ankk;
+                    encounterType = (short)FightTypesEnum.XJJ;
                     break;
                 case 262915:
-                    encounterType = (short)FightTypesEnum.mini;
+                    encounterType = (short)FightTypesEnum.KO;
                     break;
                 case 262916:
-                    encounterType = (short)FightTypesEnum.drag;
+                    encounterType = (short)FightTypesEnum.HT;
                     break;
                 case 262917:
-                    encounterType = (short)FightTypesEnum.oldl;
+                    encounterType = (short)FightTypesEnum.OLC;
                     break;
                 case 263425:
-                    encounterType = (short)FightTypesEnum.dagd;
+                    encounterType = (short)FightTypesEnum.CO;
                     break;
                 case 263426:
-                    encounterType = (short)FightTypesEnum.ceru;
+                    encounterType = (short)FightTypesEnum.ToF;
+                    break;
+                case 196865:
+                    encounterType = (short)FightTypesEnum.MAMA;
+                    break;
+                case 196866:
+                    encounterType = (short)FightTypesEnum.Siax;
+                    break;
+                case 196867:
+                    encounterType = (short)FightTypesEnum.Ensolyss;
+                    break;
+                case 197121:
+                    encounterType = (short)FightTypesEnum.Skorvald;
+                    break;
+                case 197122:
+                    encounterType = (short)FightTypesEnum.Artsariiv;
+                    break;
+                case 197123:
+                    encounterType = (short)FightTypesEnum.Arkk;
+                    break;
+                case 197378:
+                    encounterType = (short)FightTypesEnum.Ai_Ele;
+                    break;
+                case 197379:
+                    encounterType = (short)FightTypesEnum.Ai_Dark;
+                    break;
+                case 197377:
+                    encounterType = (short)FightTypesEnum.Ai_Both;
+                    break;
+                case 197633:
+                    encounterType = (short)FightTypesEnum.Kanaxai;
                     break;
                 default:
                     encounterType = (short)FightTypesEnum.unkn;

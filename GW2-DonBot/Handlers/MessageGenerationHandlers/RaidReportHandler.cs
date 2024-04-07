@@ -155,8 +155,13 @@ namespace Handlers.MessageGenerationHandlers
             // Timestamp
             message.Timestamp = DateTime.Now;
 
+            var statTotals = new StatTotals
+            {
+                TotalStrips = groupedPlayerFights.Select(groupedPlayerFight => groupedPlayerFight.ToList()).Select(values => values.Sum(s => s.Strips)).Sum()
+            };
+
             // Building the message for use
-            return _wvWFightSummaryHandler.GenerateMessage(advancedLog, 10, gw2Players, message);
+            return _wvWFightSummaryHandler.GenerateMessage(advancedLog, 10, gw2Players, message, statTotals);
         }
 
         private Embed GeneratePvERaidReport(string durationString, IOrderedEnumerable<IGrouping<short, FightLog>> groupedFights, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights)

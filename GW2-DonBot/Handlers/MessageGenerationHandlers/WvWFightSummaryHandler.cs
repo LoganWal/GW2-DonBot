@@ -1,5 +1,3 @@
-using System;
-using System.Globalization;
 using Discord;
 using Discord.WebSocket;
 using Extensions;
@@ -8,6 +6,7 @@ using Models.Entities;
 using Models.Enums;
 using Models.Statics;
 using Services.PlayerServices;
+using System.Globalization;
 
 namespace Handlers.MessageGenerationHandlers
 {
@@ -223,7 +222,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             return GenerateMessage(advancedLog, playerCount, gw2Players, message);
         }
 
-        public Embed GenerateMessage(bool advancedLog, int playerCount, List<Gw2Player> gw2Players, EmbedBuilder message)
+        public Embed GenerateMessage(bool advancedLog, int playerCount, List<Gw2Player> gw2Players, EmbedBuilder message, StatTotals? statTotals = null)
         {
             // Damage overview
             var damageOverview = "```#    Name                   Damage    Down C                     \n";
@@ -324,7 +323,6 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
             var distanceOverview = "```#    Name                    Distance From Tag                     \n";
             var timesDownedOverview = "```#    Name                   Times Downed                     \n";
-            var interruptedEnemyOverview = "```";
             var barrierOverview = "```#    Name                   Barrier Gen                     \n";
             var blindsAggregation = "```Attacks Missed         Ours          Theirs \n";
             var blocksAggregation = "```Attacks Blocked        Ours          Theirs \n";
@@ -379,7 +377,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                 blocksAggregation += $"{string.Empty,23}{gw2Players.Sum(s => s.NumberOfTimesBlockedAttack).ToString(CultureInfo.CurrentCulture),-4}{string.Empty.PadLeft(10) + gw2Players.Sum(s => s.NumberOfTimesEnemyBlockedAttack)}";
                 blocksAggregation += "```";
 
-                stripsAggregation += $"{string.Empty,23}{gw2Players.Sum(s => s.Strips).ToString(CultureInfo.CurrentCulture),-4}{string.Empty,10}{gw2Players.Sum(s => s.NumberOfBoonsRipped).ToString(CultureInfo.CurrentCulture)}";
+                stripsAggregation += $"{string.Empty,23}{(statTotals?.TotalStrips != null ? statTotals.TotalStrips.Value : gw2Players.Sum(s => s.Strips).ToString(CultureInfo.CurrentCulture).PadRight(4))}{string.Empty,10}{gw2Players.Sum(s => s.NumberOfBoonsRipped).ToString(CultureInfo.CurrentCulture)}";
                 stripsAggregation += "```";
 
                 var totalDmg = Convert.ToSingle(gw2Players.Sum(s => s.DamageTaken));
@@ -435,17 +433,6 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                     x.Value = $"{barrierOverview.ReplaceSpacesWithNonBreaking()}";
                     x.IsInline = false;
                 });
-
-                // TODO: update all this to be config driven per guild
-                if (false)
-                {
-                    message.AddField(x =>
-                    {
-                        x.Name = "```  #            Name                  Interrupts     ```";
-                        x.Value = $"{interruptedEnemyOverview}";
-                        x.IsInline = false;
-                    });
-                }
 
                 message.AddField(x =>
                 {

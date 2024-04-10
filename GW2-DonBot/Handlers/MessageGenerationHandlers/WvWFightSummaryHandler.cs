@@ -207,15 +207,15 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
             message.AddField(x =>
             {
-                x.Name = "``` ```";
-                x.Value = $"{friendlyOverview.ReplaceSpacesWithNonBreaking()}";
+                x.Name = "Friendly Overview";
+                x.Value = $"{friendlyOverview}";
                 x.IsInline = false;
             });
 
             message.AddField(x =>
             {
-                x.Name = "``` ```";
-                x.Value = $"{enemyOverview.ReplaceSpacesWithNonBreaking()}";
+                x.Name = "Enemy Overview";
+                x.Value = $"{enemyOverview}";
                 x.IsInline = false;
             });
 
@@ -225,7 +225,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
         public Embed GenerateMessage(bool advancedLog, int playerCount, List<Gw2Player> gw2Players, EmbedBuilder message, StatTotals? statTotals = null)
         {
             // Damage overview
-            var damageOverview = "```#    Name                   Damage    Down C                     \n";
+            var damageOverview = "```#    Name                   Damage    Down C\n";
 
             var maxDamage = -1.0f;
             var maxDownContribution = -1.0f;
@@ -254,7 +254,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             damageOverview += "```";
 
             // Cleanse overview
-            var cleanseOverview = $"```#    Name                   Cleanses                     \n";
+            var cleanseOverview = $"```#    Name                   Cleanses\n";
 
             var topCleanses = gw2Players.OrderByDescending(s => s.Cleanses).Take(playerCount).ToList();
             var cleanseIndex = 1;
@@ -271,7 +271,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             cleanseOverview += "```";
 
             // Strip overview
-            var stripOverview = "```#    Name                   Strips                     \n";
+            var stripOverview = "```#    Name                   Strips\n";
 
             var topStrips = gw2Players.OrderByDescending(s => s.Strips).Take(playerCount).ToList();
             var stripIndex = 1;
@@ -288,7 +288,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             stripOverview += "```";
 
             // Stab overview
-            var stabOverview = "```#    Name                   Sub  Stab                     \n\n";
+            var stabOverview = "```#    Name                   Sub  Stab\n";
 
             var topStabs = gw2Players.OrderByDescending(s => s.StabUpTime).Take(playerCount).ToList();
             var stabIndex = 1;
@@ -305,7 +305,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
             stabOverview += "```";
 
-            var healingOverview = "```#    Name                   Healing                     \n\n";
+            var healingOverview = "```#    Name                   Healing\n";
 
             var topHealing = gw2Players.OrderByDescending(s => s.Healing).Take(playerCount).ToList();
             var healingIndex = 1;
@@ -321,9 +321,9 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
             healingOverview += "```";
 
-            var distanceOverview = "```#    Name                    Distance From Tag                     \n";
-            var timesDownedOverview = "```#    Name                   Times Downed                     \n";
-            var barrierOverview = "```#    Name                   Barrier Gen                     \n";
+            var distanceOverview = "```#    Name                    Distance From Tag\n";
+            var timesDownedOverview = "```#    Name                   Times Downed\n";
+            var barrierOverview = "```#    Name                   Barrier Gen\n";
             var blindsAggregation = "```Attacks Missed         Ours          Theirs \n";
             var blocksAggregation = "```Attacks Blocked        Ours          Theirs \n";
             var stripsAggregation = "```Boons Stripped         Ours          Theirs \n";
@@ -391,36 +391,36 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             {
                 message.AddField(x =>
                 {
-                    x.Name = "``` ```";
-                    x.Value = $"{damageOverview.ReplaceSpacesWithNonBreaking()}";
+                    x.Name = "Damage";
+                    x.Value = $"{damageOverview}";
                     x.IsInline = false;
                 });
 
                 message.AddField(x =>
                 {
-                    x.Name = "``` ```";
-                    x.Value = $"{cleanseOverview.ReplaceSpacesWithNonBreaking()}";
+                    x.Name = "Cleanses";
+                    x.Value = $"{cleanseOverview}";
                     x.IsInline = false;
                 });
 
                 message.AddField(x =>
                 {
-                    x.Name = "```  ```";
-                    x.Value = $"{stripOverview.ReplaceSpacesWithNonBreaking()}";
+                    x.Name = "Strips";
+                    x.Value = $"{stripOverview}";
                     x.IsInline = false;
                 });
 
                 message.AddField(x =>
                 {
-                    x.Name = "``` ```";
-                    x.Value = $"{stabOverview.ReplaceLineEndings()}";
+                    x.Name = "Stab";
+                    x.Value = $"{stabOverview}";
                     x.IsInline = false;
                 });
 
                 message.AddField(x =>
                 {
-                    x.Name = "``` ```";
-                    x.Value = $"{healingOverview.ReplaceLineEndings()}";
+                    x.Name = "Healing";
+                    x.Value = $"{healingOverview}";
                     x.IsInline = false;
                 });
             }
@@ -429,50 +429,50 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             {
                 message.AddField(x =>
                 {
-                    x.Name = "``` ```";
-                    x.Value = $"{barrierOverview.ReplaceSpacesWithNonBreaking()}";
+                    x.Name = "Barrier";
+                    x.Value = $"{barrierOverview}";
                     x.IsInline = false;
                 });
 
                 message.AddField(x =>
                 {
-                    x.Name = "``` ```";
-                    x.Value = $"{timesDownedOverview.ReplaceSpacesWithNonBreaking()}";
+                    x.Name = "Times Downed";
+                    x.Value = $"{timesDownedOverview}";
                     x.IsInline = false;
                 });
 
                 message.AddField(x =>
                 {
-                    x.Name = "``` ```";
-                    x.Value = $"{distanceOverview.ReplaceSpacesWithNonBreaking()}";
+                    x.Name = "Distance From Tag";
+                    x.Value = $"{distanceOverview}";
                     x.IsInline = false;
                 });
 
                 message.AddField(x =>
                 {
-                    x.Name = "``` ```";
-                    x.Value = $"{blindsAggregation.ReplaceSpacesWithNonBreaking()}";
+                    x.Name = "Blinds Aggregation";
+                    x.Value = $"{blindsAggregation}";
                     x.IsInline = false;
                 });
 
                 message.AddField(x =>
                 {
-                    x.Name = "``` ```";
-                    x.Value = $"{blocksAggregation.ReplaceSpacesWithNonBreaking()}";
+                    x.Name = "Blocks Aggregation";
+                    x.Value = $"{blocksAggregation}";
                     x.IsInline = false;
                 });
 
                 message.AddField(x =>
                 {
-                    x.Name = "``` ```";
-                    x.Value = $"{stripsAggregation.ReplaceSpacesWithNonBreaking()}";
+                    x.Name = "Strips Aggregation";
+                    x.Value = $"{stripsAggregation}";
                     x.IsInline = false;
                 });
 
                 message.AddField(x =>
                 {
-                    x.Name = "``` ```";
-                    x.Value = $"{barrierAggregation.ReplaceSpacesWithNonBreaking()}";
+                    x.Name = "Damage Mitigation";
+                    x.Value = $"{barrierAggregation}";
                     x.IsInline = false;
                 });
             }

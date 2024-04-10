@@ -180,7 +180,7 @@ namespace Handlers.MessageGenerationHandlers
                 }
             };
 
-            var fightsOverview = "```Fight       Total (t)    Success (t)     Attempts         \n";
+            var fightsOverview = "```Fight       Total (t)    Success (t)     Count\n";
             foreach (var groupedFight in groupedFights)
             {
                 var fightsListForType = groupedFight.ToList();
@@ -196,7 +196,7 @@ namespace Handlers.MessageGenerationHandlers
 
             fightsOverview += "```";
 
-            var playerOverview = "```Player           Dmg       Alac    Quick         \n";
+            var playerOverview = "```Player           Dmg       Alac    Quick\n";
             foreach (var groupedPlayerFight in groupedPlayerFights)
             {
                 var playerFightsListForType = groupedPlayerFight.ToList();
@@ -210,15 +210,15 @@ namespace Handlers.MessageGenerationHandlers
 
             message.AddField(x =>
             {
-                x.Name = $"``` ```";
-                x.Value = $"{fightsOverview.ReplaceSpacesWithNonBreaking()}";
+                x.Name = "Fights Overview";
+                x.Value = $"{fightsOverview}";
                 x.IsInline = false;
             });
 
             message.AddField(x =>
             {
-                x.Name = $"``` ```";
-                x.Value = $"{playerOverview.ReplaceSpacesWithNonBreaking()}";
+                x.Name = "Player Overview";
+                x.Value = $"{playerOverview}";
                 x.IsInline = false;
             });
 
@@ -271,8 +271,8 @@ namespace Handlers.MessageGenerationHandlers
 
                 message.AddField(x =>
                 {
-                    x.Name = $"``` ```";
-                    x.Value = $"{fightUrlOverview.ReplaceSpacesWithNonBreaking()}";
+                    x.Name = "Fight Logs";
+                    x.Value = $"{fightUrlOverview}";
                     x.IsInline = false;
                 });
             }

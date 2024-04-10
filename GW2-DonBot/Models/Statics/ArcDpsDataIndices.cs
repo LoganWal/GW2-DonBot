@@ -14,7 +14,7 @@
         public const int InterruptsIndex = 7;
         public const int HealingDimension1Index = 0;
         public const int HealingDimension2Index = 0;
-        public const int NameClipLength = 15;
+        public const int NameClipLength = 21;
         public const int NameSizeLength = 21;
         public const int EmbedTitleCharacterLength = 52;
         public const int EmbedBarCharacterLength = 23;

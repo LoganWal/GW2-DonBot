@@ -43,7 +43,7 @@ namespace Handlers.MessageGenerationHandlers
             {
                 for (var i = 0; i < accounts.Count / 20 + 1; i++)
                 {
-                    var accountOverview = "```#    Name                     Points            \n";
+                    var accountOverview = "```#    Name                     Points\n";
                     var useLimit = false;
                     var limit = 0;
 
@@ -74,8 +74,8 @@ namespace Handlers.MessageGenerationHandlers
 
                     message.AddField(x =>
                     {
-                        x.Name = "``` ```\n";
-                        x.Value = $"{accountOverview.ReplaceSpacesWithNonBreaking()}";
+                        x.Name = "Total Points";
+                        x.Value = $"{accountOverview}";
                         x.IsInline = false;
                     });
                 }
@@ -124,7 +124,7 @@ namespace Handlers.MessageGenerationHandlers
             {
                 for (var i = 0; i < accounts.Count / 20 + 1; i++)
                 {
-                    var accountOverview = "```#    Name                     Points            \n";
+                    var accountOverview = "```#    Name                     Points\n";
                     var useLimit = false;
                     var limit = 0;
 
@@ -154,8 +154,8 @@ namespace Handlers.MessageGenerationHandlers
 
                     message.AddField(x =>
                     {
-                        x.Name = "``` ```\n";
-                        x.Value = $"{accountOverview.ReplaceSpacesWithNonBreaking()}";
+                        x.Name = "Latest Fight Points";
+                        x.Value = $"{accountOverview}";
                         x.IsInline = false;
                     });
                 }

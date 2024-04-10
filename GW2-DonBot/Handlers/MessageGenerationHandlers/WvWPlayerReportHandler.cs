@@ -49,7 +49,7 @@ namespace Handlers.MessageGenerationHandlers
 
             for (var i = 0; i < gw2AccountData.Count / accountsPerMessage + 1; i++)
             {
-                var accountOverview = "```Name                 World   Last Log        \n";
+                var accountOverview = "```Name                 World   Last Log\n";
                 var useLimit = false;
                 var limit = 0;
 
@@ -77,7 +77,7 @@ namespace Handlers.MessageGenerationHandlers
                         lastLogDateTime = gw2Account.Item2.LastWvwLogDateTime.HasValue ? gw2Account.Item2.LastWvwLogDateTime.Value.AddHours(10).ToString("yyyy-MM-dd") : "Never";
                     }
 
-                    accountOverview += $"{name.ClipAt(20),-20} {server.ClipAt(7),-7} {lastLogDateTime.ClipAt(10),-10} \n";
+                    accountOverview += $"{name.ClipAt(20),-20} {server.ClipAt(7),-7} {lastLogDateTime.ClipAt(10),-10}\n";
                     position++;
                 }
 
@@ -85,8 +85,8 @@ namespace Handlers.MessageGenerationHandlers
 
                 message.AddField(x =>
                 {
-                    x.Name = "``` ```";
-                    x.Value = $"{accountOverview.ReplaceSpacesWithNonBreaking()}";
+                    x.Name = "Guild Players";
+                    x.Value = $"{accountOverview}";
                     x.IsInline = false;
                 });
             }

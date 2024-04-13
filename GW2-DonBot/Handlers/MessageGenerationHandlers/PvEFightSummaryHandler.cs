@@ -267,8 +267,6 @@ namespace Handlers.MessageGenerationHandlers
             var healingPhase = data.HealingStatsExtension?.HealingPhases?.FirstOrDefault() ?? new HealingPhase();
             var barrierPhase = data.BarrierStatsExtension?.BarrierPhases?.FirstOrDefault() ?? new BarrierPhase();
 
-            var gw2Players = _playerService.GetGw2Players(data, fightPhase, healingPhase, barrierPhase);
-
             var dateStartString = data.EncounterStart;
             var dateTimeStart = DateTime.ParseExact(dateStartString, "yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
 
@@ -414,6 +412,8 @@ namespace Handlers.MessageGenerationHandlers
                     break;
             }
 
+            var gw2Players = _playerService.GetGw2Players(data, fightPhase, healingPhase, barrierPhase, encounterType);
+
             var fightLog = new FightLog
             {
                 GuildId = guildId,
@@ -433,6 +433,9 @@ namespace Handlers.MessageGenerationHandlers
                     FightLogId = fightLog.FightLogId,
                     GuildWarsAccountName = gw2Player.AccountName,
                     Damage = gw2Player.Damage,
+                    Kills = gw2Player.Kills,
+                    Downs = gw2Player.Downs,
+                    Deaths = gw2Player.Deaths,
                     QuicknessDuration = Convert.ToDecimal(gw2Player.TotalQuick),
                     AlacDuration = Convert.ToDecimal(gw2Player.TotalAlac),
                     SubGroup = gw2Player.SubGroup,
@@ -451,7 +454,8 @@ namespace Handlers.MessageGenerationHandlers
                     NumberOfTimesEnemyBlockedAttack = gw2Player.NumberOfTimesEnemyBlockedAttack,
                     NumberOfBoonsRipped = Convert.ToInt64(gw2Player.NumberOfBoonsRipped),
                     DamageTaken = Convert.ToInt64(gw2Player.DamageTaken),
-                    BarrierMitigation = Convert.ToInt64(gw2Player.BarrierMitigation)
+                    BarrierMitigation = Convert.ToInt64(gw2Player.BarrierMitigation),
+                    CerusOrbsCollected = gw2Player.CerusOrbsCollected
             })
             .ToList();
 
@@ -482,7 +486,7 @@ namespace Handlers.MessageGenerationHandlers
             var playerOverview = "```Player           Dmg       Alac    Quick\n";
             foreach (var gw2Player in gw2Players.OrderByDescending(s => s.Damage))
             {
-                playerOverview += $"{gw2Player.AccountName?.ClipAt(13),-13}{string.Empty,4}{((float)gw2Player.Damage / (fightInSeconds)).FormatNumber(true),-8}{string.Empty,2}{Math.Round(gw2Player.TotalAlac, 2).ToString(CultureInfo.CurrentCulture),-5}{string.Empty,3}{Math.Round(gw2Player.TotalQuick, 2).ToString(CultureInfo.CurrentCulture),-5}\n";
+                playerOverview += $"{gw2Player.AccountName.ClipAt(13),-13}{string.Empty,4}{((float)gw2Player.Damage / (fightInSeconds)).FormatNumber(true),-8}{string.Empty,2}{Math.Round(gw2Player.TotalAlac, 2).ToString(CultureInfo.CurrentCulture),-5}{string.Empty,3}{Math.Round(gw2Player.TotalQuick, 2).ToString(CultureInfo.CurrentCulture),-5}\n";
             }
 
             playerOverview += "```";
@@ -493,6 +497,24 @@ namespace Handlers.MessageGenerationHandlers
                 x.Value = $"{playerOverview}";
                 x.IsInline = false;
             });
+
+            if (encounterType == (short)FightTypesEnum.ToF)
+            {
+                var mechanicsOverview = "```Player           Orbs\n";
+                foreach (var gw2Player in gw2Players.OrderByDescending(s => s.CerusOrbsCollected))
+                {
+                    mechanicsOverview += $"{gw2Player.AccountName?.ClipAt(13),-13}{string.Empty,4}{gw2Player.CerusOrbsCollected}\n";
+                }
+
+                mechanicsOverview += "```";
+
+                message.AddField(x =>
+                {
+                    x.Name = "Mechanics Overview";
+                    x.Value = $"{mechanicsOverview}";
+                    x.IsInline = false;
+                });
+            }
 
             // Building the message for use
             return message.Build();

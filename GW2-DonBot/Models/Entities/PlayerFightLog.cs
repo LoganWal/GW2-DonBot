@@ -50,5 +50,13 @@ namespace Models.Entities
         public long DamageTaken { get; set; }
 
         public long BarrierMitigation { get; set; }
+
+        public long CerusOrbsCollected { get; set; }
+
+        public long Kills { get; set; }
+
+        public long Deaths { get; set; }
+
+        public long Downs { get; set; }
     }
 }

@@ -51,18 +51,18 @@ namespace Handlers.MessageGenerationHandlers
             var barrierPhase = data.BarrierStatsExtension?.BarrierPhases?.FirstOrDefault() ?? new BarrierPhase();
 
             var friendlyDowns = fightPhase.DefStats?
-                .Sum(playerDefStats => playerDefStats.Count >= ArcDpsDataIndices.FriendlyDownIndex
-                    ? playerDefStats[ArcDpsDataIndices.FriendlyDownIndex].Double
+                .Sum(playerDefStats => playerDefStats.Count >= ArcDpsDataIndices.EnemiesDownedIndex
+                    ? playerDefStats[ArcDpsDataIndices.EnemiesDownedIndex].Double
                     : 0) ?? 0;
 
             var friendlyDeaths = fightPhase.DefStats?
-                .Sum(playerDefStats => playerDefStats.Count >= ArcDpsDataIndices.FriendlyDeathIndex
-                    ? playerDefStats[ArcDpsDataIndices.FriendlyDeathIndex].Double
+                .Sum(playerDefStats => playerDefStats.Count >= ArcDpsDataIndices.DeathIndex
+                    ? playerDefStats[ArcDpsDataIndices.DeathIndex].Double
                     : 0) ?? 0;
 
             var enemyDowns = fightPhase.OffensiveStatsTargets?
-                .Sum(playerOffStats => playerOffStats.Sum(playerOffTargetStats => playerOffTargetStats?.Count >= ArcDpsDataIndices.EnemyDownIndex
-                    ? playerOffTargetStats?[ArcDpsDataIndices.EnemyDownIndex]
+                .Sum(playerOffStats => playerOffStats.Sum(playerOffTargetStats => playerOffTargetStats?.Count >= ArcDpsDataIndices.DownIndex
+                    ? playerOffTargetStats?[ArcDpsDataIndices.DownIndex]
                     : 0)) ?? 0;
 
             var enemyDeaths = fightPhase.OffensiveStatsTargets?
@@ -164,6 +164,10 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                     FightLogId = fightLog.FightLogId,
                     GuildWarsAccountName = gw2Player.AccountName,
                     Damage = gw2Player.Damage,
+                    Kills = gw2Player.Kills,
+                    Downs = gw2Player.Downs,
+                    Deaths = gw2Player.Deaths,
+                    TimesDowned = Convert.ToInt32(gw2Player.TimesDowned),
                     QuicknessDuration = Math.Round(Convert.ToDecimal(gw2Player.TotalQuick), 2),
                     AlacDuration = Math.Round(Convert.ToDecimal(gw2Player.TotalAlac), 2),
                     SubGroup = gw2Player.SubGroup,
@@ -174,7 +178,6 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                     Healing = gw2Player.Healing,
                     BarrierGenerated = gw2Player.BarrierGenerated,
                     DistanceFromTag = Math.Round(Convert.ToDecimal(gw2Player.DistanceFromTag), 2),
-                    TimesDowned = Convert.ToInt32(gw2Player.TimesDowned),
                     Interrupts = gw2Player.Interrupts,
                     NumberOfHitsWhileBlinded = gw2Player.NumberOfHitsWhileBlinded,
                     NumberOfMissesAgainst = Convert.ToInt64(gw2Player.NumberOfMissesAgainst),

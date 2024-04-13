@@ -6,6 +6,6 @@ namespace Services.PlayerServices
     {
         public Task SetPlayerPoints(EliteInsightDataModel eliteInsightDataModel);
 
-        public List<Gw2Player> GetGw2Players(EliteInsightDataModel data, ArcDpsPhase fightPhase, HealingPhase healingPhase, BarrierPhase barrierPhase);
+        public List<Gw2Player> GetGw2Players(EliteInsightDataModel data, ArcDpsPhase fightPhase, HealingPhase healingPhase, BarrierPhase barrierPhase, short? encounterType = null);
     }
 }

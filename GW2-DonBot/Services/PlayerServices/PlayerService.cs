@@ -2,7 +2,9 @@
 using Microsoft.EntityFrameworkCore;
 using Models;
 using Models.Entities;
+using Models.Enums;
 using Models.Statics;
+using Newtonsoft.Json.Linq;
 using Services.PlayerServices;
 
 namespace Services.Logging
@@ -16,7 +18,7 @@ namespace Services.Logging
             _databaseContext = databaseContext;
         }
 
-        public List<Gw2Player> GetGw2Players(EliteInsightDataModel data, ArcDpsPhase fightPhase, HealingPhase healingPhase, BarrierPhase barrierPhase)
+        public List<Gw2Player> GetGw2Players(EliteInsightDataModel data, ArcDpsPhase fightPhase, HealingPhase healingPhase, BarrierPhase barrierPhase, short? encounterType = null)
         {
             if (data.Players == null)
             {
@@ -26,7 +28,7 @@ namespace Services.Logging
             var gw2Players = new List<Gw2Player>();
             foreach (var arcDpsPlayer in data.Players)
             {
-                if (arcDpsPlayer == null || arcDpsPlayer.Acc == null || arcDpsPlayer.Profession == null || arcDpsPlayer.Name == null)
+                if (arcDpsPlayer.Acc == null || arcDpsPlayer.Profession == null || arcDpsPlayer.Name == null)
                 {
                     continue;
                 }
@@ -59,8 +61,16 @@ namespace Services.Logging
                 var gameplayStats = fightPhase.GameplayStats?.Count >= playerIndex + 1 ? fightPhase.GameplayStats[playerIndex] : null;
                 var defStats = fightPhase.DefStats?.Count >= playerIndex + 1 ? fightPhase.DefStats[playerIndex] : null;
                 var offensiveStats = fightPhase.OffensiveStats?.Count >= playerIndex + 1 ? fightPhase.OffensiveStats[playerIndex] : null;
-                var boons = fightPhase.BoonActiveStats?.Count >= playerIndex + 1 ? fightPhase.BoonActiveStats[playerIndex].Data : null;
+                var offensiveStatsTarget = fightPhase.OffensiveStatsTargets?.Count > playerIndex + 1 ? fightPhase.OffensiveStatsTargets[playerIndex] : null;
 
+                var boons = fightPhase.BoonActiveStats?.Count >= playerIndex + 1 ? fightPhase.BoonActiveStats[playerIndex].Data : null;
+                var mechanics = fightPhase.MechanicStats?.Count >= playerIndex + 1 ? fightPhase.MechanicStats[playerIndex] : null;
+
+                
+                existingPlayer.Kills = offensiveStatsTarget?.FirstOrDefault()?[ArcDpsDataIndices.EnemyDeathIndex] ?? 0;
+                existingPlayer.Deaths = Convert.ToInt64(defStats?[ArcDpsDataIndices.DeathIndex].Double ?? 0L);
+                existingPlayer.TimesDowned = defStats?[ArcDpsDataIndices.EnemiesDownedIndex].Double ?? 0;
+                existingPlayer.Downs = Convert.ToInt64(offensiveStatsTarget?.FirstOrDefault()?[ArcDpsDataIndices.DownIndex] ?? 0L);
                 existingPlayer.Damage = fightPhaseStats?.Sum(s => s.FirstOrDefault()) ?? 0;
                 existingPlayer.Cleanses = supportStats?.FirstOrDefault() ?? 0;
                 existingPlayer.Cleanses += supportStats?.Count >= ArcDpsDataIndices.PlayerCleansesIndex + 1 ? supportStats[ArcDpsDataIndices.PlayerCleansesIndex] : 0;
@@ -69,7 +79,6 @@ namespace Services.Logging
                 existingPlayer.Healing = healingStatsTargets?.Sum(s => s.FirstOrDefault()) ?? 0;
                 existingPlayer.BarrierGenerated = barrierStats?.FirstOrDefault() ?? 0;
                 existingPlayer.DistanceFromTag = gameplayStats?[ArcDpsDataIndices.DistanceFromTagIndex] ?? 0;
-                existingPlayer.TimesDowned = defStats?[ArcDpsDataIndices.FriendlyDownIndex].Double ?? 0;
                 existingPlayer.Interrupts = offensiveStats?[ArcDpsDataIndices.InterruptsIndex] ?? 0;
                 existingPlayer.DamageDownContribution = offensiveStats?[ArcDpsDataIndices.DamageDownContribution] ?? 0;
                 existingPlayer.NumberOfHitsWhileBlinded = offensiveStats?[ArcDpsDataIndices.NumberOfHitsWhileBlindedIndex] ?? 0;
@@ -81,6 +90,12 @@ namespace Services.Logging
                 existingPlayer.BarrierMitigation = defStats?[ArcDpsDataIndices.BarrierMitigationIndex].Double ?? 0;
                 existingPlayer.TotalQuick = boons?.CheckIndexIsValid(ArcDpsDataIndices.TotalQuick, 0) ?? false ? boons[ArcDpsDataIndices.TotalQuick][0] : 0;
                 existingPlayer.TotalAlac = boons?.CheckIndexIsValid(ArcDpsDataIndices.TotalAlac, 0) ?? false ? boons[ArcDpsDataIndices.TotalAlac][0] : 0;
+
+                if (encounterType == (short)FightTypesEnum.ToF)
+                {
+                    var orbsArray = (mechanics?[ArcDpsDataIndices.CerusOrbCollection] as JArray)?.Select(s => (long)s);
+                    existingPlayer.CerusOrbsCollected = orbsArray?.FirstOrDefault() ?? 0;
+                }
             }
 
             return gw2Players;

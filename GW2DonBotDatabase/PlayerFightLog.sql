@@ -22,6 +22,10 @@
 	[NumberOfBoonsRipped] [bigint] NOT NULL,
 	[DamageTaken] [bigint] NOT NULL,
 	[BarrierMitigation] [bigint] NOT NULL,
+	[CerusOrbsCollected] [bigint] NOT NULL,
+	[Kills] [bigint] NOT NULL,
+	[Deaths] [bigint] NOT NULL,
+	[Downs] [bigint] NOT NULL,
 PRIMARY KEY CLUSTERED 
 (
 	[PlayerFightLogId] ASC
@@ -61,6 +65,14 @@ GO
 ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [DamageTaken]
 GO
 ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [BarrierMitigation]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [CerusOrbsCollected]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [Kills]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [Deaths]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [Downs]
 GO
 ALTER TABLE [dbo].[PlayerFightLog]  WITH CHECK ADD FOREIGN KEY([FightLogId])
 REFERENCES [dbo].[FightLog] ([FightLogId])

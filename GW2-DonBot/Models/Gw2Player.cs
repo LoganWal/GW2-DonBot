@@ -10,6 +10,14 @@
 
         public long SubGroup { get; set; }
 
+        public long Kills { get; set; }
+
+        public long Deaths { get; set; }
+
+        public long Downs { get; set; }
+
+        public double TimesDowned { get; set; }
+
         public long Damage { get; set; }
 
         public long DamageDownContribution { get; set; }
@@ -25,8 +33,6 @@
         public long BarrierGenerated { get; set; }
 
         public double DistanceFromTag { get; set; }
-
-        public double TimesDowned { get; set; }
 
         public long Interrupts { get; set; }
 
@@ -47,5 +53,7 @@
         public double TotalQuick { get; set; }
 
         public double TotalAlac { get; set; }
+
+        public long CerusOrbsCollected { get; set; }
     }
 }

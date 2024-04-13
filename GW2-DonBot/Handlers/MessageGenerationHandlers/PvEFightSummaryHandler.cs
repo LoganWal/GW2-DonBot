@@ -270,10 +270,7 @@ namespace Handlers.MessageGenerationHandlers
             var dateStartString = data.EncounterStart;
             var dateTimeStart = DateTime.ParseExact(dateStartString, "yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
 
-            var dateEndString = data.EncounterEnd;
-            var dateTimeEnd = DateTime.ParseExact(dateEndString, "yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
-
-            var duration = dateTimeEnd - dateTimeStart;
+            var duration = fightPhase.Duration;
 
             short encounterType;
             switch (data.EncounterId)
@@ -420,7 +417,7 @@ namespace Handlers.MessageGenerationHandlers
                 Url = data.Url ?? string.Empty,
                 FightType = encounterType,
                 FightStart = dateTimeStart,
-                FightDurationInMs = (long)duration.TotalMilliseconds,
+                FightDurationInMs = duration,
                 IsSuccess = data.Success,
                 FightPercent = Math.Round(Convert.ToDecimal(100.00 - (data.Targets?.FirstOrDefault()?.Percent ?? 0)), 2)
             };

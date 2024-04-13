@@ -19,7 +19,6 @@ namespace Controller.Discord
     {
         private readonly ISecretService _secretService;
         private readonly ILoggingService _loggingService;
-        private readonly ICacheService _cacheService;
         private readonly IMessageGenerationService _messageGenerationService;
         private readonly IGenericCommandsService _genericCommandsService;
         private readonly IVerifyCommandsService _verifyCommandsService;
@@ -30,6 +29,7 @@ namespace Controller.Discord
         private readonly IDataModelGenerationService _dataModelGenerator;
         private readonly IRaidService _raidService;
         private readonly IDiscordCommandService _discordCommandService;
+        private readonly HashSet<string> _seenUrls = new();
 
         private readonly DatabaseContext _databaseContext;
         private readonly DiscordSocketClient _client;
@@ -39,7 +39,6 @@ namespace Controller.Discord
         public DiscordCore(
             ISecretService secretService,
             ILoggingService loggingService,
-            ICacheService cacheService,
             IMessageGenerationService messageGenerationService,
             IGenericCommandsService genericCommandsService,
             IVerifyCommandsService verifyCommandsService,
@@ -49,11 +48,11 @@ namespace Controller.Discord
             IPlayerService playerService,
             IRaidService raidService,
             IDataModelGenerationService dataModelGenerator,
-            DatabaseContext databaseContext, IDiscordCommandService discordCommandService)
+            IDiscordCommandService discordCommandService,
+            DatabaseContext databaseContext)
         {
             _secretService = secretService;
             _loggingService = loggingService;
-            _cacheService = cacheService;
             _messageGenerationService = messageGenerationService;
             _genericCommandsService = genericCommandsService;
             _verifyCommandsService = verifyCommandsService;
@@ -86,6 +85,13 @@ namespace Controller.Discord
                 await Task.Delay(100);
             }
             Console.WriteLine("[DON] GW2-DonBot connected in");
+
+            var fightLogs = _databaseContext.FightLog.ToList();
+
+            foreach (var fightLog in fightLogs)
+            {
+                _seenUrls.Add(fightLog.Url);
+            }
 
             //await RegisterCommands(_client);
             _client.MessageReceived += MessageReceivedAsync;
@@ -499,16 +505,13 @@ namespace Controller.Discord
 
         private async Task AnalyseAndReportOnUrl(string url, ulong guildId, bool isEmbed, SocketTextChannel replyChannel)
         {
-            var seenUrls = _cacheService.Get<List<string>>(CacheKey.SeenUrls) ?? new List<string>();
-
-            if (isEmbed && seenUrls.Contains(url))
+            if (isEmbed && _seenUrls.Contains(url))
             {
                 Console.WriteLine($"[DON] Already seen, not analysing or reporting: {url}");
                 return;
             }
 
-            seenUrls.Add(url);
-            _cacheService.Set(CacheKey.SeenUrls, seenUrls);
+            _seenUrls.Add(url);
 
             Console.WriteLine($"[DON] Analysing and reporting on: {url}");
             var data = await _dataModelGenerator.GenerateEliteInsightDataModelFromUrl(url);

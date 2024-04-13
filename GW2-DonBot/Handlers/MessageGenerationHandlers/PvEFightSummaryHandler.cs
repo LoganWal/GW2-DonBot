@@ -411,21 +411,24 @@ namespace Handlers.MessageGenerationHandlers
 
             var gw2Players = _playerService.GetGw2Players(data, fightPhase, healingPhase, barrierPhase, encounterType);
 
-            var fightLog = new FightLog
+            var fightLog = _databaseContext.FightLog.FirstOrDefault(s => s.Url == data.Url);
+            if (fightLog == null)
             {
-                GuildId = guildId,
-                Url = data.Url ?? string.Empty,
-                FightType = encounterType,
-                FightStart = dateTimeStart,
-                FightDurationInMs = duration,
-                IsSuccess = data.Success,
-                FightPercent = Math.Round(Convert.ToDecimal(100.00 - (data.Targets?.FirstOrDefault()?.Percent ?? 0)), 2)
-            };
+                fightLog = new FightLog
+                {
+                    GuildId = guildId,
+                    Url = data.Url ?? string.Empty,
+                    FightType = encounterType,
+                    FightStart = dateTimeStart,
+                    FightDurationInMs = duration,
+                    IsSuccess = data.Success,
+                    FightPercent = Math.Round(Convert.ToDecimal(100.00 - (data.Targets?.FirstOrDefault()?.Percent ?? 0)), 2)
+                };
 
-            _databaseContext.Add(fightLog);
-            _databaseContext.SaveChanges();
+                _databaseContext.Add(fightLog);
+                _databaseContext.SaveChanges();
 
-            var playerFights = gw2Players.Select(gw2Player => new PlayerFightLog
+                var playerFights = gw2Players.Select(gw2Player => new PlayerFightLog
                 {
                     FightLogId = fightLog.FightLogId,
                     GuildWarsAccountName = gw2Player.AccountName,
@@ -454,11 +457,12 @@ namespace Handlers.MessageGenerationHandlers
                     BarrierMitigation = Convert.ToInt64(gw2Player.BarrierMitigation),
                     CerusOrbsCollected = gw2Player.CerusOrbsCollected,
                     DeimosOilsTriggered = gw2Player.DeimosOilsTriggered
-            })
-            .ToList();
+                })
+                .ToList();
 
-            _databaseContext.AddRange(playerFights);
-            _databaseContext.SaveChanges();
+                _databaseContext.AddRange(playerFights);
+                _databaseContext.SaveChanges();
+            }
 
             var message = new EmbedBuilder
             {

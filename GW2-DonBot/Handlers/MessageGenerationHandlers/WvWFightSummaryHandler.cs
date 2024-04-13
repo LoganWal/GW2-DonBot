@@ -146,51 +146,56 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
             if (!advancedLog)
             {
-                var fightLog = new FightLog
+                var fightLog = _databaseContext.FightLog.FirstOrDefault(s => s.Url == data.Url);
+
+                if (fightLog == null)
                 {
-                    GuildId = guild.GuildId,
-                    Url = data.Url ?? string.Empty,
-                    FightType = (short)FightTypesEnum.WvW,
-                    FightStart = dateTimeStart,
-                    FightDurationInMs = (long)duration.TotalMilliseconds,
-                    IsSuccess = data.Success
-                };
+                    fightLog = new FightLog
+                    {
+                        GuildId = guild.GuildId,
+                        Url = data.Url ?? string.Empty,
+                        FightType = (short)FightTypesEnum.WvW,
+                        FightStart = dateTimeStart,
+                        FightDurationInMs = (long)duration.TotalMilliseconds,
+                        IsSuccess = data.Success
+                    };
 
-                _databaseContext.Add(fightLog);
-                _databaseContext.SaveChanges();
+                    _databaseContext.Add(fightLog);
+                    _databaseContext.SaveChanges();
 
-                var playerFights = gw2Players.Select(gw2Player => new PlayerFightLog
-                {
-                    FightLogId = fightLog.FightLogId,
-                    GuildWarsAccountName = gw2Player.AccountName,
-                    Damage = gw2Player.Damage,
-                    Kills = gw2Player.Kills,
-                    Downs = gw2Player.Downs,
-                    Deaths = gw2Player.Deaths,
-                    TimesDowned = Convert.ToInt32(gw2Player.TimesDowned),
-                    QuicknessDuration = Math.Round(Convert.ToDecimal(gw2Player.TotalQuick), 2),
-                    AlacDuration = Math.Round(Convert.ToDecimal(gw2Player.TotalAlac), 2),
-                    SubGroup = gw2Player.SubGroup,
-                    DamageDownContribution = gw2Player.DamageDownContribution,
-                    Cleanses = Convert.ToInt64(gw2Player.Cleanses),
-                    Strips = Convert.ToInt64(gw2Player.Strips),
-                    StabGenerated = Math.Round(Convert.ToDecimal(gw2Player.StabUpTime), 2),
-                    Healing = gw2Player.Healing,
-                    BarrierGenerated = gw2Player.BarrierGenerated,
-                    DistanceFromTag = Math.Round(Convert.ToDecimal(gw2Player.DistanceFromTag), 2),
-                    Interrupts = gw2Player.Interrupts,
-                    NumberOfHitsWhileBlinded = gw2Player.NumberOfHitsWhileBlinded,
-                    NumberOfMissesAgainst = Convert.ToInt64(gw2Player.NumberOfMissesAgainst),
-                    NumberOfTimesBlockedAttack = Convert.ToInt64(gw2Player.NumberOfTimesBlockedAttack),
-                    NumberOfTimesEnemyBlockedAttack = gw2Player.NumberOfTimesEnemyBlockedAttack,
-                    NumberOfBoonsRipped = Convert.ToInt64(gw2Player.NumberOfBoonsRipped),
-                    DamageTaken = Convert.ToInt64(gw2Player.DamageTaken),
-                    BarrierMitigation = Convert.ToInt64(gw2Player.BarrierMitigation)
-                })
-                .ToList();
+                    var playerFights = gw2Players.Select(gw2Player => new PlayerFightLog
+                        {
+                            FightLogId = fightLog.FightLogId,
+                            GuildWarsAccountName = gw2Player.AccountName,
+                            Damage = gw2Player.Damage,
+                            Kills = gw2Player.Kills,
+                            Downs = gw2Player.Downs,
+                            Deaths = gw2Player.Deaths,
+                            TimesDowned = Convert.ToInt32(gw2Player.TimesDowned),
+                            QuicknessDuration = Math.Round(Convert.ToDecimal(gw2Player.TotalQuick), 2),
+                            AlacDuration = Math.Round(Convert.ToDecimal(gw2Player.TotalAlac), 2),
+                            SubGroup = gw2Player.SubGroup,
+                            DamageDownContribution = gw2Player.DamageDownContribution,
+                            Cleanses = Convert.ToInt64(gw2Player.Cleanses),
+                            Strips = Convert.ToInt64(gw2Player.Strips),
+                            StabGenerated = Math.Round(Convert.ToDecimal(gw2Player.StabUpTime), 2),
+                            Healing = gw2Player.Healing,
+                            BarrierGenerated = gw2Player.BarrierGenerated,
+                            DistanceFromTag = Math.Round(Convert.ToDecimal(gw2Player.DistanceFromTag), 2),
+                            Interrupts = gw2Player.Interrupts,
+                            NumberOfHitsWhileBlinded = gw2Player.NumberOfHitsWhileBlinded,
+                            NumberOfMissesAgainst = Convert.ToInt64(gw2Player.NumberOfMissesAgainst),
+                            NumberOfTimesBlockedAttack = Convert.ToInt64(gw2Player.NumberOfTimesBlockedAttack),
+                            NumberOfTimesEnemyBlockedAttack = gw2Player.NumberOfTimesEnemyBlockedAttack,
+                            NumberOfBoonsRipped = Convert.ToInt64(gw2Player.NumberOfBoonsRipped),
+                            DamageTaken = Convert.ToInt64(gw2Player.DamageTaken),
+                            BarrierMitigation = Convert.ToInt64(gw2Player.BarrierMitigation)
+                        })
+                        .ToList();
 
-                _databaseContext.AddRange(playerFights);
-                _databaseContext.SaveChanges();
+                    _databaseContext.AddRange(playerFights);
+                    _databaseContext.SaveChanges();
+                }
             }
 
             // Building the message via embeds

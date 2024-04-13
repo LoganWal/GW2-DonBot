@@ -55,5 +55,7 @@
         public double TotalAlac { get; set; }
 
         public long CerusOrbsCollected { get; set; }
+
+        public long DeimosOilsTriggered { get; set; }
     }
 }

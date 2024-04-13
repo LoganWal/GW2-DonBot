@@ -6,6 +6,7 @@ using Models.Enums;
 using Models.Statics;
 using Newtonsoft.Json.Linq;
 using Services.PlayerServices;
+using System.Security.Cryptography;
 
 namespace Services.Logging
 {
@@ -65,7 +66,6 @@ namespace Services.Logging
 
                 var boons = fightPhase.BoonActiveStats?.Count >= playerIndex + 1 ? fightPhase.BoonActiveStats[playerIndex].Data : null;
                 var mechanics = fightPhase.MechanicStats?.Count >= playerIndex + 1 ? fightPhase.MechanicStats[playerIndex] : null;
-
                 
                 existingPlayer.Kills = offensiveStatsTarget?.FirstOrDefault()?[ArcDpsDataIndices.EnemyDeathIndex] ?? 0;
                 existingPlayer.Deaths = Convert.ToInt64(defStats?[ArcDpsDataIndices.DeathIndex].Double ?? 0L);
@@ -93,12 +93,29 @@ namespace Services.Logging
 
                 if (encounterType == (short)FightTypesEnum.ToF)
                 {
-                    var orbsArray = (mechanics?[ArcDpsDataIndices.CerusOrbCollection] as JArray)?.Select(s => (long)s);
-                    existingPlayer.CerusOrbsCollected = orbsArray?.FirstOrDefault() ?? 0;
+                    var possibleMechanics = data?.MechanicMap?.Where(s => s.PlayerMech).ToList() ?? new List<MechanicMap>();
+                    existingPlayer.CerusOrbsCollected = GetMechanicValueForPlayer(possibleMechanics, "Insatiable Application", mechanics);
+                }
+
+                if (encounterType == (short)FightTypesEnum.Deimos)
+                {
+                    var possibleMechanics = data?.MechanicMap?.Where(s => s.PlayerMech).ToList() ?? new List<MechanicMap>();
+                    existingPlayer.DeimosOilsTriggered = GetMechanicValueForPlayer(possibleMechanics, "Black Oil Trigger", mechanics);
                 }
             }
 
             return gw2Players;
+        }
+
+        private static long GetMechanicValueForPlayer(List<MechanicMap> data, string mechanicName, List<object>? mechanics)
+        {
+            var oilMechanicIndex = data.FindIndex(s => string.Equals(s.Name, mechanicName, StringComparison.Ordinal));
+            if (oilMechanicIndex != -1)
+            {
+                return (mechanics?[oilMechanicIndex] as JArray)?.Select(s => (long)s).FirstOrDefault() ?? 0;
+            }
+
+            return 0;
         }
 
         public async Task SetPlayerPoints(EliteInsightDataModel eliteInsightDataModel)

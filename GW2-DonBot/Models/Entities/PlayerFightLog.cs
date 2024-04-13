@@ -13,6 +13,12 @@ namespace Models.Entities
 
         public long Damage { get; set; }
 
+        public long Kills { get; set; }
+
+        public long Deaths { get; set; }
+
+        public long Downs { get; set; }
+
         public decimal QuicknessDuration { get; set; }
 
         public decimal AlacDuration { get; set; }
@@ -53,10 +59,6 @@ namespace Models.Entities
 
         public long CerusOrbsCollected { get; set; }
 
-        public long Kills { get; set; }
-
-        public long Deaths { get; set; }
-
-        public long Downs { get; set; }
+        public long DeimosOilsTriggered { get; set; }
     }
 }

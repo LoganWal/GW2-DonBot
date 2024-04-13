@@ -452,7 +452,8 @@ namespace Handlers.MessageGenerationHandlers
                     NumberOfBoonsRipped = Convert.ToInt64(gw2Player.NumberOfBoonsRipped),
                     DamageTaken = Convert.ToInt64(gw2Player.DamageTaken),
                     BarrierMitigation = Convert.ToInt64(gw2Player.BarrierMitigation),
-                    CerusOrbsCollected = gw2Player.CerusOrbsCollected
+                    CerusOrbsCollected = gw2Player.CerusOrbsCollected,
+                    DeimosOilsTriggered = gw2Player.DeimosOilsTriggered
             })
             .ToList();
 
@@ -495,16 +496,32 @@ namespace Handlers.MessageGenerationHandlers
                 x.IsInline = false;
             });
 
+            var mechanicsOverview = string.Empty;
+
             if (encounterType == (short)FightTypesEnum.ToF)
             {
-                var mechanicsOverview = "```Player           Orbs\n";
+                mechanicsOverview = "```Player           Orbs\n";
                 foreach (var gw2Player in gw2Players.OrderByDescending(s => s.CerusOrbsCollected))
                 {
                     mechanicsOverview += $"{gw2Player.AccountName?.ClipAt(13),-13}{string.Empty,4}{gw2Player.CerusOrbsCollected}\n";
                 }
 
                 mechanicsOverview += "```";
+            }
 
+            if (encounterType == (short)FightTypesEnum.Deimos)
+            {
+                mechanicsOverview = "```Player           Oils\n";
+                foreach (var gw2Player in gw2Players.OrderByDescending(s => s.DeimosOilsTriggered))
+                {
+                    mechanicsOverview += $"{gw2Player.AccountName?.ClipAt(13),-13}{string.Empty,4}{gw2Player.DeimosOilsTriggered}\n";
+                }
+
+                mechanicsOverview += "```";
+            }
+
+            if (!string.IsNullOrEmpty(mechanicsOverview))
+            {
                 message.AddField(x =>
                 {
                     x.Name = "Mechanics Overview";
@@ -512,7 +529,7 @@ namespace Handlers.MessageGenerationHandlers
                     x.IsInline = false;
                 });
             }
-
+            
             // Building the message for use
             return message.Build();
         }

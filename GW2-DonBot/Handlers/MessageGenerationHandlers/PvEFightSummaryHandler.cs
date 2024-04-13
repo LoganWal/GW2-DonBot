@@ -136,7 +136,7 @@ namespace Handlers.MessageGenerationHandlers
                     maxDamage = damageFloat;
                 }
 
-                damageOverview += $"{(index + 1).ToString().PadLeft(2, '0')}  {name?.ClipAt(ArcDpsDataIndices.NameClipLength) + EliteInsightExtensions.GetClassAppend(prof ?? string.Empty),-(ArcDpsDataIndices.NameSizeLength + 9)}  {(damageFloat / logLength).FormatNumber(maxDamage / logLength),6} \n";
+                damageOverview += $"{(index + 1).ToString().PadLeft(2, '0')}  {(name + EliteInsightExtensions.GetClassAppend(prof ?? string.Empty)).ClipAt(ArcDpsDataIndices.NameSizeLength),-(ArcDpsDataIndices.NameSizeLength + 9)}  {(damageFloat / logLength).FormatNumber(maxDamage / logLength),6} \n";
             }
 
             damageOverview += "```";

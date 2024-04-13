@@ -10,6 +10,7 @@ using Services.Logging;
 using Services.PlayerServices;
 using Services.SecretsServices;
 using System.Linq;
+using System.Text.RegularExpressions;
 using ConnectionState = Discord.ConnectionState;
 
 namespace Controller.Discord
@@ -382,32 +383,48 @@ namespace Controller.Discord
 
         private Task MessageReceivedAsync(SocketMessage seenMessage)
         {
+            HandleMessage(seenMessage);
+            return Task.CompletedTask;
+        }
+
+        private async Task HandleMessage(SocketMessage seenMessage)
+        {
             try
             {
+                var isDonMessage = seenMessage.Author.Id == DonBotId;
+
+                if (isDonMessage)
+                {
+                    return;
+                }
+
                 if (seenMessage.Channel is not SocketGuildChannel channel)
                 {
                     Console.WriteLine($"Did not find channel {seenMessage.Channel.Name} in guild");
-                    return Task.CompletedTask;
+                    return;
                 }
 
                 var guild = _databaseContext.Guild.FirstOrDefault(g => g.GuildId == (long)channel.Guild.Id);
                 if (guild == null || !guild.LogDropOffChannelId.HasValue)
                 {
                     Console.WriteLine($"Unable to find guild {channel.Guild.Id}");
-                    return Task.CompletedTask;
+                    return;
                 }
 
-                var isDonMessage = seenMessage.Author.Id == DonBotId;
 
                 if (guild.RemoveSpamEnabled && !isDonMessage && (seenMessage.Content.Contains("discord.gg") || seenMessage.Content.Contains("discord.com")))
                 {
-                    var messageChannel = seenMessage.Channel as SocketTextChannel;
+                    if (seenMessage.Channel is not SocketTextChannel messageChannel)
+                    {
+                        Console.WriteLine($"Unable to spam channel {seenMessage.Channel.Name}");
+                        return;
+                    }
 
                     var user = _databaseContext.Account.FirstOrDefault(g => g.DiscordId == (long)seenMessage.Author.Id);
                     if (user == null)
                     {
                         HandleSpamMessage(seenMessage, messageChannel);
-                        return Task.CompletedTask;
+                        return;
                     }
 
                     if (guild.DiscordVerifiedRoleId != null)
@@ -415,50 +432,65 @@ namespace Controller.Discord
                         if (seenMessage.Author is SocketGuildUser socketUser && !socketUser.Roles.Select(s => (long)s.Id).ToList().Contains(guild.DiscordVerifiedRoleId.Value))
                         {
                             HandleSpamMessage(seenMessage, messageChannel);
-                            return Task.CompletedTask;
+                            return;
                         }
                     }
-                    
+
                 }
 
-                // Ignore messages outside webhook, in upload channel, or from Don
-                if (seenMessage.Source != MessageSource.Webhook || 
-                    (seenMessage.Channel.Id != (ulong)guild.LogDropOffChannelId) ||
-                    isDonMessage) 
+                bool embedMessage;
+                List<string> trimmedUrls;
+                if (seenMessage.Channel is not SocketTextChannel replyChannel)
                 {
-                    return Task.CompletedTask;
+                    Console.WriteLine($"Unable to find channel {seenMessage.Channel.Name}");
+                    return;
                 }
 
-                var urls = seenMessage.Embeds.SelectMany(x => x.Fields.SelectMany(y => y.Value.Split('('))).Where(x => x.Contains(")")).ToList();
-                urls.AddRange(seenMessage.Embeds.Select(x => x.Url).Where(x => !string.IsNullOrEmpty(x)));
-
-                var trimmedUrls = urls.Select(url => url.Contains(')') ? url[..url.IndexOf(')')] : url).ToList();
-
-                foreach (var url in trimmedUrls)
+                if (seenMessage.Source != MessageSource.Webhook || seenMessage.Channel.Id != (ulong)guild.LogDropOffChannelId)
                 {
-                    Console.WriteLine($"[DON] Assessing: {url}");
-                    AnalyseAndReportOnUrl(url, channel.Guild.Id);
+                    embedMessage = false;
+
+                    const string pattern = @"https://(?:wvw|dps)\.report/\S+";
+                    var matches = Regex.Matches(seenMessage.Content, pattern);
+
+                    trimmedUrls = matches.Select(match => match.Value).ToList();
+                }
+                else
+                {
+                    embedMessage = true;
+
+                    var urls = seenMessage.Embeds.SelectMany(x => x.Fields.SelectMany(y => y.Value.Split('('))).Where(x => x.Contains(")")).ToList();
+                    urls.AddRange(seenMessage.Embeds.Select(x => x.Url).Where(x => !string.IsNullOrEmpty(x)));
+
+                    trimmedUrls = urls.Select(url => url.Contains(')') ? url[..url.IndexOf(')')] : url).ToList();
+                }
+
+                if (trimmedUrls.Any())
+                {
+                    foreach (var url in trimmedUrls)
+                    {
+                        Console.WriteLine($"[DON] Assessing: {url}");
+                        await AnalyseAndReportOnUrl(url, channel.Guild.Id, embedMessage, replyChannel);
+                    }
                 }
             }
             catch (Exception e)
             {
-                Console.WriteLine($"Unable to parse user as socket guild user. Did not find user {seenMessage.Author.Username} in guild. Error: {e.Message}");
+                Console.WriteLine($"Failed to handle message, Error: {e.Message}");
             }
-
-            return Task.CompletedTask;
         }
 
-        private void HandleSpamMessage(SocketMessage seenMessage, SocketTextChannel? messageChannel)
+        private void HandleSpamMessage(SocketMessage seenMessage, SocketTextChannel messageChannel)
         {
             seenMessage.DeleteAsync();
             messageChannel?.SendMessageAsync($"Removed message from <@{seenMessage.Author.Id}> ({seenMessage.Author.Username}), for posting a discord link without being verified.");
         }
 
-        private async Task AnalyseAndReportOnUrl(string url, ulong guildId)
+        private async Task AnalyseAndReportOnUrl(string url, ulong guildId, bool isEmbed, SocketTextChannel replyChannel)
         {
             var seenUrls = _cacheService.Get<List<string>>(CacheKey.SeenUrls) ?? new List<string>();
 
-            if (seenUrls.Contains(url))
+            if (isEmbed && seenUrls.Contains(url))
             {
                 Console.WriteLine($"[DON] Already seen, not analysing or reporting: {url}");
                 return;
@@ -495,39 +527,50 @@ namespace Controller.Discord
             Embed message;
             if (data.Wvw)
             {
-                if (guild.AdvanceLogReportChannelId != null)
+                if (isEmbed)
                 {
-                    if (_client.GetChannel((ulong)guild.AdvanceLogReportChannelId) is not ITextChannel advanceLogReportChannel)
+                    if (guild.AdvanceLogReportChannelId != null)
                     {
-                        Console.WriteLine($"[DON] Failed to find the target channel {guild.AdvanceLogReportChannelId}");
-                        return;
+                        if (_client.GetChannel((ulong)guild.AdvanceLogReportChannelId) is not ITextChannel advanceLogReportChannel)
+                        {
+                            Console.WriteLine($"[DON] Failed to find the target channel {guild.AdvanceLogReportChannelId}");
+                            return;
+                        }
+
+                        var advancedMessage = _messageGenerationService.GenerateWvWFightSummary(data, true, guild, _client);
+                        await advanceLogReportChannel.SendMessageAsync(text: "", embeds: new[] { advancedMessage });
                     }
 
-                    var advancedMessage = _messageGenerationService.GenerateWvWFightSummary(data, true, guild, _client);
-                    await advanceLogReportChannel.SendMessageAsync(text: "", embeds: new[] { advancedMessage });
+                    if (guild.PlayerReportChannelId != null && _client.GetChannel((ulong)guild.PlayerReportChannelId) is SocketTextChannel playerChannel)
+                    {
+                        var messages = await playerChannel.GetMessagesAsync(10).FlattenAsync();
+                        await playerChannel.DeleteMessagesAsync(messages);
+
+                        var activePlayerMessage = await _messageGenerationService.GenerateWvWActivePlayerSummary(guild, url);
+                        var playerMessage = await _messageGenerationService.GenerateWvWPlayerSummary(guild);
+
+                        await playerChannel.SendMessageAsync(text: "", embeds: new[] { activePlayerMessage });
+                        await playerChannel.SendMessageAsync(text: "", embeds: new[] { playerMessage });
+                    }
+
+                    await _playerService.SetPlayerPoints(data);
                 }
 
                 message = _messageGenerationService.GenerateWvWFightSummary(data, false, guild, _client);
-                await _playerService.SetPlayerPoints(data);
-
-                if (guild.PlayerReportChannelId != null && _client.GetChannel((ulong)guild.PlayerReportChannelId) is SocketTextChannel playerChannel)
-                {
-                    var messages = await playerChannel.GetMessagesAsync(10).FlattenAsync();
-                    await playerChannel.DeleteMessagesAsync(messages);
-
-                    var activePlayerMessage = await _messageGenerationService.GenerateWvWActivePlayerSummary(guild, url);
-                    await playerChannel.SendMessageAsync(text: "", embeds: new[] { activePlayerMessage });
-
-                    var playerMessage = await _messageGenerationService.GenerateWvWPlayerSummary(guild);
-                    await playerChannel.SendMessageAsync(text: "", embeds: new[] { playerMessage });
-                }
             }
             else
             {
                 message = _messageGenerationService.GeneratePvEFightSummary(data, (long)guildId);
             }
 
-            await logReportChannel.SendMessageAsync(text: "", embeds: new[] { message });
+            if (isEmbed)
+            {
+                await logReportChannel.SendMessageAsync(text: "", embeds: new[] { message });
+            }
+            else
+            {
+                await replyChannel.SendMessageAsync(text: "", embeds: new[] { message });
+            }
             Console.WriteLine($"[DON] Completed and posted report on: {url}");
         }
     }

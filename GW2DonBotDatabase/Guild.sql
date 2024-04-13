@@ -14,6 +14,7 @@
 	[StreamLogChannelId] [bigint] NULL,
 	[RaidAlertEnabled] [bit] NOT NULL,
 	[RaidAlertChannelId] [bigint] NULL,
+	[RemoveSpamEnabled] [bit] NOT NULL,
 PRIMARY KEY CLUSTERED 
 (
 	[GuildId] ASC
@@ -21,4 +22,6 @@ PRIMARY KEY CLUSTERED
 ) ON [PRIMARY]
 GO
 ALTER TABLE [dbo].[Guild] ADD  DEFAULT ((0)) FOR [RaidAlertEnabled]
+GO
+ALTER TABLE [dbo].[Guild] ADD  DEFAULT ((0)) FOR [RemoveSpamEnabled]
 GO

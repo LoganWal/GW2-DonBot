@@ -34,5 +34,7 @@ namespace Models.Entities
         public bool RaidAlertEnabled { get; set; }
 
         public long? RaidAlertChannelId { get; set; }
+
+        public bool RemoveSpamEnabled { get; set; }
     }
 }

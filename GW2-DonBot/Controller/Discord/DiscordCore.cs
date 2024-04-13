@@ -9,6 +9,7 @@ using Services.LogGenerationServices;
 using Services.Logging;
 using Services.PlayerServices;
 using Services.SecretsServices;
+using System.Linq;
 using ConnectionState = Discord.ConnectionState;
 
 namespace Controller.Discord
@@ -31,6 +32,8 @@ namespace Controller.Discord
 
         private readonly DatabaseContext _databaseContext;
         private readonly DiscordSocketClient _client;
+
+        private const long DonBotId = 1021682849797111838;
 
         public DiscordCore(
             ISecretService secretService,
@@ -383,21 +386,45 @@ namespace Controller.Discord
             {
                 if (seenMessage.Channel is not SocketGuildChannel channel)
                 {
-                    Console.WriteLine($"Did not find user {seenMessage.Author.Username} in guild");
+                    Console.WriteLine($"Did not find channel {seenMessage.Channel.Name} in guild");
                     return Task.CompletedTask;
                 }
 
-                var guild = _databaseContext.Guild.FirstOrDefaultAsync(g => g.GuildId == (long)channel.Guild.Id).Result;
+                var guild = _databaseContext.Guild.FirstOrDefault(g => g.GuildId == (long)channel.Guild.Id);
                 if (guild == null || !guild.LogDropOffChannelId.HasValue)
                 {
                     Console.WriteLine($"Unable to find guild {channel.Guild.Id}");
                     return Task.CompletedTask;
                 }
 
+                var isDonMessage = seenMessage.Author.Id == DonBotId;
+
+                if (guild.RemoveSpamEnabled && !isDonMessage && (seenMessage.Content.Contains("discord.gg") || seenMessage.Content.Contains("discord.com")))
+                {
+                    var messageChannel = seenMessage.Channel as SocketTextChannel;
+
+                    var user = _databaseContext.Account.FirstOrDefault(g => g.DiscordId == (long)seenMessage.Author.Id);
+                    if (user == null)
+                    {
+                        HandleSpamMessage(seenMessage, messageChannel);
+                        return Task.CompletedTask;
+                    }
+
+                    if (guild.DiscordVerifiedRoleId != null)
+                    {
+                        if (seenMessage.Author is SocketGuildUser socketUser && !socketUser.Roles.Select(s => (long)s.Id).ToList().Contains(guild.DiscordVerifiedRoleId.Value))
+                        {
+                            HandleSpamMessage(seenMessage, messageChannel);
+                            return Task.CompletedTask;
+                        }
+                    }
+                    
+                }
+
                 // Ignore messages outside webhook, in upload channel, or from Don
                 if (seenMessage.Source != MessageSource.Webhook || 
-                    (seenMessage.Channel.Id != (ulong)guild.LogDropOffChannelId) || 
-                    seenMessage.Author.Username.Contains("GW2-DonBot", StringComparison.OrdinalIgnoreCase)) 
+                    (seenMessage.Channel.Id != (ulong)guild.LogDropOffChannelId) ||
+                    isDonMessage) 
                 {
                     return Task.CompletedTask;
                 }
@@ -419,6 +446,12 @@ namespace Controller.Discord
             }
 
             return Task.CompletedTask;
+        }
+
+        private void HandleSpamMessage(SocketMessage seenMessage, SocketTextChannel? messageChannel)
+        {
+            seenMessage.DeleteAsync();
+            messageChannel?.SendMessageAsync($"Removed message from <@{seenMessage.Author.Id}> ({seenMessage.Author.Username}), for posting a discord link without being verified.");
         }
 
         private async Task AnalyseAndReportOnUrl(string url, ulong guildId)

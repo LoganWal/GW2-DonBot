@@ -122,7 +122,6 @@ namespace Services.DiscordRequestServices
             var secondaryGuildIds = guildConfiguration.Gw2SecondaryMemberRoleIds?.Split(',').ToList() ?? new List<string>();
 
             var accounts = _databaseContext.Account.ToList();
-            var gwAccounts = _databaseContext.GuildWarsAccount.ToList();
 
             if (primaryRoleId == null || secondaryRoleId == null || verifiedRoleId == null)
             {

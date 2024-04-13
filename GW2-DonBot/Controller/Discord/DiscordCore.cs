@@ -454,6 +454,17 @@ namespace Controller.Discord
                     var matches = Regex.Matches(seenMessage.Content, pattern);
 
                     trimmedUrls = matches.Select(match => match.Value).ToList();
+
+                    const string wingmanPattern = @"https://gw2wingman\.nevermindcreations\.de/log/\S+";
+                    matches = Regex.Matches(seenMessage.Content, wingmanPattern);
+
+                    var wingmanMatches = matches.Cast<Match>().Select(match => match.Value).ToList();
+                    for (int i = 0; i < wingmanMatches.Count; i++)
+                    {
+                        wingmanMatches[i] = wingmanMatches[i].Replace("https://gw2wingman.nevermindcreations.de/log/", "https://dps.report/");
+                    }
+
+                    trimmedUrls.AddRange(wingmanMatches);
                 }
                 else
                 {

@@ -32,7 +32,7 @@ namespace Handlers.MessageGenerationHandlers
             var playerFights = _databaseContext.PlayerFightLog.ToList(); 
             playerFights = playerFights.Where(s => fights.Select(f => f.FightLogId).Contains(s.FightLogId)).ToList();
             var groupedPlayerFights = playerFights.GroupBy(s => s.GuildWarsAccountName).OrderByDescending(s => s.Sum(d => d.Damage)).ToList();
-            var groupedFights = fights.GroupBy(f => f.FightType).OrderBy(f => f.Key);
+            var groupedFights = fights.GroupBy(f => f.FightType).OrderBy(f => f.Key).ToList();
 
             if (!fights.Any() || !playerFights.Any())
             {
@@ -168,7 +168,7 @@ namespace Handlers.MessageGenerationHandlers
             return _wvWFightSummaryHandler.GenerateMessage(advancedLog, 10, gw2Players, message, statTotals);
         }
 
-        private Embed GeneratePvERaidReport(string durationString, IOrderedEnumerable<IGrouping<short, FightLog>> groupedFights, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights)
+        private Embed GeneratePvERaidReport(string durationString, List<IGrouping<short, FightLog>> groupedFights, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights)
         {
             // Building the message via embeds
             var message = new EmbedBuilder
@@ -226,6 +226,31 @@ namespace Handlers.MessageGenerationHandlers
                 x.IsInline = false;
             });
 
+            foreach (var groupedFight in groupedFights)
+            {
+                var mechanicsOverview = string.Empty;
+
+                if (groupedFight.Key == (short)FightTypesEnum.ToF)
+                {
+                    mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.ToF, "```Player           Orbs   Spreads\n", pf => pf.CerusSpreadHitCount, groupedPlayerFights, fights);
+                }
+
+                if (groupedFight.Key == (short)FightTypesEnum.Deimos)
+                {
+                    mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.Deimos, "```Player           Oils\n", pf => pf.DeimosOilsTriggered, groupedPlayerFights, fights);
+                }
+
+                if (!string.IsNullOrEmpty(mechanicsOverview))
+                {
+                    message.AddField(x =>
+                    {
+                        x.Name = "Mechanics Overview";
+                        x.Value = $"{mechanicsOverview}";
+                        x.IsInline = false;
+                    });
+                }
+            }
+
             message.Footer = new EmbedFooterBuilder()
             {
                 Text = $"{_footerHandler.Generate()}",
@@ -239,6 +264,32 @@ namespace Handlers.MessageGenerationHandlers
             return message.Build();
         }
 
+        private string GenerateMechanicsOverview(short fightType, string header, Func<PlayerFightLog, long> orderBySelector, IEnumerable<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights)
+        {
+            var mechanicsOverview = header;
+
+            foreach (var groupedPlayerFight in groupedPlayerFights.OrderByDescending(group => group.Sum(orderBySelector)))
+            {
+                var playerFightsListForType = groupedPlayerFight.ToList();
+                var playerFights = fights.Where(f => playerFightsListForType.Select(s => s.FightLogId).Contains(f.FightLogId)).ToList();
+                playerFights = playerFights.Where(s => s.FightType == fightType).ToList();
+                playerFightsListForType = playerFightsListForType.Where(s => playerFights.Select(s => s.FightLogId).Contains(s.FightLogId)).ToList();
+
+                if (playerFightsListForType.Any())
+                {
+                    if (fightType == (short)FightTypesEnum.ToF)
+                    {
+                        mechanicsOverview += $"{playerFightsListForType.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,4}{playerFightsListForType.Sum(s => s.CerusOrbsCollected),-3}{string.Empty,4}{playerFightsListForType.Sum(s => s.CerusSpreadHitCount),-3}\n";
+                    }
+                    else if (fightType == (short)FightTypesEnum.Deimos)
+                    {
+                        mechanicsOverview += $"{playerFightsListForType.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,4}{playerFightsListForType.Sum(s => s.DeimosOilsTriggered),-3}\n";
+                    }
+                }
+            }
+
+            return mechanicsOverview += "```";
+        }
         private Embed? GeneratePvERaidLogReport(string durationString, List<FightLog> fights, bool isSuccessLogs)
         {
             var fightLogs = fights.Where(s => s.IsSuccess == isSuccessLogs).ToList();

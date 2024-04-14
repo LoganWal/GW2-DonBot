@@ -95,6 +95,9 @@ namespace Services.Logging
                 {
                     var possibleMechanics = data?.MechanicMap?.Where(s => s.PlayerMech).ToList() ?? new List<MechanicMap>();
                     existingPlayer.CerusOrbsCollected = GetMechanicValueForPlayer(possibleMechanics, "Insatiable Application", mechanics);
+
+                    existingPlayer.CerusSpreadHitCount = GetMechanicValueForPlayer(possibleMechanics, "Pool of Despair Hit", mechanics);
+                    existingPlayer.CerusSpreadHitCount += GetMechanicValueForPlayer(possibleMechanics, "Empowered Pool of Despair Hit", mechanics);
                 }
 
                 if (encounterType == (short)FightTypesEnum.Deimos)

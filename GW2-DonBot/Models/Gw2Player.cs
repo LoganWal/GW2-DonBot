@@ -56,6 +56,8 @@
 
         public long CerusOrbsCollected { get; set; }
 
+        public long CerusSpreadHitCount { get; set; }
+
         public long DeimosOilsTriggered { get; set; }
     }
 }

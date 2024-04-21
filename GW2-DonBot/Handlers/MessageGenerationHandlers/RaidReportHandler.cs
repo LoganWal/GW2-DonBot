@@ -3,6 +3,7 @@ using Extensions;
 using Models;
 using Models.Entities;
 using Models.Enums;
+using Models.Statics;
 using System.Globalization;
 
 namespace Handlers.MessageGenerationHandlers
@@ -124,6 +125,10 @@ namespace Handlers.MessageGenerationHandlers
                 {
                     AccountName = $"({playersFights.Count}) {player.GuildWarsAccountName}",
                     SubGroup = player.SubGroup,
+                    Kills = playersFights.Sum(s => s.Kills),
+                    Downs = playersFights.Sum(s => s.Downs),
+                    TimesDowned = playersFights.Sum(s => s.TimesDowned),
+                    Deaths = playersFights.Sum(s => s.Deaths),
                     Damage = (long)Math.Round(playersFights.Average(s => s.Damage), 0),
                     DamageDownContribution = (long)Math.Round(playersFights.Average(s => s.DamageDownContribution), 0),
                     Cleanses = Math.Round(playersFights.Average(s => s.Cleanses), 0),
@@ -132,7 +137,6 @@ namespace Handlers.MessageGenerationHandlers
                     Healing = (long)Math.Round(playersFights.Average(s => s.Healing), 0),
                     BarrierGenerated = (long)Math.Round(playersFights.Average(s => s.BarrierGenerated), 0),
                     DistanceFromTag = Math.Round(Convert.ToDouble(playersFights.Average(s => s.DistanceFromTag)), 2),
-                    TimesDowned = playersFights.Sum(s => s.TimesDowned),
                     Interrupts = playersFights.Sum(s => s.Interrupts),
                     NumberOfHitsWhileBlinded = playersFights.Sum(s => s.NumberOfHitsWhileBlinded),
                     NumberOfMissesAgainst = playersFights.Sum(s => s.NumberOfMissesAgainst),
@@ -157,13 +161,23 @@ namespace Handlers.MessageGenerationHandlers
 
             var statTotals = new StatTotals
             {
-                TotalStrips = groupedPlayerFights.Select(groupedPlayerFight => groupedPlayerFight.ToList()).Select(values => values.Sum(s => s.Strips)).Sum(),
-                TimesDowned = groupedPlayerFights.Select(groupedPlayerFight => groupedPlayerFight.ToList()).Select(values => values.Sum(s => s.TimesDowned)).Sum(),
-                Kills = groupedPlayerFights.Select(groupedPlayerFight => groupedPlayerFight.ToList()).Select(values => values.Sum(s => s.Kills)).Sum(),
-                Downs = groupedPlayerFights.Select(groupedPlayerFight => groupedPlayerFight.ToList()).Select(values => values.Sum(s => s.Downs)).Sum(),
-                Deaths = groupedPlayerFights.Select(groupedPlayerFight => groupedPlayerFight.ToList()).Select(values => values.Sum(s => s.Deaths)).Sum(),
+                TotalStrips = groupedPlayerFights.Select(groupedPlayerFight => groupedPlayerFight.ToList()).Select(values => values.Sum(s => s.Strips)).Sum()
             };
 
+            if (!advancedLog)
+            {
+                // raid overview
+                var raidOverview = "```Players   Downs   Kills   Times Downed   Deaths\n";
+                raidOverview += $"{gw2Players.Count,-4}{string.Empty,-6}{gw2Players.Sum(s => s.Downs)}{string.Empty,-7}{gw2Players.Sum(s => s.Kills)}{string.Empty,-7}{gw2Players.Sum(s => s.TimesDowned)}{string.Empty,-12}{gw2Players.Sum(s => s.Deaths)}```";
+
+                message.AddField(x =>
+                {
+                    x.Name = "Raid Overview";
+                    x.Value = $"{raidOverview}";
+                    x.IsInline = false;
+                });
+            }
+            
             // Building the message for use
             return _wvWFightSummaryHandler.GenerateMessage(advancedLog, 10, gw2Players, message, statTotals);
         }

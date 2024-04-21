@@ -3,13 +3,11 @@ using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
 using Models.Entities;
 using Models.Statics;
-using Services.CacheServices;
 using Services.DiscordRequestServices;
 using Services.LogGenerationServices;
 using Services.Logging;
 using Services.PlayerServices;
 using Services.SecretsServices;
-using System.Linq;
 using System.Text.RegularExpressions;
 using ConnectionState = Discord.ConnectionState;
 
@@ -29,6 +27,7 @@ namespace Controller.Discord
         private readonly IDataModelGenerationService _dataModelGenerator;
         private readonly IRaidService _raidService;
         private readonly IDiscordCommandService _discordCommandService;
+        private readonly IFightLogService _fightLogService;
         private readonly HashSet<string> _seenUrls = new();
 
         private readonly DatabaseContext _databaseContext;
@@ -49,6 +48,7 @@ namespace Controller.Discord
             IRaidService raidService,
             IDataModelGenerationService dataModelGenerator,
             IDiscordCommandService discordCommandService,
+            IFightLogService fightLogService,
             DatabaseContext databaseContext)
         {
             _secretService = secretService;
@@ -63,6 +63,7 @@ namespace Controller.Discord
             _raidService = raidService;
             _dataModelGenerator = dataModelGenerator;
             _databaseContext = databaseContext;
+            _fightLogService = fightLogService;
             _discordCommandService = discordCommandService;
 
             var config = new DiscordSocketConfig()
@@ -133,6 +134,9 @@ namespace Controller.Discord
                         break;
                     case ButtonId.RafflePoints:
                         await _pointsCommandsService.PointsCommandExecuted(buttonComponent);
+                        break;
+                    case ButtonId.KnowMyEnemy:
+                        await _fightLogService.GetEnemyInformation(buttonComponent);
                         break;
                     default:
                         break;
@@ -539,6 +543,8 @@ namespace Controller.Discord
             }
 
             Embed message;
+            MessageComponent buttonBuilder = null;
+
             if (data.Wvw)
             {
                 if (isEmbed)
@@ -571,6 +577,10 @@ namespace Controller.Discord
                 }
 
                 message = _messageGenerationService.GenerateWvWFightSummary(data, false, guild, _client);
+
+                buttonBuilder = new ComponentBuilder()
+                    .WithButton("Know My Enemy", ButtonId.KnowMyEnemy, ButtonStyle.Primary)
+                    .Build();
             }
             else
             {
@@ -579,11 +589,11 @@ namespace Controller.Discord
 
             if (isEmbed)
             {
-                await logReportChannel.SendMessageAsync(text: "", embeds: new[] { message });
+                await logReportChannel.SendMessageAsync(text: "", embeds: new[] { message }, components: buttonBuilder);
             }
             else
             {
-                await replyChannel.SendMessageAsync(text: "", embeds: new[] { message });
+                await replyChannel.SendMessageAsync(text: "", embeds: new[] { message }, components: buttonBuilder);
             }
             Console.WriteLine($"[DON] Completed and posted report on: {url}");
         }

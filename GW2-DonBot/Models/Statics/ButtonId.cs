@@ -15,5 +15,7 @@
         public const string RaffleEventRandom = "Spend_Event_Random_Raffle";
 
         public const string RafflePoints = "Raffle_Points";
+
+        public const string KnowMyEnemy = "Know_My_Enemy";
     }
 }

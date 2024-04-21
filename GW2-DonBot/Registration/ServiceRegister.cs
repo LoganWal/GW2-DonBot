@@ -46,6 +46,7 @@ namespace Registration
             builder.RegisterType<PointsCommandsService>().As<IPointsCommandsService>();
             builder.RegisterType<RaffleCommandsService>().As<IRaffleCommandsService>();
             builder.RegisterType<DiscordCommandService>().As<IDiscordCommandService>();
+            builder.RegisterType<FightLogService>().As<IFightLogService>();
 
             builder.RegisterType<PollingTasksService>().As<IPollingTasksService>();
             builder.RegisterType<DiscordApiService>().As<IDiscordApiService>();

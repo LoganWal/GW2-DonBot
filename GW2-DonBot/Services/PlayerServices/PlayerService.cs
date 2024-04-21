@@ -62,15 +62,14 @@ namespace Services.Logging
                 var gameplayStats = fightPhase.GameplayStats?.Count >= playerIndex + 1 ? fightPhase.GameplayStats[playerIndex] : null;
                 var defStats = fightPhase.DefStats?.Count >= playerIndex + 1 ? fightPhase.DefStats[playerIndex] : null;
                 var offensiveStats = fightPhase.OffensiveStats?.Count >= playerIndex + 1 ? fightPhase.OffensiveStats[playerIndex] : null;
-                var offensiveStatsTarget = fightPhase.OffensiveStatsTargets?.Count > playerIndex + 1 ? fightPhase.OffensiveStatsTargets[playerIndex] : null;
 
                 var boons = fightPhase.BoonActiveStats?.Count >= playerIndex + 1 ? fightPhase.BoonActiveStats[playerIndex].Data : null;
                 var mechanics = fightPhase.MechanicStats?.Count >= playerIndex + 1 ? fightPhase.MechanicStats[playerIndex] : null;
                 
-                existingPlayer.Kills = offensiveStatsTarget?.FirstOrDefault()?[ArcDpsDataIndices.EnemyDeathIndex] ?? 0;
+                existingPlayer.Kills = offensiveStats?[ArcDpsDataIndices.EnemyDeathIndex] ?? 0;
                 existingPlayer.Deaths = Convert.ToInt64(defStats?[ArcDpsDataIndices.DeathIndex].Double ?? 0L);
                 existingPlayer.TimesDowned = defStats?[ArcDpsDataIndices.EnemiesDownedIndex].Double ?? 0;
-                existingPlayer.Downs = Convert.ToInt64(offensiveStatsTarget?.FirstOrDefault()?[ArcDpsDataIndices.DownIndex] ?? 0L);
+                existingPlayer.Downs = Convert.ToInt64(offensiveStats?[ArcDpsDataIndices.DownIndex] ?? 0L);
                 existingPlayer.Damage = fightPhaseStats?.Sum(s => s.FirstOrDefault()) ?? 0;
                 existingPlayer.Cleanses = supportStats?.FirstOrDefault() ?? 0;
                 existingPlayer.Cleanses += supportStats?.Count >= ArcDpsDataIndices.PlayerCleansesIndex + 1 ? supportStats[ArcDpsDataIndices.PlayerCleansesIndex] : 0;

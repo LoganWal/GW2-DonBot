@@ -7,6 +7,7 @@ using Models.Enums;
 using Models.Statics;
 using Services.PlayerServices;
 using System.Globalization;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 
 namespace Handlers.MessageGenerationHandlers
 {
@@ -130,11 +131,9 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             battleGroundColor = battleGround.Contains("Edge", StringComparison.OrdinalIgnoreCase) ? System.Drawing.Color.FromArgb(193, 105, 79) : battleGroundColor;
 
             // Embed content building
-            var friendlyOverview = "```Friends   DMG      DPS     Downs     Deaths         \n";
-            friendlyOverview      += $"{friendlyCountStr.Trim(),-3}{string.Empty,7}{friendlyDamageStr.Trim(),-7}{string.Empty,2}{friendlyDpsStr.Trim(),-6}{string.Empty,2}{friendlyDownsStr.Trim(),-3}{string.Empty,7}{friendlyDeathsStr.Trim(),-3}```";
-
-            var enemyOverview = "```Enemies   DMG      DPS     Downs     Deaths         \n";
-            enemyOverview      += $"{enemyCountStr.Trim(),-3}{string.Empty,7}{enemyDamageStr.Trim(),-7}{string.Empty,2}{enemyDpsStr.Trim(),-6}{string.Empty,2}{enemyDownsStr.Trim(),-3}{string.Empty,7}{enemyDeathsStr.Trim(),-3}```";
+            var friendlyOverview = "```Who   Count   DMG      DPS     Downs   Deaths         \n";
+            friendlyOverview += $"Ally  {friendlyCountStr.Trim(),-3}{string.Empty,5}{friendlyDamageStr.Trim(),-7}{string.Empty,2}{friendlyDpsStr.Trim(),-6}{string.Empty,2}{friendlyDownsStr.Trim(),-3}{string.Empty,5}{friendlyDeathsStr.Trim(),-3}\n";
+            friendlyOverview += $"Foe   {enemyCountStr.Trim(),-3}{string.Empty,5}{enemyDamageStr.Trim(),-7}{string.Empty,2}{enemyDpsStr.Trim(),-6}{string.Empty,2}{enemyDownsStr.Trim(),-3}{string.Empty,5}{enemyDeathsStr.Trim(),-3}```";
 
             var dateStartString = data.EncounterStart;
             var dateTimeStart = DateTime.ParseExact(dateStartString, "yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
@@ -217,13 +216,6 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             {
                 x.Name = "Friendly Overview";
                 x.Value = $"{friendlyOverview}";
-                x.IsInline = false;
-            });
-
-            message.AddField(x =>
-            {
-                x.Name = "Enemy Overview";
-                x.Value = $"{enemyOverview}";
                 x.IsInline = false;
             });
 
@@ -332,10 +324,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             var distanceOverview = "```#    Name                    Distance From Tag\n";
             var timesDownedOverview = "```#    Name                   Times Downed\n";
             var barrierOverview = "```#    Name                   Barrier Gen\n";
-            var blindsAggregation = "```Attacks Missed         Ours          Theirs \n";
-            var blocksAggregation = "```Attacks Blocked        Ours          Theirs \n";
-            var stripsAggregation = "```Boons Stripped         Ours          Theirs \n";
-            var barrierAggregation = "```Damage Taken    Barrier Mit   Diff \n";
+            var aggregations = "```Attacks Missed         Ours          Theirs \n";
 
             if (advancedLog)
             {
@@ -379,20 +368,22 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
                 timesDownedOverview += "```";
 
-                blindsAggregation += $"{string.Empty,23}{gw2Players.Sum(s => s.NumberOfHitsWhileBlinded).ToString(),-4}{string.Empty,10}{gw2Players.Sum(s => s.NumberOfMissesAgainst).ToString(CultureInfo.CurrentCulture)}";
-                blindsAggregation += "```";
+                aggregations += $"{string.Empty,23}{gw2Players.Sum(s => s.NumberOfHitsWhileBlinded).ToString(),-4}{string.Empty,10}{gw2Players.Sum(s => s.NumberOfMissesAgainst).ToString(CultureInfo.CurrentCulture)}";
+                aggregations += "```";
+                aggregations += "```Attacks Blocked        Ours          Theirs \n";
+                aggregations += $"{string.Empty,23}{gw2Players.Sum(s => s.NumberOfTimesBlockedAttack).ToString(CultureInfo.CurrentCulture),-4}{string.Empty.PadLeft(10) + gw2Players.Sum(s => s.NumberOfTimesEnemyBlockedAttack)}";
+                aggregations += "```";
 
-                blocksAggregation += $"{string.Empty,23}{gw2Players.Sum(s => s.NumberOfTimesBlockedAttack).ToString(CultureInfo.CurrentCulture),-4}{string.Empty.PadLeft(10) + gw2Players.Sum(s => s.NumberOfTimesEnemyBlockedAttack)}";
-                blocksAggregation += "```";
-
-                stripsAggregation += $"{string.Empty,23}{(statTotals?.TotalStrips != null ? statTotals.TotalStrips.Value : gw2Players.Sum(s => s.Strips).ToString(CultureInfo.CurrentCulture).PadRight(4))}{string.Empty,10}{gw2Players.Sum(s => s.NumberOfBoonsRipped).ToString(CultureInfo.CurrentCulture)}";
-                stripsAggregation += "```";
+                aggregations += "```Boons Stripped         Ours          Theirs \n";
+                aggregations += $"{string.Empty,23}{(statTotals?.TotalStrips != null ? statTotals.TotalStrips.Value : gw2Players.Sum(s => s.Strips).ToString(CultureInfo.CurrentCulture).PadRight(4))}{string.Empty,10}{gw2Players.Sum(s => s.NumberOfBoonsRipped).ToString(CultureInfo.CurrentCulture)}";
+                aggregations += "```";
 
                 var totalDmg = Convert.ToSingle(gw2Players.Sum(s => s.DamageTaken));
                 var totalBarrierMitigation = Convert.ToSingle(gw2Players.Sum(s => s.BarrierMitigation));
 
-                barrierAggregation += $"{totalDmg.FormatNumber(totalDmg).ToString(CultureInfo.CurrentCulture),-6}{string.Empty,10}{totalBarrierMitigation.FormatNumber(totalBarrierMitigation).ToString(CultureInfo.CurrentCulture),-6}{string.Empty,8}{(totalDmg - totalBarrierMitigation).FormatNumber(totalDmg - totalBarrierMitigation).ToString(CultureInfo.CurrentCulture)}({Math.Round((totalBarrierMitigation / totalDmg) * 100, 2)}%)";
-                barrierAggregation += "```";
+                aggregations += "```Damage Taken    Barrier Mit   Diff \n";
+                aggregations += $"{totalDmg.FormatNumber(totalDmg).ToString(CultureInfo.CurrentCulture),-6}{string.Empty,10}{totalBarrierMitigation.FormatNumber(totalBarrierMitigation).ToString(CultureInfo.CurrentCulture),-6}{string.Empty,8}{(totalDmg - totalBarrierMitigation).FormatNumber(totalDmg - totalBarrierMitigation).ToString(CultureInfo.CurrentCulture)}({Math.Round((totalBarrierMitigation / totalDmg) * 100, 2)}%)";
+                aggregations += "```";
             }
 
             if (!advancedLog)
@@ -458,29 +449,8 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
                 message.AddField(x =>
                 {
-                    x.Name = "Blinds Aggregation";
-                    x.Value = $"{blindsAggregation}";
-                    x.IsInline = false;
-                });
-
-                message.AddField(x =>
-                {
-                    x.Name = "Blocks Aggregation";
-                    x.Value = $"{blocksAggregation}";
-                    x.IsInline = false;
-                });
-
-                message.AddField(x =>
-                {
-                    x.Name = "Strips Aggregation";
-                    x.Value = $"{stripsAggregation}";
-                    x.IsInline = false;
-                });
-
-                message.AddField(x =>
-                {
-                    x.Name = "Damage Mitigation";
-                    x.Value = $"{barrierAggregation}";
+                    x.Name = "Aggregations";
+                    x.Value = $"{aggregations}";
                     x.IsInline = false;
                 });
             }

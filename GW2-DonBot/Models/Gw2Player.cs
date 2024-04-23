@@ -36,6 +36,8 @@
 
         public long Interrupts { get; set; }
 
+        public long TimesInterrupted { get; set; }
+
         public long NumberOfHitsWhileBlinded { get; set; }
 
         public double NumberOfMissesAgainst { get; set; }

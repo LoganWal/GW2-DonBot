@@ -43,6 +43,8 @@ namespace Models.Entities
 
         public long Interrupts { get; set; }
 
+        public long TimesInterrupted { get; set; }
+
         public long NumberOfHitsWhileBlinded { get; set; }
 
         public long NumberOfMissesAgainst { get; set; }

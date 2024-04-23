@@ -124,19 +124,11 @@ namespace Handlers.MessageGenerationHandlers
                 gw2Players.Add(new Gw2Player
                 {
                     AccountName = $"({playersFights.Count}) {player.GuildWarsAccountName}",
-                    SubGroup = player.SubGroup,
+                    SubGroup = playersFights.GroupBy(s => s.SubGroup).MaxBy(s => s.Count())?.Key ?? player.SubGroup,
                     Kills = playersFights.Sum(s => s.Kills),
                     Downs = playersFights.Sum(s => s.Downs),
                     TimesDowned = playersFights.Sum(s => s.TimesDowned),
                     Deaths = playersFights.Sum(s => s.Deaths),
-                    Damage = (long)Math.Round(playersFights.Average(s => s.Damage), 0),
-                    DamageDownContribution = (long)Math.Round(playersFights.Average(s => s.DamageDownContribution), 0),
-                    Cleanses = Math.Round(playersFights.Average(s => s.Cleanses), 0),
-                    Strips = Math.Round(playersFights.Average(s => s.Strips), 0),
-                    StabUpTime = Math.Round(Convert.ToDouble(playersFights.Average(s => s.StabGenerated)), 2),
-                    Healing = (long)Math.Round(playersFights.Average(s => s.Healing), 0),
-                    BarrierGenerated = (long)Math.Round(playersFights.Average(s => s.BarrierGenerated), 0),
-                    DistanceFromTag = Math.Round(Convert.ToDouble(playersFights.Average(s => s.DistanceFromTag)), 2),
                     Interrupts = playersFights.Sum(s => s.Interrupts),
                     NumberOfHitsWhileBlinded = playersFights.Sum(s => s.NumberOfHitsWhileBlinded),
                     NumberOfMissesAgainst = playersFights.Sum(s => s.NumberOfMissesAgainst),
@@ -145,10 +137,41 @@ namespace Handlers.MessageGenerationHandlers
                     NumberOfBoonsRipped = playersFights.Sum(s => s.NumberOfBoonsRipped),
                     DamageTaken = playersFights.Sum(s => s.DamageTaken),
                     BarrierMitigation = playersFights.Sum(s => s.BarrierMitigation),
-                    TotalQuick = Math.Round(Convert.ToDouble(playersFights.Average(s => s.QuicknessDuration)), 2),
-                    TotalAlac = Math.Round(Convert.ToDouble(playersFights.Average(s => s.QuicknessDuration)), 2)
+                    TimesInterrupted = playersFights.Sum(s => s.TimesInterrupted),
+                    Damage = (long)Math.Round(playersFights.Any(s => s.Damage > 0)
+                        ? playersFights.Where(s => s.Damage > 0).Average(s => s.Damage)
+                        : 0, 0),
+                    DamageDownContribution = (long)Math.Round(playersFights.Any(s => s.DamageDownContribution > 0)
+                        ? playersFights.Where(s => s.DamageDownContribution > 0).Average(s => s.DamageDownContribution)
+                        : 0, 0),
+                    Cleanses = Math.Round(playersFights.Any(s => s.Cleanses > 0)
+                        ? playersFights.Where(s => s.Cleanses > 0).Average(s => s.Cleanses)
+                        : 0, 0),
+                    Strips = Math.Round(playersFights.Any(s => s.Strips > 0)
+                        ? playersFights.Where(s => s.Strips > 0).Average(s => s.Strips)
+                        : 0, 0),
+                    StabUpTime = Math.Round(Convert.ToDouble(playersFights.Any(s => s.StabGenerated > 0)
+                        ? playersFights.Where(s => s.StabGenerated > 0).Average(s => s.StabGenerated)
+                        : 0), 2),
+                    Healing = (long)Math.Round(playersFights.Any(s => s.Healing > 0)
+                        ? playersFights.Where(s => s.Healing > 0).Average(s => s.Healing)
+                        : 0, 0),
+                    BarrierGenerated = (long)Math.Round(playersFights.Any(s => s.BarrierGenerated > 0)
+                        ? playersFights.Where(s => s.BarrierGenerated > 0).Average(s => s.BarrierGenerated)
+                        : 0, 0),
+                    DistanceFromTag = Math.Round(Convert.ToDouble(playersFights.Any(s => s.DistanceFromTag < 1100)
+                        ? playersFights.Where(s => s.DistanceFromTag < 1100).Average(s => s.DistanceFromTag)
+                        : 0), 2),
+                    TotalQuick = Math.Round(Convert.ToDouble(playersFights.Any(s => s.QuicknessDuration > 0)
+                        ? playersFights.Where(s => s.QuicknessDuration > 0).Average(s => s.QuicknessDuration)
+                        : 0), 2),
+                    TotalAlac = Math.Round(Convert.ToDouble(playersFights.Any(s => s.AlacDuration > 0)
+                        ? playersFights.Where(s => s.AlacDuration > 0).Average(s => s.AlacDuration)
+                        : 0), 2)
                 });
             }
+
+            var dataBySub = gw2Players.GroupBy(s => s.SubGroup);
 
             message.Footer = new EmbedFooterBuilder()
             {
@@ -168,12 +191,26 @@ namespace Handlers.MessageGenerationHandlers
             {
                 // raid overview
                 var raidOverview = "```Players   Downs   Kills   Times Downed   Deaths\n";
-                raidOverview += $"{gw2Players.Count,-4}{string.Empty,-6}{gw2Players.Sum(s => s.Downs), -4}{string.Empty,-4}{gw2Players.Sum(s => s.Kills), -4}{string.Empty,-4}{gw2Players.Sum(s => s.TimesDowned), -4}{string.Empty,-11}{gw2Players.Sum(s => s.Deaths), -4}```";
+                raidOverview += $"{gw2Players.Count,-4}{string.Empty,-6}{gw2Players.Sum(s => s.Downs), -4}{string.Empty,-4}{gw2Players.Sum(s => s.Kills), -4}{string.Empty,-3}{gw2Players.Sum(s => s.TimesDowned), -4}{string.Empty,-11}{gw2Players.Sum(s => s.Deaths), -4}```";
 
                 message.AddField(x =>
                 {
                     x.Name = "Raid Overview";
                     x.Value = $"{raidOverview}";
+                    x.IsInline = false;
+                });
+
+                var subOverview = "```Sub   Quick   Alac    Interrupted\n";
+                foreach (var subData in dataBySub.OrderBy(s => s.Key))
+                {
+                    subOverview += $"{subData.Key,-2}{string.Empty,-4}{Math.Round(subData.Average(s => s.TotalQuick), 2),-5}{string.Empty,-3}{Math.Round(subData.Average(s => s.TotalAlac), 2),-5}{string.Empty,-3}{subData.Sum(s => s.TimesInterrupted),-5}\n";
+                }
+                subOverview += "```";
+
+                message.AddField(x =>
+                {
+                    x.Name = "Sub Overview";
+                    x.Value = $"{subOverview}";
                     x.IsInline = false;
                 });
             }
@@ -302,7 +339,7 @@ namespace Handlers.MessageGenerationHandlers
                 }
             }
 
-            return mechanicsOverview += "```";
+            return mechanicsOverview + "```";
         }
         private Embed? GeneratePvERaidLogReport(string durationString, List<FightLog> fights, bool isSuccessLogs)
         {

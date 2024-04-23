@@ -26,6 +26,9 @@
 	[Kills] [bigint] NOT NULL,
 	[Deaths] [bigint] NOT NULL,
 	[Downs] [bigint] NOT NULL,
+	[DeimosOilsTriggered] [bigint] NOT NULL,
+	[CerusSpreadHitCount] [bigint] NOT NULL,
+	[TimesInterrupted] [bigint] NOT NULL,
 PRIMARY KEY CLUSTERED 
 (
 	[PlayerFightLogId] ASC
@@ -73,6 +76,12 @@ GO
 ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [Deaths]
 GO
 ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [Downs]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [DeimosOilsTriggered]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [CerusSpreadHitCount]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [TimesInterrupted]
 GO
 ALTER TABLE [dbo].[PlayerFightLog]  WITH CHECK ADD FOREIGN KEY([FightLogId])
 REFERENCES [dbo].[FightLog] ([FightLogId])

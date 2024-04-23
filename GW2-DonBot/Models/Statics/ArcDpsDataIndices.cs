@@ -12,6 +12,7 @@
         public const int BoonStabDimension2Index = 1;
         public const int DistanceFromTagIndex = 6;
         public const int InterruptsIndex = 7;
+        public const int TimesInterruptedIndex = 3;
         public const int NameSizeLength = 21;
         public const int EmbedTitleCharacterLength = 52;
         public const int EmbedBarCharacterLength = 23;

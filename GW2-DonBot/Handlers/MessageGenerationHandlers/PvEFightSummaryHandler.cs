@@ -427,7 +427,7 @@ namespace Handlers.MessageGenerationHandlers
                     FightStart = dateTimeStart,
                     FightDurationInMs = duration,
                     IsSuccess = data.Success,
-                    FightPercent = Math.Round((decimal)mainTarget.HpLeft / (decimal)mainTarget.Health, 2)
+                    FightPercent = Math.Round(((decimal)mainTarget.HpLeft / (decimal)mainTarget.Health) * 100, 2)
                 };
 
                 _databaseContext.Add(fightLog);

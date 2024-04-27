@@ -410,6 +410,11 @@ namespace Handlers.MessageGenerationHandlers
             }
 
             var gw2Players = _playerService.GetGw2Players(data, fightPhase, healingPhase, barrierPhase, encounterType);
+            var mainTarget = data.Targets?.FirstOrDefault() ?? new ArcDpsTarget
+            {
+                HpLeft = 1,
+                Health = 1
+            };
 
             var fightLog = _databaseContext.FightLog.FirstOrDefault(s => s.Url == data.Url);
             if (fightLog == null)
@@ -422,7 +427,7 @@ namespace Handlers.MessageGenerationHandlers
                     FightStart = dateTimeStart,
                     FightDurationInMs = duration,
                     IsSuccess = data.Success,
-                    FightPercent = Math.Round(Convert.ToDecimal(100.00 - (data.Targets?.FirstOrDefault()?.Percent ?? 0)), 2)
+                    FightPercent = Math.Round((decimal)mainTarget.HpLeft / (decimal)mainTarget.Health, 2)
                 };
 
                 _databaseContext.Add(fightLog);

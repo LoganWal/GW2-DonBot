@@ -283,7 +283,7 @@ namespace Handlers.MessageGenerationHandlers
 
                 if (groupedFight.Key == (short)FightTypesEnum.ToF)
                 {
-                    mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.ToF, "```Player           Orbs   Spreads   P1 Dmg\n", pf => pf.CerusPhaseOneDamage, groupedPlayerFights, fights);
+                    mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.ToF, "```Player           Orbs   Spreads   P1 Dmg\n", pf => pf.CerusPhaseOneDamage, groupedPlayerFights, fights, true);
                 }
 
                 if (groupedFight.Key == (short)FightTypesEnum.Deimos)
@@ -315,11 +315,15 @@ namespace Handlers.MessageGenerationHandlers
             return message.Build();
         }
 
-        private string GenerateMechanicsOverview(short fightType, string header, Func<PlayerFightLog, decimal> orderBySelector, IEnumerable<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights)
+        private string GenerateMechanicsOverview(short fightType, string header, Func<PlayerFightLog, decimal> orderBySelector, IEnumerable<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights, bool byMax = false)
         {
             var mechanicsOverview = header;
 
-            foreach (var groupedPlayerFight in groupedPlayerFights.OrderByDescending(group => group.Sum(orderBySelector)))
+            var orderedGroupedFights = byMax
+                    ? groupedPlayerFights.OrderByDescending(group => group.Max(orderBySelector))
+                    : groupedPlayerFights.OrderByDescending(group => group.Sum(orderBySelector));
+
+            foreach (var groupedPlayerFight in orderedGroupedFights)
             {
                 var playerFightsListForType = groupedPlayerFight.ToList();
                 var playerFights = fights.Where(f => playerFightsListForType.Select(s => s.FightLogId).Contains(f.FightLogId)).ToList();

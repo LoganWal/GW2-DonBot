@@ -55,7 +55,7 @@ namespace Services.Logging
 
                 var playerIndex = data.Players.IndexOf(arcDpsPlayer);
                 var fightPhaseStats = fightPhase.DpsStatsTargets?.Count >= playerIndex + 1 ? fightPhase.DpsStatsTargets[playerIndex] : null;
-                var firstFightPhaseStats = (data.Phases?.Count >= 2 && fightPhase.DpsStatsTargets?.Count >= playerIndex + 1) ? data.Phases[1].DpsStatsTargets?[playerIndex] : null;
+                var firstFightPhaseStats = (data.Phases?.Count > 2 && fightPhase.DpsStatsTargets?.Count >= playerIndex + 1) ? data.Phases[1].DpsStatsTargets?[playerIndex] : null;
                 var supportStats = fightPhase.SupportStats?.Count >= playerIndex + 1 ? fightPhase.SupportStats[playerIndex] : null;
                 var boonGenSquadStats = fightPhase.BoonGenSquadStats?.Count >= playerIndex + 1 ? fightPhase.BoonGenSquadStats[playerIndex] : null;
                 var healingStatsTargets = healingPhase.OutgoingHealingStatsTargets?.Count >= playerIndex + 1 ? healingPhase.OutgoingHealingStatsTargets[playerIndex] : null;

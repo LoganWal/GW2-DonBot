@@ -462,6 +462,7 @@ namespace Handlers.MessageGenerationHandlers
                     BarrierMitigation = Convert.ToInt64(gw2Player.BarrierMitigation),
                     CerusOrbsCollected = gw2Player.CerusOrbsCollected,
                     CerusSpreadHitCount = gw2Player.CerusSpreadHitCount,
+                    CerusPhaseOneDamage = Convert.ToDecimal(gw2Player.CerusPhaseOneDamage),
                     DeimosOilsTriggered = gw2Player.DeimosOilsTriggered
                 })
                 .ToList();
@@ -510,10 +511,10 @@ namespace Handlers.MessageGenerationHandlers
 
             if (encounterType == (short)FightTypesEnum.ToF)
             {
-                mechanicsOverview = "```Player           Orbs   Spreads\n";
-                foreach (var gw2Player in gw2Players.OrderByDescending(s => s.CerusSpreadHitCount))
+                mechanicsOverview = "```Player           Orbs   Spreads   P1 Dmg\n";
+                foreach (var gw2Player in gw2Players.OrderByDescending(s => s.CerusPhaseOneDamage))
                 {
-                    mechanicsOverview += $"{gw2Player.AccountName?.ClipAt(13),-13}{string.Empty,4}{gw2Player.CerusOrbsCollected.ToString(),-3}{string.Empty,4}{gw2Player.CerusSpreadHitCount.ToString(),-3}\n";
+                    mechanicsOverview += $"{gw2Player.AccountName?.ClipAt(13),-13}{string.Empty,4}{gw2Player.CerusOrbsCollected.ToString(),-3}{string.Empty,4}{gw2Player.CerusSpreadHitCount,-3}{string.Empty,7}{((float)gw2Player.CerusPhaseOneDamage).FormatNumber(true),-8}\n";
                 }
 
                 mechanicsOverview += "```";

@@ -60,6 +60,8 @@
 
         public long CerusSpreadHitCount { get; set; }
 
+        public double CerusPhaseOneDamage { get; set; }
+
         public long DeimosOilsTriggered { get; set; }
     }
 }

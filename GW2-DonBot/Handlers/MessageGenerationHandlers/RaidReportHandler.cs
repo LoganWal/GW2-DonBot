@@ -29,7 +29,8 @@ namespace Handlers.MessageGenerationHandlers
                 return null;
             }
 
-            var fights = _databaseContext.FightLog.Where(s => s.GuildId == guildId && s.FightStart >= fightsReport.FightsStart && s.FightStart <= fightsReport.FightsEnd).OrderBy(s => s.FightStart).ToList();
+            var fights = _databaseContext.FightLog.Where(s => s.GuildId == guildId && s.FightStart >= fightsReport.FightsStart && s.FightStart <= new DateTime(2024, 04, 18, 12, 32, 46) //fightsReport.FightsEnd
+            ).OrderBy(s => s.FightStart).ToList();
             var playerFights = _databaseContext.PlayerFightLog.ToList(); 
             playerFights = playerFights.Where(s => fights.Select(f => f.FightLogId).Contains(s.FightLogId)).ToList();
             var groupedPlayerFights = playerFights.GroupBy(s => s.GuildWarsAccountName).OrderByDescending(s => s.Sum(d => d.Damage)).ToList();
@@ -283,7 +284,7 @@ namespace Handlers.MessageGenerationHandlers
 
                 if (groupedFight.Key == (short)FightTypesEnum.ToF)
                 {
-                    mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.ToF, "```Player           Orbs   Spreads\n", pf => pf.CerusSpreadHitCount, groupedPlayerFights, fights);
+                    mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.ToF, "```Player           Orbs   Spreads   P1 Dmg\n", pf => pf.CerusPhaseOneDamage, groupedPlayerFights, fights);
                 }
 
                 if (groupedFight.Key == (short)FightTypesEnum.Deimos)
@@ -315,7 +316,7 @@ namespace Handlers.MessageGenerationHandlers
             return message.Build();
         }
 
-        private string GenerateMechanicsOverview(short fightType, string header, Func<PlayerFightLog, long> orderBySelector, IEnumerable<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights)
+        private string GenerateMechanicsOverview(short fightType, string header, Func<PlayerFightLog, decimal> orderBySelector, IEnumerable<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights)
         {
             var mechanicsOverview = header;
 
@@ -330,7 +331,7 @@ namespace Handlers.MessageGenerationHandlers
                 {
                     if (fightType == (short)FightTypesEnum.ToF)
                     {
-                        mechanicsOverview += $"{playerFightsListForType.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,4}{playerFightsListForType.Sum(s => s.CerusOrbsCollected),-3}{string.Empty,4}{playerFightsListForType.Sum(s => s.CerusSpreadHitCount),-3}\n";
+                        mechanicsOverview += $"{playerFightsListForType.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,4}{playerFightsListForType.Sum(s => s.CerusOrbsCollected),-3}{string.Empty,4}{playerFightsListForType.Sum(s => s.CerusSpreadHitCount),-3}{string.Empty,7}{((float)playerFightsListForType.Max(s => s.CerusPhaseOneDamage)).FormatNumber(true),-8}\n";
                     }
                     else if (fightType == (short)FightTypesEnum.Deimos)
                     {

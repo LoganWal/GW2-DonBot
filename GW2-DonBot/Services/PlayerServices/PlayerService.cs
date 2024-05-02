@@ -29,7 +29,7 @@ namespace Services.Logging
             var gw2Players = new List<Gw2Player>();
             foreach (var arcDpsPlayer in data.Players)
             {
-                if (arcDpsPlayer.Acc == null || arcDpsPlayer.Profession == null || arcDpsPlayer.Name == null)
+                if (arcDpsPlayer.Acc == null || arcDpsPlayer.Profession == null || arcDpsPlayer.Name == null || data == null)
                 {
                     continue;
                 }
@@ -55,6 +55,7 @@ namespace Services.Logging
 
                 var playerIndex = data.Players.IndexOf(arcDpsPlayer);
                 var fightPhaseStats = fightPhase.DpsStatsTargets?.Count >= playerIndex + 1 ? fightPhase.DpsStatsTargets[playerIndex] : null;
+                var firstFightPhaseStats = (data.Phases?.Count >= 2 && fightPhase.DpsStatsTargets?.Count >= playerIndex + 1) ? data.Phases[1].DpsStatsTargets?[playerIndex] : null;
                 var supportStats = fightPhase.SupportStats?.Count >= playerIndex + 1 ? fightPhase.SupportStats[playerIndex] : null;
                 var boonGenSquadStats = fightPhase.BoonGenSquadStats?.Count >= playerIndex + 1 ? fightPhase.BoonGenSquadStats[playerIndex] : null;
                 var healingStatsTargets = healingPhase.OutgoingHealingStatsTargets?.Count >= playerIndex + 1 ? healingPhase.OutgoingHealingStatsTargets[playerIndex] : null;
@@ -95,6 +96,12 @@ namespace Services.Logging
                 {
                     var possibleMechanics = data?.MechanicMap?.Where(s => s.PlayerMech).ToList() ?? new List<MechanicMap>();
                     existingPlayer.CerusOrbsCollected = GetMechanicValueForPlayer(possibleMechanics, "Insatiable Application", mechanics);
+
+                    if (firstFightPhaseStats != null)
+                    {
+                        existingPlayer.CerusPhaseOneDamage = ((double)firstFightPhaseStats[0][0] / data?.Phases?[1].Duration * 1000) ?? 0;
+                    }
+
 
                     existingPlayer.CerusSpreadHitCount = GetMechanicValueForPlayer(possibleMechanics, "Pool of Despair Hit", mechanics);
                     existingPlayer.CerusSpreadHitCount += GetMechanicValueForPlayer(possibleMechanics, "Empowered Pool of Despair Hit", mechanics);

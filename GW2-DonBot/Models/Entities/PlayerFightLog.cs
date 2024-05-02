@@ -63,6 +63,8 @@ namespace Models.Entities
 
         public long CerusSpreadHitCount { get; set; }
 
+        public decimal CerusPhaseOneDamage { get; set; }
+
         public long DeimosOilsTriggered { get; set; }
     }
 }

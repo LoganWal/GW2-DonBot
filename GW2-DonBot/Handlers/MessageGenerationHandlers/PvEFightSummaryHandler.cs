@@ -438,6 +438,7 @@ namespace Handlers.MessageGenerationHandlers
                     FightLogId = fightLog.FightLogId,
                     GuildWarsAccountName = gw2Player.AccountName,
                     Damage = gw2Player.Damage,
+                    Cleave = gw2Player.Cleave,
                     Kills = gw2Player.Kills,
                     Downs = gw2Player.Downs,
                     Deaths = gw2Player.Deaths,
@@ -492,10 +493,10 @@ namespace Handlers.MessageGenerationHandlers
             };
 
             var fightInSeconds = (float)fightLog.FightDurationInMs / 1000f;
-            var playerOverview = "```Player           Dmg       Alac    Quick\n";
+            var playerOverview = "```Player         Dmg       Cleave    Alac    Quick\n";
             foreach (var gw2Player in gw2Players.OrderByDescending(s => s.Damage))
             {
-                playerOverview += $"{gw2Player.AccountName.ClipAt(13),-13}{string.Empty,4}{((float)gw2Player.Damage / (fightInSeconds)).FormatNumber(true),-8}{string.Empty,2}{Math.Round(gw2Player.TotalAlac, 2).ToString(CultureInfo.CurrentCulture),-5}{string.Empty,3}{Math.Round(gw2Player.TotalQuick, 2).ToString(CultureInfo.CurrentCulture),-5}\n";
+                playerOverview += $"{gw2Player.AccountName.ClipAt(13),-13}{string.Empty,2}{((float)gw2Player.Damage / (fightInSeconds)).FormatNumber(true),-8}{string.Empty,2}{((float)gw2Player.Cleave / (fightInSeconds)).FormatNumber(true),-8}{string.Empty,2}{Math.Round(gw2Player.TotalAlac, 2).ToString(CultureInfo.CurrentCulture),-5}{string.Empty,3}{Math.Round(gw2Player.TotalQuick, 2).ToString(CultureInfo.CurrentCulture),-5}\n";
             }
 
             playerOverview += "```";
@@ -511,10 +512,10 @@ namespace Handlers.MessageGenerationHandlers
 
             if (encounterType == (short)FightTypesEnum.ToF)
             {
-                mechanicsOverview = "```Player           Orbs   Spreads   P1 Dmg\n";
+                mechanicsOverview = "```Player         Orbs   Spreads   P1 Dmg\n";
                 foreach (var gw2Player in gw2Players.OrderByDescending(s => s.CerusPhaseOneDamage))
                 {
-                    mechanicsOverview += $"{gw2Player.AccountName?.ClipAt(13),-13}{string.Empty,4}{gw2Player.CerusOrbsCollected.ToString(),-3}{string.Empty,4}{gw2Player.CerusSpreadHitCount,-3}{string.Empty,7}{((float)gw2Player.CerusPhaseOneDamage).FormatNumber(true),-8}\n";
+                    mechanicsOverview += $"{gw2Player.AccountName?.ClipAt(13),-13}{string.Empty,2}{gw2Player.CerusOrbsCollected,-3}{string.Empty,4}{gw2Player.CerusSpreadHitCount,-3}{string.Empty,7}{((float)gw2Player.CerusPhaseOneDamage).FormatNumber(true),-8}\n";
                 }
 
                 mechanicsOverview += "```";
@@ -522,10 +523,10 @@ namespace Handlers.MessageGenerationHandlers
 
             if (encounterType == (short)FightTypesEnum.Deimos)
             {
-                mechanicsOverview = "```Player           Oils\n";
+                mechanicsOverview = "```Player         Oils\n";
                 foreach (var gw2Player in gw2Players.OrderByDescending(s => s.DeimosOilsTriggered))
                 {
-                    mechanicsOverview += $"{gw2Player.AccountName?.ClipAt(13),-13}{string.Empty,4}{gw2Player.DeimosOilsTriggered}\n";
+                    mechanicsOverview += $"{gw2Player.AccountName?.ClipAt(13),-13}{string.Empty,2}{gw2Player.DeimosOilsTriggered}\n";
                 }
 
                 mechanicsOverview += "```";

@@ -576,7 +576,7 @@
         public bool BreakbarPhase { get; set; }
 
         [JsonProperty("dpsStats")]
-        public List<List<double>>? DpsStats { get; set; }
+        public List<List<long>>? DpsStats { get; set; }
 
         [JsonProperty("dpsStatsTargets")]
         public List<List<List<long>>>? DpsStatsTargets { get; set; }

@@ -20,6 +20,8 @@
 
         public long Damage { get; set; }
 
+        public long Cleave { get; set; }
+
         public long DamageDownContribution { get; set; }
 
         public double Cleanses { get; set; }

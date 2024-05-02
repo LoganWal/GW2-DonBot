@@ -13,6 +13,8 @@ namespace Models.Entities
 
         public long Damage { get; set; }
 
+        public long Cleave { get; set; }
+
         public long Kills { get; set; }
 
         public long Deaths { get; set; }

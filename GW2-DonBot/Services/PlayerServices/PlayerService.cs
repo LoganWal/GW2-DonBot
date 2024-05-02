@@ -55,6 +55,7 @@ namespace Services.Logging
 
                 var playerIndex = data.Players.IndexOf(arcDpsPlayer);
                 var fightPhaseStats = fightPhase.DpsStatsTargets?.Count >= playerIndex + 1 ? fightPhase.DpsStatsTargets[playerIndex] : null;
+                var fightAllDps = fightPhase.DpsStats?.Count >= playerIndex + 1 ? fightPhase.DpsStats[playerIndex] : null;
                 var firstFightPhaseStats = (data.Phases?.Count > 2 && fightPhase.DpsStatsTargets?.Count >= playerIndex + 1) ? data.Phases[1].DpsStatsTargets?[playerIndex] : null;
                 var supportStats = fightPhase.SupportStats?.Count >= playerIndex + 1 ? fightPhase.SupportStats[playerIndex] : null;
                 var boonGenSquadStats = fightPhase.BoonGenSquadStats?.Count >= playerIndex + 1 ? fightPhase.BoonGenSquadStats[playerIndex] : null;
@@ -72,6 +73,7 @@ namespace Services.Logging
                 existingPlayer.TimesDowned = defStats?[ArcDpsDataIndices.EnemiesDownedIndex].Double ?? 0;
                 existingPlayer.Downs = Convert.ToInt64(offensiveStats?[ArcDpsDataIndices.DownIndex] ?? 0L);
                 existingPlayer.Damage = fightPhaseStats?.Sum(s => s.FirstOrDefault()) ?? 0;
+                existingPlayer.Cleave = fightAllDps?.FirstOrDefault() - existingPlayer.Damage ?? 0;
                 existingPlayer.Cleanses = supportStats?.FirstOrDefault() ?? 0;
                 existingPlayer.Cleanses += supportStats?.Count >= ArcDpsDataIndices.PlayerCleansesIndex + 1 ? supportStats[ArcDpsDataIndices.PlayerCleansesIndex] : 0;
                 existingPlayer.Strips = supportStats?.Count >= ArcDpsDataIndices.PlayerStripsIndex + 1 ? supportStats[ArcDpsDataIndices.PlayerStripsIndex] : 0;

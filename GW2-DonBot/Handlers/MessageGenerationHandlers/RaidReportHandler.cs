@@ -251,14 +251,14 @@ namespace Handlers.MessageGenerationHandlers
 
             fightsOverview += "```";
 
-            var playerOverview = "```Player           Dmg       Alac    Quick\n";
+            var playerOverview = "```Player         Dmg       Cleave    Alac    Quick\n";
             foreach (var groupedPlayerFight in groupedPlayerFights)
             {
                 var playerFightsListForType = groupedPlayerFight.ToList();
                 var playerFights = fights.Where(f => playerFightsListForType.Select(s => s.FightLogId).Contains(f.FightLogId));
 
                 var totalFightTimeSec = (float)(playerFights.Sum(s => s.FightDurationInMs) / 1000f);
-                playerOverview += $"{groupedPlayerFight.Key?.ClipAt(13),-13}{string.Empty,4}{playerFightsListForType.Sum(s => (float)s.Damage / totalFightTimeSec).FormatNumber(true),-8}{string.Empty,2}{Math.Round(playerFightsListForType.Average(s => s.AlacDuration), 2).ToString(CultureInfo.CurrentCulture),-5}{string.Empty,3}{Math.Round(playerFightsListForType.Average(s => s.QuicknessDuration), 2).ToString(CultureInfo.CurrentCulture),-5}\n";
+                playerOverview += $"{groupedPlayerFight.Key?.ClipAt(13),-13}{string.Empty,2}{playerFightsListForType.Sum(s => (float)s.Damage / totalFightTimeSec).FormatNumber(true),-8}{string.Empty,2}{((float)playerFightsListForType.Sum(s => (float)s.Cleave / totalFightTimeSec)).FormatNumber(true),-8}{string.Empty,2}{Math.Round(playerFightsListForType.Average(s => s.AlacDuration), 2).ToString(CultureInfo.CurrentCulture),-5}{string.Empty,3}{Math.Round(playerFightsListForType.Average(s => s.QuicknessDuration), 2).ToString(CultureInfo.CurrentCulture),-5}\n";
             }
 
             playerOverview += "```";
@@ -283,12 +283,12 @@ namespace Handlers.MessageGenerationHandlers
 
                 if (groupedFight.Key == (short)FightTypesEnum.ToF)
                 {
-                    mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.ToF, "```Player           Orbs   Spreads   P1 Dmg\n", pf => pf.CerusPhaseOneDamage, groupedPlayerFights, fights, true);
+                    mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.ToF, "```Player         Orbs   Spreads   P1 Dmg\n", pf => pf.CerusPhaseOneDamage, groupedPlayerFights, fights, true);
                 }
 
                 if (groupedFight.Key == (short)FightTypesEnum.Deimos)
                 {
-                    mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.Deimos, "```Player           Oils\n", pf => pf.DeimosOilsTriggered, groupedPlayerFights, fights);
+                    mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.Deimos, "```Player         Oils\n", pf => pf.DeimosOilsTriggered, groupedPlayerFights, fights);
                 }
 
                 if (!string.IsNullOrEmpty(mechanicsOverview))
@@ -334,11 +334,11 @@ namespace Handlers.MessageGenerationHandlers
                 {
                     if (fightType == (short)FightTypesEnum.ToF)
                     {
-                        mechanicsOverview += $"{playerFightsListForType.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,4}{playerFightsListForType.Sum(s => s.CerusOrbsCollected),-3}{string.Empty,4}{playerFightsListForType.Sum(s => s.CerusSpreadHitCount),-3}{string.Empty,7}{((float)playerFightsListForType.Max(s => s.CerusPhaseOneDamage)).FormatNumber(true),-8}\n";
+                        mechanicsOverview += $"{playerFightsListForType.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,2}{playerFightsListForType.Sum(s => s.CerusOrbsCollected),-3}{string.Empty,4}{playerFightsListForType.Sum(s => s.CerusSpreadHitCount),-3}{string.Empty,7}{((float)playerFightsListForType.Max(s => s.CerusPhaseOneDamage)).FormatNumber(true),-8}\n";
                     }
                     else if (fightType == (short)FightTypesEnum.Deimos)
                     {
-                        mechanicsOverview += $"{playerFightsListForType.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,4}{playerFightsListForType.Sum(s => s.DeimosOilsTriggered),-3}\n";
+                        mechanicsOverview += $"{playerFightsListForType.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,2}{playerFightsListForType.Sum(s => s.DeimosOilsTriggered),-3}\n";
                     }
                 }
             }

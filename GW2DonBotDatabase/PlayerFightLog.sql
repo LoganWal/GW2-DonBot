@@ -30,6 +30,7 @@
 	[CerusSpreadHitCount] [bigint] NOT NULL,
 	[TimesInterrupted] [bigint] NOT NULL,
 	[CerusPhaseOneDamage] [decimal](10, 3) NOT NULL,
+	[Cleave] [bigint] NOT NULL,
 PRIMARY KEY CLUSTERED 
 (
 	[PlayerFightLogId] ASC
@@ -85,6 +86,8 @@ GO
 ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [TimesInterrupted]
 GO
 ALTER TABLE [dbo].[PlayerFightLog] ADD  CONSTRAINT [DF_CerusPhaseOneDamage]  DEFAULT ((0)) FOR [CerusPhaseOneDamage]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [Cleave]
 GO
 ALTER TABLE [dbo].[PlayerFightLog]  WITH CHECK ADD FOREIGN KEY([FightLogId])
 REFERENCES [dbo].[FightLog] ([FightLogId])

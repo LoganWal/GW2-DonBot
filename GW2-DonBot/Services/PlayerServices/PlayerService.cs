@@ -29,7 +29,7 @@ namespace Services.Logging
             var gw2Players = new List<Gw2Player>();
             foreach (var arcDpsPlayer in data.Players)
             {
-                if (arcDpsPlayer.Acc == null || arcDpsPlayer.Profession == null || arcDpsPlayer.Name == null || data == null)
+                if (arcDpsPlayer.Acc == null || arcDpsPlayer.Profession == null || arcDpsPlayer.Name == null || data == null || arcDpsPlayer.NotInSquad)
                 {
                     continue;
                 }

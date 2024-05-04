@@ -58,7 +58,9 @@ namespace Services.Logging
                 var fightAllDps = fightPhase.DpsStats?.Count >= playerIndex + 1 ? fightPhase.DpsStats[playerIndex] : null;
                 var firstFightPhaseStats = (data.Phases?.Count > 2 && fightPhase.DpsStatsTargets?.Count >= playerIndex + 1) ? data.Phases[1].DpsStatsTargets?[playerIndex] : null;
                 var supportStats = fightPhase.SupportStats?.Count >= playerIndex + 1 ? fightPhase.SupportStats[playerIndex] : null;
-                var boonGenSquadStats = fightPhase.BoonGenSquadStats?.Count >= playerIndex + 1 ? fightPhase.BoonGenSquadStats[playerIndex] : null;
+                var boonGenGroupStats = fightPhase.BoonGenGroupStats?.Count >= playerIndex + 1 ? fightPhase.BoonGenGroupStats[playerIndex] : null;
+                var boonGenOffGroupStats = fightPhase.BoonGenOGroupStats?.Count >= playerIndex + 1 ? fightPhase.BoonGenOGroupStats[playerIndex] : null;
+
                 var healingStatsTargets = healingPhase.OutgoingHealingStatsTargets?.Count >= playerIndex + 1 ? healingPhase.OutgoingHealingStatsTargets[playerIndex] : null;
                 var barrierStats = barrierPhase.OutgoingBarrierStats?.Count >= playerIndex + 1 ? barrierPhase.OutgoingBarrierStats[playerIndex] : null;
                 var gameplayStats = fightPhase.GameplayStats?.Count >= playerIndex + 1 ? fightPhase.GameplayStats[playerIndex] : null;
@@ -67,7 +69,7 @@ namespace Services.Logging
 
                 var boons = fightPhase.BoonActiveStats?.Count >= playerIndex + 1 ? fightPhase.BoonActiveStats[playerIndex].Data : null;
                 var mechanics = fightPhase.MechanicStats?.Count >= playerIndex + 1 ? fightPhase.MechanicStats[playerIndex] : null;
-                
+
                 existingPlayer.Kills = offensiveStats?[ArcDpsDataIndices.EnemyDeathIndex] ?? 0;
                 existingPlayer.Deaths = Convert.ToInt64(defStats?[ArcDpsDataIndices.DeathIndex].Double ?? 0L);
                 existingPlayer.TimesDowned = defStats?[ArcDpsDataIndices.EnemiesDownedIndex].Double ?? 0;
@@ -77,7 +79,8 @@ namespace Services.Logging
                 existingPlayer.Cleanses = supportStats?.FirstOrDefault() ?? 0;
                 existingPlayer.Cleanses += supportStats?.Count >= ArcDpsDataIndices.PlayerCleansesIndex + 1 ? supportStats[ArcDpsDataIndices.PlayerCleansesIndex] : 0;
                 existingPlayer.Strips = supportStats?.Count >= ArcDpsDataIndices.PlayerStripsIndex + 1 ? supportStats[ArcDpsDataIndices.PlayerStripsIndex] : 0;
-                existingPlayer.StabUpTime = boonGenSquadStats?.Data?.CheckIndexIsValid(ArcDpsDataIndices.BoonStabDimension1Index, ArcDpsDataIndices.BoonStabDimension2Index) ?? false ? boonGenSquadStats.Data[ArcDpsDataIndices.BoonStabDimension1Index][ArcDpsDataIndices.BoonStabDimension2Index] : 0;
+                existingPlayer.StabOnGroup = boonGenGroupStats?.Data?[ArcDpsDataIndices.BoonStabDimension1Index][0] ?? 0;
+                existingPlayer.StabOffGroup = boonGenOffGroupStats?.Data?[ArcDpsDataIndices.BoonStabDimension1Index][0] ?? 0;
                 existingPlayer.Healing = healingStatsTargets?.Sum(s => s.FirstOrDefault()) ?? 0;
                 existingPlayer.BarrierGenerated = barrierStats?.FirstOrDefault() ?? 0;
                 existingPlayer.DistanceFromTag = gameplayStats?[ArcDpsDataIndices.DistanceFromTagIndex] ?? 0;
@@ -185,7 +188,7 @@ namespace Services.Logging
                 totalPoints += Math.Min(Convert.ToDouble(player.Damage)  / 50000d, 10);
                 totalPoints += Math.Min(Convert.ToDouble(player.Cleanses) / 100d, 5);
                 totalPoints += Math.Min(Convert.ToDouble(player.Strips) / 30d, 3);
-                totalPoints += Math.Min(Convert.ToDouble(player.StabUpTime) / 0.15d * (secondsOfFight < 30d ? 1d : secondsOfFight / 30d), 6);
+                totalPoints += Math.Min(Convert.ToDouble(player.StabOnGroup) * (secondsOfFight < 20d ? 1d : secondsOfFight / 20d), 6);
                 totalPoints += Math.Min(Convert.ToDouble(player.Healing) / 50000d, 4);
                 totalPoints += Math.Min(Convert.ToDouble(player.BarrierGenerated) / 40000d, 3);
 

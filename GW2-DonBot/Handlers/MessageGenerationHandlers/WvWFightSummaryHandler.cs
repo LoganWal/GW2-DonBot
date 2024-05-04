@@ -176,7 +176,8 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                             DamageDownContribution = gw2Player.DamageDownContribution,
                             Cleanses = Convert.ToInt64(gw2Player.Cleanses),
                             Strips = Convert.ToInt64(gw2Player.Strips),
-                            StabGenerated = Math.Round(Convert.ToDecimal(gw2Player.StabUpTime), 2),
+                            StabGenOnGroup = Math.Round(Convert.ToDecimal(gw2Player.StabOnGroup), 2),
+                            StabGenOffGroup = Math.Round(Convert.ToDecimal(gw2Player.StabOffGroup), 2),
                             Healing = gw2Player.Healing,
                             BarrierGenerated = gw2Player.BarrierGenerated,
                             DistanceFromTag = Math.Round(Convert.ToDecimal(gw2Player.DistanceFromTag), 2),
@@ -288,18 +289,20 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             stripOverview += "```";
 
             // Stab overview
-            var stabOverview = "```#    Name                   Sub  Stab\n";
+            var stabOverview = "```#    Name                   Sub  S(on)  S(off)\n";
 
-            var topStabs = gw2Players.OrderByDescending(s => s.StabUpTime).Take(playerCount).ToList();
+            var topStabs = gw2Players.OrderByDescending(s => s.StabOnGroup).Take(playerCount).ToList();
             var stabIndex = 1;
             foreach (var gw2Player in topStabs)
             {
-                var stab = gw2Player.StabUpTime;
+                var stabOnGroup = gw2Player.StabOnGroup;
+                var stabOffGroup = gw2Player.StabOffGroup;
+
                 var sub = gw2Player.SubGroup;
                 var name = !string.IsNullOrEmpty(gw2Player.CharacterName) ? gw2Player.CharacterName : gw2Player.AccountName;
                 var prof = gw2Player.Profession;
 
-                stabOverview += $"{stabIndex.ToString().PadLeft(2, '0')}{string.Empty,3}{(name + EliteInsightExtensions.GetClassAppend(prof)).ClipAt(ArcDpsDataIndices.NameSizeLength),-ArcDpsDataIndices.NameSizeLength}{string.Empty,2}{sub,-3}{string.Empty,2}{(stab * 100).FormatPercentage().ToString(CultureInfo.InvariantCulture),-11}\n";
+                stabOverview += $"{stabIndex.ToString().PadLeft(2, '0')}{string.Empty,3}{(name + EliteInsightExtensions.GetClassAppend(prof)).ClipAt(ArcDpsDataIndices.NameSizeLength),-ArcDpsDataIndices.NameSizeLength}{string.Empty,2}{sub,-3}{string.Empty,2}{(Math.Round(stabOnGroup, 2)),-5}{string.Empty,2}{(Math.Round(stabOffGroup, 2)),-5}\n";
                 stabIndex++;
             }
 
@@ -368,14 +371,14 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
                 timesDownedOverview += "```";
 
-                aggregations += $"{string.Empty,23}{gw2Players.Sum(s => s.NumberOfHitsWhileBlinded).ToString(),-4}{string.Empty,10}{gw2Players.Sum(s => s.NumberOfMissesAgainst).ToString(CultureInfo.CurrentCulture)}";
+                aggregations += $"{string.Empty,23}{gw2Players.Sum(s => s.NumberOfHitsWhileBlinded),-4}{string.Empty,10}{gw2Players.Sum(s => s.NumberOfMissesAgainst).ToString(CultureInfo.CurrentCulture)}";
                 aggregations += "```";
                 aggregations += "```Attacks Blocked        Ours          Theirs \n";
-                aggregations += $"{string.Empty,23}{gw2Players.Sum(s => s.NumberOfTimesBlockedAttack).ToString(CultureInfo.CurrentCulture),-4}{string.Empty.PadLeft(10) + gw2Players.Sum(s => s.NumberOfTimesEnemyBlockedAttack)}";
+                aggregations += $"{string.Empty,23}{gw2Players.Sum(s => s.NumberOfTimesBlockedAttack).ToString(CultureInfo.CurrentCulture),-5}{string.Empty, 9}{gw2Players.Sum(s => s.NumberOfTimesEnemyBlockedAttack)}";
                 aggregations += "```";
 
                 aggregations += "```Boons Stripped         Ours          Theirs \n";
-                aggregations += $"{string.Empty,23}{(statTotals?.TotalStrips != null ? statTotals.TotalStrips.Value : gw2Players.Sum(s => s.Strips).ToString(CultureInfo.CurrentCulture).PadRight(4))}{string.Empty,10}{gw2Players.Sum(s => s.NumberOfBoonsRipped).ToString(CultureInfo.CurrentCulture)}";
+                aggregations += $"{string.Empty,23}{(statTotals?.TotalStrips ?? gw2Players.Sum(s => s.Strips), -5)}{string.Empty,9}{gw2Players.Sum(s => s.NumberOfBoonsRipped).ToString(CultureInfo.CurrentCulture)}";
                 aggregations += "```";
 
                 var totalDmg = Convert.ToSingle(gw2Players.Sum(s => s.DamageTaken));

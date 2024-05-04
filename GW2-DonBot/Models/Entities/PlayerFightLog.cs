@@ -33,7 +33,9 @@ namespace Models.Entities
 
         public long Strips { get; set; }
 
-        public decimal StabGenerated { get; set; }
+        public decimal StabGenOnGroup { get; set; }
+
+        public decimal StabGenOffGroup { get; set; }
 
         public long Healing { get; set; }
 

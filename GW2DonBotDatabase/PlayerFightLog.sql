@@ -9,7 +9,7 @@
 	[DamageDownContribution] [bigint] NOT NULL,
 	[Cleanses] [bigint] NOT NULL,
 	[Strips] [bigint] NOT NULL,
-	[StabGenerated] [decimal](6, 2) NOT NULL,
+	[StabGenOnGroup] [decimal](6, 2) NOT NULL,
 	[Healing] [bigint] NOT NULL,
 	[BarrierGenerated] [bigint] NOT NULL,
 	[DistanceFromTag] [decimal](16, 2) NOT NULL,
@@ -31,6 +31,7 @@
 	[TimesInterrupted] [bigint] NOT NULL,
 	[CerusPhaseOneDamage] [decimal](10, 3) NOT NULL,
 	[Cleave] [bigint] NOT NULL,
+	[StabGenOffGroup] [decimal](6, 2) NOT NULL,
 PRIMARY KEY CLUSTERED 
 (
 	[PlayerFightLogId] ASC
@@ -45,7 +46,7 @@ ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [Cleanses]
 GO
 ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [Strips]
 GO
-ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [StabGenerated]
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [StabGenOnGroup]
 GO
 ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [Healing]
 GO
@@ -88,6 +89,8 @@ GO
 ALTER TABLE [dbo].[PlayerFightLog] ADD  CONSTRAINT [DF_CerusPhaseOneDamage]  DEFAULT ((0)) FOR [CerusPhaseOneDamage]
 GO
 ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [Cleave]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [StabGenOffGroup]
 GO
 ALTER TABLE [dbo].[PlayerFightLog]  WITH CHECK ADD FOREIGN KEY([FightLogId])
 REFERENCES [dbo].[FightLog] ([FightLogId])

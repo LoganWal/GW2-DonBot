@@ -448,7 +448,8 @@ namespace Handlers.MessageGenerationHandlers
                     DamageDownContribution = gw2Player.DamageDownContribution,
                     Cleanses = Convert.ToInt64(gw2Player.Cleanses),
                     Strips = Convert.ToInt64(gw2Player.Strips),
-                    StabGenerated = Convert.ToDecimal(gw2Player.StabUpTime),
+                    StabGenOnGroup = Convert.ToDecimal(gw2Player.StabOnGroup),
+                    StabGenOffGroup = Convert.ToDecimal(gw2Player.StabOffGroup),
                     Healing = gw2Player.Healing,
                     BarrierGenerated = gw2Player.BarrierGenerated,
                     DistanceFromTag = Convert.ToDecimal(gw2Player.DistanceFromTag),
@@ -512,10 +513,10 @@ namespace Handlers.MessageGenerationHandlers
 
             if (encounterType == (short)FightTypesEnum.ToF)
             {
-                mechanicsOverview = "```Player         Orbs   Spreads   P1 Dmg\n";
-                foreach (var gw2Player in gw2Players.OrderByDescending(s => s.CerusPhaseOneDamage))
+                mechanicsOverview = "```Player         P1 Dmg    Orbs   Downed\n";
+                foreach (var gw2Player in gw2Players.OrderByDescending(s => s.CerusPhaseOneDamage)) 
                 {
-                    mechanicsOverview += $"{gw2Player.AccountName?.ClipAt(13),-13}{string.Empty,2}{gw2Player.CerusOrbsCollected,-3}{string.Empty,4}{gw2Player.CerusSpreadHitCount,-3}{string.Empty,7}{((float)gw2Player.CerusPhaseOneDamage).FormatNumber(true),-8}\n";
+                    mechanicsOverview += $"{gw2Player.AccountName?.ClipAt(13),-13}{string.Empty,2}{((float)gw2Player.CerusPhaseOneDamage).FormatNumber(true),-8}{string.Empty,2}{gw2Player.CerusOrbsCollected,-3}{string.Empty,4}{gw2Player.TimesDowned,-3}\n";
                 }
 
                 mechanicsOverview += "```";

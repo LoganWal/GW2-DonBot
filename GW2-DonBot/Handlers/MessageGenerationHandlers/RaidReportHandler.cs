@@ -150,8 +150,11 @@ namespace Handlers.MessageGenerationHandlers
                     Strips = Math.Round(playersFights.Any(s => s.Strips > 0)
                         ? playersFights.Where(s => s.Strips > 0).Average(s => s.Strips)
                         : 0, 0),
-                    StabUpTime = Math.Round(Convert.ToDouble(playersFights.Any(s => s.StabGenerated > 0)
-                        ? playersFights.Where(s => s.StabGenerated > 0).Average(s => s.StabGenerated)
+                    StabOnGroup = Math.Round(Convert.ToDouble(playersFights.Any(s => s.StabGenOnGroup > 0)
+                        ? playersFights.Where(s => s.StabGenOnGroup > 0).Average(s => (float)s.StabGenOnGroup)
+                        : 0), 2),
+                    StabOffGroup = Math.Round(Convert.ToDouble(playersFights.Any(s => s.StabGenOffGroup > 0)
+                        ? playersFights.Where(s => s.StabGenOffGroup > 0).Average(s => (float)s.StabGenOffGroup)
                         : 0), 2),
                     Healing = (long)Math.Round(playersFights.Any(s => s.Healing > 0)
                         ? playersFights.Where(s => s.Healing > 0).Average(s => s.Healing)
@@ -251,15 +254,21 @@ namespace Handlers.MessageGenerationHandlers
 
             fightsOverview += "```";
 
-            var playerOverview = "```Player         Dmg       Cleave    Alac    Quick\n";
+            var playerLineByDmg = new List<Tuple<float, string>>();
             foreach (var groupedPlayerFight in groupedPlayerFights)
             {
                 var playerFightsListForType = groupedPlayerFight.ToList();
                 var playerFights = fights.Where(f => playerFightsListForType.Select(s => s.FightLogId).Contains(f.FightLogId));
 
-                var totalFightTimeSec = (float)(playerFights.Sum(s => s.FightDurationInMs) / 1000f);
-                playerOverview += $"{groupedPlayerFight.Key?.ClipAt(13),-13}{string.Empty,2}{playerFightsListForType.Sum(s => (float)s.Damage / totalFightTimeSec).FormatNumber(true),-8}{string.Empty,2}{((float)playerFightsListForType.Sum(s => (float)s.Cleave / totalFightTimeSec)).FormatNumber(true),-8}{string.Empty,2}{Math.Round(playerFightsListForType.Average(s => s.AlacDuration), 2).ToString(CultureInfo.CurrentCulture),-5}{string.Empty,3}{Math.Round(playerFightsListForType.Average(s => s.QuicknessDuration), 2).ToString(CultureInfo.CurrentCulture),-5}\n";
+                var totalFightTimeSec = playerFights.Sum(s => s.FightDurationInMs) / 1000f;
+                var dps = playerFightsListForType.Sum(s => s.Damage / totalFightTimeSec);
+                var playerLine = $"{groupedPlayerFight.Key?.ClipAt(13),-13}{string.Empty,2}{dps.FormatNumber(true),-8}{string.Empty,2}{playerFightsListForType.Sum(s => s.Cleave / totalFightTimeSec).FormatNumber(true),-8}{string.Empty,2}{Math.Round(playerFightsListForType.Average(s => s.AlacDuration), 2).ToString(CultureInfo.CurrentCulture),-5}{string.Empty,3}{Math.Round(playerFightsListForType.Average(s => s.QuicknessDuration), 2).ToString(CultureInfo.CurrentCulture),-5}\n";
+                playerLineByDmg.Add(new Tuple<float, string>(dps, playerLine));
             }
+
+            var playerOverview = playerLineByDmg
+                .OrderByDescending(s => s.Item1)
+                .Aggregate("```Player         Dmg       Cleave    Alac    Quick\n", (current, tuple) => current + tuple.Item2);
 
             playerOverview += "```";
 
@@ -283,7 +292,7 @@ namespace Handlers.MessageGenerationHandlers
 
                 if (groupedFight.Key == (short)FightTypesEnum.ToF)
                 {
-                    mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.ToF, "```Player         Orbs   Spreads   P1 Dmg\n", pf => pf.CerusPhaseOneDamage, groupedPlayerFights, fights, true);
+                    mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.ToF, "```Player         P1 Dmg    Orbs   Downed\n", pf => pf.CerusPhaseOneDamage, groupedPlayerFights, fights, true);
                 }
 
                 if (groupedFight.Key == (short)FightTypesEnum.Deimos)
@@ -334,7 +343,7 @@ namespace Handlers.MessageGenerationHandlers
                 {
                     if (fightType == (short)FightTypesEnum.ToF)
                     {
-                        mechanicsOverview += $"{playerFightsListForType.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,2}{playerFightsListForType.Sum(s => s.CerusOrbsCollected),-3}{string.Empty,4}{playerFightsListForType.Sum(s => s.CerusSpreadHitCount),-3}{string.Empty,7}{((float)playerFightsListForType.Max(s => s.CerusPhaseOneDamage)).FormatNumber(true),-8}\n";
+                        mechanicsOverview += $"{playerFightsListForType.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,2}{((float)playerFightsListForType.Max(s => s.CerusPhaseOneDamage)).FormatNumber(true),-8}{string.Empty,2}{playerFightsListForType.Sum(s => s.CerusOrbsCollected),-3}{string.Empty,4}{playerFightsListForType.Sum(s => s.TimesDowned),-3}\n";
                     }
                     else if (fightType == (short)FightTypesEnum.Deimos)
                     {

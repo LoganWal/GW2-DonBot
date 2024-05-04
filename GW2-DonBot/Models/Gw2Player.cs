@@ -28,7 +28,9 @@
 
         public double Strips { get; set; }
 
-        public double StabUpTime { get; set; }
+        public double StabOnGroup { get; set; }
+
+        public double StabOffGroup { get; set; }
 
         public long Healing { get; set; }
 

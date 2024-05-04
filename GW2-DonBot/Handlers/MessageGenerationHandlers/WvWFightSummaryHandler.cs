@@ -378,7 +378,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                 aggregations += "```";
 
                 aggregations += "```Boons Stripped         Ours          Theirs \n";
-                aggregations += $"{string.Empty,23}{(statTotals?.TotalStrips ?? gw2Players.Sum(s => s.Strips), -5)}{string.Empty,9}{gw2Players.Sum(s => s.NumberOfBoonsRipped).ToString(CultureInfo.CurrentCulture)}";
+                aggregations += $"{string.Empty,23}{(statTotals?.TotalStrips ?? gw2Players.Sum(s => s.Strips)).ToString(CultureInfo.CurrentCulture),-5}{string.Empty,9}{gw2Players.Sum(s => s.NumberOfBoonsRipped).ToString(CultureInfo.CurrentCulture)}";
                 aggregations += "```";
 
                 var totalDmg = Convert.ToSingle(gw2Players.Sum(s => s.DamageTaken));

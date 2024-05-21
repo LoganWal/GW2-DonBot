@@ -504,7 +504,8 @@ namespace Controller.Discord
         private void HandleSpamMessage(SocketMessage seenMessage, SocketTextChannel messageChannel)
         {
             seenMessage.DeleteAsync();
-            messageChannel?.SendMessageAsync($"Removed message from <@{seenMessage.Author.Id}> ({seenMessage.Author.Username}), for posting a discord link without being verified.");
+            // TODO update message handling to avoid also spamming the channel.
+            //messageChannel?.SendMessageAsync($"Removed message from <@{seenMessage.Author.Id}> ({seenMessage.Author.Username}), for posting a discord link without being verified.");
         }
 
         private async Task AnalyseAndReportOnUrl(string url, ulong guildId, bool isEmbed, SocketTextChannel replyChannel)
@@ -593,7 +594,8 @@ namespace Controller.Discord
             }
             else
             {
-                await replyChannel.SendMessageAsync(text: "", embeds: new[] { message }, components: buttonBuilder);
+                //TODO: update non embed to give option to user if they want to show the message, if so show, if many show aggregate
+                //await replyChannel.SendMessageAsync(text: "", embeds: new[] { message }, components: buttonBuilder);
             }
             Console.WriteLine($"[DON] Completed and posted report on: {url}");
         }

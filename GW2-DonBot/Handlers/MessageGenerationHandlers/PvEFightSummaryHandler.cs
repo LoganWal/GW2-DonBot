@@ -153,18 +153,18 @@ namespace Handlers.MessageGenerationHandlers
                 squadBoons[playerSquad].PlayerCount++;
                 squadBoons[playerSquad].SquadNumber = (int)playerSquad;
 
-                squadBoons[playerSquad].MightStacks +=          fightPhase?.BoonStats?[index].Data?.Count > 0  ? (float)(fightPhase?.BoonStats?[index].Data?[0]?.FirstOrDefault() ?? 0.0f) : 0.0f;
-                squadBoons[playerSquad].FuryPercent +=          fightPhase?.BoonStats?[index].Data?.Count > 1  ? (float)(fightPhase?.BoonStats?[index].Data?[1]?.FirstOrDefault() ?? 0.0f) : 0.0f;
-                squadBoons[playerSquad].QuickPercent +=         fightPhase?.BoonStats?[index].Data?.Count > 2  ? (float)(fightPhase?.BoonStats?[index].Data?[2]?.FirstOrDefault() ?? 0.0f) : 0.0f;
-                squadBoons[playerSquad].AlacrityPercent +=      fightPhase?.BoonStats?[index].Data?.Count > 3  ? (float)(fightPhase?.BoonStats?[index].Data?[3]?.FirstOrDefault() ?? 0.0f) : 0.0f;
-                squadBoons[playerSquad].ProtectionPercent +=    fightPhase?.BoonStats?[index].Data?.Count > 4  ? (float)(fightPhase?.BoonStats?[index].Data?[4]?.FirstOrDefault() ?? 0.0f) : 0.0f;
-                squadBoons[playerSquad].RegenPercent +=         fightPhase?.BoonStats?[index].Data?.Count > 5  ? (float)(fightPhase?.BoonStats?[index].Data?[5]?.FirstOrDefault() ?? 0.0f) : 0.0f;
-                squadBoons[playerSquad].VigorPercent +=         fightPhase?.BoonStats?[index].Data?.Count > 6  ? (float)(fightPhase?.BoonStats?[index].Data?[6]?.FirstOrDefault() ?? 0.0f) : 0.0f;
-                squadBoons[playerSquad].AegisPercent +=         fightPhase?.BoonStats?[index].Data?.Count > 7  ? (float)(fightPhase?.BoonStats?[index].Data?[7]?.FirstOrDefault() ?? 0.0f) : 0.0f;
-                squadBoons[playerSquad].StabilityPercent +=     fightPhase?.BoonStats?[index].Data?.Count > 8  ? (float)(fightPhase?.BoonStats?[index].Data?[8]?.FirstOrDefault() ?? 0.0f) : 0.0f;
-                squadBoons[playerSquad].SwiftnessPercent +=     fightPhase?.BoonStats?[index].Data?.Count > 9  ? (float)(fightPhase?.BoonStats?[index].Data?[9]?.FirstOrDefault() ?? 0.0f) : 0.0f;
-                squadBoons[playerSquad].ResistancePercent +=    fightPhase?.BoonStats?[index].Data?.Count > 10 ? (float)(fightPhase?.BoonStats?[index].Data?[10]?.FirstOrDefault() ?? 0.0f) : 0.0f;
-                squadBoons[playerSquad].ResolutionPercent +=    fightPhase?.BoonStats?[index].Data?.Count > 11 ? (float)(fightPhase?.BoonStats?[index].Data?[11]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].MightStacks +=          fightPhase?.BuffsStatContainer.BoonStats?[index].Data?.Count > 0  ? (float)(fightPhase.BuffsStatContainer.BoonStats?[index].Data?[0]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].FuryPercent +=          fightPhase?.BuffsStatContainer.BoonStats?[index].Data?.Count > 1  ? (float)(fightPhase.BuffsStatContainer.BoonStats?[index].Data?[1]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].QuickPercent +=         fightPhase?.BuffsStatContainer.BoonStats?[index].Data?.Count > 2  ? (float)(fightPhase.BuffsStatContainer.BoonStats?[index].Data?[2]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].AlacrityPercent +=      fightPhase?.BuffsStatContainer.BoonStats?[index].Data?.Count > 3  ? (float)(fightPhase.BuffsStatContainer.BoonStats?[index].Data?[3]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].ProtectionPercent +=    fightPhase?.BuffsStatContainer.BoonStats?[index].Data?.Count > 4  ? (float)(fightPhase.BuffsStatContainer.BoonStats?[index].Data?[4]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].RegenPercent +=         fightPhase?.BuffsStatContainer.BoonStats?[index].Data?.Count > 5  ? (float)(fightPhase.BuffsStatContainer.BoonStats?[index].Data?[5]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].VigorPercent +=         fightPhase?.BuffsStatContainer.BoonStats?[index].Data?.Count > 6  ? (float)(fightPhase.BuffsStatContainer.BoonStats?[index].Data?[6]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].AegisPercent +=         fightPhase?.BuffsStatContainer.BoonStats?[index].Data?.Count > 7  ? (float)(fightPhase.BuffsStatContainer.BoonStats?[index].Data?[7]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].StabilityPercent +=     fightPhase?.BuffsStatContainer.BoonStats?[index].Data?.Count > 8  ? (float)(fightPhase.BuffsStatContainer.BoonStats?[index].Data?[8]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].SwiftnessPercent +=     fightPhase?.BuffsStatContainer.BoonStats?[index].Data?.Count > 9  ? (float)(fightPhase.BuffsStatContainer.BoonStats?[index].Data?[9]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].ResistancePercent +=    fightPhase?.BuffsStatContainer.BoonStats?[index].Data?.Count > 10 ? (float)(fightPhase.BuffsStatContainer.BoonStats?[index].Data?[10]?.FirstOrDefault() ?? 0.0f) : 0.0f;
+                squadBoons[playerSquad].ResolutionPercent +=    fightPhase?.BuffsStatContainer.BoonStats?[index].Data?.Count > 11 ? (float)(fightPhase.BuffsStatContainer.BoonStats?[index].Data?[11]?.FirstOrDefault() ?? 0.0f) : 0.0f;
             }
 
             var usedSquadBoons = new List<SquadBoons>();
@@ -494,7 +494,7 @@ namespace Handlers.MessageGenerationHandlers
             };
 
             var fightInSeconds = (float)fightLog.FightDurationInMs / 1000f;
-            var playerOverview = "```Player         Dmg       Cleave    Alac    Quick\n";
+            var playerOverview = "```Player         Dmg       Cleave    Alac    Quick                                                         \n";
             foreach (var gw2Player in gw2Players.OrderByDescending(s => s.Damage))
             {
                 playerOverview += $"{gw2Player.AccountName.ClipAt(13),-13}{string.Empty,2}{((float)gw2Player.Damage / (fightInSeconds)).FormatNumber(true),-8}{string.Empty,2}{((float)gw2Player.Cleave / (fightInSeconds)).FormatNumber(true),-8}{string.Empty,2}{Math.Round(gw2Player.TotalAlac, 2).ToString(CultureInfo.CurrentCulture),-5}{string.Empty,3}{Math.Round(gw2Player.TotalQuick, 2).ToString(CultureInfo.CurrentCulture),-5}\n";

@@ -58,8 +58,8 @@ namespace Services.Logging
                 var fightAllDps = fightPhase.DpsStats?.Count >= playerIndex + 1 ? fightPhase.DpsStats[playerIndex] : null;
                 var firstFightPhaseStats = (data.Phases?.Count > 2 && fightPhase.DpsStatsTargets?.Count >= playerIndex + 1) ? data.Phases[1].DpsStatsTargets?[playerIndex] : null;
                 var supportStats = fightPhase.SupportStats?.Count >= playerIndex + 1 ? fightPhase.SupportStats[playerIndex] : null;
-                var boonGenGroupStats = fightPhase.BoonGenGroupStats?.Count >= playerIndex + 1 ? fightPhase.BoonGenGroupStats[playerIndex] : null;
-                var boonGenOffGroupStats = fightPhase.BoonGenOGroupStats?.Count >= playerIndex + 1 ? fightPhase.BoonGenOGroupStats[playerIndex] : null;
+                var boonGenGroupStats = fightPhase.BuffsStatContainer.BoonGenGroupStats?.Count >= playerIndex + 1 ? fightPhase.BuffsStatContainer.BoonGenGroupStats[playerIndex] : null;
+                var boonGenOffGroupStats = fightPhase.BuffsStatContainer.BoonGenOGroupStats?.Count >= playerIndex + 1 ? fightPhase.BuffsStatContainer.BoonGenOGroupStats[playerIndex] : null;
 
                 var healingStatsTargets = healingPhase.OutgoingHealingStatsTargets?.Count >= playerIndex + 1 ? healingPhase.OutgoingHealingStatsTargets[playerIndex] : null;
                 var barrierStats = barrierPhase.OutgoingBarrierStats?.Count >= playerIndex + 1 ? barrierPhase.OutgoingBarrierStats[playerIndex] : null;
@@ -67,7 +67,7 @@ namespace Services.Logging
                 var defStats = fightPhase.DefStats?.Count >= playerIndex + 1 ? fightPhase.DefStats[playerIndex] : null;
                 var offensiveStats = fightPhase.OffensiveStats?.Count >= playerIndex + 1 ? fightPhase.OffensiveStats[playerIndex] : null;
 
-                var boons = fightPhase.BoonActiveStats?.Count >= playerIndex + 1 ? fightPhase.BoonActiveStats[playerIndex].Data : null;
+                var boons = fightPhase.BuffsStatContainer.BoonActiveStats?.Count >= playerIndex + 1 ? fightPhase.BuffsStatContainer.BoonActiveStats[playerIndex].Data : null;
                 var mechanics = fightPhase.MechanicStats?.Count >= playerIndex + 1 ? fightPhase.MechanicStats[playerIndex] : null;
 
                 existingPlayer.Kills = offensiveStats?[ArcDpsDataIndices.EnemyDeathIndex] ?? 0;

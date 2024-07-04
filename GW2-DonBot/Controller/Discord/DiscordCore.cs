@@ -504,8 +504,27 @@ namespace Controller.Discord
         private void HandleSpamMessage(SocketMessage seenMessage, SocketTextChannel messageChannel)
         {
             seenMessage.DeleteAsync();
-            // TODO update message handling to avoid also spamming the channel.
-            //messageChannel?.SendMessageAsync($"Removed message from <@{seenMessage.Author.Id}> ({seenMessage.Author.Username}), for posting a discord link without being verified.");
+
+            var discordGuild = (seenMessage.Channel as SocketGuildChannel)?.Guild;
+            if (discordGuild != null)
+            {
+                var guildId = discordGuild.Id;
+
+                var guild = _databaseContext.Guild.FirstOrDefault(g => g.GuildId == (long)guildId);
+                if (guild == null || !guild.RemovedMessageChannelId .HasValue)
+                {
+                    Console.WriteLine($"Unable to find guild {guildId}");
+                    return;
+                }
+
+                if (_client.GetChannel((ulong)guild.RemovedMessageChannelId) is not ITextChannel targetChannel)
+                {
+                    Console.WriteLine($"Unable to find guild remove channel {guild.RemovedMessageChannelId}");
+                    return;
+                }
+
+                targetChannel.SendMessageAsync($"Removed message from <@{seenMessage.Author.Id}> ({seenMessage.Author.Username}), for posting a discord link without being verified.");
+            }
         }
 
         private async Task AnalyseAndReportOnUrl(string url, ulong guildId, bool isEmbed, SocketTextChannel replyChannel)
@@ -544,7 +563,7 @@ namespace Controller.Discord
             }
 
             Embed message;
-            MessageComponent buttonBuilder = null;
+            MessageComponent? buttonBuilder = null;
 
             if (data.Wvw)
             {

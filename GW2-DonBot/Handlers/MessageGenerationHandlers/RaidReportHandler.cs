@@ -268,7 +268,7 @@ namespace Handlers.MessageGenerationHandlers
 
             var playerOverview = playerLineByDmg
                 .OrderByDescending(s => s.Item1)
-                .Aggregate("```Player         Dmg       Cleave    Alac    Quick\n", (current, tuple) => current + tuple.Item2);
+                .Aggregate("```Player         Dmg       Cleave    Alac    Quick                                                   \n", (current, tuple) => current + tuple.Item2);
 
             playerOverview += "```";
 

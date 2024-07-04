@@ -289,7 +289,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             stripOverview += "```";
 
             // Stab overview
-            var stabOverview = "```#    Name                   Sub  S(on)  S(off)\n";
+            var stabOverview = "```#    Name                   Sub  S(on)  S(off)                                                                 \n";
 
             var topStabs = gw2Players.OrderByDescending(s => s.StabOnGroup).Take(playerCount).ToList();
             var stabIndex = 1;
@@ -324,10 +324,10 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
             healingOverview += "```";
 
-            var distanceOverview = "```#    Name                    Distance From Tag\n";
+            var distanceOverview = "```#    Name                    Distance From Tag                                                                    \n";
             var timesDownedOverview = "```#    Name                   Times Downed\n";
             var barrierOverview = "```#    Name                   Barrier Gen\n";
-            var aggregations = "```Attacks Missed         Ours          Theirs \n";
+            var aggregations = "```Attacks Missed         Ours          Theirs                                                    \n";
 
             if (advancedLog)
             {
@@ -373,18 +373,18 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
                 aggregations += $"{string.Empty,23}{gw2Players.Sum(s => s.NumberOfHitsWhileBlinded),-4}{string.Empty,10}{gw2Players.Sum(s => s.NumberOfMissesAgainst).ToString(CultureInfo.CurrentCulture)}";
                 aggregations += "```";
-                aggregations += "```Attacks Blocked        Ours          Theirs \n";
+                aggregations += "```Attacks Blocked        Ours          Theirs                                          \n";
                 aggregations += $"{string.Empty,23}{gw2Players.Sum(s => s.NumberOfTimesBlockedAttack).ToString(CultureInfo.CurrentCulture),-5}{string.Empty, 9}{gw2Players.Sum(s => s.NumberOfTimesEnemyBlockedAttack)}";
                 aggregations += "```";
 
-                aggregations += "```Boons Stripped         Ours          Theirs \n";
+                aggregations += "```Boons Stripped         Ours          Theirs                                          \n";
                 aggregations += $"{string.Empty,23}{(statTotals?.TotalStrips ?? gw2Players.Sum(s => s.Strips)).ToString(CultureInfo.CurrentCulture),-5}{string.Empty,9}{gw2Players.Sum(s => s.NumberOfBoonsRipped).ToString(CultureInfo.CurrentCulture)}";
                 aggregations += "```";
 
                 var totalDmg = Convert.ToSingle(gw2Players.Sum(s => s.DamageTaken));
                 var totalBarrierMitigation = Convert.ToSingle(gw2Players.Sum(s => s.BarrierMitigation));
 
-                aggregations += "```Damage Taken    Barrier Mit   Diff \n";
+                aggregations += "```Damage Taken    Barrier Mit   Diff                                                   \n";
                 aggregations += $"{totalDmg.FormatNumber(totalDmg).ToString(CultureInfo.CurrentCulture),-6}{string.Empty,10}{totalBarrierMitigation.FormatNumber(totalBarrierMitigation).ToString(CultureInfo.CurrentCulture),-6}{string.Empty,8}{(totalDmg - totalBarrierMitigation).FormatNumber(totalDmg - totalBarrierMitigation).ToString(CultureInfo.CurrentCulture)}({Math.Round((totalBarrierMitigation / totalDmg) * 100, 2)}%)";
                 aggregations += "```";
             }

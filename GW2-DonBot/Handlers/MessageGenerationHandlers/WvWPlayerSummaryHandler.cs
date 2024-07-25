@@ -82,7 +82,7 @@ namespace Handlers.MessageGenerationHandlers
 
                 message.Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{_footerHandler.Generate()}",
+                    Text = $"{_footerHandler.Generate(gw2Guild.GuildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 };
 
@@ -162,7 +162,7 @@ namespace Handlers.MessageGenerationHandlers
 
                 message.Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{_footerHandler.Generate()}",
+                    Text = $"{_footerHandler.Generate(gw2Guild.GuildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 };
 

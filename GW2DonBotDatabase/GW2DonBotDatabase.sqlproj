@@ -67,6 +67,7 @@
     <Build Include="FightLog.sql" />
     <Build Include="PlayerFightLog.sql" />
     <Build Include="FightsReport.sql" />
+    <Build Include="GuildQuote.sql" />
   </ItemGroup>
   <ItemGroup>
     <RefactorLog Include="GW2DonBotDatabase.refactorlog" />

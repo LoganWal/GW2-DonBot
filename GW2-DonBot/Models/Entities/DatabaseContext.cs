@@ -28,6 +28,8 @@ namespace Models.Entities
 
         public DbSet<PlayerFightLog> PlayerFightLog { get; set; }
 
+        public DbSet<GuildQuote> GuildQuote { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<PlayerRaffleBid>().HasKey(prb => new { prb.RaffleId, prb.DiscordId });

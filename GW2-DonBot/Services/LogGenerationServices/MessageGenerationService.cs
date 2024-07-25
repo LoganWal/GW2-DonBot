@@ -58,9 +58,9 @@ namespace Services.LogGenerationServices
             return _raidReportHandler.Generate(fightsReport, guildId);
         }
 
-        public Embed GenerateRaidAlert()
+        public Embed GenerateRaidAlert(long guildId)
         {
-            return _raidReportHandler.GenerateRaidAlert();
+            return _raidReportHandler.GenerateRaidAlert(guildId);
         }
     }
 }

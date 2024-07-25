@@ -8,6 +8,7 @@ using Services.LogGenerationServices;
 using Services.Logging;
 using Services.PlayerServices;
 using Services.SecretsServices;
+using System.Linq;
 using System.Text.RegularExpressions;
 using ConnectionState = Discord.ConnectionState;
 
@@ -401,9 +402,15 @@ namespace Controller.Discord
         {
             try
             {
-                var isDonMessage = seenMessage.Author.Id == DonBotId;
+                var knownBots = new List<ulong>
+                {
+                    DonBotId,
+                    1172050606005964820 // gw2Mists.com
+                };
 
-                if (isDonMessage)
+                var isKnownBot = knownBots.Contains(seenMessage.Author.Id);
+
+                if (isKnownBot)
                 {
                     return;
                 }
@@ -422,7 +429,7 @@ namespace Controller.Discord
                 }
 
 
-                if (guild.RemoveSpamEnabled && !isDonMessage && (seenMessage.Content.Contains("discord.gg") || seenMessage.Content.Contains("discord.com")))
+                if (guild.RemoveSpamEnabled && Regex.IsMatch(seenMessage.Content, @"\b((https?|ftp)://|www\.|(\w+\.)+\w{2,})(\S*)\b"))
                 {
                     if (seenMessage.Channel is not SocketTextChannel messageChannel)
                     {
@@ -445,7 +452,6 @@ namespace Controller.Discord
                             return;
                         }
                     }
-
                 }
 
                 bool embedMessage;
@@ -469,7 +475,7 @@ namespace Controller.Discord
                     matches = Regex.Matches(seenMessage.Content, wingmanPattern);
 
                     var wingmanMatches = matches.Cast<Match>().Select(match => match.Value).ToList();
-                    for (int i = 0; i < wingmanMatches.Count; i++)
+                    for (var i = 0; i < wingmanMatches.Count; i++)
                     {
                         wingmanMatches[i] = wingmanMatches[i].Replace("https://gw2wingman.nevermindcreations.de/log/", "https://dps.report/");
                     }
@@ -511,7 +517,7 @@ namespace Controller.Discord
                 var guildId = discordGuild.Id;
 
                 var guild = _databaseContext.Guild.FirstOrDefault(g => g.GuildId == (long)guildId);
-                if (guild == null || !guild.RemovedMessageChannelId .HasValue)
+                if (guild == null || !guild.RemovedMessageChannelId.HasValue)
                 {
                     Console.WriteLine($"Unable to find guild {guildId}");
                     return;

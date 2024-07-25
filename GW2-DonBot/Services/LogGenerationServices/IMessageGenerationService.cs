@@ -19,6 +19,6 @@ namespace Services.LogGenerationServices
 
         public List<Embed>? GenerateRaidReport(FightsReport fightsReportId, long guildId);
 
-        public Embed GenerateRaidAlert();
+        public Embed GenerateRaidAlert(long guildId);
     }
 }

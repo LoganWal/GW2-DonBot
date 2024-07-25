@@ -51,21 +51,21 @@ namespace Handlers.MessageGenerationHandlers
 
             if (wvwFightCount > pveFightCount)
             {
-                messages.Add(GenerateWvWRaidReport(durationString, groupedPlayerFights, false));
-                messages.Add(GenerateWvWRaidReport(durationString, groupedPlayerFights, true));
+                messages.Add(GenerateWvWRaidReport(durationString, groupedPlayerFights, false, guildId));
+                messages.Add(GenerateWvWRaidReport(durationString, groupedPlayerFights, true, guildId));
 
             }
             else
             {
-                messages.Add(GeneratePvERaidReport(durationString, groupedFights, groupedPlayerFights, fights));
-                var successLogs = GeneratePvERaidLogReport(durationString, fights, true);
+                messages.Add(GeneratePvERaidReport(durationString, groupedFights, groupedPlayerFights, fights, guildId));
+                var successLogs = GeneratePvERaidLogReport(durationString, fights, true, guildId);
                 if (successLogs != null)
                 {
                     messages.Add(successLogs);
 
                 }
 
-                var failedLogs = GeneratePvERaidLogReport(durationString, fights, false);
+                var failedLogs = GeneratePvERaidLogReport(durationString, fights, false, guildId);
                 if (failedLogs != null)
                 {
                     messages.Add(failedLogs);
@@ -75,7 +75,7 @@ namespace Handlers.MessageGenerationHandlers
             return messages;
         }
 
-        public Embed GenerateRaidAlert()
+        public Embed GenerateRaidAlert(long guildId)
         {
             // Building the message via embeds
             var message = new EmbedBuilder
@@ -91,7 +91,7 @@ namespace Handlers.MessageGenerationHandlers
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{_footerHandler.Generate()}",
+                    Text = $"{_footerHandler.Generate(guildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 Timestamp = DateTime.Now
@@ -100,7 +100,7 @@ namespace Handlers.MessageGenerationHandlers
             return message.Build();
         }
 
-        private Embed GenerateWvWRaidReport(string durationString, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, bool advancedLog)
+        private Embed GenerateWvWRaidReport(string durationString, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, bool advancedLog, long guildId)
         {
             // Building the message via embeds
             var message = new EmbedBuilder
@@ -178,7 +178,7 @@ namespace Handlers.MessageGenerationHandlers
 
             message.Footer = new EmbedFooterBuilder()
             {
-                Text = $"{_footerHandler.Generate()}",
+                Text = $"{_footerHandler.Generate(guildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             };
 
@@ -219,10 +219,10 @@ namespace Handlers.MessageGenerationHandlers
             }
             
             // Building the message for use
-            return _wvWFightSummaryHandler.GenerateMessage(advancedLog, 10, gw2Players, message, statTotals);
+            return _wvWFightSummaryHandler.GenerateMessage(advancedLog, 10, gw2Players, message, guildId, statTotals);
         }
 
-        private Embed GeneratePvERaidReport(string durationString, List<IGrouping<short, FightLog>> groupedFights, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights)
+        private Embed GeneratePvERaidReport(string durationString, List<IGrouping<short, FightLog>> groupedFights, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights, long guildId)
         {
             // Building the message via embeds
             var message = new EmbedBuilder
@@ -313,7 +313,7 @@ namespace Handlers.MessageGenerationHandlers
 
             message.Footer = new EmbedFooterBuilder()
             {
-                Text = $"{_footerHandler.Generate()}",
+                Text = $"{_footerHandler.Generate(guildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             };
 
@@ -354,7 +354,7 @@ namespace Handlers.MessageGenerationHandlers
 
             return mechanicsOverview + "```";
         }
-        private Embed? GeneratePvERaidLogReport(string durationString, List<FightLog> fights, bool isSuccessLogs)
+        private Embed? GeneratePvERaidLogReport(string durationString, List<FightLog> fights, bool isSuccessLogs, long guildId)
         {
             var fightLogs = fights.Where(s => s.IsSuccess == isSuccessLogs).ToList();
             if (!fightLogs.Any())
@@ -398,7 +398,7 @@ namespace Handlers.MessageGenerationHandlers
 
             message.Footer = new EmbedFooterBuilder()
             {
-                Text = $"{_footerHandler.Generate()}",
+                Text = $"{_footerHandler.Generate(guildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             };
 

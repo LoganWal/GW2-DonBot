@@ -63,7 +63,7 @@ namespace Services.DiscordRequestServices
                     return;
                 }
 
-                var message = _messageGenerationService.GenerateRaidAlert();
+                var message = _messageGenerationService.GenerateRaidAlert(guild.GuildId);
                 await targetChannel.SendMessageAsync(text: "@everyone", embeds: new[] { message });
                 await command.ModifyOriginalResponseAsync(m => m.Content = "Created!");
             }

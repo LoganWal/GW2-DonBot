@@ -87,7 +87,7 @@ namespace Services.DiscordRequestServices
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{_footerHandler.Generate()}",
+                    Text = $"{_footerHandler.Generate(guild.GuildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 Timestamp = DateTime.Now
@@ -246,7 +246,7 @@ namespace Services.DiscordRequestServices
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{_footerHandler.Generate()}",
+                    Text = $"{_footerHandler.Generate(guild.GuildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 // Timestamp
@@ -590,7 +590,7 @@ namespace Services.DiscordRequestServices
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{_footerHandler.Generate()}",
+                    Text = $"{_footerHandler.Generate(guild.GuildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 Timestamp = DateTime.Now
@@ -737,7 +737,7 @@ namespace Services.DiscordRequestServices
                     },
                     Footer = new EmbedFooterBuilder()
                     {
-                        Text = $"{_footerHandler.Generate()}",
+                        Text = $"{_footerHandler.Generate(guild.GuildId)}",
                         IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                     },
                     Timestamp = DateTime.Now
@@ -845,7 +845,7 @@ namespace Services.DiscordRequestServices
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{_footerHandler.Generate()}",
+                    Text = $"{_footerHandler.Generate(guild.GuildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 // Timestamp
@@ -950,7 +950,7 @@ namespace Services.DiscordRequestServices
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{_footerHandler.Generate()}",
+                    Text = $"{_footerHandler.Generate(guild.GuildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 // Timestamp

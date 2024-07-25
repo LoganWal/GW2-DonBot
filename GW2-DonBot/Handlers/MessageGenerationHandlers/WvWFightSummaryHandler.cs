@@ -220,10 +220,10 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                 x.IsInline = false;
             });
 
-            return GenerateMessage(advancedLog, playerCount, gw2Players, message);
+            return GenerateMessage(advancedLog, playerCount, gw2Players, message, guild.GuildId);
         }
 
-        public Embed GenerateMessage(bool advancedLog, int playerCount, List<Gw2Player> gw2Players, EmbedBuilder message, StatTotals? statTotals = null)
+        public Embed GenerateMessage(bool advancedLog, int playerCount, List<Gw2Player> gw2Players, EmbedBuilder message, long guildId, StatTotals? statTotals = null)
         {
             // Damage overview
             var damageOverview = "```#    Name                   Damage    Down C\n";
@@ -460,7 +460,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
             message.Footer = new EmbedFooterBuilder()
             {
-                Text = $"{_footerHandler.Generate()}",
+                Text = $"{_footerHandler.Generate(guildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             };
 

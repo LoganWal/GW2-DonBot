@@ -247,7 +247,7 @@ namespace Handlers.MessageGenerationHandlers
 
             message.Footer = new EmbedFooterBuilder()
             {
-                Text = $"{_footerHandler.Generate()}",
+                Text = $"{_footerHandler.Generate((long)guildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             };
 
@@ -487,7 +487,7 @@ namespace Handlers.MessageGenerationHandlers
                 Url = $"{data.Url}",
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{_footerHandler.Generate()}",
+                    Text = $"{_footerHandler.Generate(guildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 Timestamp = DateTime.Now

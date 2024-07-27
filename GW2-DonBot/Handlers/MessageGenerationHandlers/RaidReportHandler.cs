@@ -238,18 +238,41 @@ namespace Handlers.MessageGenerationHandlers
                 }
             };
 
-            var fightsOverview = "```Fight       Total (t)    Success (t)     Count\n";
+
+            var fightsOverview = "```Fight       Best  (t)    Success (t)     Count\n";
+
+            // Fetch all the data in one go
+            var allFightLogs = _databaseContext.FightLog
+                .Where(s => s.GuildId == guildId)
+                .ToList();
+
+            // Create a dictionary to store the best fight duration for each fight type
+            var bestFightDurations = allFightLogs
+                .Where(s => s.IsSuccess)
+                .GroupBy(s => s.FightType)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.MinBy(s => s.FightDurationInMs)?.FightDurationInMs ?? 0
+                );
+
             foreach (var groupedFight in groupedFights)
             {
+                var bestFight = bestFightDurations.GetValueOrDefault(groupedFight.Key, 0);
+
                 var fightsListForType = groupedFight.ToList();
 
-                var fightTime = TimeSpan.FromMilliseconds(fightsListForType.Sum(s => s.FightDurationInMs));
-                var fightTimeString = $"{(fightTime.Hours * 60) + fightTime.Minutes:D2}m:{fightTime.Seconds:D2}s";
+                var bestFightTime = TimeSpan.FromMilliseconds(bestFight);
+                var bestFightTimeString = $"{(bestFightTime.Hours * 60) + bestFightTime.Minutes:D2}m:{bestFightTime.Seconds:D2}s";
 
                 var successFightTime = TimeSpan.FromMilliseconds(fightsListForType.Where(s => s.IsSuccess).Sum(s => s.FightDurationInMs));
                 var successFightTimeString = $"{(successFightTime.Hours * 60) + successFightTime.Minutes:D2}m:{successFightTime.Seconds:D2}s";
 
-                fightsOverview += $"{Enum.GetName(typeof(FightTypesEnum), groupedFight.Key)?.PadRight(10) ?? "uknwn"}{string.Empty,2}{fightTimeString,-6}{string.Empty,6}{successFightTimeString,-6}{string.Empty,9}{fightsListForType.Count}\n";
+                if (successFightTime <= bestFightTime)
+                {
+                    successFightTimeString += " (!)";
+                }
+
+                fightsOverview += $"{Enum.GetName(typeof(FightTypesEnum), groupedFight.Key)?.PadRight(10) ?? "uknwn"}{string.Empty,2}{bestFightTimeString,-6}{string.Empty,6}{successFightTimeString,-11}{string.Empty,5}{fightsListForType.Count}\n";
             }
 
             fightsOverview += "```";

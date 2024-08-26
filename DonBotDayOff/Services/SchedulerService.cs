@@ -49,25 +49,43 @@ namespace DonBotDayOff.Services
                 await client.LoginAsync(TokenType.Bot, FetchDonBotToken());
                 await client.StartAsync();
 
+                Console.WriteLine("[DON] GW2-DonBot attempting to connect...");
                 while (client.ConnectionState != ConnectionState.Connected)
                 {
                     await Task.Delay(100);
                 }
 
-                // Send the message to the specified channel
+                // Fetch the guild first
                 // TODO update this to be config based per guild
-                if (client.GetChannel(1021287605897265162) is ITextChannel channel)
+                ulong guildId = 1007536196462854185;
+                ulong channelId = 1021287605897265162;
+                ulong roleId = 1277580524197515336;
+
+                var guild = client.GetGuild(guildId);
+                if (guild != null)
                 {
-                    var roleMention = $"<@&{1277580524197515336}>";
-                    var message = $"{roleMention} Today's Wordle starting word: {startingWord}";
-                    await channel.SendMessageAsync(message);
+                    logger.LogInformation($"Found guild with ID {guildId}");
+
+                    // Fetch the channel from the guild
+                    var channel = guild.GetTextChannel(channelId);
+                    if (channel != null)
+                    {
+                        logger.LogInformation($"Found channel with ID {channelId}");
+
+                        var roleMention = $"<@&{roleId}>";
+                        var message = $"{roleMention} Today's Wordle starting word: {startingWord}";
+                        await channel.SendMessageAsync(message);
+                    }
+                    else
+                    {
+                        logger.LogWarning($"Text channel with ID {channelId} not found in guild {guildId}.");
+                    }
                 }
                 else
                 {
-                    logger.LogWarning($"Channel with ID {1021287605897265162} not found.");
+                    logger.LogWarning($"Guild with ID {guildId} not found.");
                 }
 
-                // Dispose of the Discord client
                 await client.StopAsync();
                 await client.DisposeAsync();
             }

@@ -18,8 +18,10 @@ var host = Host.CreateDefaultBuilder(args)
             {
                 GatewayIntents = GatewayIntents.Guilds |
                                  GatewayIntents.GuildMessages |
-                                 GatewayIntents.GuildMembers |
-                                 GatewayIntents.MessageContent
+                                 GatewayIntents.DirectMessages |
+                                 GatewayIntents.MessageContent |
+                                 GatewayIntents.GuildWebhooks |
+                                 GatewayIntents.GuildMembers
             };
 
             return new DiscordSocketClient(config);

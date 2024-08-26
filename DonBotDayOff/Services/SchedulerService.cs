@@ -19,7 +19,7 @@ namespace DonBotDayOff.Services
         private void ScheduleWordleStartingWord()
         {
             var now = DateTime.Now;
-            var targetTime = new DateTime(now.Year, now.Month, now.Day, 21, 21, 0);
+            var targetTime = new DateTime(now.Year, now.Month, now.Day, 04, 01, 0);
 
             if (now > targetTime)
             {

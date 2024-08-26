@@ -14,7 +14,7 @@ ALTER TABLE [dbo].[Raffle] ADD  DEFAULT ((1)) FOR [IsActive]
 GO
 ALTER TABLE [dbo].[Raffle] ADD  DEFAULT ((0)) FOR [RaffleType]
 GO
-ALTER TABLE [dbo].[Raffle]  WITH CHECK ADD  CONSTRAINT [FK_Raffle_GuildId] FOREIGN KEY([GuildId])
+ALTER TABLE [dbo].[Raffle] ADD  CONSTRAINT [FK_Raffle_GuildId] FOREIGN KEY([GuildId])
 REFERENCES [dbo].[Guild] ([GuildId])
 GO
 ALTER TABLE [dbo].[Raffle] CHECK CONSTRAINT [FK_Raffle_GuildId]

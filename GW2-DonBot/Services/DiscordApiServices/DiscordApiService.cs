@@ -1,6 +1,6 @@
 ﻿namespace Services.DiscordApiServices
 {
-    class DiscordApiService : IDiscordApiService
+    internal class DiscordApiService : IDiscordApiService
     {
     }
 }

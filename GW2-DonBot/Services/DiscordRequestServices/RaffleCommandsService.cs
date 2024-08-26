@@ -26,30 +26,28 @@ namespace Services.DiscordRequestServices
 
             // Get the user who executed the command
             SocketGuildUser? guildUser = null;
-            try
+            if (command.GuildId.HasValue)
             {
-                if (command.GuildId != null)
+                var discordGuild = discordClient.GetGuild(command.GuildId.Value);
+                if (discordGuild != null)
                 {
-                    guildUser = discordClient.GetGuild(command.GuildId.Value)?.GetUser(command.User.Id);
-                }
-                else
-                {
-                    throw new Exception("No GuildId");
+                    guildUser = discordGuild.GetUser(command.User.Id);
                 }
             }
-            catch (Exception ex)
+
+            if (guildUser == null)
             {
-                Console.WriteLine($"Failing raffle create nicely: `{ex.Message}`");
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to create raffle, please try again, or yell at logan.");
+                Console.WriteLine("Failed to create raffle: Guild or user not found.");
+                await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to create raffle, please try again or contact support.");
                 return;
             }
 
-            // Database operations using guild information
-            var guilds = await _databaseContext.Guild.ToListAsync();
-            var guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
+            // Fetch guild information from the database
+            var guild = await _databaseContext.Guild.FirstOrDefaultAsync(g => g.GuildId == (long)guildUser.Guild.Id);
+
             if (guild == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Cannot find the related discord, try the command in the discord you want the raffle in!");
+                await command.ModifyOriginalResponseAsync(m => m.Content = "Cannot find the related guild, try the command in the guild you want the raffle in!");
                 return;
             }
 
@@ -59,24 +57,25 @@ namespace Services.DiscordRequestServices
                 return;
             }
 
-            if (discordClient.GetChannel((ulong)guild.AnnouncementChannelId) is not ITextChannel targetChannel)
+            if (discordClient.GetChannel((ulong)guild.AnnouncementChannelId.Value) is not ITextChannel targetChannel)
             {
                 await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to find the target channel.");
                 return;
             }
 
             // Check for existing active raffles
-            var raffles = await _databaseContext.Raffle.ToListAsync();
-            if (raffles.Any(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId))
+            var activeRaffleExists = await _databaseContext.Raffle.AnyAsync(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId);
+
+            if (activeRaffleExists)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "There already is a running raffle, close that one first!");
+                await command.ModifyOriginalResponseAsync(m => m.Content = "There is already a running raffle, close that one first!");
                 return;
             }
 
-            // Embed and button component construction
+            // Create and send the raffle message
             var message = new EmbedBuilder()
             {
-                Title = "Raffle!\n",
+                Title = "Raffle!",
                 Description = $"{command.Data.Options.First().Value}{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /enter_raffle <points> to enter!",
                 Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
                 Author = new EmbedAuthorBuilder()
@@ -87,7 +86,7 @@ namespace Services.DiscordRequestServices
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{_footerHandler.Generate(guild.GuildId)}",
+                    Text = _footerHandler.Generate(guild.GuildId),
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 Timestamp = DateTime.Now
@@ -102,7 +101,6 @@ namespace Services.DiscordRequestServices
                 .WithButton("Random!", ButtonId.RaffleRandom, ButtonStyle.Success)
                 .Build();
 
-            // Database creation of the raffle
             var raffle = new Raffle
             {
                 Description = $"{command.Data.Options.First().Value}",
@@ -112,12 +110,10 @@ namespace Services.DiscordRequestServices
             };
 
             _databaseContext.Add(raffle);
-            _databaseContext.SaveChanges();
 
-            // Send to target channel with components
+            await _databaseContext.SaveChangesAsync();
             await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: new[] { message.Build() }, components: buttonBuilder);
-
-            await command.ModifyOriginalResponseAsync(m => m.Content = "Created!");
+            await command.ModifyOriginalResponseAsync(m => m.Content = "Raffle created successfully!");
         }
 
         // Assuming this is within the same class handling  'CreateRaffleCommandExecuted'

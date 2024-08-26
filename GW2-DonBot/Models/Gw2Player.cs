@@ -2,11 +2,11 @@
 {
     public class Gw2Player
     {
-        public string AccountName { get; set; }
+        public string AccountName { get; set; } = string.Empty;
 
-        public string CharacterName { get; set; }
+        public string CharacterName { get; set; } = string.Empty;
 
-        public string Profession { get; set; }
+        public string Profession { get; set; } = string.Empty;
 
         public long SubGroup { get; set; }
 

@@ -3,7 +3,6 @@ using Extensions;
 using Models;
 using Models.Entities;
 using Models.Enums;
-using Models.Statics;
 using System.Globalization;
 
 namespace Handlers.MessageGenerationHandlers
@@ -46,8 +45,8 @@ namespace Handlers.MessageGenerationHandlers
             var duration = lastFight.FightStart.AddMilliseconds(lastFight.FightDurationInMs) - firstFight.FightStart;
             var durationString = $"{(int)duration.TotalHours} hrs {(int)duration.TotalMinutes % 60} mins {duration.Seconds} secs";
 
-            var wvwFightCount = fights.Count(s => s.FightType == (short)FightTypesEnum.WvW && s.FightType != (short)FightTypesEnum.unkn);
-            var pveFightCount = fights.Count(s => s.FightType != (short)FightTypesEnum.WvW && s.FightType != (short)FightTypesEnum.unkn);
+            var wvwFightCount = fights.Count(s => s.FightType == (short)FightTypesEnum.WvW && s.FightType != (short)FightTypesEnum.UNKN);
+            var pveFightCount = fights.Count(s => s.FightType != (short)FightTypesEnum.WvW && s.FightType != (short)FightTypesEnum.UNKN);
 
             if (wvwFightCount > pveFightCount)
             {

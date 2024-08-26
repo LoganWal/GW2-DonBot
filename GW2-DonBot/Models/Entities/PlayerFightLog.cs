@@ -9,7 +9,8 @@ namespace Models.Entities
 
         public long FightLogId { get; set; }
 
-        public string GuildWarsAccountName { get; set; }
+        [MaxLength(1000)]
+        public string GuildWarsAccountName { get; set; } = string.Empty;
 
         public long Damage { get; set; }
 

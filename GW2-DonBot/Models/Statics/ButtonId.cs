@@ -1,6 +1,6 @@
 ﻿namespace Models.Statics
 {
-    static class ButtonId
+    internal static class ButtonId
     {
         public const string Raffle1 = "Spend_1_Raffle";
         public const string Raffle50 = "Spend_50_Raffle";

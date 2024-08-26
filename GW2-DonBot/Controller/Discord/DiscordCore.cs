@@ -8,7 +8,6 @@ using Services.LogGenerationServices;
 using Services.Logging;
 using Services.PlayerServices;
 using Services.SecretsServices;
-using System.Linq;
 using System.Text.RegularExpressions;
 using ConnectionState = Discord.ConnectionState;
 
@@ -69,7 +68,11 @@ namespace Controller.Discord
 
             var config = new DiscordSocketConfig()
             {
-                GatewayIntents = GatewayIntents.All
+                GatewayIntents = GatewayIntents.Guilds |
+                                 GatewayIntents.GuildMessages |
+                                 GatewayIntents.DirectMessages |
+                                 GatewayIntents.MessageContent |
+                                 GatewayIntents.GuildWebhooks
             };
 
             _client = new DiscordSocketClient(config);
@@ -88,11 +91,11 @@ namespace Controller.Discord
             }
             Console.WriteLine("[DON] GW2-DonBot connected in");
 
-            var fightLogs = _databaseContext.FightLog.ToList();
+            var fightLogs = _databaseContext.FightLog.Select(s => s.Url).Distinct().ToList();
 
             foreach (var fightLog in fightLogs)
             {
-                _seenUrls.Add(fightLog.Url);
+                _seenUrls.Add(fightLog);
             }
 
             //await RegisterCommands(_client);
@@ -145,7 +148,7 @@ namespace Controller.Discord
             };
 
             var pollingRolesCancellationToken = new CancellationToken();
-            PollingRolesTask(TimeSpan.FromMinutes(30), pollingRolesCancellationToken);
+            _ = PollingRolesTask(TimeSpan.FromMinutes(30), pollingRolesCancellationToken);
 
             Console.WriteLine("[DON] GW2-DonBot setup - ready to cause chaos");
 
@@ -394,7 +397,7 @@ namespace Controller.Discord
 
         private Task MessageReceivedAsync(SocketMessage seenMessage)
         {
-            HandleMessage(seenMessage);
+            _ = HandleMessage(seenMessage);
             return Task.CompletedTask;
         }
 

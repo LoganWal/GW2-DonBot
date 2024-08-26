@@ -52,7 +52,7 @@ namespace Services.DiscordRequestServices
 
                 // Deserialize the account data
                 var stringData = await response.Content.ReadAsStringAsync();
-                var accountData = JsonConvert.DeserializeObject<GW2AccountDataModel>(stringData) ?? new GW2AccountDataModel();
+                var accountData = JsonConvert.DeserializeObject<Gw2AccountDataModel>(stringData) ?? new Gw2AccountDataModel();
 
                 // Check if the account already exists in the database
                 var isNewAccount = false;

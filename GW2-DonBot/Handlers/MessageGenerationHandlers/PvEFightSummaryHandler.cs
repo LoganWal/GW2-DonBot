@@ -393,19 +393,19 @@ namespace Handlers.MessageGenerationHandlers
                     encounterType = (short)FightTypesEnum.Arkk;
                     break;
                 case 197378:
-                    encounterType = (short)FightTypesEnum.Ai_Ele;
+                    encounterType = (short)FightTypesEnum.AiEle;
                     break;
                 case 197379:
-                    encounterType = (short)FightTypesEnum.Ai_Dark;
+                    encounterType = (short)FightTypesEnum.AiDark;
                     break;
                 case 197377:
-                    encounterType = (short)FightTypesEnum.Ai_Both;
+                    encounterType = (short)FightTypesEnum.AiBoth;
                     break;
                 case 197633:
                     encounterType = (short)FightTypesEnum.Kanaxai;
                     break;
                 default:
-                    encounterType = (short)FightTypesEnum.unkn;
+                    encounterType = (short)FightTypesEnum.UNKN;
                     break;
             }
 

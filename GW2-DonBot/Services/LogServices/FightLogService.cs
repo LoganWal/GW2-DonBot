@@ -16,12 +16,6 @@ namespace Services.Logging
 
         public async Task GetEnemyInformation(SocketMessageComponent command)
         {
-            if (command.Channel is not SocketTextChannel replyChannel)
-            {
-                Console.WriteLine($"Unable to find channel {command.Channel.Name}");
-                return;
-            }
-
             var url = command.Message.Embeds.FirstOrDefault()?.Url;
             if (url == null)
             {
@@ -41,7 +35,7 @@ namespace Services.Logging
 
             var enemyOverview = "```Class         Count  Avg Dmg   Strike   Condi\n";
 
-            foreach (var classTarget in targetsByClass.OrderByDescending(s => s.Average(d => d.Details?.DmgDistributions.Sum(dis => dis.TotalDamage))))
+            foreach (var classTarget in targetsByClass.OrderByDescending(s => s.Average(d => d.Details?.DmgDistributions?.Sum(dis => dis.TotalDamage))))
             {
                 var averageStrikeDamage = classTarget.Average(s => s.Details?.DmgDistributions?.Sum(d => d.Distribution?.Where(dis => dis[0].Bool == false).Sum(dis => dis[2].Double))) ?? 0;
                 var averageCondiDamage = classTarget.Average(s => s.Details?.DmgDistributions?.Sum(d => d.Distribution?.Where(dis => dis[0].Bool == true).Sum(dis => dis[2].Double))) ?? 0;
@@ -50,7 +44,7 @@ namespace Services.Logging
             }
             enemyOverview += "```";
 
-            await command.RespondAsync($"**Know My Enemy**{Environment.NewLine}{data?.Url}{Environment.NewLine}{enemyOverview}", ephemeral: true);
+            await command.RespondAsync($"**Know My Enemy**{Environment.NewLine}{data.Url}{Environment.NewLine}{enemyOverview}", ephemeral: true);
         }
     }
 }

@@ -2,7 +2,7 @@
 {
     public static class EliteInsightExtensions
     {
-        private static readonly Dictionary<string, string> _classShorthands = new()
+        private static readonly Dictionary<string, string> ClassShorthands = new()
         {
             { "Guardian", "Grd" },
             { "Dragonhunter", "Dh" },
@@ -52,12 +52,12 @@
 
         public static string GetClassShortName(string className)
         {
-            return _classShorthands.GetValueOrDefault(className, "???");
+            return ClassShorthands.GetValueOrDefault(className, "???");
         }
 
-        public static string GetClassAppend(string className)
+        public static string GetClassAppend(string? className)
         {
-            return string.IsNullOrEmpty(className) ? string.Empty : $" ({_classShorthands.GetValueOrDefault(className, "???")})";
+            return string.IsNullOrEmpty(className) ? string.Empty : $" ({ClassShorthands.GetValueOrDefault(className, "???")})";
         }
     }
 }

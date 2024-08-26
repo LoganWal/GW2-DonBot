@@ -15,5 +15,5 @@ PRIMARY KEY CLUSTERED
 GO
 ALTER TABLE [dbo].[FightLog] ADD  DEFAULT ((0)) FOR [FightPercent]
 GO
-ALTER TABLE [dbo].[FightLog]  WITH CHECK ADD FOREIGN KEY([GuildId])
+ALTER TABLE [dbo].[FightLog] ADD FOREIGN KEY([GuildId])
 REFERENCES [dbo].[Guild] ([GuildId])

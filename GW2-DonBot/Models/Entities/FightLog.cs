@@ -9,7 +9,8 @@ namespace Models.Entities
 
         public long GuildId { get; set; }
 
-        public string Url { get; set; }
+        [MaxLength(2000)]
+        public string Url { get; set; } = string.Empty;
 
         public short FightType { get; set; }
 

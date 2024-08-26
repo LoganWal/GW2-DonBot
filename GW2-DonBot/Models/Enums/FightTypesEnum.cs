@@ -42,10 +42,10 @@
         Skorvald = 37,
         Artsariiv = 38,
         Arkk = 39,
-        Ai_Ele = 40,
-        Ai_Dark = 41,
-        Ai_Both = 42,
+        AiEle = 40,
+        AiDark = 41,
+        AiBoth = 42,
         Kanaxai = 43,
-        unkn = short.MaxValue
+        UNKN = short.MaxValue
     }
 }

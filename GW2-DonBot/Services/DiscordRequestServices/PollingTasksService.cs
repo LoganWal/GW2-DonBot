@@ -27,7 +27,7 @@ namespace Services.DiscordRequestServices
 
             accounts = accounts.Where(s => guildWarsAccounts.Select(gw => gw.DiscordId).Contains(s.DiscordId)).ToList();
 
-            var guildWars2Data = new Dictionary<long, List<GW2AccountDataModel>>();
+            var guildWars2Data = new Dictionary<long, List<Gw2AccountDataModel>>();
 
             foreach (var account in accounts)
             {
@@ -56,14 +56,14 @@ namespace Services.DiscordRequestServices
             }
         }
 
-        private async Task<List<GW2AccountDataModel>> FetchAccountData(List<GuildWarsAccount> guildWarsAccounts)
+        private async Task<List<Gw2AccountDataModel>> FetchAccountData(List<GuildWarsAccount> guildWarsAccounts)
         {
             var httpClient = new HttpClient
             {
                 Timeout = TimeSpan.FromSeconds(20)
             };
 
-            var guildWarsAccountData = new List<GW2AccountDataModel>();
+            var guildWarsAccountData = new List<Gw2AccountDataModel>();
 
             foreach (var guildWarsAccount in guildWarsAccounts)
             {
@@ -75,7 +75,7 @@ namespace Services.DiscordRequestServices
                     if (response.IsSuccessStatusCode)
                     {
                         var stringData = await response.Content.ReadAsStringAsync();
-                        var accountData = JsonConvert.DeserializeObject<GW2AccountDataModel>(stringData) ?? new GW2AccountDataModel();
+                        var accountData = JsonConvert.DeserializeObject<Gw2AccountDataModel>(stringData) ?? new Gw2AccountDataModel();
 
                         guildWarsAccount.FailedApiPullCount = 0;
                         guildWarsAccount.World = Convert.ToInt32(accountData.World);
@@ -99,20 +99,21 @@ namespace Services.DiscordRequestServices
             return guildWarsAccountData;
         }
 
-        private async Task RemoveRolesFromNonServerAccounts(SocketGuild guild, List<Account> accounts)
+        private Task RemoveRolesFromNonServerAccounts(SocketGuild guild, List<Account> accounts)
         {
             var guildUserIds = guild.Users.Select(s => (long)s.Id);
             var nonServerAccounts = accounts.Where(s => !guildUserIds.Contains(s.DiscordId)).ToList();
 
             foreach (var nonServerAccount in nonServerAccounts)
             {
-                //nonServerAccount.Gw2ApiKey = null;
                 _databaseContext.Update(nonServerAccount);
                 _databaseContext.SaveChanges();
             }
+
+            return Task.CompletedTask;
         }
 
-        private async Task HandleGuildUsers(SocketGuild guild, Guild guildConfiguration, Dictionary<long, List<GW2AccountDataModel>> guildWars2Data)
+        private async Task HandleGuildUsers(SocketGuild guild, Guild guildConfiguration, Dictionary<long, List<Gw2AccountDataModel>> guildWars2Data)
         {
             var primaryRoleId = guildConfiguration.DiscordGuildMemberRoleId;
             var secondaryRoleId = guildConfiguration.DiscordSecondaryMemberRoleId;
@@ -217,7 +218,7 @@ namespace Services.DiscordRequestServices
             }
         }
 
-        private async Task HandleUserRoles(SocketGuildUser user, List<GW2AccountDataModel> accountData, long primaryRoleId, long secondaryRoleId, long verifiedRoleId, string? guildId, List<string> secondaryGuildIds)
+        private async Task HandleUserRoles(SocketGuildUser user, List<Gw2AccountDataModel> accountData, long primaryRoleId, long secondaryRoleId, long verifiedRoleId, string? guildId, List<string> secondaryGuildIds)
         {
             var inPrimary = accountData.SelectMany(s => s.Guilds).Contains(guildId);
             var inSecondary = secondaryGuildIds.Any(guild => accountData.SelectMany(s => s.Guilds).Contains(guild));

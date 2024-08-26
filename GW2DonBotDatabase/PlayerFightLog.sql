@@ -92,6 +92,6 @@ ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [Cleave]
 GO
 ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [StabGenOffGroup]
 GO
-ALTER TABLE [dbo].[PlayerFightLog]  WITH CHECK ADD FOREIGN KEY([FightLogId])
+ALTER TABLE [dbo].[PlayerFightLog] ADD FOREIGN KEY([FightLogId])
 REFERENCES [dbo].[FightLog] ([FightLogId])
 GO

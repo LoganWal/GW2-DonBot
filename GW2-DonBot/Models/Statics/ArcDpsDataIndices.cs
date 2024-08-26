@@ -1,6 +1,6 @@
 ﻿namespace Models.Statics
 {
-    static class ArcDpsDataIndices
+    internal static class ArcDpsDataIndices
     {
         public const int EnemiesDownedIndex = 12;
         public const int DeathIndex = 14;

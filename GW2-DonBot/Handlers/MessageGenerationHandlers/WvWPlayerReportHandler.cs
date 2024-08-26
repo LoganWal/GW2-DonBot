@@ -68,7 +68,7 @@ namespace Handlers.MessageGenerationHandlers
                 foreach (var gw2Account in playerBatch)
                 {
                     var name = gw2Account.Item1.GuildWarsAccountName ?? gw2Account.Item1.DiscordId.ToString();
-                    var server = ((GW2WorldEnum)gw2Account.Item1.World).ToString();
+                    var server = ((Gw2WorldEnum)gw2Account.Item1.World).ToString();
 
                     var lastLogDateTime = "Never";
 

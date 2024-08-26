@@ -1,6 +1,6 @@
 ﻿namespace Models.GW2Api
 {
-    public enum GW2WorldEnum
+    public enum Gw2WorldEnum
     {
         Unknown = 0,
         AR = 1001,

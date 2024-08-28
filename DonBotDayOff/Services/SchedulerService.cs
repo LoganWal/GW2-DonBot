@@ -19,7 +19,7 @@ namespace DonBotDayOff.Services
         private void ScheduleWordleStartingWord()
         {
             var now = DateTime.Now;
-            var targetTime = new DateTime(now.Year, now.Month, now.Day, 04, 01, 0);
+            var targetTime = new DateTime(now.Year, now.Month, now.Day, 14, 01, 00);
 
             if (now > targetTime)
             {
@@ -49,11 +49,12 @@ namespace DonBotDayOff.Services
                 await client.LoginAsync(TokenType.Bot, FetchDonBotToken());
                 await client.StartAsync();
 
-                Console.WriteLine("[DON] GW2-DonBot attempting to connect...");
+                logger.LogInformation("Attempting to connect via discord client");
                 while (client.ConnectionState != ConnectionState.Connected)
                 {
                     await Task.Delay(100);
                 }
+                logger.LogInformation("Discord client connected");
 
                 // Fetch the guild first
                 // TODO update this to be config based per guild
@@ -65,6 +66,7 @@ namespace DonBotDayOff.Services
                 if (guild != null)
                 {
                     logger.LogInformation($"Found guild with ID {guildId}");
+                    await Task.Delay(2000);
 
                     // Fetch the channel from the guild
                     var channel = guild.GetTextChannel(channelId);

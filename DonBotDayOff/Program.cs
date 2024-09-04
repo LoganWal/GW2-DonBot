@@ -30,6 +30,7 @@ var host = Host.CreateDefaultBuilder(args)
         // Register services
         services.AddSingleton<IWordleService, WordleService>();
         services.AddSingleton<IWordGeneratorService, WordGeneratorService>();
+        services.AddSingleton<DictionaryService>();
 
         // Register SchedulerService with the required dependencies
         services.AddHostedService<SchedulerService>(provider =>
@@ -38,8 +39,9 @@ var host = Host.CreateDefaultBuilder(args)
             var wordGeneratorService = provider.GetRequiredService<IWordGeneratorService>();
             var logger = provider.GetRequiredService<ILogger<SchedulerService>>();
             var client = provider.GetRequiredService<DiscordSocketClient>();
+            var dictionaryService = provider.GetRequiredService<DictionaryService>();
 
-            return new SchedulerService(wordleService, wordGeneratorService, logger, client);
+            return new SchedulerService(wordleService, wordGeneratorService, logger, client, dictionaryService);
         });
     })
     .Build();

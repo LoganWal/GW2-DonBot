@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 
 namespace DonBotDayOff.Services
 {
-    public class SchedulerService(IWordleService wordleService, IWordGeneratorService wordGeneratorService, ILogger<SchedulerService> logger, DiscordSocketClient client) : BackgroundService
+    public class SchedulerService(IWordleService wordleService, IWordGeneratorService wordGeneratorService, ILogger<SchedulerService> logger, DiscordSocketClient client, DictionaryService dictionaryService) : BackgroundService
     {
         // Discord channel ID to send the message to
         private Timer? _timer;
@@ -45,14 +45,22 @@ namespace DonBotDayOff.Services
                 var startingWord = wordGeneratorService.GenerateStartingWord(wordleWord);
                 logger.LogInformation($"Generated Starting Word: {startingWord}");
 
+                var startingWordDefinition = await dictionaryService.GetDefinitionsAsync(startingWord);
+
                 // Initialize and connect Discord client
+                logger.LogInformation("Attempting to log in to Discord");
                 await client.LoginAsync(TokenType.Bot, FetchDonBotToken());
+                logger.LogInformation("Login to Discord successful");
+
+                logger.LogInformation("Attempting to start Discord client");
                 await client.StartAsync();
+                logger.LogInformation("Discord client started successfully");
 
                 logger.LogInformation("Attempting to connect via discord client");
                 while (client.ConnectionState != ConnectionState.Connected)
                 {
-                    await Task.Delay(100);
+                    logger.LogInformation("Not connected, trying again after 1s");
+                    await Task.Delay(1000);
                 }
                 logger.LogInformation("Discord client connected");
 
@@ -75,7 +83,7 @@ namespace DonBotDayOff.Services
                         logger.LogInformation($"Found channel with ID {channelId}");
 
                         var roleMention = $"<@&{roleId}>";
-                        var message = $"{roleMention} Today's Wordle starting word: {startingWord}";
+                        var message = $"{roleMention} Today's Wordle starting word: {startingWord}{Environment.NewLine}{startingWordDefinition}{Environment.NewLine}https://www.nytimes.com/games/wordle/index.html";
                         await channel.SendMessageAsync(message);
                     }
                     else
@@ -87,9 +95,6 @@ namespace DonBotDayOff.Services
                 {
                     logger.LogWarning($"Guild with ID {guildId} not found.");
                 }
-
-                await client.StopAsync();
-                await client.DisposeAsync();
             }
 
             // Reschedule the task for the next day

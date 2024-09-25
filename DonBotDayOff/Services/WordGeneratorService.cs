@@ -21,7 +21,7 @@ public class WordGeneratorService : IWordGeneratorService
 
     public string GenerateStartingWord(string wordleWord)
     {
-        if (string.IsNullOrEmpty(wordleWord) || !_wordList.Contains(wordleWord))
+        if (string.IsNullOrEmpty(wordleWord))
         {
             throw new ArgumentException("Invalid Wordle word.");
         }

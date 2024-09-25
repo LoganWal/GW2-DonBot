@@ -22,7 +22,7 @@ namespace Handlers.MessageGenerationHandlers
             var accounts = await _databaseContext.Account.OrderByDescending(o => o.Points).ToListAsync();
             var gw2Accounts = await _databaseContext.GuildWarsAccount.ToListAsync();
 
-            accounts = accounts.Where(s => gw2Accounts.Any(acc => acc.DiscordId == s.DiscordId)).ToList();
+            accounts = accounts.Where(s => gw2Accounts.Any(acc => acc.DiscordId == s.DiscordId)).Take(50).ToList();
 
             var position = 1;
 

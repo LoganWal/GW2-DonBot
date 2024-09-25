@@ -65,15 +65,15 @@ namespace Services.Logging
                 var barrierStats = barrierPhase.OutgoingBarrierStats?.Count >= playerIndex + 1 ? barrierPhase.OutgoingBarrierStats[playerIndex] : null;
                 var gameplayStats = fightPhase.GameplayStats?.Count >= playerIndex + 1 ? fightPhase.GameplayStats[playerIndex] : null;
                 var defStats = fightPhase.DefStats?.Count >= playerIndex + 1 ? fightPhase.DefStats[playerIndex] : null;
-                var offensiveStats = fightPhase.OffensiveStats?.Count >= playerIndex + 1 ? fightPhase.OffensiveStats[playerIndex] : null;
+                var offensiveStatsTargets = fightPhase.OffensiveStatsTargets?.Count >= playerIndex + 1 ? fightPhase.OffensiveStatsTargets[playerIndex] : null;
 
                 var boons = fightPhase.BuffsStatContainer.BoonActiveStats?.Count >= playerIndex + 1 ? fightPhase.BuffsStatContainer.BoonActiveStats[playerIndex].Data : null;
                 var mechanics = fightPhase.MechanicStats?.Count >= playerIndex + 1 ? fightPhase.MechanicStats[playerIndex] : null;
 
-                existingPlayer.Kills = offensiveStats?[ArcDpsDataIndices.EnemyDeathIndex] ?? 0;
+                existingPlayer.Kills = offensiveStatsTargets?.Sum(s => s[ArcDpsDataIndices.EnemyDeathIndex]) ?? 0;
                 existingPlayer.Deaths = Convert.ToInt64(defStats?[ArcDpsDataIndices.DeathIndex].Double ?? 0L);
                 existingPlayer.TimesDowned = defStats?[ArcDpsDataIndices.EnemiesDownedIndex].Double ?? 0;
-                existingPlayer.Downs = Convert.ToInt64(offensiveStats?[ArcDpsDataIndices.DownIndex] ?? 0L);
+                existingPlayer.Downs = offensiveStatsTargets?.Sum(s => s[ArcDpsDataIndices.DownIndex]) ?? 0;
                 existingPlayer.Damage = fightPhaseStats?.Sum(s => s.FirstOrDefault()) ?? 0;
                 existingPlayer.Cleave = fightAllDps?.FirstOrDefault() - existingPlayer.Damage ?? 0;
                 existingPlayer.Cleanses = supportStats?.FirstOrDefault() ?? 0;
@@ -84,13 +84,13 @@ namespace Services.Logging
                 existingPlayer.Healing = healingStatsTargets?.Sum(s => s.FirstOrDefault()) ?? 0;
                 existingPlayer.BarrierGenerated = barrierStats?.FirstOrDefault() ?? 0;
                 existingPlayer.DistanceFromTag = gameplayStats?[ArcDpsDataIndices.DistanceFromTagIndex] ?? 0;
-                existingPlayer.Interrupts = offensiveStats?[ArcDpsDataIndices.InterruptsIndex] ?? 0;
+                existingPlayer.Interrupts = offensiveStatsTargets?.Sum(s => s[ArcDpsDataIndices.InterruptsIndex]) ?? 0;
                 existingPlayer.TimesInterrupted = Convert.ToInt64(defStats?[ArcDpsDataIndices.TimesInterruptedIndex].Double ?? 0L);
-                existingPlayer.DamageDownContribution = offensiveStats?[ArcDpsDataIndices.DamageDownContribution] ?? 0;
-                existingPlayer.NumberOfHitsWhileBlinded = offensiveStats?[ArcDpsDataIndices.NumberOfHitsWhileBlindedIndex] ?? 0;
+                existingPlayer.DamageDownContribution = offensiveStatsTargets?.Sum(s => s[ArcDpsDataIndices.DamageDownContribution]) ?? 0;
+                existingPlayer.NumberOfHitsWhileBlinded = offensiveStatsTargets?.Sum(s => s[ArcDpsDataIndices.NumberOfHitsWhileBlindedIndex]) ?? 0;
                 existingPlayer.NumberOfMissesAgainst = defStats?[ArcDpsDataIndices.NumberOfMissesAgainstIndex].Double ?? 0;
                 existingPlayer.NumberOfTimesBlockedAttack = defStats?[ArcDpsDataIndices.NumberOfTimesBlockedAttackIndex].Double ?? 0;
-                existingPlayer.NumberOfTimesEnemyBlockedAttack = offensiveStats?[ArcDpsDataIndices.NumberOfTimesEnemyBlockedAttackIndex] ?? 0;
+                existingPlayer.NumberOfTimesEnemyBlockedAttack = offensiveStatsTargets?.Sum(s => s[ArcDpsDataIndices.NumberOfTimesEnemyBlockedAttackIndex]) ?? 0;
                 existingPlayer.NumberOfBoonsRipped = defStats?[ArcDpsDataIndices.NumberOfBoonsRippedIndex].Double ?? 0;
                 existingPlayer.DamageTaken = defStats?[ArcDpsDataIndices.DamageTakenIndex].Double ?? 0;
                 existingPlayer.BarrierMitigation = defStats?[ArcDpsDataIndices.BarrierMitigationIndex].Double ?? 0;

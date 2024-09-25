@@ -9,7 +9,15 @@ public class DictionaryService(HttpClient httpClient)
     public async Task<string> GetDefinitionsAsync(string word)
     {
         var url = $"https://api.dictionaryapi.dev/api/v2/entries/en/{word}";
-        var response = await httpClient.GetStringAsync(url);
+        string response;
+        try
+        {
+            response = await httpClient.GetStringAsync(url);
+        }
+        catch (Exception)
+        {
+            response = string.Empty;
+        }
 
         var dictionaryResponse = JsonConvert.DeserializeObject<DictionaryApiResponse[]>(response);
 

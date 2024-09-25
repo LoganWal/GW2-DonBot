@@ -7,7 +7,6 @@ namespace DonBotDayOff.Services
 {
     public class SchedulerService(IWordleService wordleService, IWordGeneratorService wordGeneratorService, ILogger<SchedulerService> logger, DiscordSocketClient client, DictionaryService dictionaryService) : BackgroundService
     {
-        // Discord channel ID to send the message to
         private Timer? _timer;
 
         protected override Task ExecuteAsync(CancellationToken stoppingToken)
@@ -48,13 +47,15 @@ namespace DonBotDayOff.Services
                 var startingWordDefinition = await dictionaryService.GetDefinitionsAsync(startingWord);
 
                 // Initialize and connect Discord client
-                logger.LogInformation("Attempting to log in to Discord");
-                await client.LoginAsync(TokenType.Bot, FetchDonBotToken());
-                logger.LogInformation("Login to Discord successful");
+                if (client.ConnectionState != ConnectionState.Connected)
+                {
+                    logger.LogInformation("Attempting to log in to Discord");
+                    await client.LoginAsync(TokenType.Bot, FetchDonBotToken());
+                    logger.LogInformation("Login to Discord successful");
 
-                logger.LogInformation("Attempting to start Discord client");
-                await client.StartAsync();
-                logger.LogInformation("Discord client started successfully");
+                    logger.LogInformation("Attempting to start Discord client");
+                    await client.StartAsync();
+                }
 
                 logger.LogInformation("Attempting to connect via discord client");
                 while (client.ConnectionState != ConnectionState.Connected)

@@ -50,26 +50,6 @@ namespace Handlers.MessageGenerationHandlers
             var healingPhase = data.HealingStatsExtension?.HealingPhases?.FirstOrDefault() ?? new HealingPhase();
             var barrierPhase = data.BarrierStatsExtension?.BarrierPhases?.FirstOrDefault() ?? new BarrierPhase();
 
-            var friendlyDowns = fightPhase.DefStats?
-                .Sum(playerDefStats => playerDefStats.Count >= ArcDpsDataIndices.EnemiesDownedIndex
-                    ? playerDefStats[ArcDpsDataIndices.EnemiesDownedIndex].Double
-                    : 0) ?? 0;
-
-            var friendlyDeaths = fightPhase.DefStats?
-                .Sum(playerDefStats => playerDefStats.Count >= ArcDpsDataIndices.DeathIndex
-                    ? playerDefStats[ArcDpsDataIndices.DeathIndex].Double
-                    : 0) ?? 0;
-
-            var enemyDowns = fightPhase.OffensiveStatsTargets?
-                .Sum(playerOffStats => playerOffStats.Sum(playerOffTargetStats => playerOffTargetStats?.Count >= ArcDpsDataIndices.DownIndex
-                    ? playerOffTargetStats?[ArcDpsDataIndices.DownIndex]
-                    : 0)) ?? 0;
-
-            var enemyDeaths = fightPhase.OffensiveStatsTargets?
-                .Sum(playerOffStats => playerOffStats.Sum(playerOffTargetStats => playerOffTargetStats?.Count >= ArcDpsDataIndices.EnemyDeathIndex
-                    ? playerOffTargetStats?[ArcDpsDataIndices.EnemyDeathIndex]
-                    : 0)) ?? 0;
-
             var gw2Players = _playerService.GetGw2Players(data, fightPhase, healingPhase, barrierPhase);
 
             var friendlyDamage = gw2Players.Sum(s => s.Damage);
@@ -78,14 +58,14 @@ namespace Handlers.MessageGenerationHandlers
             var friendlyCountStr = friendlyCount.ToString().PadCenter(7);
             var friendlyDamageStr = friendlyDamage.FormatNumber().PadCenter(7);
             var friendlyDpsStr = friendlyDps.FormatNumber().PadCenter(7);
-            var friendlyDownsStr = friendlyDowns.ToString().PadCenter(7);
-            var friendlyDeathsStr = friendlyDeaths.ToString().PadCenter(7);
+            var friendlyDownsStr = gw2Players.Sum(s => s.TimesDowned).ToString(CultureInfo.CurrentCulture).PadCenter(7);
+            var friendlyDeathsStr = gw2Players.Sum(s => s.Deaths).ToString().PadCenter(7);
 
             var enemyCountStr = enemyCount.ToString().PadCenter(7);
             var enemyDamageStr = enemyDamage.FormatNumber().PadCenter(7);
             var enemyDpsStr = enemyDps.FormatNumber().PadCenter(7);
-            var enemyDownsStr = enemyDowns.ToString().PadCenter(7);
-            var enemyDeathsStr = enemyDeaths.ToString().PadCenter(7);
+            var enemyDownsStr = gw2Players.Sum(s => s.Downs).ToString().PadCenter(7);
+            var enemyDeathsStr = gw2Players.Sum(s => s.Kills).ToString().PadCenter(7);
 
             if (!advancedLog && guild.StreamLogChannelId.HasValue)
             {

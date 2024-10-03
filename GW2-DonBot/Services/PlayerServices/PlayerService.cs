@@ -6,7 +6,6 @@ using Models.Enums;
 using Models.Statics;
 using Newtonsoft.Json.Linq;
 using Services.PlayerServices;
-using System.Security.Cryptography;
 
 namespace Services.Logging
 {
@@ -74,7 +73,7 @@ namespace Services.Logging
                 existingPlayer.Deaths = Convert.ToInt64(defStats?[ArcDpsDataIndices.DeathIndex].Double ?? 0L);
                 existingPlayer.TimesDowned = defStats?[ArcDpsDataIndices.EnemiesDownedIndex].Double ?? 0;
                 existingPlayer.Downs = offensiveStatsTargets?.Sum(s => s[ArcDpsDataIndices.DownIndex]) ?? 0;
-                existingPlayer.Damage = fightPhaseStats?.Sum(s => s.FirstOrDefault()) ?? 0;
+                existingPlayer.Damage = fightPhaseStats?.FirstOrDefault()?.FirstOrDefault() ?? 0;
                 existingPlayer.Cleave = fightAllDps?.FirstOrDefault() - existingPlayer.Damage ?? 0;
                 existingPlayer.Cleanses = supportStats?.FirstOrDefault() ?? 0;
                 existingPlayer.Cleanses += supportStats?.Count >= ArcDpsDataIndices.PlayerCleansesIndex + 1 ? supportStats[ArcDpsDataIndices.PlayerCleansesIndex] : 0;

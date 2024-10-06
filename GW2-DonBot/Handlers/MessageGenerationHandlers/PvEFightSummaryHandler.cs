@@ -271,87 +271,113 @@ namespace Handlers.MessageGenerationHandlers
             var dateTimeStart = DateTime.ParseExact(dateStartString, "yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
 
             var duration = fightPhase.Duration;
+            var sumAllTargets = true;
 
             short encounterType;
             switch (data.EncounterId)
             {
                 case 131329:
                     encounterType = (short)FightTypesEnum.Vale;
+                    sumAllTargets = false;
                     break;
                 case 131330:
                     encounterType = (short)FightTypesEnum.Gorseval;
+                    sumAllTargets = false;
                     break;
                 case 131331:
                     encounterType = (short)FightTypesEnum.Sabetha;
+                    sumAllTargets = false;
                     break;
                 case 131585:
                     encounterType = (short)FightTypesEnum.Sloth;
+                    sumAllTargets = false;
                     break;
                 case 131586:
                     encounterType = (short)FightTypesEnum.Trio;
+                    sumAllTargets = false;
                     break;
                 case 131587:
                     encounterType = (short)FightTypesEnum.Matthias;
+                    sumAllTargets = false;
                     break;
                 case 131841:
                     encounterType = (short)FightTypesEnum.Escort;
+                    sumAllTargets = false;
                     break;
                 case 131842:
                     encounterType = (short)FightTypesEnum.KC;
+                    sumAllTargets = false;
                     break;
                 case 131843:
                     encounterType = (short)FightTypesEnum.TC;
+                    sumAllTargets = false;
                     break;
                 case 131844:
                     encounterType = (short)FightTypesEnum.Xera;
+                    sumAllTargets = false;
                     break;
                 case 132097:
                     encounterType = (short)FightTypesEnum.Cairn;
+                    sumAllTargets = false;
                     break;
                 case 132098:
                     encounterType = (short)FightTypesEnum.MO;
+                    sumAllTargets = false;
                     break;
                 case 132099:
                     encounterType = (short)FightTypesEnum.Samarog;
+                    sumAllTargets = false;
                     break;
                 case 132100:
                     encounterType = (short)FightTypesEnum.Deimos;
+                    sumAllTargets = false;
                     break;
                 case 132353:
                     encounterType = (short)FightTypesEnum.SH;
+                    sumAllTargets = false;
                     break;
                 case 132354:
                     encounterType = (short)FightTypesEnum.River;
+                    sumAllTargets = false;
                     break;
                 case 132355:
                     encounterType = (short)FightTypesEnum.BK;
+                    sumAllTargets = false;
                     break;
                 case 132356:
                     encounterType = (short)FightTypesEnum.EoS;
+                    sumAllTargets = false;
                     break;
                 case 132357:
                     encounterType = (short)FightTypesEnum.SoD;
+                    sumAllTargets = false;
                     break;
                 case 132358:
                     encounterType = (short)FightTypesEnum.Dhuum;
+                    sumAllTargets = false;
                     break;
                 case 132609:
                     encounterType = (short)FightTypesEnum.CA;
+                    sumAllTargets = false;
                     break;
                 case 132610:
                     encounterType = (short)FightTypesEnum.Largos;
                     break;
                 case 132611:
                     encounterType = (short)FightTypesEnum.Qadim;
+                    sumAllTargets = false;
                     break;
                 case 132865:
                     encounterType = (short)FightTypesEnum.Adina;
+                    sumAllTargets = false;
                     break;
                 case 132866:
                     encounterType = (short)FightTypesEnum.Sabir;
+                    sumAllTargets = false;
                     break;
                 case 132867:
                     encounterType = (short)FightTypesEnum.Peerless;
+                    sumAllTargets = false;
                     break;
                 case 262913:
                     encounterType = (short)FightTypesEnum.AH;
@@ -409,7 +435,7 @@ namespace Handlers.MessageGenerationHandlers
                     break;
             }
 
-            var gw2Players = _playerService.GetGw2Players(data, fightPhase, healingPhase, barrierPhase, encounterType);
+            var gw2Players = _playerService.GetGw2Players(data, fightPhase, healingPhase, barrierPhase, encounterType, sumAllTargets);
             var mainTarget = data.Targets?.FirstOrDefault() ?? new ArcDpsTarget
             {
                 HpLeft = 1,

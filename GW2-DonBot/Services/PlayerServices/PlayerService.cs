@@ -18,7 +18,7 @@ namespace Services.Logging
             _databaseContext = databaseContext;
         }
 
-        public List<Gw2Player> GetGw2Players(EliteInsightDataModel data, ArcDpsPhase fightPhase, HealingPhase healingPhase, BarrierPhase barrierPhase, short? encounterType = null)
+        public List<Gw2Player> GetGw2Players(EliteInsightDataModel data, ArcDpsPhase fightPhase, HealingPhase healingPhase, BarrierPhase barrierPhase, short? encounterType = null, bool someAllFights = true)
         {
             if (data.Players == null)
             {
@@ -73,7 +73,7 @@ namespace Services.Logging
                 existingPlayer.Deaths = Convert.ToInt64(defStats?[ArcDpsDataIndices.DeathIndex].Double ?? 0L);
                 existingPlayer.TimesDowned = defStats?[ArcDpsDataIndices.EnemiesDownedIndex].Double ?? 0;
                 existingPlayer.Downs = offensiveStatsTargets?.Sum(s => s[ArcDpsDataIndices.DownIndex]) ?? 0;
-                existingPlayer.Damage = fightPhaseStats?.FirstOrDefault()?.FirstOrDefault() ?? 0;
+                existingPlayer.Damage = (someAllFights ? fightPhaseStats?.Sum(s => s.FirstOrDefault()) : fightPhaseStats?.FirstOrDefault()?.FirstOrDefault()) ?? 0;
                 existingPlayer.Cleave = fightAllDps?.FirstOrDefault() - existingPlayer.Damage ?? 0;
                 existingPlayer.Cleanses = supportStats?.FirstOrDefault() ?? 0;
                 existingPlayer.Cleanses += supportStats?.Count >= ArcDpsDataIndices.PlayerCleansesIndex + 1 ? supportStats[ArcDpsDataIndices.PlayerCleansesIndex] : 0;

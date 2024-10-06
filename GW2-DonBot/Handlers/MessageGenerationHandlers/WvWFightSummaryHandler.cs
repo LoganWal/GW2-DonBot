@@ -33,6 +33,7 @@ namespace Handlers.MessageGenerationHandlers
             var logLength = data.EncounterDuration?.TimeToSeconds() ?? 0;
 
             var friendlyCount = data.Players?.Count ?? 0;
+            var squadMemberCount = data.Players?.Count(s => !s.NotInSquad) ?? 0;
 
             // remove one from target dummy
             var enemyCount = (data.Targets?.Count - 1) ?? 0;
@@ -55,7 +56,7 @@ namespace Handlers.MessageGenerationHandlers
             var friendlyDamage = gw2Players.Sum(s => s.Damage);
             var friendlyDps = friendlyDamage / logLength;
 
-            var friendlyCountStr = friendlyCount.ToString().PadCenter(7);
+            var friendlyCountStr = $"{friendlyCount}({squadMemberCount})".PadCenter(7);
             var friendlyDamageStr = friendlyDamage.FormatNumber().PadCenter(7);
             var friendlyDpsStr = friendlyDps.FormatNumber().PadCenter(7);
             var friendlyDownsStr = gw2Players.Sum(s => s.TimesDowned).ToString(CultureInfo.CurrentCulture).PadCenter(7);

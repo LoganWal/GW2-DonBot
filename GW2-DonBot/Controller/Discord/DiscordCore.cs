@@ -97,12 +97,13 @@ namespace Controller.Discord
 
             // Start polling roles task
             _pollingRolesCancellationTokenSource = new CancellationTokenSource();
-            var pollingRolesTask = PollingRolesTask(TimeSpan.FromMinutes(30), _pollingRolesCancellationTokenSource.Token);
+            var pollingRolesTask = Task.Run(() => PollingRolesTask(TimeSpan.FromMinutes(30), _pollingRolesCancellationTokenSource.Token));
 
             _logger.LogInformation("GW2-DonBot setup - ready to cause chaos");
 
             // Block this task until the program is closed.
-            await Task.Delay(-1, _pollingRolesCancellationTokenSource.Token);
+            var discordCoreCancellationToken = new CancellationToken();
+            await Task.Delay(-1, discordCoreCancellationToken);
 
             // Safely close...
             UnregisterEventHandlers();

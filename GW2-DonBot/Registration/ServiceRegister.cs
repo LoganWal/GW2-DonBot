@@ -1,6 +1,7 @@
-﻿using Autofac;
-using Controller.Discord;
+﻿using Controller.Discord;
 using Handlers.MessageGenerationHandlers;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Models.Entities;
 using Services.CacheServices;
 using Services.DiscordApiServices;
@@ -14,47 +15,43 @@ namespace Registration
 {
     public static class ServiceRegister
     {
-        public static IDiscordCore LoadMain()
+        public static void ConfigureServices(IServiceCollection services)
         {
-            return RegisterServices().Resolve<IDiscordCore>();
-        }
+            // Handlers
+            services.AddTransient<FooterHandler>();
+            services.AddTransient<PvEFightSummaryHandler>();
+            services.AddTransient<WvWFightSummaryHandler>();
+            services.AddTransient<WvWPlayerReportHandler>();
+            services.AddTransient<WvWPlayerSummaryHandler>();
+            services.AddTransient<RaidReportHandler>();
 
-        private static IContainer RegisterServices()
-        {
-            var builder = new ContainerBuilder();
+            // Services
+            services.AddSingleton<ICacheService, CacheService>();
+            services.AddTransient<ISecretService, SecretServices>();
+            services.AddTransient<IDataModelGenerationService, DataModelGenerationService>();
+            services.AddTransient<IMessageGenerationService, MessageGenerationService>();
+            services.AddTransient<IDiscordCore, DiscordCore>();
+            services.AddTransient<ILoggingService, LoggingService>();
+            services.AddTransient<IPlayerService, PlayerService>();
+            services.AddTransient<IRaidService, RaidService>();
 
-            // handlers
-            builder.RegisterType<FooterHandler>();
-            builder.RegisterType<PvEFightSummaryHandler>();
-            builder.RegisterType<WvWFightSummaryHandler>();
-            builder.RegisterType<WvWPlayerReportHandler>();
-            builder.RegisterType<WvWPlayerSummaryHandler>();
-            builder.RegisterType<RaidReportHandler>();
+            services.AddTransient<IGenericCommandsService, GenericCommandsService>();
+            services.AddTransient<IVerifyCommandsService, VerifyCommandsService>();
+            services.AddTransient<IPointsCommandsService, PointsCommandsService>();
+            services.AddTransient<IRaffleCommandsService, RaffleCommandsService>();
+            services.AddTransient<IDiscordCommandService, DiscordCommandService>();
+            services.AddTransient<IFightLogService, FightLogService>();
 
-            // services
-            builder.RegisterType<CacheService>().As<ICacheService>().SingleInstance();
-            builder.RegisterType<SecretServices>().As<ISecretService>();
-            builder.RegisterType<DataModelGenerationService>().As<IDataModelGenerationService>();
-            builder.RegisterType<MessageGenerationService>().As<IMessageGenerationService>();
-            builder.RegisterType<DiscordCore>().As<IDiscordCore>();
-            builder.RegisterType<LoggingService>().As<ILoggingService>();
-            builder.RegisterType<PlayerService>().As<IPlayerService>();
-            builder.RegisterType<RaidService>().As<IRaidService>();
+            services.AddTransient<IPollingTasksService, PollingTasksService>();
+            services.AddTransient<IDiscordApiService, DiscordApiService>();
 
-            builder.RegisterType<GenericCommandsService>().As<IGenericCommandsService>();
-            builder.RegisterType<VerifyCommandsService>().As<IVerifyCommandsService>();
-            builder.RegisterType<PointsCommandsService>().As<IPointsCommandsService>();
-            builder.RegisterType<RaffleCommandsService>().As<IRaffleCommandsService>();
-            builder.RegisterType<DiscordCommandService>().As<IDiscordCommandService>();
-            builder.RegisterType<FightLogService>().As<IFightLogService>();
-
-            builder.RegisterType<PollingTasksService>().As<IPollingTasksService>();
-            builder.RegisterType<DiscordApiService>().As<IDiscordApiService>();
-
-            // db
-            builder.RegisterType<DatabaseContext>().AsSelf().InstancePerLifetimeScope();
-
-            return builder.Build();
+            // DbContext
+            services.AddDbContext<DatabaseContext>((serviceProvider, options) =>
+            {
+                var secretService = serviceProvider.GetRequiredService<ISecretService>();
+                var connectionString = secretService.FetchDonBotSqlConnectionString();
+                options.UseSqlServer(connectionString);
+            });
         }
     }
 }

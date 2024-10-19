@@ -28,7 +28,7 @@ public class WordGeneratorService : IWordGeneratorService
 
         var random = new Random();
         var possibleWords = _wordList
-            .Where(word => word.Intersect(wordleWord).Any())
+            .Where(word => word.Intersect(wordleWord).Count() >= 1)
             .ToList();
 
         if (possibleWords.Count == 0)

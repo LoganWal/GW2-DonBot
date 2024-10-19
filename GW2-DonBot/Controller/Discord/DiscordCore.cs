@@ -1,6 +1,7 @@
 ﻿using Discord;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Models.Entities;
 using Models.Statics;
 using Services.DiscordRequestServices;
@@ -13,10 +14,11 @@ using ConnectionState = Discord.ConnectionState;
 
 namespace Controller.Discord
 {
-    public class DiscordCore: IDiscordCore
+    public class DiscordCore : IDiscordCore
     {
+        private readonly ILogger<DiscordCore> _logger;
+
         private readonly ISecretService _secretService;
-        private readonly ILoggingService _loggingService;
         private readonly IMessageGenerationService _messageGenerationService;
         private readonly IGenericCommandsService _genericCommandsService;
         private readonly IVerifyCommandsService _verifyCommandsService;
@@ -27,17 +29,23 @@ namespace Controller.Discord
         private readonly IDataModelGenerationService _dataModelGenerator;
         private readonly IRaidService _raidService;
         private readonly IDiscordCommandService _discordCommandService;
+        private readonly ILoggingService _loggingService;
         private readonly IFightLogService _fightLogService;
-        private readonly HashSet<string> _seenUrls = new();
+
+        private CancellationTokenSource _pollingRolesCancellationTokenSource;
+        private Task _pollingRolesTask;
 
         private readonly DatabaseContext _databaseContext;
+
         private readonly DiscordSocketClient _client;
+
+        private readonly HashSet<string> _seenUrls = new();
 
         private const long DonBotId = 1021682849797111838;
 
         public DiscordCore(
+            ILogger<DiscordCore> logger,
             ISecretService secretService,
-            ILoggingService loggingService,
             IMessageGenerationService messageGenerationService,
             IGenericCommandsService genericCommandsService,
             IVerifyCommandsService verifyCommandsService,
@@ -48,11 +56,13 @@ namespace Controller.Discord
             IRaidService raidService,
             IDataModelGenerationService dataModelGenerator,
             IDiscordCommandService discordCommandService,
+            ILoggingService loggingService,
             IFightLogService fightLogService,
-            DatabaseContext databaseContext)
+            DatabaseContext databaseContext,
+            DiscordSocketClient client)
         {
+            _logger = logger;
             _secretService = secretService;
-            _loggingService = loggingService;
             _messageGenerationService = messageGenerationService;
             _genericCommandsService = genericCommandsService;
             _verifyCommandsService = verifyCommandsService;
@@ -62,20 +72,12 @@ namespace Controller.Discord
             _playerService = playerService;
             _raidService = raidService;
             _dataModelGenerator = dataModelGenerator;
-            _databaseContext = databaseContext;
-            _fightLogService = fightLogService;
             _discordCommandService = discordCommandService;
+            _databaseContext = databaseContext;
+            _loggingService = loggingService;
+            _fightLogService = fightLogService;
 
-            var config = new DiscordSocketConfig()
-            {
-                GatewayIntents = GatewayIntents.Guilds |
-                                 GatewayIntents.GuildMessages |
-                                 GatewayIntents.DirectMessages |
-                                 GatewayIntents.MessageContent |
-                                 GatewayIntents.GuildWebhooks
-            };
-
-            _client = new DiscordSocketClient(config);
+            _client = client;
         }
 
         public async Task MainAsync()
@@ -84,25 +86,58 @@ namespace Controller.Discord
             await _client.LoginAsync(TokenType.Bot, _secretService.FetchDonBotToken());
             await _client.StartAsync();
 
-            Console.WriteLine("[DON] GW2-DonBot attempting to connect...");
+            _logger.LogInformation("GW2-DonBot attempting to connect...");
+
+            // Wait for the client to be connected
+            await WaitForConnectionAsync();
+
+            _logger.LogInformation("GW2-DonBot connected.");
+
+            // Load existing fight logs
+            LoadExistingFightLogs();
+
+            // Register event handlers
+            RegisterEventHandlers();
+
+            // Start polling roles task
+            _pollingRolesCancellationTokenSource = new CancellationTokenSource();
+            _pollingRolesTask = PollingRolesTask(TimeSpan.FromMinutes(30), _pollingRolesCancellationTokenSource.Token);
+
+            _logger.LogInformation("GW2-DonBot setup - ready to cause chaos");
+
+            // Block this task until the program is closed.
+            await Task.Delay(-1, _pollingRolesCancellationTokenSource.Token);
+
+            // Safely close...
+            UnregisterEventHandlers();
+            _pollingRolesCancellationTokenSource.Cancel();
+            await _pollingRolesTask;
+        }
+
+        private async Task WaitForConnectionAsync()
+        {
             while (_client.ConnectionState != ConnectionState.Connected)
             {
                 await Task.Delay(100);
             }
-            Console.WriteLine("[DON] GW2-DonBot connected in");
+        }
 
+        private void LoadExistingFightLogs()
+        {
             var fightLogs = _databaseContext.FightLog.Select(s => s.Url).Distinct().ToList();
-
             foreach (var fightLog in fightLogs)
             {
                 _seenUrls.Add(fightLog);
             }
+        }
 
-            //await RegisterCommands(_client);
+        private void RegisterEventHandlers()
+        {
             _client.MessageReceived += MessageReceivedAsync;
-            _client.Log += _loggingService.Log;
+            _client.Log += msg => _loggingService.LogAsync(msg);
             _client.SlashCommandExecuted += SlashCommandExecutedAsync;
-            _client.ButtonExecuted += async (buttonComponent) =>
+
+            _client.ButtonExecuted += async buttonComponent =>
             {
                 switch (buttonComponent.Data.CustomId)
                 {
@@ -146,18 +181,11 @@ namespace Controller.Discord
                         break;
                 }
             };
+        }
 
-            var pollingRolesCancellationToken = new CancellationToken();
-            _ = PollingRolesTask(TimeSpan.FromMinutes(30), pollingRolesCancellationToken);
-
-            Console.WriteLine("[DON] GW2-DonBot setup - ready to cause chaos");
-
-            // Block this task until the program is closed.
-            var discordCoreCancellationToken = new CancellationToken();
-            await Task.Delay(-1, discordCoreCancellationToken);
-
-            // Safely close...
-            _client.Log -= _loggingService.Log;
+        private void UnregisterEventHandlers()
+        {
+            _client.Log -= _loggingService.LogAsync;
             _client.MessageReceived -= MessageReceivedAsync;
             _client.SlashCommandExecuted -= SlashCommandExecutedAsync;
         }
@@ -385,20 +413,21 @@ namespace Controller.Discord
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                await PollingRoles();
+                try
+                {
+                    await _pollingTasksService.PollingRoles(_client);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error occurred while polling roles");
+                }
                 await Task.Delay(interval, cancellationToken);
             }
         }
 
-        private async Task PollingRoles()
+        private async Task MessageReceivedAsync(SocketMessage seenMessage)
         {
-            await _pollingTasksService.PollingRoles(_client);
-        }
-
-        private Task MessageReceivedAsync(SocketMessage seenMessage)
-        {
-            _ = HandleMessage(seenMessage);
-            return Task.CompletedTask;
+            await HandleMessage(seenMessage);
         }
 
         private async Task HandleMessage(SocketMessage seenMessage)
@@ -420,14 +449,14 @@ namespace Controller.Discord
 
                 if (seenMessage.Channel is not SocketGuildChannel channel)
                 {
-                    Console.WriteLine($"Did not find channel {seenMessage.Channel.Name} in guild");
+                    _logger.LogWarning("Did not find channel {seenMessageChannelName} in guild", seenMessage.Channel.Name);
                     return;
                 }
 
                 var guild = _databaseContext.Guild.FirstOrDefault(g => g.GuildId == (long)channel.Guild.Id);
                 if (guild == null || !guild.LogDropOffChannelId.HasValue)
                 {
-                    Console.WriteLine($"Unable to find guild {channel.Guild.Id}");
+                    _logger.LogWarning("Unable to find guild {channelGuildId}", channel.Guild.Id);
                     return;
                 }
 
@@ -436,7 +465,7 @@ namespace Controller.Discord
                 {
                     if (seenMessage.Channel is not SocketTextChannel messageChannel)
                     {
-                        Console.WriteLine($"Unable to spam channel {seenMessage.Channel.Name}");
+                        _logger.LogWarning("Unable to spam channel {seenMessageChannelName}", seenMessage.Channel.Name);
                         return;
                     }
 
@@ -461,7 +490,7 @@ namespace Controller.Discord
                 List<string> trimmedUrls;
                 if (seenMessage.Channel is not SocketTextChannel replyChannel)
                 {
-                    Console.WriteLine($"Unable to find channel {seenMessage.Channel.Name}");
+                    _logger.LogWarning("Unable to find channel {seenMessageChannelName}", seenMessage.Channel.Name);
                     return;
                 }
 
@@ -499,14 +528,14 @@ namespace Controller.Discord
                 {
                     foreach (var url in trimmedUrls)
                     {
-                        Console.WriteLine($"[DON] Assessing: {url}");
+                        _logger.LogInformation("Assessing: {url}", url);
                         await AnalyseAndReportOnUrl(url, channel.Guild.Id, embedMessage, replyChannel);
                     }
                 }
             }
             catch (Exception e)
             {
-                Console.WriteLine($"Failed to handle message, Error: {e.Message}");
+                _logger.LogWarning(e, "Failed to handle message");
             }
         }
 
@@ -522,13 +551,13 @@ namespace Controller.Discord
                 var guild = _databaseContext.Guild.FirstOrDefault(g => g.GuildId == (long)guildId);
                 if (guild == null || !guild.RemovedMessageChannelId.HasValue)
                 {
-                    Console.WriteLine($"Unable to find guild {guildId}");
+                    _logger.LogWarning("Unable to find guild {guildId}", guildId);
                     return;
                 }
 
                 if (_client.GetChannel((ulong)guild.RemovedMessageChannelId) is not ITextChannel targetChannel)
                 {
-                    Console.WriteLine($"Unable to find guild remove channel {guild.RemovedMessageChannelId}");
+                    _logger.LogWarning("Unable to find guild remove channel {guildRemovedMessageChannelId}", guild.RemovedMessageChannelId);
                     return;
                 }
 
@@ -540,13 +569,13 @@ namespace Controller.Discord
         {
             if (isEmbed && _seenUrls.Contains(url))
             {
-                Console.WriteLine($"[DON] Already seen, not analysing or reporting: {url}");
+                _logger.LogWarning("Already seen, not analysing or reporting: {url}", url);
                 return;
             }
 
             _seenUrls.Add(url);
 
-            Console.WriteLine($"[DON] Analysing and reporting on: {url}");
+            _logger.LogInformation("Analysing and reporting on: {url}", url);
             var data = await _dataModelGenerator.GenerateEliteInsightDataModelFromUrl(url);
 
             var guilds = await _databaseContext.Guild.ToListAsync();
@@ -557,17 +586,17 @@ namespace Controller.Discord
                 return;
             }
 
-            Console.WriteLine($"[DON] Generating fight summary: {url}");
+            _logger.LogInformation("Generating fight summary: {url}", url);
 
             if (guild.LogReportChannelId == null)
             {
-                Console.WriteLine($"[DON] no log report channel id for guild id `{guild.GuildId}`");
+                _logger.LogWarning("no log report channel id for guild id `{guildId}`", guild.GuildId);
                 return;
             }
 
             if (_client.GetChannel((ulong)guild.LogReportChannelId) is not ITextChannel logReportChannel)
             {
-                Console.WriteLine($"[DON] Failed to find the target channel {guild.LogReportChannelId}");
+                _logger.LogWarning("Failed to find the target channel {guildLogReportChannelId}", guild.LogReportChannelId);
                 return;
             }
 
@@ -582,7 +611,7 @@ namespace Controller.Discord
                     {
                         if (_client.GetChannel((ulong)guild.AdvanceLogReportChannelId) is not ITextChannel advanceLogReportChannel)
                         {
-                            Console.WriteLine($"[DON] Failed to find the target channel {guild.AdvanceLogReportChannelId}");
+                            _logger.LogWarning("Failed to find the target channel {guildAdvanceLogReportChannelId}", guild.AdvanceLogReportChannelId);
                             return;
                         }
 
@@ -625,7 +654,7 @@ namespace Controller.Discord
                 //TODO: update non embed to give option to user if they want to show the message, if so show, if many show aggregate
                 //await replyChannel.SendMessageAsync(text: "", embeds: new[] { message }, components: buttonBuilder);
             }
-            Console.WriteLine($"[DON] Completed and posted report on: {url}");
+            _logger.LogInformation("Completed and posted report on: {url}", url);
         }
     }
 }

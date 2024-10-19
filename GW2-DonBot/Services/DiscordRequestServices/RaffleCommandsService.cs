@@ -2,6 +2,7 @@ using Discord;
 using Discord.WebSocket;
 using Handlers.MessageGenerationHandlers;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Models.Entities;
 using Models.Enums;
 using Models.Statics;
@@ -10,14 +11,17 @@ namespace Services.DiscordRequestServices
 {
     public class RaffleCommandsService : IRaffleCommandsService
     {
+        private readonly ILogger<RaffleCommandsService> _logger;
+
         private readonly DatabaseContext _databaseContext;
 
         private readonly FooterHandler _footerHandler;
 
-        public RaffleCommandsService(DatabaseContext databaseContext, FooterHandler footerHandler)
+        public RaffleCommandsService(DatabaseContext databaseContext, FooterHandler footerHandler, ILogger<RaffleCommandsService> logger)
         {
             _databaseContext = databaseContext;
             _footerHandler = footerHandler;
+            _logger = logger;
         }
 
         public async Task CreateRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
@@ -37,7 +41,7 @@ namespace Services.DiscordRequestServices
 
             if (guildUser == null)
             {
-                Console.WriteLine("Failed to create raffle: Guild or user not found.");
+                _logger.LogError("Failed to create raffle: Guild or user not found.");
                 await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to create raffle, please try again or contact support.");
                 return;
             }
@@ -187,7 +191,7 @@ namespace Services.DiscordRequestServices
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failing raffle create nicely: `{ex.Message}`");
+                _logger.LogError(ex, "Failed create event raffle");
                 await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to create raffle, please try again, or yell at logan.");
                 return;
             }
@@ -406,7 +410,7 @@ namespace Services.DiscordRequestServices
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failing raffle create nicely: `{ex.Message}`");
+                _logger.LogError(ex, "Failed enter event raffle");
                 await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to create raffle, please try again, or yell at someone.");
                 return;
             }
@@ -500,7 +504,7 @@ namespace Services.DiscordRequestServices
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failing raffle create nicely: `{ex.Message}`");
+                _logger.LogError(ex, "Failed complete raffle");
                 await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to end raffle, please try again, or yell at logan.");
                 return;
             }
@@ -641,7 +645,7 @@ namespace Services.DiscordRequestServices
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failing raffle create nicely: `{ex.Message}`");
+                _logger.LogError(ex, "Failed complete event raffle");
                 await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to end raffle, please try again, or yell at logan.");
                 return;
             }
@@ -777,7 +781,7 @@ namespace Services.DiscordRequestServices
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failing raffle create nicely: `{ex.Message}`");
+                _logger.LogError(ex, "Failed reopen raffle");
                 await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to end raffle, please try again, or yell at logan.");
                 return;
             }
@@ -882,7 +886,7 @@ namespace Services.DiscordRequestServices
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failing raffle create nicely: `{ex.Message}`");
+                _logger.LogError(ex, "Failed reopen event raffle");
                 await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to end raffle, please try again, or yell at logan.");
                 return;
             }

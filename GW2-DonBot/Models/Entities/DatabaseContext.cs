@@ -5,12 +5,8 @@ namespace Models.Entities
 {
     public sealed class DatabaseContext : DbContext
     {
-        private readonly ISecretService _secretService;
-
-        public DatabaseContext(ISecretService secretService)
+        public DatabaseContext(DbContextOptions<DatabaseContext> options) : base(options)
         {
-            _secretService = secretService;
-
             Account = Set<Account>();
             Guild = Set<Guild>();
             Raffle = Set<Raffle>();
@@ -34,13 +30,52 @@ namespace Models.Entities
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<PlayerRaffleBid>().HasKey(prb => new { prb.RaffleId, prb.DiscordId });
-        }
+            modelBuilder.Entity<PlayerRaffleBid>()
+                .HasKey(prb => new { prb.RaffleId, prb.DiscordId });
 
-        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        {
-            var connection = _secretService.FetchDonBotSqlConnectionString();
-            optionsBuilder.UseSqlServer(connection);
+            modelBuilder.Entity<Account>()
+                .Property(a => a.AvailablePoints)
+                .HasPrecision(16, 3);
+
+            modelBuilder.Entity<Account>()
+                .Property(a => a.Points)
+                .HasPrecision(16, 3);
+
+            modelBuilder.Entity<Account>()
+                .Property(a => a.PreviousPoints)
+                .HasPrecision(16, 3);
+
+            modelBuilder.Entity<FightLog>()
+                .Property(fl => fl.FightPercent)
+                .HasPrecision(6, 2);
+
+            modelBuilder.Entity<PlayerFightLog>()
+                .Property(pfl => pfl.AlacDuration)
+                .HasPrecision(6, 2);
+
+            modelBuilder.Entity<PlayerFightLog>()
+                .Property(pfl => pfl.CerusPhaseOneDamage)
+                .HasPrecision(10, 3);
+
+            modelBuilder.Entity<PlayerFightLog>()
+                .Property(pfl => pfl.DistanceFromTag)
+                .HasPrecision(16, 2);
+
+            modelBuilder.Entity<PlayerFightLog>()
+                .Property(pfl => pfl.QuicknessDuration)
+                .HasPrecision(6, 2);
+
+            modelBuilder.Entity<PlayerFightLog>()
+                .Property(pfl => pfl.StabGenOffGroup)
+                .HasPrecision(6, 2);
+
+            modelBuilder.Entity<PlayerFightLog>()
+                .Property(pfl => pfl.StabGenOnGroup)
+                .HasPrecision(6, 2);
+
+            modelBuilder.Entity<PlayerRaffleBid>()
+                .Property(prb => prb.PointsSpent)
+                .HasPrecision(16, 3);
         }
     }
 }

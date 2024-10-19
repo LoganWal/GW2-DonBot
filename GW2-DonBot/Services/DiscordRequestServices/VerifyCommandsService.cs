@@ -1,6 +1,7 @@
 using Discord;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Models.Entities;
 using Models.GW2Api;
 using Newtonsoft.Json;
@@ -9,11 +10,14 @@ namespace Services.DiscordRequestServices
 {
     public class VerifyCommandsService : IVerifyCommandsService
     {
+        private readonly ILogger<VerifyCommandsService> _logger;
+
         private readonly DatabaseContext _databaseContext;
 
-        public VerifyCommandsService(DatabaseContext databaseContext)
+        public VerifyCommandsService(DatabaseContext databaseContext, ILogger<VerifyCommandsService> logger)
         {
             _databaseContext = databaseContext;
+            _logger = logger;
         }
 
         public async Task VerifyCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
@@ -48,7 +52,7 @@ namespace Services.DiscordRequestServices
             // Check if the API call was successful
             if (response.IsSuccessStatusCode)
             {
-                Console.WriteLine("[DON] API call success");
+                _logger.LogInformation("Received guild wars 2 response for verifying {guildUserDisplayName}", guildUser.DisplayName);
 
                 // Deserialize the account data
                 var stringData = await response.Content.ReadAsStringAsync();
@@ -149,7 +153,7 @@ namespace Services.DiscordRequestServices
             }
             else
             {
-                Console.WriteLine("[DON] API call failed");
+                _logger.LogError("Failed to verify {guildUserDisplayName}", guildUser.DisplayName);
 
                 await command.ModifyOriginalResponseAsync(message => message.Content = $"Looks like you screwed up a couple of letters in the api key, try again mate, failed to process with API key: `{apiKey}`");
             }
@@ -196,8 +200,9 @@ namespace Services.DiscordRequestServices
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failing deverify nicely: `{ex.Message}`");
-                await command.ModifyOriginalResponseAsync(message => message.Content = "Failed to deverify, please try again.");
+                _logger.LogError(ex, "Failed to de-verify {guildUserDisplayName}", command.User);
+
+                await command.ModifyOriginalResponseAsync(message => message.Content = "Failed to de-verify, please try again.");
                 return;
             }
 

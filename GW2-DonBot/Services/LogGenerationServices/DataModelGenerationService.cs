@@ -1,10 +1,19 @@
-﻿using Models;
+﻿using Microsoft.Extensions.Logging;
+using Models;
 using Newtonsoft.Json;
+using Services.DiscordRequestServices;
 
 namespace Services.LogGenerationServices
 {
     public class DataModelGenerationService : IDataModelGenerationService
     {
+        private readonly ILogger<DataModelGenerationService> _logger;
+
+        public DataModelGenerationService(ILogger<DataModelGenerationService> logger)
+        {
+            _logger = logger;
+        }
+
         public async Task<EliteInsightDataModel> GenerateEliteInsightDataModelFromUrl(string url)
         {
             // HTML scraping
@@ -31,7 +40,7 @@ namespace Services.LogGenerationServices
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                _logger.LogError(ex, "Failed to create data model from guild wars 2 log");
             }
 
             deserializeData.Url = url;

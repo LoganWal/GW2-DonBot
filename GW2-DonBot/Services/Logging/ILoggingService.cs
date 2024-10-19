@@ -4,6 +4,6 @@ namespace Services.Logging
 {
     public interface ILoggingService
     {
-        public Task Log(LogMessage msg);
+        Task LogAsync(LogMessage msg);
     }
 }

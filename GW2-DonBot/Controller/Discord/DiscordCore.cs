@@ -32,16 +32,12 @@ namespace Controller.Discord
         private readonly ILoggingService _loggingService;
         private readonly IFightLogService _fightLogService;
 
-        private CancellationTokenSource _pollingRolesCancellationTokenSource;
-        private Task _pollingRolesTask;
-
         private readonly DatabaseContext _databaseContext;
-
         private readonly DiscordSocketClient _client;
 
         private readonly HashSet<string> _seenUrls = new();
-
         private const long DonBotId = 1021682849797111838;
+        private CancellationTokenSource _pollingRolesCancellationTokenSource = new();
 
         public DiscordCore(
             ILogger<DiscordCore> logger,
@@ -101,7 +97,7 @@ namespace Controller.Discord
 
             // Start polling roles task
             _pollingRolesCancellationTokenSource = new CancellationTokenSource();
-            _pollingRolesTask = PollingRolesTask(TimeSpan.FromMinutes(30), _pollingRolesCancellationTokenSource.Token);
+            var pollingRolesTask = PollingRolesTask(TimeSpan.FromMinutes(30), _pollingRolesCancellationTokenSource.Token);
 
             _logger.LogInformation("GW2-DonBot setup - ready to cause chaos");
 
@@ -111,7 +107,7 @@ namespace Controller.Discord
             // Safely close...
             UnregisterEventHandlers();
             _pollingRolesCancellationTokenSource.Cancel();
-            await _pollingRolesTask;
+            await pollingRolesTask;
         }
 
         private async Task WaitForConnectionAsync()

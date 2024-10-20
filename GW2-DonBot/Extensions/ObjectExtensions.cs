@@ -1,4 +1,4 @@
-namespace Extensions
+namespace DonBot.Extensions
 {
     public static class ObjectExtensions
     {

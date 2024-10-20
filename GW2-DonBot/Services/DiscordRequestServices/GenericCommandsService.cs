@@ -1,7 +1,7 @@
-using Discord.WebSocket;
 using System.Text;
+using Discord.WebSocket;
 
-namespace Services.DiscordRequestServices
+namespace DonBot.Services.DiscordRequestServices
 {
     public class GenericCommandsService : IGenericCommandsService
     {

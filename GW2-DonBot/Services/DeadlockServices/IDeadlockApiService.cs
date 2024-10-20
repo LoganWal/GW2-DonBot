@@ -1,6 +1,6 @@
-﻿using Models.DeadlockApi;
+﻿using DonBot.Models.DeadlockApi;
 
-namespace Services.DiscordApiServices
+namespace DonBot.Services.DeadlockServices
 {
     public interface IDeadlockApiService
     {

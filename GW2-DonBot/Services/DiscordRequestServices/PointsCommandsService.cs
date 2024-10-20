@@ -1,8 +1,8 @@
 using Discord.WebSocket;
+using DonBot.Models.Entities;
 using Microsoft.EntityFrameworkCore;
-using Models.Entities;
 
-namespace Services.DiscordRequestServices
+namespace DonBot.Services.DiscordRequestServices
 {
     public class PointsCommandsService : IPointsCommandsService
     {

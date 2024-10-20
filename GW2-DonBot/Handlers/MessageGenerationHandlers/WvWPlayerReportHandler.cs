@@ -1,10 +1,10 @@
 ﻿using Discord;
-using Extensions;
+using DonBot.Extensions;
+using DonBot.Models.Entities;
+using DonBot.Models.GW2Api;
 using Microsoft.EntityFrameworkCore;
-using Models.Entities;
-using Models.GW2Api;
 
-namespace Handlers.MessageGenerationHandlers
+namespace DonBot.Handlers.MessageGenerationHandlers
 {
     public class WvWPlayerReportHandler
     {

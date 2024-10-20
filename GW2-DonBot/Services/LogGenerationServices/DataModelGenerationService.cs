@@ -1,9 +1,8 @@
-﻿using Microsoft.Extensions.Logging;
-using Models;
+﻿using DonBot.Models;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using Services.DiscordRequestServices;
 
-namespace Services.LogGenerationServices
+namespace DonBot.Services.LogGenerationServices
 {
     public class DataModelGenerationService : IDataModelGenerationService
     {

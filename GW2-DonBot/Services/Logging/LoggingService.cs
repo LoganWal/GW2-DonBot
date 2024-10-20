@@ -1,7 +1,7 @@
 ﻿using Discord;
 using Microsoft.Extensions.Logging;
 
-namespace Services.Logging
+namespace DonBot.Services.Logging
 {
     public class LoggingService : ILoggingService
     {

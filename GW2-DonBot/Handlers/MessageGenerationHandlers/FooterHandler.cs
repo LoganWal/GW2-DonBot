@@ -1,6 +1,6 @@
-using Models.Entities;
+using DonBot.Models.Entities;
 
-namespace Handlers.MessageGenerationHandlers
+namespace DonBot.Handlers.MessageGenerationHandlers
 {
     public class FooterHandler
     {

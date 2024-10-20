@@ -1,6 +1,6 @@
-﻿using Models;
+﻿using DonBot.Models;
 
-namespace Services.LogGenerationServices
+namespace DonBot.Services.LogGenerationServices
 {
     public interface IDataModelGenerationService
     {

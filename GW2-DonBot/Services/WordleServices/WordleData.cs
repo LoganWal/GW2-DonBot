@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Services
+namespace DonBot.Services.WordleServices
 {
     public class WordleData
     {

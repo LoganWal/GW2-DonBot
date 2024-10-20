@@ -1,9 +1,9 @@
 using Discord;
-using Extensions;
+using DonBot.Extensions;
+using DonBot.Models.Entities;
 using Microsoft.EntityFrameworkCore;
-using Models.Entities;
 
-namespace Handlers.MessageGenerationHandlers
+namespace DonBot.Handlers.MessageGenerationHandlers
 {
     public class WvWPlayerSummaryHandler
     {

@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace Models.Entities
+namespace DonBot.Models.Entities
 {
     public class FightLog
     {

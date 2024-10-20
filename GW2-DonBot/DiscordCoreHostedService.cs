@@ -1,22 +1,25 @@
-using Controller.Discord;
+using DonBot.Controller.Discord;
 using Microsoft.Extensions.Hosting;
 
-internal class DiscordCoreHostedService : IHostedService
+namespace DonBot
 {
-    private readonly IDiscordCore _discordCore;
-
-    public DiscordCoreHostedService(IDiscordCore discordCore)
+    internal class DiscordCoreHostedService : IHostedService
     {
-        _discordCore = discordCore;
-    }
+        private readonly IDiscordCore _discordCore;
 
-    public async Task StartAsync(CancellationToken cancellationToken)
-    {
-        await _discordCore.MainAsync();
-    }
+        public DiscordCoreHostedService(IDiscordCore discordCore)
+        {
+            _discordCore = discordCore;
+        }
 
-    public Task StopAsync(CancellationToken cancellationToken)
-    {
-        return Task.CompletedTask;
+        public async Task StartAsync(CancellationToken cancellationToken)
+        {
+            await _discordCore.MainAsync();
+        }
+
+        public Task StopAsync(CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
     }
 }

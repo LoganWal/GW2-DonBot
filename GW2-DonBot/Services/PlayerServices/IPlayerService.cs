@@ -1,6 +1,6 @@
-﻿using Models;
+﻿using DonBot.Models;
 
-namespace Services.PlayerServices
+namespace DonBot.Services.PlayerServices
 {
     public interface IPlayerService
     {

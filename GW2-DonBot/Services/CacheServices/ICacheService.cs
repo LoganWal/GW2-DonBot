@@ -1,4 +1,4 @@
-﻿namespace Services.CacheServices
+﻿namespace DonBot.Services.CacheServices
 {
     public interface ICacheService
     {

@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 
-namespace Models.GW2Api
+namespace DonBot.Models.GW2Api
 {
     public class Gw2GuildDataModel
     {

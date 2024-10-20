@@ -1,19 +1,20 @@
-﻿using Discord;
+﻿using System.Text.RegularExpressions;
+using Discord;
 using Discord.WebSocket;
+using DonBot.Models.Entities;
+using DonBot.Models.Statics;
+using DonBot.Services.DiscordRequestServices;
+using DonBot.Services.LogGenerationServices;
+using DonBot.Services.Logging;
+using DonBot.Services.LogServices;
+using DonBot.Services.PlayerServices;
+using DonBot.Services.SecretsServices;
+using DonBot.Services.WordleServices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Models.Entities;
-using Models.Statics;
-using Services;
-using Services.DiscordRequestServices;
-using Services.LogGenerationServices;
-using Services.Logging;
-using Services.PlayerServices;
-using Services.SecretsServices;
-using System.Text.RegularExpressions;
 using ConnectionState = Discord.ConnectionState;
 
-namespace Controller.Discord
+namespace DonBot.Controller.Discord
 {
     public class DiscordCore : IDiscordCore
     {

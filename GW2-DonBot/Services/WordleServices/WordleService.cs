@@ -1,7 +1,7 @@
-﻿using Microsoft.Extensions.Logging;
-using System.Text.Json;
+﻿using System.Text.Json;
+using Microsoft.Extensions.Logging;
 
-namespace Services
+namespace DonBot.Services.WordleServices
 {
     public class WordleService : IWordleService
     {

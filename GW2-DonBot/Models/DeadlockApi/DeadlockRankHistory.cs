@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 
-namespace Models.DeadlockApi
+namespace DonBot.Models.DeadlockApi
 {
     public class DeadlockRankHistory
     {

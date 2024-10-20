@@ -1,9 +1,8 @@
 ﻿using Discord.WebSocket;
-using Extensions;
-using Services.LogGenerationServices;
-using Services.PlayerServices;
+using DonBot.Extensions;
+using DonBot.Services.LogGenerationServices;
 
-namespace Services.Logging
+namespace DonBot.Services.LogServices
 {
     public class FightLogService : IFightLogService
     {

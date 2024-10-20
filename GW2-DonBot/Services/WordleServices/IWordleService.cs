@@ -1,4 +1,4 @@
-﻿namespace Services
+﻿namespace DonBot.Services.WordleServices
 {
     public interface IWordleService
     {

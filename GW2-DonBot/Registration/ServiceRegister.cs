@@ -1,18 +1,20 @@
-﻿using Controller.Discord;
-using Handlers.MessageGenerationHandlers;
+﻿using DonBot.Controller.Discord;
+using DonBot.Handlers.MessageGenerationHandlers;
+using DonBot.Models.Entities;
+using DonBot.Services.CacheServices;
+using DonBot.Services.DeadlockServices;
+using DonBot.Services.DiscordApiServices;
+using DonBot.Services.DiscordRequestServices;
+using DonBot.Services.LogGenerationServices;
+using DonBot.Services.Logging;
+using DonBot.Services.LogServices;
+using DonBot.Services.PlayerServices;
+using DonBot.Services.SecretsServices;
+using DonBot.Services.WordleServices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Models.Entities;
-using Services;
-using Services.CacheServices;
-using Services.DiscordApiServices;
-using Services.DiscordRequestServices;
-using Services.LogGenerationServices;
-using Services.Logging;
-using Services.PlayerServices;
-using Services.SecretsServices;
 
-namespace Registration
+namespace DonBot.Registration
 {
     public static class ServiceRegister
     {

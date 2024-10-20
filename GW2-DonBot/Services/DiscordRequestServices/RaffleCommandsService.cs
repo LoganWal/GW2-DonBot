@@ -1,13 +1,13 @@
 using Discord;
 using Discord.WebSocket;
-using Handlers.MessageGenerationHandlers;
+using DonBot.Handlers.MessageGenerationHandlers;
+using DonBot.Models.Entities;
+using DonBot.Models.Enums;
+using DonBot.Models.Statics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Models.Entities;
-using Models.Enums;
-using Models.Statics;
 
-namespace Services.DiscordRequestServices
+namespace DonBot.Services.DiscordRequestServices
 {
     public class RaffleCommandsService : IRaffleCommandsService
     {

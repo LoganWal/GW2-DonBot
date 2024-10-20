@@ -1,8 +1,8 @@
-﻿using Models;
+﻿using System.Text;
+using DonBot.Models;
 using Newtonsoft.Json;
-using System.Text;
 
-namespace Services
+namespace DonBot.Services.WordleServices
 {
     public class DictionaryService
     {

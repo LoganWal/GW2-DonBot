@@ -1,8 +1,8 @@
 ﻿using Discord.WebSocket;
-using Models.Entities;
-using Services.DiscordApiServices;
+using DonBot.Models.Entities;
+using DonBot.Services.DeadlockServices;
 
-namespace Services.DiscordRequestServices
+namespace DonBot.Services.DiscordRequestServices
 {
     public class DeadlockCommandService : IDeadlockCommandService
     {

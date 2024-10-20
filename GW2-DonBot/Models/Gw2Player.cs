@@ -1,4 +1,4 @@
-﻿namespace Models
+﻿namespace DonBot.Models
 {
     public class Gw2Player
     {

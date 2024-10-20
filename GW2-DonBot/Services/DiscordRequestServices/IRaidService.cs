@@ -1,6 +1,6 @@
 ﻿using Discord.WebSocket;
 
-namespace Services.DiscordRequestServices
+namespace DonBot.Services.DiscordRequestServices
 {
     public interface IRaidService
     {

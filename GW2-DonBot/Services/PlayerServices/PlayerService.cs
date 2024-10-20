@@ -1,13 +1,12 @@
-﻿using Extensions;
+﻿using DonBot.Extensions;
+using DonBot.Models;
+using DonBot.Models.Entities;
+using DonBot.Models.Enums;
+using DonBot.Models.Statics;
 using Microsoft.EntityFrameworkCore;
-using Models;
-using Models.Entities;
-using Models.Enums;
-using Models.Statics;
 using Newtonsoft.Json.Linq;
-using Services.PlayerServices;
 
-namespace Services.Logging
+namespace DonBot.Services.PlayerServices
 {
     public class PlayerService : IPlayerService
     {

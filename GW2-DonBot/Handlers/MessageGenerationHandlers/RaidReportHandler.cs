@@ -1,11 +1,11 @@
-using Discord;
-using Extensions;
-using Models;
-using Models.Entities;
-using Models.Enums;
 using System.Globalization;
+using Discord;
+using DonBot.Extensions;
+using DonBot.Models;
+using DonBot.Models.Entities;
+using DonBot.Models.Enums;
 
-namespace Handlers.MessageGenerationHandlers
+namespace DonBot.Handlers.MessageGenerationHandlers
 {
     public class RaidReportHandler
     {

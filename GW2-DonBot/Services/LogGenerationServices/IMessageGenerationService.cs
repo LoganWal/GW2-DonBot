@@ -1,9 +1,9 @@
 ﻿using Discord;
 using Discord.WebSocket;
-using Models;
-using Models.Entities;
+using DonBot.Models;
+using DonBot.Models.Entities;
 
-namespace Services.LogGenerationServices
+namespace DonBot.Services.LogGenerationServices
 {
     public interface IMessageGenerationService
     {

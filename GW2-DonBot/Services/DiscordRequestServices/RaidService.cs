@@ -1,9 +1,9 @@
 ﻿using Discord;
 using Discord.WebSocket;
-using Models.Entities;
-using Services.LogGenerationServices;
+using DonBot.Models.Entities;
+using DonBot.Services.LogGenerationServices;
 
-namespace Services.DiscordRequestServices
+namespace DonBot.Services.DiscordRequestServices
 {
     public class RaidService : IRaidService
     {

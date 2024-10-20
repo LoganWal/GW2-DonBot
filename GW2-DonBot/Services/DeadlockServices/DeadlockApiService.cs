@@ -1,9 +1,9 @@
-﻿using Controller.Discord;
+﻿using DonBot.Controller.Discord;
+using DonBot.Models.DeadlockApi;
 using Microsoft.Extensions.Logging;
-using Models.DeadlockApi;
 using Newtonsoft.Json;
 
-namespace Services.DiscordApiServices
+namespace DonBot.Services.DeadlockServices
 {
     internal class DeadlockApiService : IDeadlockApiService
     {

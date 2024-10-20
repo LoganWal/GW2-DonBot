@@ -1,14 +1,13 @@
-using Controller.Discord;
 using Discord;
 using Discord.WebSocket;
+using DonBot.Models.Entities;
+using DonBot.Models.GW2Api;
+using DonBot.Services.LogGenerationServices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Models.Entities;
-using Models.GW2Api;
 using Newtonsoft.Json;
-using Services.LogGenerationServices;
 
-namespace Services.DiscordRequestServices
+namespace DonBot.Services.DiscordRequestServices
 {
     public class PollingTasksService : IPollingTasksService
     {

@@ -1,6 +1,6 @@
 ﻿using Discord.WebSocket;
 
-namespace Services.PlayerServices
+namespace DonBot.Services.LogServices
 {
     public interface IFightLogService
     {

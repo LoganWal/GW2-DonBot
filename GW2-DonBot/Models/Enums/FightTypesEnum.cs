@@ -1,4 +1,4 @@
-﻿namespace Models.Enums
+﻿namespace DonBot.Models.Enums
 {
     public enum FightTypesEnum
     {

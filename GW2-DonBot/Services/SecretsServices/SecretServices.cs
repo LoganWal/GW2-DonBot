@@ -1,4 +1,4 @@
-﻿namespace Services.SecretsServices
+﻿namespace DonBot.Services.SecretsServices
 {
     public class SecretServices : ISecretService
     {

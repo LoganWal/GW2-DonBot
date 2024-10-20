@@ -1,13 +1,13 @@
-using Discord;
-using Extensions;
-using Models;
-using Models.Entities;
-using Models.Enums;
-using Models.Statics;
-using Services.PlayerServices;
 using System.Globalization;
+using Discord;
+using DonBot.Extensions;
+using DonBot.Models;
+using DonBot.Models.Entities;
+using DonBot.Models.Enums;
+using DonBot.Models.Statics;
+using DonBot.Services.PlayerServices;
 
-namespace Handlers.MessageGenerationHandlers
+namespace DonBot.Handlers.MessageGenerationHandlers
 {
     public class PvEFightSummaryHandler
     {

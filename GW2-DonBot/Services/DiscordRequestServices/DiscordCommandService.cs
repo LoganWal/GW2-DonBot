@@ -1,7 +1,7 @@
 ﻿using Discord.WebSocket;
-using Models.Entities;
+using DonBot.Models.Entities;
 
-namespace Services.DiscordRequestServices
+namespace DonBot.Services.DiscordRequestServices
 {
     public class DiscordCommandService : IDiscordCommandService
     {

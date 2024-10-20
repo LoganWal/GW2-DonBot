@@ -1,10 +1,10 @@
 ﻿using Discord;
 using Discord.WebSocket;
-using Handlers.MessageGenerationHandlers;
-using Models;
-using Models.Entities;
+using DonBot.Handlers.MessageGenerationHandlers;
+using DonBot.Models;
+using DonBot.Models.Entities;
 
-namespace Services.LogGenerationServices
+namespace DonBot.Services.LogGenerationServices
 {
     public class MessageGenerationService: IMessageGenerationService
     {

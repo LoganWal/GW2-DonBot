@@ -1,6 +1,6 @@
 ﻿using System.Runtime.Caching;
 
-namespace Services.CacheServices
+namespace DonBot.Services.CacheServices
 {
     internal class CacheService : ICacheService
     {

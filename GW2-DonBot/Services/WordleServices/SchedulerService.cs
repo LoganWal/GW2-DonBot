@@ -2,7 +2,7 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace Services
+namespace DonBot.Services.WordleServices
 {
     public class SchedulerService : BackgroundService
     {

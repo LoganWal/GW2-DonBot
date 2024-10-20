@@ -71,7 +71,6 @@ namespace Services.DiscordRequestServices
 
         public async Task CloseRaid(SocketSlashCommand command, DiscordSocketClient discordClient)
         {
-            await command.DeferAsync(ephemeral: true);
             if (command.GuildId == null)
             {
                 await command.FollowupAsync("Failed to start raid, make sure to use this command within a discord server.", ephemeral: true);

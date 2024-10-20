@@ -86,6 +86,7 @@ namespace Controller.Discord
 
             // Wait for the client to be connected
             await WaitForConnectionAsync();
+            await RegisterCommands(_client);
 
             _logger.LogInformation("GW2-DonBot connected.");
 
@@ -189,117 +190,105 @@ namespace Controller.Discord
 
         private async Task RegisterCommands(DiscordSocketClient client)
         {
-            // This only needs to be run if you have made changes
+            // Get all guilds
             var guilds = client.Guilds;
+
+            // Clear existing global commands (if needed)
             await client.BulkOverwriteGlobalApplicationCommandsAsync(Array.Empty<ApplicationCommandProperties>());
+
             foreach (var guild in guilds)
             {
-                await guild.DeleteApplicationCommandsAsync();
+                // Get existing commands for the guild
+                var existingCommands = await guild.GetApplicationCommandsAsync();
 
-                // Guild commands
-                var helpGuildCommand = new SlashCommandBuilder()
-                    .WithName("help")
-                    .WithDescription("List out DonBot's commands and how to use them.");
+                // Define commands
+                var commandsToRegister = new List<SlashCommandBuilder>
+                {
+                    new SlashCommandBuilder()
+                        .WithName("help")
+                        .WithDescription("List out DonBot's commands and how to use them."),
 
-                await guild.CreateApplicationCommandAsync(helpGuildCommand.Build());
+                    new SlashCommandBuilder()
+                        .WithName("deverify")
+                        .WithDescription("Remove any /verify information stored for your Discord account."),
 
-                var deverifyGuildCommand = new SlashCommandBuilder()
-                    .WithName("deverify")
-                    .WithDescription("Remove any /verify information stored for your Discord account.");
+                    new SlashCommandBuilder()
+                        .WithName("verify")
+                        .WithDescription("Verify your GW2 API key so that your GW2 Account and Discord are linked.")
+                        .AddOption("api-key", ApplicationCommandOptionType.String, "The API key you wish to link",
+                            isRequired: true),
 
-                await guild.CreateApplicationCommandAsync(deverifyGuildCommand.Build());
+                    new SlashCommandBuilder()
+                        .WithName("points")
+                        .WithDescription("Check how many points you have earned."),
 
-                var verifyCommand = new SlashCommandBuilder()
-                    .WithName("verify")
-                    .WithDescription("Verify your GW2 API key so that your GW2 Account and Discord are linked.")
-                    .AddOption("api-key", ApplicationCommandOptionType.String, "The API key you wish to link",
-                        isRequired: true);
+                    new SlashCommandBuilder()
+                        .WithName("create_raffle")
+                        .WithDescription("Create a raffle.")
+                        .AddOption("raffle-description", ApplicationCommandOptionType.String, "The Raffle description",
+                            isRequired: true),
 
-                await guild.CreateApplicationCommandAsync(verifyCommand.Build());
+                    new SlashCommandBuilder()
+                        .WithName("create_event_raffle")
+                        .WithDescription("Create an event raffle.")
+                        .AddOption("raffle-description", ApplicationCommandOptionType.String, "The Raffle description",
+                            isRequired: true),
 
-                var pointsCommand = new SlashCommandBuilder()
-                    .WithName("points")
-                    .WithDescription("Check how many points you have earned.");
+                    new SlashCommandBuilder()
+                        .WithName("enter_raffle")
+                        .WithDescription("RAFFLE TIME.")
+                        .AddOption("points-to-spend", ApplicationCommandOptionType.Integer,
+                            "How many points do you want to spend?", isRequired: true),
 
-                await guild.CreateApplicationCommandAsync(pointsCommand.Build());
+                    new SlashCommandBuilder()
+                        .WithName("enter_event_raffle")
+                        .WithDescription("RAFFLE TIME.")
+                        .AddOption("points-to-spend", ApplicationCommandOptionType.Integer,
+                            "How many points do you want to spend?", isRequired: true),
 
-                var createRaffleCommand = new SlashCommandBuilder()
-                    .WithName("create_raffle")
-                    .WithDescription("Create a raffle.")
-                    .AddOption("raffle-description", ApplicationCommandOptionType.String, "The Raffle description",
-                        isRequired: true);
+                    new SlashCommandBuilder()
+                        .WithName("complete_raffle")
+                        .WithDescription("Complete the raffle."),
 
-                await guild.CreateApplicationCommandAsync(createRaffleCommand.Build());
+                    new SlashCommandBuilder()
+                        .WithName("complete_event_raffle")
+                        .WithDescription("Complete the event raffle.")
+                        .AddOption("how-many-winners", ApplicationCommandOptionType.Integer,
+                            "How many winners for the event raffle?", isRequired: true),
 
-                var createEventRaffleCommand = new SlashCommandBuilder()
-                    .WithName("create_event_raffle")
-                    .WithDescription("Create an event raffle.")
-                    .AddOption("raffle-description", ApplicationCommandOptionType.String, "The Raffle description",
-                        isRequired: true);
+                    new SlashCommandBuilder()
+                        .WithName("reopen_raffle")
+                        .WithDescription("Reopen the raffle."),
 
-                await guild.CreateApplicationCommandAsync(createEventRaffleCommand.Build());
+                    new SlashCommandBuilder()
+                        .WithName("reopen_event_raffle")
+                        .WithDescription("Reopen the event raffle."),
 
-                var raffleCommand = new SlashCommandBuilder()
-                    .WithName("enter_raffle")
-                    .WithDescription("RAFFLE TIME.")
-                    .AddOption("points-to-spend", ApplicationCommandOptionType.Integer,
-                        "How many points do you want to spend?", isRequired: true);
+                    new SlashCommandBuilder()
+                        .WithName("start_raid")
+                        .WithDescription("Starts raid."),
 
-                await guild.CreateApplicationCommandAsync(raffleCommand.Build());
+                    new SlashCommandBuilder()
+                        .WithName("close_raid")
+                        .WithDescription("Closes raid."),
 
-                var eventRaffleCommand = new SlashCommandBuilder()
-                    .WithName("enter_event_raffle")
-                    .WithDescription("RAFFLE TIME.")
-                    .AddOption("points-to-spend", ApplicationCommandOptionType.Integer,
-                        "How many points do you want to spend?", isRequired: true);
+                    new SlashCommandBuilder()
+                        .WithName("set_log_channel")
+                        .WithDescription("Set the channel for simple logs.")
+                        .AddOption("channel", ApplicationCommandOptionType.Channel, "Which channel?", isRequired: true)
+                };
 
-                await guild.CreateApplicationCommandAsync(eventRaffleCommand.Build());
+                foreach (var commandBuilder in commandsToRegister)
+                {
+                    // Check if command already exists
+                    if (existingCommands.Any(c => c.Name == commandBuilder.Name))
+                    {
+                        continue;
+                    }
 
-                var completeRaffleCommand = new SlashCommandBuilder()
-                    .WithName("complete_raffle")
-                    .WithDescription("Complete the raffle.");
-
-                await guild.CreateApplicationCommandAsync(completeRaffleCommand.Build());
-
-                var completeEventRaffleCommand = new SlashCommandBuilder()
-                    .WithName("complete_event_raffle")
-                    .WithDescription("Complete the event raffle.")
-                    .AddOption("how-many-winners", ApplicationCommandOptionType.Integer,
-                        "How many winners for the event raffle?", isRequired: true);
-
-                await guild.CreateApplicationCommandAsync(completeEventRaffleCommand.Build());
-
-                var redrawRaffleCommand = new SlashCommandBuilder()
-                    .WithName("reopen_raffle")
-                    .WithDescription("Reopen the raffle.");
-
-                await guild.CreateApplicationCommandAsync(redrawRaffleCommand.Build());
-
-                var redrawEventRaffleCommand = new SlashCommandBuilder()
-                    .WithName("reopen_event_raffle")
-                    .WithDescription("Reopen the event raffle.");
-
-                await guild.CreateApplicationCommandAsync(redrawEventRaffleCommand.Build());
-
-                var startRaid = new SlashCommandBuilder()
-                    .WithName("start_raid")
-                    .WithDescription("Starts raid.");
-
-                await guild.CreateApplicationCommandAsync(startRaid.Build());
-
-                var closeRaid = new SlashCommandBuilder()
-                    .WithName("close_raid")
-                    .WithDescription("Closes raid.");
-
-                await guild.CreateApplicationCommandAsync(closeRaid.Build());
-
-                var setLogChannel = new SlashCommandBuilder()
-                    .WithName("set_log_channel")
-                    .WithDescription("Set the channel for simple logs.")
-                    .AddOption("channel", ApplicationCommandOptionType.Channel,
-                        "Which channel?", isRequired: true);
-
-                await guild.CreateApplicationCommandAsync(setLogChannel.Build());
+                    var command = commandBuilder.Build();
+                    await guild.CreateApplicationCommandAsync(command);
+                }
             }
         }
 

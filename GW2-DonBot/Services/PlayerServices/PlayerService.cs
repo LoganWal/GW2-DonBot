@@ -166,7 +166,7 @@ namespace Services.Logging
             }
 
             _databaseContext.UpdateRange(accounts);
-            _databaseContext.SaveChanges();
+            await _databaseContext.SaveChangesAsync();
 
             foreach (var player in gw2Players)
             {
@@ -199,7 +199,7 @@ namespace Services.Logging
                 _databaseContext.Update(account);
             }
 
-            _databaseContext.SaveChanges();
+            await _databaseContext.SaveChangesAsync();
         }
     }
 }

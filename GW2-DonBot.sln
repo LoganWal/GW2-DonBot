@@ -5,7 +5,7 @@ VisualStudioVersion = 17.3.32901.215
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GW2-DonBot", "GW2-DonBot\GW2-DonBot.csproj", "{63C57476-B754-4199-816E-05B33A9196AC}"
 EndProject
-Project("{00D1A9C2-B5F0-4AF3-8072-F6C62B433612}") = "GW2DonBotDatabase", "GW2DonBotDatabase\GW2DonBotDatabase.sqlproj", "{7353B074-97F2-4D97-A251-27AADE614F4E}"
+Project("{00D1A9C2-B5F0-4AF3-8072-F6C62B433612}") = "DonBotDatabase", "GW2DonBotDatabase\DonBotDatabase.sqlproj", "{7353B074-97F2-4D97-A251-27AADE614F4E}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{C51148D5-E3BF-4C90-AB9D-2042ED2B72D9}"
 	ProjectSection(SolutionItems) = preProject
@@ -14,7 +14,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		README.md = README.md
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DonBotDayOff", "DonBotDayOff\DonBotDayOff.csproj", "{2DEDBCC8-9A58-42D0-955B-1042BDD9B7F5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DonBotDayOff", "DonBotDayOff\DonBotDayOff.csproj", "{2DEDBCC8-9A58-42D0-955B-1042BDD9B7F5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

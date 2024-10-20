@@ -16,17 +16,18 @@ namespace Services.Logging
 
         public async Task GetEnemyInformation(SocketMessageComponent command)
         {
+            await command.DeferAsync(ephemeral: true);
             var url = command.Message.Embeds.FirstOrDefault()?.Url;
             if (url == null)
             {
-                await command.RespondAsync("Unable to get the url from the requested log", ephemeral: true);
+                await command.FollowupAsync("Unable to get the url from the requested log", ephemeral: true);
                 return;
             }
 
             var data = await _dataModelGenerationService.GenerateEliteInsightDataModelFromUrl(url);
             if (data.Targets == null)
             {
-                await command.RespondAsync("Unable to get enemy targets from the requested log", ephemeral: true);
+                await command.FollowupAsync("Unable to get enemy targets from the requested log", ephemeral: true);
                 return;
             }
             var targets = data.Targets.Where(s => s.Name != "Dummy PvP Agent").ToList();
@@ -44,7 +45,7 @@ namespace Services.Logging
             }
             enemyOverview += "```";
 
-            await command.RespondAsync($"**Know My Enemy**{Environment.NewLine}{data.Url}{Environment.NewLine}{enemyOverview}", ephemeral: true);
+            await command.FollowupAsync($"**Know My Enemy**{Environment.NewLine}{data.Url}{Environment.NewLine}{enemyOverview}", ephemeral: true);
         }
     }
 }

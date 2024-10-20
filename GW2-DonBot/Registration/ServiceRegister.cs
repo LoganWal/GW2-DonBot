@@ -34,13 +34,16 @@ namespace Registration
             services.AddTransient<ILoggingService, LoggingService>();
             services.AddTransient<IPlayerService, PlayerService>();
             services.AddTransient<IRaidService, RaidService>();
+            services.AddTransient<IFightLogService, FightLogService>();
+            services.AddTransient<IDeadlockApiService, DeadlockApiService>();
 
             services.AddTransient<IGenericCommandsService, GenericCommandsService>();
             services.AddTransient<IVerifyCommandsService, VerifyCommandsService>();
             services.AddTransient<IPointsCommandsService, PointsCommandsService>();
             services.AddTransient<IRaffleCommandsService, RaffleCommandsService>();
             services.AddTransient<IDiscordCommandService, DiscordCommandService>();
-            services.AddTransient<IFightLogService, FightLogService>();
+            services.AddTransient<ISteamCommandService, SteamCommandService>();
+            services.AddTransient<IDeadlockCommandService, DeadlockCommandService>();
 
             services.AddTransient<IPollingTasksService, PollingTasksService>();
             services.AddTransient<IDiscordApiService, DiscordApiService>();

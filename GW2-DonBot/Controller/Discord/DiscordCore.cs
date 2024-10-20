@@ -2,6 +2,7 @@
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.VisualBasic;
 using Models.Entities;
 using Models.Statics;
 using Services.DiscordRequestServices;
@@ -10,6 +11,7 @@ using Services.Logging;
 using Services.PlayerServices;
 using Services.SecretsServices;
 using System.Text.RegularExpressions;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 using ConnectionState = Discord.ConnectionState;
 
 namespace Controller.Discord
@@ -31,6 +33,8 @@ namespace Controller.Discord
         private readonly IDiscordCommandService _discordCommandService;
         private readonly ILoggingService _loggingService;
         private readonly IFightLogService _fightLogService;
+        private readonly ISteamCommandService _steamCommandService;
+        private readonly IDeadlockCommandService _deadlockCommandService;
 
         private readonly DatabaseContext _databaseContext;
         private readonly DiscordSocketClient _client;
@@ -54,6 +58,8 @@ namespace Controller.Discord
             IDiscordCommandService discordCommandService,
             ILoggingService loggingService,
             IFightLogService fightLogService,
+            ISteamCommandService steamCommandService,
+            IDeadlockCommandService deadlockCommandService,
             DatabaseContext databaseContext,
             DiscordSocketClient client)
         {
@@ -72,6 +78,8 @@ namespace Controller.Discord
             _databaseContext = databaseContext;
             _loggingService = loggingService;
             _fightLogService = fightLogService;
+            _steamCommandService = steamCommandService;
+            _deadlockCommandService = deadlockCommandService;
 
             _client = client;
         }
@@ -196,98 +204,124 @@ namespace Controller.Discord
             // Clear existing global commands (if needed)
             await client.BulkOverwriteGlobalApplicationCommandsAsync(Array.Empty<ApplicationCommandProperties>());
 
+            // Define commands to register
+            var commandsToRegister = new List<SlashCommandBuilder>
+            {
+                new SlashCommandBuilder()
+                    .WithName("gw2_verify")
+                    .WithDescription("Verify your GW2 API key so that your GW2 Account and Discord are linked.")
+                    .AddOption("api-key", ApplicationCommandOptionType.String, "The API key you wish to link",
+                        isRequired: true),
+
+                new SlashCommandBuilder()
+                    .WithName("gw2_deverify")
+                    .WithDescription("Remove any /verify information stored for your Discord account."),
+
+                new SlashCommandBuilder()
+                    .WithName("gw2_points")
+                    .WithDescription("Check how many points you have earned."),
+
+                new SlashCommandBuilder()
+                    .WithName("gw2_create_raffle")
+                    .WithDescription("Create a raffle.")
+                    .AddOption("raffle-description", ApplicationCommandOptionType.String, "The Raffle description",
+                        isRequired: true),
+
+                new SlashCommandBuilder()
+                    .WithName("gw2_create_event_raffle")
+                    .WithDescription("Create an event raffle.")
+                    .AddOption("raffle-description", ApplicationCommandOptionType.String, "The Raffle description",
+                        isRequired: true),
+
+                new SlashCommandBuilder()
+                    .WithName("gw2_enter_raffle")
+                    .WithDescription("RAFFLE TIME.")
+                    .AddOption("points-to-spend", ApplicationCommandOptionType.Integer,
+                        "How many points do you want to spend?", isRequired: true),
+
+                new SlashCommandBuilder()
+                    .WithName("gw2_enter_event_raffle")
+                    .WithDescription("RAFFLE TIME.")
+                    .AddOption("points-to-spend", ApplicationCommandOptionType.Integer,
+                        "How many points do you want to spend?", isRequired: true),
+
+                new SlashCommandBuilder()
+                    .WithName("gw2_complete_raffle")
+                    .WithDescription("Complete the raffle."),
+
+                new SlashCommandBuilder()
+                    .WithName("gw2_complete_event_raffle")
+                    .WithDescription("Complete the event raffle.")
+                    .AddOption("how-many-winners", ApplicationCommandOptionType.Integer,
+                        "How many winners for the event raffle?", isRequired: true),
+
+                new SlashCommandBuilder()
+                    .WithName("gw2_reopen_raffle")
+                    .WithDescription("Reopen the raffle."),
+
+                new SlashCommandBuilder()
+                    .WithName("gw2_reopen_event_raffle")
+                    .WithDescription("Reopen the event raffle."),
+
+                new SlashCommandBuilder()
+                    .WithName("gw2_start_raid")
+                    .WithDescription("Starts raid."),
+
+                new SlashCommandBuilder()
+                    .WithName("gw2_close_raid")
+                    .WithDescription("Closes raid."),
+
+                new SlashCommandBuilder()
+                    .WithName("gw2_set_log_channel")
+                    .WithDescription("Set the channel for simple logs.")
+                    .AddOption("channel", ApplicationCommandOptionType.Channel, "Which channel?", isRequired: true),
+
+                new SlashCommandBuilder()
+                    .WithName("steam_verify")
+                    .WithDescription("verify steam account.")
+                    .AddOption("steam-id", ApplicationCommandOptionType.String,
+                        "Steam account id shown on your account page", isRequired: true),
+
+                new SlashCommandBuilder()
+                    .WithName("deadlock_mmr")
+                    .WithDescription("Get your deadlock mmr."),
+
+                new SlashCommandBuilder()
+                    .WithName("deadlock_mmr_history")
+                    .WithDescription("Get your deadlock mmr history."),
+
+                new SlashCommandBuilder()
+                    .WithName("deadlock_match_history")
+                    .WithDescription("Get your deadlock match history."),
+            };
+
+            // Build the commands for comparison
+            var newCommands = commandsToRegister.Select(c => c.Build()).ToList();
+
             foreach (var guild in guilds)
             {
                 // Get existing commands for the guild
                 var existingCommands = await guild.GetApplicationCommandsAsync();
 
-                // Define commands
-                var commandsToRegister = new List<SlashCommandBuilder>
+                // Check if there are any differences
+                if (existingCommands.Count != newCommands.Count || existingCommands.Any(ec => newCommands.All(nc => nc.Name.Value != ec.Name)))
                 {
-                    new SlashCommandBuilder()
-                        .WithName("help")
-                        .WithDescription("List out DonBot's commands and how to use them."),
+                    // Log the deletion of existing commands
+                    _logger.LogInformation("Differences found in commands for {guildName}. Deleting all existing commands.", guild.Name);
 
-                    new SlashCommandBuilder()
-                        .WithName("deverify")
-                        .WithDescription("Remove any /verify information stored for your Discord account."),
+                    // Delete all existing commands
+                    await guild.DeleteApplicationCommandsAsync();
 
-                    new SlashCommandBuilder()
-                        .WithName("verify")
-                        .WithDescription("Verify your GW2 API key so that your GW2 Account and Discord are linked.")
-                        .AddOption("api-key", ApplicationCommandOptionType.String, "The API key you wish to link",
-                            isRequired: true),
-
-                    new SlashCommandBuilder()
-                        .WithName("points")
-                        .WithDescription("Check how many points you have earned."),
-
-                    new SlashCommandBuilder()
-                        .WithName("create_raffle")
-                        .WithDescription("Create a raffle.")
-                        .AddOption("raffle-description", ApplicationCommandOptionType.String, "The Raffle description",
-                            isRequired: true),
-
-                    new SlashCommandBuilder()
-                        .WithName("create_event_raffle")
-                        .WithDescription("Create an event raffle.")
-                        .AddOption("raffle-description", ApplicationCommandOptionType.String, "The Raffle description",
-                            isRequired: true),
-
-                    new SlashCommandBuilder()
-                        .WithName("enter_raffle")
-                        .WithDescription("RAFFLE TIME.")
-                        .AddOption("points-to-spend", ApplicationCommandOptionType.Integer,
-                            "How many points do you want to spend?", isRequired: true),
-
-                    new SlashCommandBuilder()
-                        .WithName("enter_event_raffle")
-                        .WithDescription("RAFFLE TIME.")
-                        .AddOption("points-to-spend", ApplicationCommandOptionType.Integer,
-                            "How many points do you want to spend?", isRequired: true),
-
-                    new SlashCommandBuilder()
-                        .WithName("complete_raffle")
-                        .WithDescription("Complete the raffle."),
-
-                    new SlashCommandBuilder()
-                        .WithName("complete_event_raffle")
-                        .WithDescription("Complete the event raffle.")
-                        .AddOption("how-many-winners", ApplicationCommandOptionType.Integer,
-                            "How many winners for the event raffle?", isRequired: true),
-
-                    new SlashCommandBuilder()
-                        .WithName("reopen_raffle")
-                        .WithDescription("Reopen the raffle."),
-
-                    new SlashCommandBuilder()
-                        .WithName("reopen_event_raffle")
-                        .WithDescription("Reopen the event raffle."),
-
-                    new SlashCommandBuilder()
-                        .WithName("start_raid")
-                        .WithDescription("Starts raid."),
-
-                    new SlashCommandBuilder()
-                        .WithName("close_raid")
-                        .WithDescription("Closes raid."),
-
-                    new SlashCommandBuilder()
-                        .WithName("set_log_channel")
-                        .WithDescription("Set the channel for simple logs.")
-                        .AddOption("channel", ApplicationCommandOptionType.Channel, "Which channel?", isRequired: true)
-                };
-
-                foreach (var commandBuilder in commandsToRegister)
-                {
-                    // Check if command already exists
-                    if (existingCommands.Any(c => c.Name == commandBuilder.Name))
+                    // Register all new commands
+                    foreach (var command in newCommands)
                     {
-                        continue;
+                        _logger.LogInformation("Registering new command on {guildName} - {commandName}", guild.Name, command.Name);
+                        await guild.CreateApplicationCommandAsync(command);
                     }
-
-                    var command = commandBuilder.Build();
-                    await guild.CreateApplicationCommandAsync(command);
+                }
+                else
+                {
+                    _logger.LogInformation("No differences in commands for {guildName}. No action taken.", guild.Name);
                 }
             }
         }
@@ -296,103 +330,140 @@ namespace Controller.Discord
         {
             switch (command.Data.Name)
             {
-                case        "help":                     await HelpCommandExecuted(command);                  break;
-                case        "verify":                   await VerifyCommandExecuted(command);                break;
-                case        "deverify":                 await DeverifyCommandExecuted(command);              break;
-                case        "points":                   await PointsCommandExecuted(command);                break;
-                case        "create_raffle":            await CreateRaffleCommandExecuted(command);          break;
-                case        "create_event_raffle":      await CreateEventRaffleCommandExecuted(command);     break;
-                case        "enter_raffle":             await RaffleCommandExecuted(command);                break;
-                case        "enter_event_raffle":       await EventRaffleCommandExecuted(command);           break;
-                case        "complete_raffle":          await CompleteRaffleCommandExecuted(command);        break;
-                case        "complete_event_raffle":    await CompleteEventRaffleCommandExecuted(command);   break;
-                case        "reopen_raffle":            await ReopenRaffleCommandExecuted(command);          break;
-                case        "reopen_event_raffle":      await ReopenEventRaffleCommandExecuted(command);     break;
-                case        "start_raid":               await StartRaidCommandExecuted(command);             break;
-                case        "close_raid":               await CloseRaidCommandExecuted(command);             break;
-                case        "set_log_channel":          await SetLogChannel(command);                        break;
-                default:                                await DefaultCommandExecuted(command);               break;
+                case        "gw2_verify":                   await Gw2VerifyCommandExecuted(command);                break;
+                case        "gw2_deverify":                 await Gw2DeverifyCommandExecuted(command);              break;
+                case        "gw2_points":                   await Gw2PointsCommandExecuted(command);                break;
+                case        "gw2_create_raffle":            await Gw2CreateRaffleCommandExecuted(command);          break;
+                case        "gw2_create_event_raffle":      await Gw2CreateEventRaffleCommandExecuted(command);     break;
+                case        "gw2_enter_raffle":             await Gw2RaffleCommandExecuted(command);                break;
+                case        "gw2_enter_event_raffle":       await Gw2EventRaffleCommandExecuted(command);           break;
+                case        "gw2_complete_raffle":          await Gw2CompleteRaffleCommandExecuted(command);        break;
+                case        "gw2_complete_event_raffle":    await Gw2CompleteEventRaffleCommandExecuted(command);   break;
+                case        "gw2_reopen_raffle":            await Gw2ReopenRaffleCommandExecuted(command);          break;
+                case        "gw2_reopen_event_raffle":      await Gw2ReopenEventRaffleCommandExecuted(command);     break;
+                case        "gw2_start_raid":               await Gw2StartRaidCommandExecuted(command);             break;
+                case        "gw2_close_raid":               await Gw2CloseRaidCommandExecuted(command);             break;
+                case        "gw2_set_log_channel":          await Gw2SetLogChannel(command);                        break;
+                case        "steam_verify":                 await SteamVerifyCommandExecuted(command);              break;
+                case        "deadlock_mmr":                 await DeadlockMmrCommandExecuted(command);              break;
+                case        "deadlock_mmr_history":         await DeadlockMmrHistoryCommandExecuted(command);       break;
+                case        "deadlock_match_history":       await DeadlockMatchHistoryCommandExecuted(command);     break;
+                default:                                    await DefaultCommandExecuted(command);                  break;
             }
         }
 
-        private async Task HelpCommandExecuted(SocketSlashCommand command)
+        private async Task Gw2StartRaidCommandExecuted(SocketSlashCommand command)
         {
-            await _genericCommandsService.HelpCommandExecuted(command);
-        }
-
-        private async Task StartRaidCommandExecuted(SocketSlashCommand command)
-        {
+            await command.DeferAsync(ephemeral: true);
             await _raidService.StartRaid(command, _client);
         }
 
-        private async Task CloseRaidCommandExecuted(SocketSlashCommand command)
+        private async Task Gw2CloseRaidCommandExecuted(SocketSlashCommand command)
         {
+            await command.DeferAsync(ephemeral: true);
             await _raidService.CloseRaid(command, _client);
         }
 
-        private async Task ReopenRaffleCommandExecuted(SocketSlashCommand command)
+        private async Task Gw2ReopenRaffleCommandExecuted(SocketSlashCommand command)
         {
+            await command.DeferAsync(ephemeral: true);
             await _raffleCommandsService.ReopenRaffleCommandExecuted(command, _client);
         }
 
-        private async Task ReopenEventRaffleCommandExecuted(SocketSlashCommand command)
+        private async Task Gw2ReopenEventRaffleCommandExecuted(SocketSlashCommand command)
         {
+            await command.DeferAsync(ephemeral: true);
             await _raffleCommandsService.ReopenEventRaffleCommandExecuted(command, _client);
         }
 
-        private async Task CompleteRaffleCommandExecuted(SocketSlashCommand command)
+        private async Task Gw2CompleteRaffleCommandExecuted(SocketSlashCommand command)
         {
+            await command.DeferAsync(ephemeral: true);
             await _raffleCommandsService.CompleteRaffleCommandExecuted(command, _client);
         }
 
-        private async Task CompleteEventRaffleCommandExecuted(SocketSlashCommand command)
+        private async Task Gw2CompleteEventRaffleCommandExecuted(SocketSlashCommand command)
         {
+            await command.DeferAsync(ephemeral: true);
             await _raffleCommandsService.CompleteEventRaffleCommandExecuted(command, _client);
         }
 
-        private async Task RaffleCommandExecuted(SocketSlashCommand command)
+        private async Task Gw2RaffleCommandExecuted(SocketSlashCommand command)
         {
+            await command.DeferAsync(ephemeral: true);
             await _raffleCommandsService.RaffleCommandExecuted(command, _client);
         }
 
-        private async Task EventRaffleCommandExecuted(SocketSlashCommand command)
+        private async Task Gw2EventRaffleCommandExecuted(SocketSlashCommand command)
         {
+            await command.DeferAsync(ephemeral: true);
             await _raffleCommandsService.EventRaffleCommandExecuted(command, _client);
         }
 
-        private async Task CreateRaffleCommandExecuted(SocketSlashCommand command)
+        private async Task Gw2CreateRaffleCommandExecuted(SocketSlashCommand command)
         {
+            await command.DeferAsync(ephemeral: true);
             await _raffleCommandsService.CreateRaffleCommandExecuted(command, _client);
         }
 
-        private async Task CreateEventRaffleCommandExecuted(SocketSlashCommand command)
+        private async Task Gw2CreateEventRaffleCommandExecuted(SocketSlashCommand command)
         {
+            await command.DeferAsync(ephemeral: true);
             await _raffleCommandsService.CreateEventRaffleCommandExecuted(command, _client);
         }
 
-        private async Task VerifyCommandExecuted(SocketSlashCommand command)
+        private async Task Gw2VerifyCommandExecuted(SocketSlashCommand command)
         {
+            await command.DeferAsync(ephemeral: true);
             await _verifyCommandsService.VerifyCommandExecuted(command, _client);
         }
 
-        private async Task DeverifyCommandExecuted(SocketSlashCommand command)
+        private async Task Gw2DeverifyCommandExecuted(SocketSlashCommand command)
         {
+            await command.DeferAsync(ephemeral: true);
             await _verifyCommandsService.DeverifyCommandExecuted(command, _client);
         }
 
-        private async Task PointsCommandExecuted(SocketSlashCommand command)
+        private async Task Gw2PointsCommandExecuted(SocketSlashCommand command)
         {
+            await command.DeferAsync(ephemeral: true);
             await _pointsCommandsService.PointsCommandExecuted(command);
         }
 
-        private async Task SetLogChannel(SocketSlashCommand command)
+        private async Task Gw2SetLogChannel(SocketSlashCommand command)
         {
+            await command.DeferAsync(ephemeral: true);
             await _discordCommandService.SetLogChannel(command, _client);
         }
 
-        private async Task DefaultCommandExecuted(SocketSlashCommand command)
+        private async Task SteamVerifyCommandExecuted(SocketSlashCommand command)
         {
-            await command.RespondAsync($"The command `{command.Data.Name}` is not implemented.", ephemeral: true);
+            await command.DeferAsync(ephemeral: true);
+            await _steamCommandService.VerifySteamAccount(command, _client);
+        }
+
+        private async Task DeadlockMmrCommandExecuted(SocketSlashCommand command)
+        {
+            await command.DeferAsync(ephemeral: true);
+            await _deadlockCommandService.GetMmr(command, _client);
+        }
+
+        private async Task DeadlockMmrHistoryCommandExecuted(SocketSlashCommand command)
+        {
+            await command.DeferAsync(ephemeral: true);
+            await _deadlockCommandService.GetMmrHistory(command, _client);
+        }
+
+        private async Task DeadlockMatchHistoryCommandExecuted(SocketSlashCommand command)
+        {
+            await command.DeferAsync(ephemeral:true);
+            await _deadlockCommandService.GetMatchHistory(command, _client);
+        }
+
+        private static async Task DefaultCommandExecuted(SocketSlashCommand command)
+        {
+            await command.DeferAsync(ephemeral: true);
+            await command.FollowupAsync($"The command `{command.Data.Name}` is not implemented.", ephemeral: true);
         }
 
         private async Task PollingRolesTask(TimeSpan interval, CancellationToken cancellationToken)

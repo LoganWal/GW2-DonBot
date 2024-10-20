@@ -22,13 +22,10 @@ namespace Services.DiscordRequestServices
 
         public async Task VerifyCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
         {
-            // Defer the response to avoid timeouts
-            await command.DeferAsync(ephemeral: true);
-
             // Check if the command was executed in a guild
             if (command.GuildId == null)
             {
-                await command.ModifyOriginalResponseAsync(message => message.Content = "Failed to verify, please try again.");
+                await command.FollowupAsync("Failed to verify, please try again.", ephemeral: true);
                 return;
             }
 
@@ -41,7 +38,7 @@ namespace Services.DiscordRequestServices
             // Check if the API key is null or empty
             if (string.IsNullOrEmpty(apiKey))
             {
-                await command.ModifyOriginalResponseAsync(message => message.Content = "Failed to verify, please try again.");
+                await command.FollowupAsync("Failed to verify, please try again.", ephemeral: true);
                 return;
             }
 
@@ -114,7 +111,7 @@ namespace Services.DiscordRequestServices
                     _databaseContext.Add(gw2Account);
                 }
 
-                _databaseContext.SaveChanges();
+                await _databaseContext.SaveChangesAsync();
 
                 // Get the guild from the database
                 var guild = await _databaseContext.Guild.FirstOrDefaultAsync(g => g.GuildId == (long)command.GuildId);
@@ -149,28 +146,25 @@ namespace Services.DiscordRequestServices
                 AssignRoles(guildUser, guild, inPrimaryGuild, inSecondaryGuild);
 
                 // Edit the response message with the output
-                await command.ModifyOriginalResponseAsync(message => message.Content = output);
+                await command.FollowupAsync(output, ephemeral: true);
             }
             else
             {
                 _logger.LogError("Failed to verify {guildUserDisplayName}", guildUser.DisplayName);
 
-                await command.ModifyOriginalResponseAsync(message => message.Content = $"Looks like you screwed up a couple of letters in the api key, try again mate, failed to process with API key: `{apiKey}`");
+                await command.FollowupAsync($"Looks like you screwed up a couple of letters in the api key, try again mate, failed to process with API key: `{apiKey}`", ephemeral: true);
             }
         }
 
         public async Task DeverifyCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
         {
-            // Defer the response to avoid timeouts
-            await command.DeferAsync(ephemeral: true);
-
             // Check if the account exists in the database
             var output = "";
             var gw2Accounts = await _databaseContext.GuildWarsAccount.Where(acc => acc.DiscordId == (long)command.User.Id).ToListAsync();
             var accountFound = gw2Accounts.Any();
 
             _databaseContext.RemoveRange(gw2Accounts);
-            _databaseContext.SaveChanges();
+            await _databaseContext.SaveChangesAsync();
 
             // Generate output message
             output += accountFound ?
@@ -180,7 +174,7 @@ namespace Services.DiscordRequestServices
             // Check if the guild exists in the database
             var guilds = await _databaseContext.Guild.ToListAsync();
             if (command.GuildId == null) {
-                await command.ModifyOriginalResponseAsync(message => message.Content = "Failed to deverify, make sure you asking withing a discord server.");
+                await command.FollowupAsync("Failed to deverify, make sure you asking withing a discord server.", ephemeral: true);
                 return;
             }
 
@@ -188,7 +182,7 @@ namespace Services.DiscordRequestServices
 
             if (guild == null)
             {
-                await command.ModifyOriginalResponseAsync(message => message.Content = output);
+                await command.FollowupAsync(output, ephemeral: true);
                 return;
             }
 
@@ -202,7 +196,7 @@ namespace Services.DiscordRequestServices
             {
                 _logger.LogError(ex, "Failed to de-verify {guildUserDisplayName}", command.User);
 
-                await command.ModifyOriginalResponseAsync(message => message.Content = "Failed to de-verify, please try again.");
+                await command.FollowupAsync("Failed to de-verify, please try again.", ephemeral: true);
                 return;
             }
 
@@ -210,7 +204,7 @@ namespace Services.DiscordRequestServices
             RemoveRoles(guildUser, guild);
 
             // Modify the response with the output message
-            await command.ModifyOriginalResponseAsync(message => message.Content = output);
+            await command.FollowupAsync(output, ephemeral: true);
         }
 
         private async void AssignRoles(SocketGuildUser guildUser, Guild guild, bool inPrimaryGuild, bool inSecondaryGuild)

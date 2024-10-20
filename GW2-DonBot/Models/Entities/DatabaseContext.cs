@@ -1,5 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Services.SecretsServices;
 
 namespace Models.Entities
 {
@@ -16,6 +15,8 @@ namespace Models.Entities
             FightsReport = Set<FightsReport>();
             PlayerFightLog = Set<PlayerFightLog>();
             GuildQuote = Set<GuildQuote>();
+            SteamAccount = Set<SteamAccount>();
+
         }
 
         public DbSet<Account> Account { get; set; }
@@ -27,6 +28,7 @@ namespace Models.Entities
         public DbSet<FightsReport> FightsReport { get; set; }
         public DbSet<PlayerFightLog> PlayerFightLog { get; set; }
         public DbSet<GuildQuote> GuildQuote { get; set; }
+        public DbSet<SteamAccount> SteamAccount { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

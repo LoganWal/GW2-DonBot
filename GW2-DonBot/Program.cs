@@ -69,6 +69,8 @@ public class Program
                         provider.GetRequiredService<IDiscordCommandService>(),
                         provider.GetRequiredService<ILoggingService>(),
                         provider.GetRequiredService<IFightLogService>(),
+                        provider.GetRequiredService<ISteamCommandService>(),
+                        provider.GetRequiredService<IDeadlockCommandService>(),
                         provider.GetRequiredService<DatabaseContext>(),
                         client
                     );

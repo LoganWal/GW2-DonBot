@@ -26,7 +26,7 @@ namespace Services.DiscordRequestServices
                    .AppendLine("This command can be used to remove any currently stored data associated with your Discord account. The data stored via the /verify command can be wiped through this. Note you will have to re-verify to access certain roles and features! This will only remove the information associated with the Discord account used to trigger the command.");
 
             // Respond to the command with the constructed message, making it only visible to the user who triggered the command
-            await command.RespondAsync(message.ToString(), ephemeral: true);
+            await command.FollowupAsync(message.ToString(), ephemeral: true);
         }
     }
 }

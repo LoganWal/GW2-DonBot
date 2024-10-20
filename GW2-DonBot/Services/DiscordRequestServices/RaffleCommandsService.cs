@@ -26,8 +26,6 @@ namespace Services.DiscordRequestServices
 
         public async Task CreateRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
         {
-            await command.DeferAsync(ephemeral: true);
-
             // Get the user who executed the command
             SocketGuildUser? guildUser = null;
             if (command.GuildId.HasValue)
@@ -42,7 +40,7 @@ namespace Services.DiscordRequestServices
             if (guildUser == null)
             {
                 _logger.LogError("Failed to create raffle: Guild or user not found.");
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to create raffle, please try again or contact support.");
+                await command.FollowupAsync("Failed to create raffle, please try again or contact support.", ephemeral: true);
                 return;
             }
 
@@ -51,19 +49,19 @@ namespace Services.DiscordRequestServices
 
             if (guild == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Cannot find the related guild, try the command in the guild you want the raffle in!");
+                await command.FollowupAsync("Cannot find the related guild, try the command in the guild you want the raffle in!", ephemeral: true);
                 return;
             }
 
             if (guild.AnnouncementChannelId == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "No Announcement Channel Set");
+                await command.FollowupAsync("No Announcement Channel Set", ephemeral: true);
                 return;
             }
 
             if (discordClient.GetChannel((ulong)guild.AnnouncementChannelId.Value) is not ITextChannel targetChannel)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to find the target channel.");
+                await command.FollowupAsync("Failed to find the target channel.", ephemeral: true);
                 return;
             }
 
@@ -72,7 +70,7 @@ namespace Services.DiscordRequestServices
 
             if (activeRaffleExists)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "There is already a running raffle, close that one first!");
+                await command.FollowupAsync("There is already a running raffle, close that one first!", ephemeral: true);
                 return;
             }
 
@@ -117,65 +115,71 @@ namespace Services.DiscordRequestServices
 
             await _databaseContext.SaveChangesAsync();
             await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: new[] { message.Build() }, components: buttonBuilder);
-            await command.ModifyOriginalResponseAsync(m => m.Content = "Raffle created successfully!");
+            await command.FollowupAsync("Raffle created successfully!", ephemeral: true);
         }
 
-        // Assuming this is within the same class handling  'CreateRaffleCommandExecuted'
         public async Task HandleRaffleButton1(SocketMessageComponent command)
         {
+            await command.DeferAsync(ephemeral: true);
             await HandleRaffleEnter(command, 1);
         }
 
         public async Task HandleRaffleButton50(SocketMessageComponent command)
         {
+            await command.DeferAsync(ephemeral: true);
             await HandleRaffleEnter(command, 50);
         }
 
         public async Task HandleRaffleButton100(SocketMessageComponent command)
         {
+            await command.DeferAsync(ephemeral: true);
             await HandleRaffleEnter(command, 100);
         }
 
         public async Task HandleRaffleButton1000(SocketMessageComponent command)
         {
+            await command.DeferAsync(ephemeral: true);
             await HandleRaffleEnter(command, 1000);
         }
 
         public async Task HandleRaffleButtonRandom(SocketMessageComponent command)
         {
+            await command.DeferAsync(ephemeral: true);
             await HandleRaffleEnter(command, -1);
         }
 
         public async Task HandleEventRaffleButton1(SocketMessageComponent command)
         {
+            await command.DeferAsync(ephemeral: true);
             await HandleEventRaffleEnter(command, 1);
         }
 
         public async Task HandleEventRaffleButton50(SocketMessageComponent command)
         {
+            await command.DeferAsync(ephemeral: true);
             await HandleEventRaffleEnter(command, 50);
         }
 
         public async Task HandleEventRaffleButton100(SocketMessageComponent command)
         {
+            await command.DeferAsync(ephemeral: true);
             await HandleEventRaffleEnter(command, 100);
         }
 
         public async Task HandleEventRaffleButton1000(SocketMessageComponent command)
         {
+            await command.DeferAsync(ephemeral: true);
             await HandleEventRaffleEnter(command, 1000);
         }
 
         public async Task HandleEventRaffleButtonRandom(SocketMessageComponent command)
         {
+            await command.DeferAsync(ephemeral: true);
             await HandleEventRaffleEnter(command, -1);
         }
 
         public async Task CreateEventRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
         {
-            // Defer the command execution
-            await command.DeferAsync(ephemeral: true);
-
             // Get the user who executed the command
             SocketGuildUser? guildUser;
             try
@@ -192,13 +196,13 @@ namespace Services.DiscordRequestServices
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed create event raffle");
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to create raffle, please try again, or yell at logan.");
+                await command.FollowupAsync("Failed to create raffle, please try again, or yell at logan.", ephemeral: true);
                 return;
             }
 
             if (guildUser == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to create raffle, please try again, or yell at logan.");
+                await command.FollowupAsync("Failed to create raffle, please try again, or yell at logan.", ephemeral: true);
                 return;
             }
 
@@ -208,19 +212,19 @@ namespace Services.DiscordRequestServices
             
             if (guild == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Cannot find the discord this should apply to, try the command in the discord you want the raffle in!");
+                await command.FollowupAsync("Cannot find the discord this should apply to, try the command in the discord you want the raffle in!", ephemeral: true);
                 return;
             }
 
             if (guild.AnnouncementChannelId == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "No Announcement Channel Set");
+                await command.FollowupAsync("No Announcement Channel Set", ephemeral: true);
                 return;
             }
 
             if (discordClient.GetChannel((ulong)guild.AnnouncementChannelId) is not ITextChannel targetChannel)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to find the target channel.");
+                await command.FollowupAsync("Failed to find the target channel.", ephemeral: true);
                 return;
             }
 
@@ -228,7 +232,7 @@ namespace Services.DiscordRequestServices
             var raffles = await _databaseContext.Raffle.ToListAsync();
             if (raffles.Any(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Event && raf.GuildId == guild.GuildId))
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "There already is a running raffle, close that one first!");
+                await command.FollowupAsync("There already is a running raffle, close that one first!", ephemeral: true);
                 return;
             }
 
@@ -272,12 +276,12 @@ namespace Services.DiscordRequestServices
             };
 
             _databaseContext.Add(raffle);
-            _databaseContext.SaveChanges();
+            await _databaseContext.SaveChangesAsync();
 
             // Send to target channel with components
             await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: new[] { message.Build() }, components: buttonBuilder);
 
-            await command.ModifyOriginalResponseAsync(m => m.Content = "Created!");
+            await command.FollowupAsync("Created!", ephemeral: true);
         }
 
         public async Task RaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
@@ -285,23 +289,20 @@ namespace Services.DiscordRequestServices
             // Parse the points to spend from the command options
             if (!int.TryParse(command.Data.Options.First().Value.ToString(), out var pointsToSpend))
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Please try again and enter a valid number.");
+                await command.FollowupAsync("Please try again and enter a valid number.", ephemeral: true);
                 return;
             }
 
             // Check if the points to spend is greater than 0
             if (pointsToSpend <= 0)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Need to spend at least 1 point.");
+                await command.FollowupAsync("Need to spend at least 1 point.", ephemeral: true);
                 return;
             }
 
-            // Defer the command execution
-            await command.DeferAsync(ephemeral: true);
-
             // Check if the command was executed in a guild
             if (!command.GuildId.HasValue) {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to create raffle, make sure to use this command within a discord server.");
+                await command.FollowupAsync("Failed to create raffle, make sure to use this command within a discord server.", ephemeral: true);
                 return;
             }
 
@@ -309,7 +310,7 @@ namespace Services.DiscordRequestServices
             var guildUser = discordClient.GetGuild(command.GuildId.Value)?.GetUser(command.User.Id);
             if (guildUser == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to create raffle, please try again, or yell at someone.");
+                await command.FollowupAsync("Failed to create raffle, please try again, or yell at someone.", ephemeral: true);
                 return;
             }
 
@@ -317,7 +318,7 @@ namespace Services.DiscordRequestServices
             var guild = await _databaseContext.Guild.FirstOrDefaultAsync(g => g.GuildId == (long)guildUser.Guild.Id);
             if (guild == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "This message does not appear to be a part of a server, are you messaging in a server where the bot is running?");
+                await command.FollowupAsync("This message does not appear to be a part of a server, are you messaging in a server where the bot is running?", ephemeral: true);
                 return;
             }
 
@@ -325,7 +326,7 @@ namespace Services.DiscordRequestServices
             var currentRaffle = await _databaseContext.Raffle.FirstOrDefaultAsync(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId);
             if (currentRaffle == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "There are currently no raffles.");
+                await command.FollowupAsync("There are currently no raffles.", ephemeral: true);
                 return;
             }
 
@@ -333,21 +334,21 @@ namespace Services.DiscordRequestServices
             var account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
             if (account == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Could not find an account for you, have you verified?");
+                await command.FollowupAsync("Could not find an account for you, have you verified?", ephemeral: true);
                 return;
             }
 
             var gw2Accounts = await _databaseContext.GuildWarsAccount.Where(s => s.DiscordId == account.DiscordId).ToListAsync();
             if (!gw2Accounts.Any())
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Could not find a guild wars 2 account for you, have you verified?");
+                await command.FollowupAsync("Could not find a guild wars 2 account for you, have you verified?", ephemeral: true);
                 return;
             }
 
             // Check if the account has enough points to spend
             if (account.AvailablePoints < pointsToSpend)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = $"You do not have enough points for that, you currently have {account.AvailablePoints} points to spend.");
+                await command.FollowupAsync($"You do not have enough points for that, you currently have {account.AvailablePoints} points to spend.", ephemeral: true);
                 return;
             }
 
@@ -377,10 +378,10 @@ namespace Services.DiscordRequestServices
             _databaseContext.Update(account);
 
             // Save the changes to the database
-            _databaseContext.SaveChanges();
+            await _databaseContext.SaveChangesAsync();
 
             // Respond to the command with the points added
-            await command.ModifyOriginalResponseAsync(m => m.Content = $"Added {pointsToSpend} points!{Environment.NewLine}Total points in current raffle is: {currentBid.PointsSpent}");
+            await command.FollowupAsync($"Added {pointsToSpend} points!{Environment.NewLine}Total points in current raffle is: {currentBid.PointsSpent}", ephemeral: true);
         }
 
         public async Task EventRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
@@ -388,19 +389,16 @@ namespace Services.DiscordRequestServices
             // Parse the points to spend from the command options
             if (!int.TryParse(command.Data.Options.First().Value.ToString(), out var pointsToSpend))
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Please try again and enter a valid number.");
+                await command.FollowupAsync("Please try again and enter a valid number.", ephemeral: true);
                 return;
             }
 
             // Check if the points to spend is greater than zero
             if (pointsToSpend <= 0)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Need to spend at least 1 point.");
+                await command.FollowupAsync("Need to spend at least 1 point.", ephemeral: true);
                 return;
             }
-
-            // Defer the response to avoid timeouts
-            await command.DeferAsync(ephemeral: true);
 
             // Get the guild user who executed the command
             SocketGuildUser? guildUser;
@@ -411,7 +409,7 @@ namespace Services.DiscordRequestServices
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed enter event raffle");
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to create raffle, please try again, or yell at someone.");
+                await command.FollowupAsync("Failed to create raffle, please try again, or yell at someone.", ephemeral: true);
                 return;
             }
 
@@ -422,7 +420,7 @@ namespace Services.DiscordRequestServices
             // Check if the guild exists
             if (guild == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "This message does not appear to be apart of a server, are you messaging in a server where the bot is running?");
+                await command.FollowupAsync("This message does not appear to be apart of a server, are you messaging in a server where the bot is running?", ephemeral: true);
                 return;
             }
 
@@ -433,7 +431,7 @@ namespace Services.DiscordRequestServices
             // Check if there is an active event raffle
             if (currentRaffle == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "There are currently no raffles.");
+                await command.FollowupAsync("There are currently no raffles.", ephemeral: true);
                 return;
             }
 
@@ -442,21 +440,21 @@ namespace Services.DiscordRequestServices
             var account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
             if (account == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Could not find an account for you, have you verified?");
+                await command.FollowupAsync("Could not find an account for you, have you verified?", ephemeral: true);
                 return;
             }
 
             var gw2Accounts = await _databaseContext.GuildWarsAccount.Where(s => s.DiscordId == account.DiscordId).ToListAsync();
             if (!gw2Accounts.Any())
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Could not find a guild wars 2 account for you, have you verified?");
+                await command.FollowupAsync("Could not find a guild wars 2 account for you, have you verified?", ephemeral: true);
                 return;
             }
 
             // Check if the user has enough points to spend
             if (account.AvailablePoints < pointsToSpend)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = $"You do not have enough points for that, you currently have {account.AvailablePoints} points to spend.");
+                await command.FollowupAsync($"You do not have enough points for that, you currently have {account.AvailablePoints} points to spend.", ephemeral: true);
                 return;
             }
 
@@ -485,17 +483,14 @@ namespace Services.DiscordRequestServices
             // Update the available points of the user and save changes to the database
             account.AvailablePoints -= pointsToSpend;
             _databaseContext.Update(account);
-            _databaseContext.SaveChanges();
+            await _databaseContext.SaveChangesAsync();
 
             // Send a response with the points spent and the total points in the current event raffle
-            await command.ModifyOriginalResponseAsync(m => m.Content = $"Added {pointsToSpend} points!{Environment.NewLine}Total points in current event raffle is: {currentBid.PointsSpent}");
+            await command.FollowupAsync($"Added {pointsToSpend} points!{Environment.NewLine}Total points in current event raffle is: {currentBid.PointsSpent}", ephemeral: true);
         }
 
         public async Task CompleteRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
         {
-            // Defer the response to let the user know the bot is working
-            await command.DeferAsync(ephemeral: true);
-
             // Get the guild user who executed the command
             SocketGuildUser? guildUser;
             try
@@ -505,7 +500,7 @@ namespace Services.DiscordRequestServices
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed complete raffle");
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to end raffle, please try again, or yell at logan.");
+                await command.FollowupAsync("Failed to end raffle, please try again, or yell at logan.", ephemeral: true);
                 return;
             }
 
@@ -524,7 +519,7 @@ namespace Services.DiscordRequestServices
 
             if (currentRaffle == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "There are currently no raffles, maybe create one!");
+                await command.FollowupAsync("There are currently no raffles, maybe create one!", ephemeral: true);
                 return;
             }
 
@@ -557,19 +552,19 @@ namespace Services.DiscordRequestServices
 
             if (account == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Unable to choose a winner, please try again, or yell at someone");
+                await command.FollowupAsync("Unable to choose a winner, please try again, or yell at someone", ephemeral: true);
                 return;
             }
 
             if (guild.AnnouncementChannelId == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "No Announcement Channel Set");
+                await command.FollowupAsync("No Announcement Channel Set", ephemeral: true);
                 return;
             }
 
             if (discordClient.GetChannel((ulong)guild.AnnouncementChannelId) is not ITextChannel targetChannel)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to find the target channel.");
+                await command.FollowupAsync("Failed to find the target channel.", ephemeral: true);
                 return;
             }
 
@@ -602,31 +597,28 @@ namespace Services.DiscordRequestServices
             currentRaffle.IsActive = false;
 
             _databaseContext.Update(currentRaffle);
-            _databaseContext.SaveChanges();
+            await _databaseContext.SaveChangesAsync();
 
             // Send the message to the webhook
             await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: new[] { builtMessage });
 
             // Modify the original response to indicate success
-            await command.ModifyOriginalResponseAsync(m => m.Content = "Selected!");
+            await command.FollowupAsync("Selected!", ephemeral: true);
         }
 
         public async Task CompleteEventRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
         {
-            // Defer the response to let the user know the command is being processed
-            await command.DeferAsync(ephemeral: true);
-
             // Parse the number of winners from the command options
             if (!int.TryParse(command.Data.Options.First().Value.ToString(), out var winnersCount))
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Please try again and enter a valid number.");
+                await command.FollowupAsync("Please try again and enter a valid number.", ephemeral: true);
                 return;
             }
 
             // Check that the number of winners is valid
             if (winnersCount <= 0)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Must be at least 1 winner.");
+                await command.FollowupAsync("Must be at least 1 winner.", ephemeral: true);
                 return;
             }
 
@@ -646,7 +638,7 @@ namespace Services.DiscordRequestServices
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed complete event raffle");
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to end raffle, please try again, or yell at logan.");
+                await command.FollowupAsync("Failed to end raffle, please try again, or yell at logan.", ephemeral: true);
                 return;
             }
 
@@ -691,7 +683,7 @@ namespace Services.DiscordRequestServices
 
                             if (account == null)
                             {
-                                await command.ModifyOriginalResponseAsync(m => m.Content = "Unable to choose a winner, please try again, or yell at someone");
+                                await command.FollowupAsync("Unable to choose a winner, please try again, or yell at someone", ephemeral: true);
                                 return;
                             }
 
@@ -708,13 +700,13 @@ namespace Services.DiscordRequestServices
                 // Build the message to announce the winners
                 if (guild.AnnouncementChannelId == null)
                 {
-                    await command.ModifyOriginalResponseAsync(m => m.Content = "No Announcement Channel Set");
+                    await command.FollowupAsync("No Announcement Channel Set", ephemeral: true);
                     return;
                 }
 
                 if (discordClient.GetChannel((ulong)guild.AnnouncementChannelId) is not ITextChannel targetChannel)
                 {
-                    await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to find the target channel.");
+                    await command.FollowupAsync("Failed to find the target channel.", ephemeral: true);
                     return;
                 }
 
@@ -747,25 +739,22 @@ namespace Services.DiscordRequestServices
                 // Update the raffle to be inactive
                 currentRaffle.IsActive = false;
                 _databaseContext.Update(currentRaffle);
-                _databaseContext.SaveChanges();
+                await _databaseContext.SaveChangesAsync();
 
                 // Send the message announcing the winners to the webhook
                 await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: new[] { builtMessage });
 
                 // Modify the original response to indicate that the command was successful
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Selected!");
+                await command.FollowupAsync("Selected!", ephemeral: true);
             }
             else
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "There are currently no raffles, maybe create one!");
+                await command.FollowupAsync("There are currently no raffles, maybe create one!", ephemeral: true);
             }
         }
 
         public async Task ReopenRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
         {
-            // Defer the response to avoid timeouts
-            await command.DeferAsync(ephemeral: true);
-
             // Get the guild user
             SocketGuildUser? guildUser;
             try
@@ -782,7 +771,7 @@ namespace Services.DiscordRequestServices
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed reopen raffle");
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to end raffle, please try again, or yell at logan.");
+                await command.FollowupAsync("Failed to end raffle, please try again, or yell at logan.", ephemeral: true);
                 return;
             }
 
@@ -795,7 +784,7 @@ namespace Services.DiscordRequestServices
             // Check if the guild is null
             if (guild == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "This message does not belong to a discord server, please don't whisper me,");
+                await command.FollowupAsync("This message does not belong to a discord server, please don't whisper me,", ephemeral: true);
                 return;
             }
 
@@ -803,7 +792,7 @@ namespace Services.DiscordRequestServices
             var raffles = await _databaseContext.Raffle.ToListAsync();
             if (raffles.FirstOrDefault(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId) != null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "There is currently an open raffle.");
+                await command.FollowupAsync("There is currently an open raffle.", ephemeral: true);
                 return;
             } 
 
@@ -815,19 +804,19 @@ namespace Services.DiscordRequestServices
             }
             else
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "There is currently no latest raffle, maybe create one!");
+                await command.FollowupAsync("There is currently no latest raffle, maybe create one!", ephemeral: true);
                 return;
             }
 
             if (guild.AnnouncementChannelId == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "No Announcement Channel Set");
+                await command.FollowupAsync("No Announcement Channel Set", ephemeral: true);
                 return;
             }
 
             if (discordClient.GetChannel((ulong)guild.AnnouncementChannelId) is not ITextChannel targetChannel)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to find the target channel.");
+                await command.FollowupAsync("Failed to find the target channel.", ephemeral: true);
                 return;
             }
 
@@ -857,20 +846,17 @@ namespace Services.DiscordRequestServices
 
             // Update the latest raffle
             _databaseContext.Update(latestRaffle);
-            _databaseContext.SaveChanges();
+            await _databaseContext.SaveChangesAsync();
 
             // Send the message to the webhook
             await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: new[] { builtMessage });
 
             // Modify the original response to indicate success
-            await command.ModifyOriginalResponseAsync(m => m.Content = "Reopened!");
+            await command.FollowupAsync("Reopened!", ephemeral: true);
         }
 
         public async Task ReopenEventRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
         {
-            // Defer the response to show that the bot is working
-            await command.DeferAsync(ephemeral: true);
-
             // Get the guild user
             SocketGuildUser? guildUser;
             try
@@ -887,19 +873,18 @@ namespace Services.DiscordRequestServices
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed reopen event raffle");
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to end raffle, please try again, or yell at logan.");
+                await command.FollowupAsync("Failed to end raffle, please try again, or yell at logan.", ephemeral: true);
                 return;
             }
 
             // Get the guild
-            Guild? guild;
             var guilds = await _databaseContext.Guild.ToListAsync();
-            guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
+            var guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
 
             // If the guild is null, return an error message
             if (guild == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "This message does not belong to a discord server, please don't whisper me,");
+                await command.FollowupAsync("This message does not belong to a discord server, please don't whisper me,", ephemeral: true);
                 return;
             }
 
@@ -907,7 +892,7 @@ namespace Services.DiscordRequestServices
             var raffles = await _databaseContext.Raffle.ToListAsync();
             if (raffles.FirstOrDefault(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Event && raf.GuildId == guild.GuildId) != null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "There is currently an open raffle.");
+                await command.FollowupAsync("There is currently an open raffle.", ephemeral: true);
                 return;
             }
 
@@ -917,7 +902,7 @@ namespace Services.DiscordRequestServices
             // If there is no latest event raffle, return an error message
             if (latestRaffle == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "There is currently no latest raffle, maybe create one!");
+                await command.FollowupAsync("There is currently no latest raffle, maybe create one!", ephemeral: true);
                 return;
             }
 
@@ -926,13 +911,13 @@ namespace Services.DiscordRequestServices
 
             if (guild.AnnouncementChannelId == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "No Announcement Channel Set");
+                await command.FollowupAsync("No Announcement Channel Set", ephemeral: true);
                 return;
             }
 
             if (discordClient.GetChannel((ulong)guild.AnnouncementChannelId) is not ITextChannel targetChannel)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Failed to find the target channel.");
+                await command.FollowupAsync("Failed to find the target channel.", ephemeral: true);
                 return;
             }
 
@@ -962,13 +947,13 @@ namespace Services.DiscordRequestServices
 
             // Update the database with the latest event raffle
             _databaseContext.Update(latestRaffle);
-            _databaseContext.SaveChanges();
+            await _databaseContext.SaveChangesAsync();
 
             // Send the message to the webhook
             await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: new[] { builtMessage });
 
             // Modify the original response to show that the event raffle has been reopened
-            await command.ModifyOriginalResponseAsync(m => m.Content = "Reopened!");
+            await command.FollowupAsync("Reopened!", ephemeral: true);
         }
 
         private async Task HandleRaffleEnter(SocketMessageComponent command, int pointsToSpend)
@@ -986,7 +971,7 @@ namespace Services.DiscordRequestServices
             var guild = await _databaseContext.Guild.FirstOrDefaultAsync(g => g.GuildId == (long)guildUser.Guild.Id);
             if (guild == null)
             {
-                await command.RespondAsync("This message does not appear to be a part of a server, are you messaging in a server where the bot is running?", ephemeral: true);
+                await command.FollowupAsync("This message does not appear to be a part of a server, are you messaging in a server where the bot is running?", ephemeral:true);
                 return;
             }
 
@@ -994,7 +979,7 @@ namespace Services.DiscordRequestServices
             var currentRaffle = await _databaseContext.Raffle.FirstOrDefaultAsync(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId);
             if (currentRaffle == null)
             {
-                await command.RespondAsync("There are currently no raffles.", ephemeral: true);
+                await command.FollowupAsync("There are currently no raffles.", ephemeral: true);
                 return;
             }
 
@@ -1002,21 +987,21 @@ namespace Services.DiscordRequestServices
             var account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
             if (account == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Could not find an account for you, have you verified?");
+                await command.FollowupAsync("Could not find an account for you, have you verified?", ephemeral: true);
                 return;
             }
 
             var gw2Accounts = await _databaseContext.GuildWarsAccount.Where(s => s.DiscordId == account.DiscordId).ToListAsync();
             if (!gw2Accounts.Any())
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Could not find a guild wars 2 account for you, have you verified?");
+                await command.FollowupAsync("Could not find a guild wars 2 account for you, have you verified?", ephemeral: true);
                 return;
             }
 
             var errorMessage = $"You do not have enough points for that, you currently have {Convert.ToInt32(Math.Floor(account.AvailablePoints))} points to spend.";
             if (account.AvailablePoints <= 1)
             {
-                await command.RespondAsync(errorMessage, ephemeral: true);
+                await command.FollowupAsync(errorMessage, ephemeral: true);
                 return;
             }
 
@@ -1028,7 +1013,7 @@ namespace Services.DiscordRequestServices
             // Check if the user has enough points to spend
             if (account.AvailablePoints < pointsToSpend)
             {
-                await command.RespondAsync(errorMessage, ephemeral: true);
+                await command.FollowupAsync(errorMessage, ephemeral: true);
                 return;
             }
 
@@ -1058,10 +1043,10 @@ namespace Services.DiscordRequestServices
             _databaseContext.Update(account);
 
             // Save the changes to the database
-            _databaseContext.SaveChanges();
+            await _databaseContext.SaveChangesAsync();
 
             // Respond to the command with the points added
-            await command.RespondAsync($"Added {pointsToSpend} points!{Environment.NewLine}Total points in current raffle is: {currentBid.PointsSpent}", ephemeral: true);
+            await command.FollowupAsync($"Added {pointsToSpend} points!{Environment.NewLine}Total points in current raffle is: {currentBid.PointsSpent}", ephemeral: true);
         }
 
         private async Task HandleEventRaffleEnter(SocketMessageComponent command, int pointsToSpend)
@@ -1082,7 +1067,7 @@ namespace Services.DiscordRequestServices
             // Check if the guild exists
             if (guild == null)
             {
-                await command.RespondAsync("This message does not appear to be apart of a server, are you messaging in a server where the bot is running?", ephemeral: true);
+                await command.FollowupAsync("This message does not appear to be apart of a server, are you messaging in a server where the bot is running?", ephemeral: true);
                 return;
             }
 
@@ -1093,28 +1078,28 @@ namespace Services.DiscordRequestServices
             // Check if there is an active event raffle
             if (currentRaffle == null)
             {
-                await command.RespondAsync("There are currently no raffles.", ephemeral: true);
+                await command.FollowupAsync("There are currently no raffles.", ephemeral: true);
                 return;
             }
 
             var account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
             if (account == null)
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Could not find an account for you, have you verified?");
+                await command.FollowupAsync("Could not find an account for you, have you verified?", ephemeral: true);
                 return;
             }
 
             var gw2Accounts = await _databaseContext.GuildWarsAccount.Where(s => s.DiscordId == account.DiscordId).ToListAsync();
             if (!gw2Accounts.Any())
             {
-                await command.ModifyOriginalResponseAsync(m => m.Content = "Could not find a guild wars 2 account for you, have you verified?");
+                await command.FollowupAsync("Could not find a guild wars 2 account for you, have you verified?", ephemeral: true);
                 return;
             }
 
             var errorMessage = $"You do not have enough points for that, you currently have {Convert.ToInt32(Math.Floor(account.AvailablePoints))} points to spend.";
             if (account.AvailablePoints <= 1)
             {
-                await command.RespondAsync(errorMessage, ephemeral: true);
+                await command.FollowupAsync(errorMessage, ephemeral: true);
                 return;
             }
 
@@ -1126,7 +1111,7 @@ namespace Services.DiscordRequestServices
             // Check if the user has enough points to spend
             if (account.AvailablePoints < pointsToSpend)
             {
-                await command.RespondAsync(errorMessage, ephemeral: true);
+                await command.FollowupAsync(errorMessage, ephemeral: true);
                 return;
             }
 
@@ -1155,10 +1140,10 @@ namespace Services.DiscordRequestServices
             // Update the available points of the user and save changes to the database
             account.AvailablePoints -= pointsToSpend;
             _databaseContext.Update(account);
-            _databaseContext.SaveChanges();
+            await _databaseContext.SaveChangesAsync();
 
             // Send a response with the points spent and the total points in the current event raffle
-            await command.RespondAsync($"Added {pointsToSpend} points!{Environment.NewLine}Total points in current raffle is: {currentBid.PointsSpent}", ephemeral: true);
+            await command.FollowupAsync($"Added {pointsToSpend} points!{Environment.NewLine}Total points in current raffle is: {currentBid.PointsSpent}", ephemeral: true);
         }
     }
 }

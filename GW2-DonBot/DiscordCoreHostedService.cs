@@ -1,7 +1,7 @@
 using Controller.Discord;
 using Microsoft.Extensions.Hosting;
 
-public class DiscordCoreHostedService : IHostedService
+internal class DiscordCoreHostedService : IHostedService
 {
     private readonly IDiscordCore _discordCore;
 

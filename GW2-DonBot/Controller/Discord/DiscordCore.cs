@@ -2,16 +2,15 @@
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.VisualBasic;
 using Models.Entities;
 using Models.Statics;
+using Services;
 using Services.DiscordRequestServices;
 using Services.LogGenerationServices;
 using Services.Logging;
 using Services.PlayerServices;
 using Services.SecretsServices;
 using System.Text.RegularExpressions;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 using ConnectionState = Discord.ConnectionState;
 
 namespace Controller.Discord
@@ -22,7 +21,6 @@ namespace Controller.Discord
 
         private readonly ISecretService _secretService;
         private readonly IMessageGenerationService _messageGenerationService;
-        private readonly IGenericCommandsService _genericCommandsService;
         private readonly IVerifyCommandsService _verifyCommandsService;
         private readonly IPointsCommandsService _pointsCommandsService;
         private readonly IRaffleCommandsService _raffleCommandsService;
@@ -36,18 +34,19 @@ namespace Controller.Discord
         private readonly ISteamCommandService _steamCommandService;
         private readonly IDeadlockCommandService _deadlockCommandService;
 
+        private readonly SchedulerService _schedulerService;
         private readonly DatabaseContext _databaseContext;
         private readonly DiscordSocketClient _client;
 
         private readonly HashSet<string> _seenUrls = new();
         private const long DonBotId = 1021682849797111838;
         private CancellationTokenSource _pollingRolesCancellationTokenSource = new();
+        private CancellationTokenSource _wordleBackgroundServiceCancellationTokenSource = new();
 
         public DiscordCore(
             ILogger<DiscordCore> logger,
             ISecretService secretService,
             IMessageGenerationService messageGenerationService,
-            IGenericCommandsService genericCommandsService,
             IVerifyCommandsService verifyCommandsService,
             IPointsCommandsService pointsCommandsService,
             IRaffleCommandsService raffleCommandsService,
@@ -60,13 +59,13 @@ namespace Controller.Discord
             IFightLogService fightLogService,
             ISteamCommandService steamCommandService,
             IDeadlockCommandService deadlockCommandService,
+            SchedulerService schedulerService,
             DatabaseContext databaseContext,
             DiscordSocketClient client)
         {
             _logger = logger;
             _secretService = secretService;
             _messageGenerationService = messageGenerationService;
-            _genericCommandsService = genericCommandsService;
             _verifyCommandsService = verifyCommandsService;
             _pointsCommandsService = pointsCommandsService;
             _raffleCommandsService = raffleCommandsService;
@@ -75,12 +74,12 @@ namespace Controller.Discord
             _raidService = raidService;
             _dataModelGenerator = dataModelGenerator;
             _discordCommandService = discordCommandService;
-            _databaseContext = databaseContext;
             _loggingService = loggingService;
             _fightLogService = fightLogService;
             _steamCommandService = steamCommandService;
             _deadlockCommandService = deadlockCommandService;
-
+            _schedulerService = schedulerService;
+            _databaseContext = databaseContext;
             _client = client;
         }
 
@@ -108,6 +107,9 @@ namespace Controller.Discord
             _pollingRolesCancellationTokenSource = new CancellationTokenSource();
             var pollingRolesTask = Task.Run(() => PollingRolesTask(TimeSpan.FromMinutes(30), _pollingRolesCancellationTokenSource.Token));
 
+            _wordleBackgroundServiceCancellationTokenSource = new CancellationTokenSource();
+            var wordleBackgroundService = Task.Run(() => WordleScheduleTask(TimeSpan.FromMinutes(30), _wordleBackgroundServiceCancellationTokenSource.Token));
+            
             _logger.LogInformation("GW2-DonBot setup - ready to cause chaos");
 
             // Block this task until the program is closed.
@@ -116,8 +118,12 @@ namespace Controller.Discord
 
             // Safely close...
             UnregisterEventHandlers();
+
             _pollingRolesCancellationTokenSource.Cancel();
             await pollingRolesTask;
+
+            _wordleBackgroundServiceCancellationTokenSource.Cancel();
+            await wordleBackgroundService;
         }
 
         private async Task WaitForConnectionAsync()
@@ -473,6 +479,22 @@ namespace Controller.Discord
                 try
                 {
                     await _pollingTasksService.PollingRoles(_client);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error occurred while polling roles");
+                }
+                await Task.Delay(interval, cancellationToken);
+            }
+        }
+
+        private async Task WordleScheduleTask(TimeSpan interval, CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    await _schedulerService.StartAsync(cancellationToken);
                 }
                 catch (Exception ex)
                 {

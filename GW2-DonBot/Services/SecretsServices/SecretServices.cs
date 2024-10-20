@@ -4,7 +4,7 @@
     {
         public string FetchDonBotSqlConnectionString()
         {
-            var donBotSqlConnectionString = Environment.GetEnvironmentVariable("DonBotSqlConnectionString", EnvironmentVariableTarget.User);
+            var donBotSqlConnectionString = Environment.GetEnvironmentVariable("DonBotSqlConnectionString", EnvironmentVariableTarget.Machine);
 
             if (string.IsNullOrEmpty(donBotSqlConnectionString))
             {
@@ -16,7 +16,7 @@
 
         public string FetchDonBotToken()
         {
-            var donBotToken = Environment.GetEnvironmentVariable("DonBotToken", EnvironmentVariableTarget.User);
+            var donBotToken = Environment.GetEnvironmentVariable("DonBotToken", EnvironmentVariableTarget.Machine);
 
             if (string.IsNullOrEmpty(donBotToken))
             {

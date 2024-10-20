@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 
-namespace DonBotDayOff.Models
+namespace Models
 {
     public class DictionaryApiResponse
     {
@@ -8,7 +8,7 @@ namespace DonBotDayOff.Models
         public string? Word { get; set; }
 
         [JsonProperty("meanings")]
-        public Meaning[] Meanings { get; set; } = [];
+        public Meaning[] Meanings { get; set; } = Array.Empty<Meaning>();
     }
 
     public class Meaning
@@ -17,7 +17,7 @@ namespace DonBotDayOff.Models
         public string? PartOfSpeech { get; set; }
 
         [JsonProperty("definitions")]
-        public Definition[] Definitions { get; set; } = [];
+        public Definition[] Definitions { get; set; } = Array.Empty<Definition>();
     }
 
     public class Definition

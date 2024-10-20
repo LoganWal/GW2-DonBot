@@ -3,6 +3,7 @@ using Handlers.MessageGenerationHandlers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Models.Entities;
+using Services;
 using Services.CacheServices;
 using Services.DiscordApiServices;
 using Services.DiscordRequestServices;
@@ -36,6 +37,8 @@ namespace Registration
             services.AddTransient<IRaidService, RaidService>();
             services.AddTransient<IFightLogService, FightLogService>();
             services.AddTransient<IDeadlockApiService, DeadlockApiService>();
+            services.AddSingleton<IWordleService, WordleService>();
+            services.AddSingleton<IWordGeneratorService, WordGeneratorService>();
 
             services.AddTransient<IGenericCommandsService, GenericCommandsService>();
             services.AddTransient<IVerifyCommandsService, VerifyCommandsService>();
@@ -47,6 +50,9 @@ namespace Registration
 
             services.AddTransient<IPollingTasksService, PollingTasksService>();
             services.AddTransient<IDiscordApiService, DiscordApiService>();
+
+            services.AddTransient<SchedulerService>();
+            services.AddSingleton<DictionaryService>();
 
             // DbContext
             services.AddDbContext<DatabaseContext>((serviceProvider, options) =>

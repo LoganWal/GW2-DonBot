@@ -6,13 +6,16 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Models.Entities;
 using Registration;
+using Serilog;
+using Serilog.Events;
+using Services;
 using Services.DiscordRequestServices;
 using Services.LogGenerationServices;
 using Services.Logging;
 using Services.PlayerServices;
 using Services.SecretsServices;
 
-public class Program
+internal class Program
 {
     public static void Main(string[] args)
     {
@@ -22,12 +25,15 @@ public class Program
     public static IHostBuilder CreateHostBuilder(string[] args) =>
         Host.CreateDefaultBuilder(args)
             .UseWindowsService()
-            .ConfigureLogging(logging =>
+            .UseSerilog((context, config) =>
             {
-                logging.ClearProviders();
-                logging.AddConsole();
-                logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
-                logging.AddFilter("Default", LogLevel.Information);
+                config
+                    .ReadFrom.Configuration(context.Configuration)
+                    .WriteTo.Console()
+                    .WriteTo.File(@"C:\\Logs\\DonBot-.txt", rollingInterval: RollingInterval.Day)
+                    .Enrich.FromLogContext()
+                    .MinimumLevel.Information()
+                    .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Warning);
             })
             .ConfigureServices((context, services) =>
             {
@@ -51,30 +57,26 @@ public class Program
                 ServiceRegister.ConfigureServices(services);
 
                 // Register DiscordCore with the client
-                services.AddTransient<IDiscordCore, DiscordCore>(provider =>
-                {
-                    var client = provider.GetRequiredService<DiscordSocketClient>();
-                    return new DiscordCore(
-                        provider.GetRequiredService<ILogger<DiscordCore>>(),
-                        provider.GetRequiredService<ISecretService>(),
-                        provider.GetRequiredService<IMessageGenerationService>(),
-                        provider.GetRequiredService<IGenericCommandsService>(),
-                        provider.GetRequiredService<IVerifyCommandsService>(),
-                        provider.GetRequiredService<IPointsCommandsService>(),
-                        provider.GetRequiredService<IRaffleCommandsService>(),
-                        provider.GetRequiredService<IPollingTasksService>(),
-                        provider.GetRequiredService<IPlayerService>(),
-                        provider.GetRequiredService<IRaidService>(),
-                        provider.GetRequiredService<IDataModelGenerationService>(),
-                        provider.GetRequiredService<IDiscordCommandService>(),
-                        provider.GetRequiredService<ILoggingService>(),
-                        provider.GetRequiredService<IFightLogService>(),
-                        provider.GetRequiredService<ISteamCommandService>(),
-                        provider.GetRequiredService<IDeadlockCommandService>(),
-                        provider.GetRequiredService<DatabaseContext>(),
-                        client
-                    );
-                });
+                services.AddTransient<IDiscordCore, DiscordCore>(provider => new DiscordCore(
+                    provider.GetRequiredService<ILogger<DiscordCore>>(),
+                    provider.GetRequiredService<ISecretService>(),
+                    provider.GetRequiredService<IMessageGenerationService>(),
+                    provider.GetRequiredService<IVerifyCommandsService>(),
+                    provider.GetRequiredService<IPointsCommandsService>(),
+                    provider.GetRequiredService<IRaffleCommandsService>(),
+                    provider.GetRequiredService<IPollingTasksService>(),
+                    provider.GetRequiredService<IPlayerService>(),
+                    provider.GetRequiredService<IRaidService>(),
+                    provider.GetRequiredService<IDataModelGenerationService>(),
+                    provider.GetRequiredService<IDiscordCommandService>(),
+                    provider.GetRequiredService<ILoggingService>(),
+                    provider.GetRequiredService<IFightLogService>(),
+                    provider.GetRequiredService<ISteamCommandService>(),
+                    provider.GetRequiredService<IDeadlockCommandService>(),
+                    provider.GetRequiredService<SchedulerService>(),
+                    provider.GetRequiredService<DatabaseContext>(),
+                    provider.GetRequiredService<DiscordSocketClient>()
+                ));
 
                 // Register the hosted service
                 services.AddHostedService<DiscordCoreHostedService>();

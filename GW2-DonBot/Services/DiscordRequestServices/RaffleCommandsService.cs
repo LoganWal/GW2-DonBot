@@ -529,8 +529,7 @@ namespace DonBot.Services.DiscordRequestServices
             var currentRaffleBids = bids.Where(bid => bid.RaffleId == currentRaffle.Id)
                 .GroupBy(bid => bid.DiscordId)
                 .Select(group => group.First())
-                .OrderByDescending(bid => bid.PointsSpent) // Sort by PointsSpent descending
-                .Take(3) // Take the top 3 bidders
+                .OrderByDescending(bid => bid.PointsSpent)
                 .ToList();
 
             // Calculate the total number of points spent on the raffle
@@ -544,6 +543,7 @@ namespace DonBot.Services.DiscordRequestServices
             var rollingTotal = 0m;
 
             // Loop through the bids until the picked bid is reached
+
             foreach (var currentRaffleBid in currentRaffleBids)
             {
                 rollingTotal += currentRaffleBid.PointsSpent;
@@ -562,6 +562,14 @@ namespace DonBot.Services.DiscordRequestServices
                 return;
             }
 
+            var winnerBid = currentRaffleBids.FirstOrDefault(s => s.DiscordId == account.DiscordId);
+
+            if (winnerBid == null)
+            {
+                await command.FollowupAsync("Unable to choose a winner, account chosen didn't have any registered bid", ephemeral: true);
+                return;
+            }
+
             if (guild.AnnouncementChannelId == null)
             {
                 await command.FollowupAsync("No Announcement Channel Set", ephemeral: true);
@@ -577,7 +585,7 @@ namespace DonBot.Services.DiscordRequestServices
             // Create a string to hold the top 3 bidders' details
             var topBidders = new StringBuilder("Top 3 Bidders:\n");
 
-            foreach (var bidder in currentRaffleBids)
+            foreach (var bidder in currentRaffleBids.Take(3))
             {
                 var gw2Accounts = await _databaseContext.GuildWarsAccount.Where(s => s.DiscordId == bidder.DiscordId).ToListAsync();
                 var accountNames = string.Join(", ", gw2Accounts.Where(s => !string.IsNullOrEmpty(s.GuildWarsAccountName)).Select(s => s.GuildWarsAccountName).ToList());
@@ -592,7 +600,7 @@ namespace DonBot.Services.DiscordRequestServices
             var message = new EmbedBuilder
             {
                 Title = "Raffle!\n",
-                Description = $"And the winner is! <@{account.DiscordId}> ({winnerAccountNames})\n\n{topBidders}",
+                Description = $"And the winner is! <@{account.DiscordId}> ({winnerAccountNames} - Bid: {winnerBid.PointsSpent})\n\n{topBidders}",
                 Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
                 Author = new EmbedAuthorBuilder()
                 {
@@ -643,24 +651,18 @@ namespace DonBot.Services.DiscordRequestServices
             SocketGuildUser? guildUser;
             try
             {
-                if (command.GuildId != null)
-                {
-                    guildUser = discordClient.GetGuild(command.GuildId.Value).GetUser(command.User.Id);
-                }
-                else
-                {
-                    throw new Exception("No GuildId");
-                }
+                guildUser = command.GuildId != null 
+                    ? discordClient.GetGuild(command.GuildId.Value).GetUser(command.User.Id) 
+                    : throw new Exception("No GuildId");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed complete event raffle");
+                _logger.LogError(ex, "Failed to complete event raffle");
                 await command.FollowupAsync("Failed to end raffle, please try again, or yell at logan.", ephemeral: true);
                 return;
             }
 
             // Get the guild from the database
-            Account? account;
             var guilds = await _databaseContext.Guild.ToListAsync();
             var guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
 
@@ -679,11 +681,26 @@ namespace DonBot.Services.DiscordRequestServices
             {
                 // Get all the bids for the current raffle
                 var bids = await _databaseContext.PlayerRaffleBid.ToListAsync();
-                var currentRaffleBids = bids.Where(bid => bid.RaffleId == currentRaffle.Id).ToList();
+                var currentRaffleBids = bids.Where(bid => bid.RaffleId == currentRaffle.Id)
+                    .GroupBy(bid => bid.DiscordId)
+                    .Select(group => group.First())
+                    .OrderByDescending(bid => bid.PointsSpent)
+                    .ToList();
+
                 var totalBids = Convert.ToInt32(currentRaffleBids.Sum(bid => bid.PointsSpent)) + 1;
 
+                // Create a string to hold the top 3 bidders' details
+                var topBidders = new StringBuilder("Top 3 Bidders:\n");
+
+                foreach (var bidder in currentRaffleBids.Take(3))
+                {
+                    var gw2Account = gw2Accounts.Where(s => s.DiscordId == bidder.DiscordId).ToList();
+                    var accountNames = string.Join(", ", gw2Account.Where(s => !string.IsNullOrEmpty(s.GuildWarsAccountName)).Select(s => s.GuildWarsAccountName).ToList());
+                    topBidders.AppendLine($"<@{bidder.DiscordId}> ({accountNames}) - Bid: {bidder.PointsSpent} points");
+                }
+
                 // Pick the winners
-                var winners = new List<Tuple<long, string>>();
+                var winners = new List<Tuple<long, string, decimal>>();
                 for (var i = 0; i < winnersCount; i++)
                 {
                     var random = new Random();
@@ -696,7 +713,7 @@ namespace DonBot.Services.DiscordRequestServices
                         if (pickedBid < rollingTotal)
                         {
                             // Get the account of the winner
-                            account = accounts.FirstOrDefault(a => a.DiscordId == currentRaffleBid.DiscordId);
+                            var account = accounts.FirstOrDefault(a => a.DiscordId == currentRaffleBid.DiscordId);
 
                             if (account == null)
                             {
@@ -708,13 +725,13 @@ namespace DonBot.Services.DiscordRequestServices
                             currentRaffleBids.Remove(currentRaffleBid);
                             var gw2Account = gw2Accounts.Where(s => s.DiscordId == account.DiscordId).ToList();
                             var accountNames = string.Join(", ", gw2Account.Where(s => !string.IsNullOrEmpty(s.GuildWarsAccountName)).Select(s => s.GuildWarsAccountName).ToList());
-                            winners.Add(new Tuple<long, string>(account.DiscordId, accountNames));
+                            winners.Add(new Tuple<long, string, decimal>(account.DiscordId, accountNames, currentRaffleBid.PointsSpent));
                             break;
                         }
                     }
                 }
 
-                // Build the message to announce the winners
+                // Build the message to announce the winners and the top 3 bidders
                 if (guild.AnnouncementChannelId == null)
                 {
                     await command.FollowupAsync("No Announcement Channel Set", ephemeral: true);
@@ -727,15 +744,17 @@ namespace DonBot.Services.DiscordRequestServices
                     return;
                 }
 
-                var description = "and the winners are:\n";
+                var description = "And the winners are:\n";
                 foreach (var (winner, index) in winners.Select((value, i) => (value, i)))
                 {
-                    description += $"{index + 1}. <@{winner.Item1}> ({winner.Item2})\n";
+                    description += $"{index + 1}. <@{winner.Item1}> ({winner.Item2}) - Bid: {winner.Item3} points\n";
                 }
+
+                description += "\n" + topBidders;
 
                 var message = new EmbedBuilder
                 {
-                    Title = "Raffle!\n",
+                    Title = "Event Raffle Results!\n",
                     Description = description,
                     Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
                     Author = new EmbedAuthorBuilder()
@@ -751,6 +770,7 @@ namespace DonBot.Services.DiscordRequestServices
                     },
                     Timestamp = DateTime.Now
                 };
+
                 var builtMessage = message.Build();
 
                 // Update the raffle to be inactive
@@ -758,11 +778,11 @@ namespace DonBot.Services.DiscordRequestServices
                 _databaseContext.Update(currentRaffle);
                 await _databaseContext.SaveChangesAsync();
 
-                // Send the message announcing the winners to the webhook
+                // Send the message announcing the winners and top 3 bidders to the webhook
                 await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: new[] { builtMessage });
 
                 // Modify the original response to indicate that the command was successful
-                await command.FollowupAsync("Selected!", ephemeral: true);
+                await command.FollowupAsync("Raffle completed!", ephemeral: true);
             }
             else
             {

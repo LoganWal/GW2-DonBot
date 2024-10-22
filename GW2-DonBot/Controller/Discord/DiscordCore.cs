@@ -1,4 +1,5 @@
 ﻿using System.Text.RegularExpressions;
+using System.Threading;
 using Discord;
 using Discord.WebSocket;
 using DonBot.Models.Entities;
@@ -109,7 +110,7 @@ namespace DonBot.Controller.Discord
             var pollingRolesTask = Task.Run(() => PollingRolesTask(TimeSpan.FromMinutes(30), _pollingRolesCancellationTokenSource.Token));
 
             _wordleBackgroundServiceCancellationTokenSource = new CancellationTokenSource();
-            var wordleBackgroundService = Task.Run(() => WordleScheduleTask(TimeSpan.FromMinutes(30), _wordleBackgroundServiceCancellationTokenSource.Token));
+            await _schedulerService.StartAsync(_wordleBackgroundServiceCancellationTokenSource.Token);
             
             _logger.LogInformation("GW2-DonBot setup - ready to cause chaos");
 
@@ -124,7 +125,6 @@ namespace DonBot.Controller.Discord
             await pollingRolesTask;
 
             _wordleBackgroundServiceCancellationTokenSource.Cancel();
-            await wordleBackgroundService;
         }
 
         private async Task WaitForConnectionAsync()
@@ -480,22 +480,6 @@ namespace DonBot.Controller.Discord
                 try
                 {
                     await _pollingTasksService.PollingRoles(_client);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error occurred while polling roles");
-                }
-                await Task.Delay(interval, cancellationToken);
-            }
-        }
-
-        private async Task WordleScheduleTask(TimeSpan interval, CancellationToken cancellationToken)
-        {
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                try
-                {
-                    await _schedulerService.StartAsync(cancellationToken);
                 }
                 catch (Exception ex)
                 {

@@ -86,7 +86,14 @@ namespace DonBot.Services.WordleServices
 
                         var roleMention = $"<@&{roleId}>";
                         var message = $"{roleMention} Today's Wordle starting word: {startingWord}{Environment.NewLine}{startingWordDefinition}{Environment.NewLine}https://www.nytimes.com/games/wordle/index.html";
-                        await channel.SendMessageAsync(message);
+                        try
+                        {
+                            await channel.SendMessageAsync(message);
+                        }
+                        catch(Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to send wordle message.");
+                        }
                     }
                     else
                     {
@@ -98,6 +105,8 @@ namespace DonBot.Services.WordleServices
                     _logger.LogWarning("Guild with ID {guildId} not found.", guildId);
                 }
             }
+
+            ScheduleWordleStartingWord();
         }
     }
 }

@@ -6,6 +6,7 @@ using DonBot.Models.Enums;
 using DonBot.Models.Statics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Text;
 
 namespace DonBot.Services.DiscordRequestServices
 {
@@ -525,7 +526,12 @@ namespace DonBot.Services.DiscordRequestServices
 
             // Get all the bids for the current raffle
             var bids = await _databaseContext.PlayerRaffleBid.ToListAsync();
-            var currentRaffleBids = bids.Where(bid => bid.RaffleId == currentRaffle.Id);
+            var currentRaffleBids = bids.Where(bid => bid.RaffleId == currentRaffle.Id)
+                .GroupBy(bid => bid.DiscordId)
+                .Select(group => group.First())
+                .OrderByDescending(bid => bid.PointsSpent) // Sort by PointsSpent descending
+                .Take(3) // Take the top 3 bidders
+                .ToList();
 
             // Calculate the total number of points spent on the raffle
             var totalBids = Convert.ToInt32(currentRaffleBids.Sum(bid => bid.PointsSpent)) + 1;
@@ -568,14 +574,25 @@ namespace DonBot.Services.DiscordRequestServices
                 return;
             }
 
-            var gw2Accounts = _databaseContext.GuildWarsAccount.Where(s => s.DiscordId == account.DiscordId).ToList();
-            var accountNames = string.Join(", ", gw2Accounts.Where(s => !string.IsNullOrEmpty(s.GuildWarsAccountName)).Select(s => s.GuildWarsAccountName).ToList());
+            // Create a string to hold the top 3 bidders' details
+            var topBidders = new StringBuilder("Top 3 Bidders:\n");
+
+            foreach (var bidder in currentRaffleBids)
+            {
+                var gw2Accounts = await _databaseContext.GuildWarsAccount.Where(s => s.DiscordId == bidder.DiscordId).ToListAsync();
+                var accountNames = string.Join(", ", gw2Accounts.Where(s => !string.IsNullOrEmpty(s.GuildWarsAccountName)).Select(s => s.GuildWarsAccountName).ToList());
+                topBidders.AppendLine($"<@{bidder.DiscordId}> ({accountNames}) - Bid: {bidder.PointsSpent} points");
+            }
+
+            // Get account names for the winning bidder
+            var winnerGw2Accounts = await _databaseContext.GuildWarsAccount.Where(s => s.DiscordId == account.DiscordId).ToListAsync();
+            var winnerAccountNames = string.Join(", ", winnerGw2Accounts.Where(s => !string.IsNullOrEmpty(s.GuildWarsAccountName)).Select(s => s.GuildWarsAccountName).ToList());
 
             // Build the message to announce the winner
             var message = new EmbedBuilder
             {
                 Title = "Raffle!\n",
-                Description = $"and the winner is! <@{account.DiscordId}> ({accountNames})\n",
+                Description = $"And the winner is! <@{account.DiscordId}> ({winnerAccountNames})\n\n{topBidders}",
                 Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
                 Author = new EmbedAuthorBuilder()
                 {

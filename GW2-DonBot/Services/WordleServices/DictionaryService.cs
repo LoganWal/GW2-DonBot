@@ -1,5 +1,5 @@
 ﻿using System.Text;
-using DonBot.Models;
+using DonBot.Models.Apis.WordleApi;
 using Newtonsoft.Json;
 
 namespace DonBot.Services.WordleServices

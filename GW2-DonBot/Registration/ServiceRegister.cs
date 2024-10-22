@@ -1,14 +1,13 @@
 ﻿using DonBot.Controller.Discord;
-using DonBot.Handlers.MessageGenerationHandlers;
+using DonBot.Handlers;
+using DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers;
 using DonBot.Models.Entities;
-using DonBot.Services.CacheServices;
 using DonBot.Services.DeadlockServices;
-using DonBot.Services.DiscordApiServices;
 using DonBot.Services.DiscordRequestServices;
+using DonBot.Services.DiscordServices;
+using DonBot.Services.GuildWarsServices;
 using DonBot.Services.LogGenerationServices;
 using DonBot.Services.Logging;
-using DonBot.Services.LogServices;
-using DonBot.Services.PlayerServices;
 using DonBot.Services.SecretsServices;
 using DonBot.Services.WordleServices;
 using Microsoft.EntityFrameworkCore;
@@ -29,14 +28,13 @@ namespace DonBot.Registration
             services.AddTransient<RaidReportHandler>();
 
             // Services
-            services.AddSingleton<ICacheService, CacheService>();
             services.AddTransient<ISecretService, SecretServices>();
             services.AddTransient<IDataModelGenerationService, DataModelGenerationService>();
             services.AddTransient<IMessageGenerationService, MessageGenerationService>();
             services.AddTransient<IDiscordCore, DiscordCore>();
             services.AddTransient<ILoggingService, LoggingService>();
             services.AddTransient<IPlayerService, PlayerService>();
-            services.AddTransient<IRaidService, RaidService>();
+            services.AddTransient<IRaidCommandService, RaidCommandCommandService>();
             services.AddTransient<IFightLogService, FightLogService>();
             services.AddTransient<IDeadlockApiService, DeadlockApiService>();
             services.AddSingleton<IWordleService, WordleService>();

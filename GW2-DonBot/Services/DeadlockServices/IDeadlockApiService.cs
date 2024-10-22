@@ -1,4 +1,4 @@
-﻿using DonBot.Models.DeadlockApi;
+﻿using DonBot.Models.Apis.DeadlockApi;
 
 namespace DonBot.Services.DeadlockServices
 {

@@ -1,5 +1,5 @@
 ﻿using DonBot.Controller.Discord;
-using DonBot.Models.DeadlockApi;
+using DonBot.Models.Apis.DeadlockApi;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 

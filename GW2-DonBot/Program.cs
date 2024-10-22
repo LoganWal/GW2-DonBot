@@ -4,10 +4,9 @@ using DonBot.Controller.Discord;
 using DonBot.Models.Entities;
 using DonBot.Registration;
 using DonBot.Services.DiscordRequestServices;
+using DonBot.Services.GuildWarsServices;
 using DonBot.Services.LogGenerationServices;
 using DonBot.Services.Logging;
-using DonBot.Services.LogServices;
-using DonBot.Services.PlayerServices;
 using DonBot.Services.SecretsServices;
 using DonBot.Services.WordleServices;
 using Microsoft.Extensions.DependencyInjection;
@@ -69,7 +68,7 @@ namespace DonBot
                         provider.GetRequiredService<IRaffleCommandsService>(),
                         provider.GetRequiredService<IPollingTasksService>(),
                         provider.GetRequiredService<IPlayerService>(),
-                        provider.GetRequiredService<IRaidService>(),
+                        provider.GetRequiredService<IRaidCommandService>(),
                         provider.GetRequiredService<IDataModelGenerationService>(),
                         provider.GetRequiredService<IDiscordCommandService>(),
                         provider.GetRequiredService<ILoggingService>(),

@@ -1,7 +1,7 @@
 using Discord;
 using Discord.WebSocket;
+using DonBot.Models.Apis.GuildWars2Api;
 using DonBot.Models.Entities;
-using DonBot.Models.GW2Api;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -53,7 +53,7 @@ namespace DonBot.Services.DiscordRequestServices
 
                 // Deserialize the account data
                 var stringData = await response.Content.ReadAsStringAsync();
-                var accountData = JsonConvert.DeserializeObject<Gw2AccountDataModel>(stringData) ?? new Gw2AccountDataModel();
+                var accountData = JsonConvert.DeserializeObject<GuildWars2AccountDataModel>(stringData) ?? new GuildWars2AccountDataModel();
 
                 // Check if the account already exists in the database
                 var isNewAccount = false;

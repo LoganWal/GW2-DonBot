@@ -1,7 +1,7 @@
 using Discord;
 using Discord.WebSocket;
+using DonBot.Models.Apis.GuildWars2Api;
 using DonBot.Models.Entities;
-using DonBot.Models.GW2Api;
 using DonBot.Services.LogGenerationServices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -32,7 +32,7 @@ namespace DonBot.Services.DiscordRequestServices
 
             accounts = accounts.Where(s => guildWarsAccounts.Select(gw => gw.DiscordId).Contains(s.DiscordId)).ToList();
 
-            var guildWars2Data = new Dictionary<long, List<Gw2AccountDataModel>>();
+            var guildWars2Data = new Dictionary<long, List<GuildWars2AccountDataModel>>();
 
             foreach (var account in accounts)
             {
@@ -60,18 +60,18 @@ namespace DonBot.Services.DiscordRequestServices
             }
         }
 
-        private async Task<List<Gw2AccountDataModel>> FetchAccountData(List<GuildWarsAccount> guildWarsAccounts)
+        private async Task<List<GuildWars2AccountDataModel>> FetchAccountData(List<GuildWarsAccount> guildWarsAccounts)
         {
             var httpClient = new HttpClient
             {
                 Timeout = TimeSpan.FromSeconds(20)
             };
 
-            var guildWarsAccountData = new List<Gw2AccountDataModel>();
+            var guildWarsAccountData = new List<GuildWars2AccountDataModel>();
 
             foreach (var guildWarsAccount in guildWarsAccounts)
             {
-                Gw2AccountDataModel? accountData = null;
+                GuildWars2AccountDataModel? accountData = null;
                 var success = false;
 
                 for (var attempt = 1; attempt <= 3; attempt++)
@@ -84,7 +84,7 @@ namespace DonBot.Services.DiscordRequestServices
                         if (response.IsSuccessStatusCode)
                         {
                             var stringData = await response.Content.ReadAsStringAsync();
-                            accountData = JsonConvert.DeserializeObject<Gw2AccountDataModel>(stringData) ?? new Gw2AccountDataModel();
+                            accountData = JsonConvert.DeserializeObject<GuildWars2AccountDataModel>(stringData) ?? new GuildWars2AccountDataModel();
 
                             guildWarsAccount.FailedApiPullCount = 0;
                             guildWarsAccount.World = Convert.ToInt32(accountData.World);
@@ -117,7 +117,7 @@ namespace DonBot.Services.DiscordRequestServices
             return guildWarsAccountData;
         }
 
-        private async Task HandleGuildUsers(SocketGuild guild, Guild guildConfiguration, Dictionary<long, List<Gw2AccountDataModel>> guildWars2Data)
+        private async Task HandleGuildUsers(SocketGuild guild, Guild guildConfiguration, Dictionary<long, List<GuildWars2AccountDataModel>> guildWars2Data)
         {
             var primaryRoleId = guildConfiguration.DiscordGuildMemberRoleId;
             var secondaryRoleId = guildConfiguration.DiscordSecondaryMemberRoleId;
@@ -219,7 +219,7 @@ namespace DonBot.Services.DiscordRequestServices
             }
         }
 
-        private async Task HandleUserRoles(SocketGuildUser user, List<Gw2AccountDataModel> accountData, long primaryRoleId, long secondaryRoleId, long verifiedRoleId, string? guildId, List<string> secondaryGuildIds)
+        private async Task HandleUserRoles(SocketGuildUser user, List<GuildWars2AccountDataModel> accountData, long primaryRoleId, long secondaryRoleId, long verifiedRoleId, string? guildId, List<string> secondaryGuildIds)
         {
             var inPrimary = accountData.SelectMany(s => s.Guilds).Contains(guildId);
             var inSecondary = secondaryGuildIds.Any(guild => accountData.SelectMany(s => s.Guilds).Contains(guild));

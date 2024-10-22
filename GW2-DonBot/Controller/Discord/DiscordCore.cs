@@ -5,10 +5,9 @@ using Discord.WebSocket;
 using DonBot.Models.Entities;
 using DonBot.Models.Statics;
 using DonBot.Services.DiscordRequestServices;
+using DonBot.Services.GuildWarsServices;
 using DonBot.Services.LogGenerationServices;
 using DonBot.Services.Logging;
-using DonBot.Services.LogServices;
-using DonBot.Services.PlayerServices;
 using DonBot.Services.SecretsServices;
 using DonBot.Services.WordleServices;
 using Microsoft.EntityFrameworkCore;
@@ -29,7 +28,7 @@ namespace DonBot.Controller.Discord
         private readonly IPollingTasksService _pollingTasksService;
         private readonly IPlayerService _playerService;
         private readonly IDataModelGenerationService _dataModelGenerator;
-        private readonly IRaidService _raidService;
+        private readonly IRaidCommandService _raidCommandService;
         private readonly IDiscordCommandService _discordCommandService;
         private readonly ILoggingService _loggingService;
         private readonly IFightLogService _fightLogService;
@@ -54,7 +53,7 @@ namespace DonBot.Controller.Discord
             IRaffleCommandsService raffleCommandsService,
             IPollingTasksService pollingTasksService,
             IPlayerService playerService,
-            IRaidService raidService,
+            IRaidCommandService raidCommandService,
             IDataModelGenerationService dataModelGenerator,
             IDiscordCommandService discordCommandService,
             ILoggingService loggingService,
@@ -73,7 +72,7 @@ namespace DonBot.Controller.Discord
             _raffleCommandsService = raffleCommandsService;
             _pollingTasksService = pollingTasksService;
             _playerService = playerService;
-            _raidService = raidService;
+            _raidCommandService = raidCommandService;
             _dataModelGenerator = dataModelGenerator;
             _discordCommandService = discordCommandService;
             _loggingService = loggingService;
@@ -362,13 +361,13 @@ namespace DonBot.Controller.Discord
         private async Task Gw2StartRaidCommandExecuted(SocketSlashCommand command)
         {
             await command.DeferAsync(ephemeral: true);
-            await _raidService.StartRaid(command, _client);
+            await _raidCommandService.StartRaid(command, _client);
         }
 
         private async Task Gw2CloseRaidCommandExecuted(SocketSlashCommand command)
         {
             await command.DeferAsync(ephemeral: true);
-            await _raidService.CloseRaid(command, _client);
+            await _raidCommandService.CloseRaid(command, _client);
         }
 
         private async Task Gw2ReopenRaffleCommandExecuted(SocketSlashCommand command)

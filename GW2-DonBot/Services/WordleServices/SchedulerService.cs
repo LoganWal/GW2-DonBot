@@ -38,7 +38,7 @@ namespace DonBot.Services.WordleServices
         private void ScheduleWordleStartingWord()
         {
             var now = DateTime.Now;
-            var targetTime = new DateTime(now.Year, now.Month, now.Day, 14, 01, 00);
+            var targetTime = new DateTime(now.Year, now.Month, now.Day, 15, 01, 00);
 
             if (now > targetTime)
             {

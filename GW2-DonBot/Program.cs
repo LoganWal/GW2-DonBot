@@ -50,7 +50,8 @@ namespace DonBot
                                              GatewayIntents.GuildMessages |
                                              GatewayIntents.DirectMessages |
                                              GatewayIntents.MessageContent |
-                                             GatewayIntents.GuildWebhooks
+                                             GatewayIntents.GuildWebhooks |
+                                             GatewayIntents.GuildMembers
                         };
                         return new DiscordSocketClient(config);
                     });

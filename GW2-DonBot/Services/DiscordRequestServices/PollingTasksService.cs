@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Discord;
 using Discord.WebSocket;
 using DonBot.Models.Apis.GuildWars2Api;
@@ -32,17 +33,19 @@ namespace DonBot.Services.DiscordRequestServices
 
             accounts = accounts.Where(s => guildWarsAccounts.Select(gw => gw.DiscordId).Contains(s.DiscordId)).ToList();
 
-            var guildWars2Data = new Dictionary<long, List<GuildWars2AccountDataModel>>();
+            var guildWars2Data = new ConcurrentDictionary<long, List<GuildWars2AccountDataModel>>();
 
-            foreach (var account in accounts)
+            // Use a list of tasks to process accounts in parallel
+            var tasks = accounts.Select(async account =>
             {
                 var guildWars2Accounts = guildWarsAccounts.Where(s => s.DiscordId == account.DiscordId).ToList();
                 var accountData = await FetchAccountData(guildWars2Accounts);
 
-                guildWars2Data.Add(account.DiscordId, accountData);
-
+                guildWars2Data[account.DiscordId] = accountData;
                 _databaseContext.Update(account);
-            }
+            });
+
+            await Task.WhenAll(tasks);
 
             await _databaseContext.SaveChangesAsync();
 
@@ -54,7 +57,7 @@ namespace DonBot.Services.DiscordRequestServices
                 {
                     continue;
                 }
-
+                await clientGuild.DownloadUsersAsync();
                 await HandleGuildUsers(clientGuild, guildConfiguration, guildWars2Data);
                 await GenerateWvWPlayerReport(guildConfiguration, clientGuild);
             }
@@ -117,7 +120,7 @@ namespace DonBot.Services.DiscordRequestServices
             return guildWarsAccountData;
         }
 
-        private async Task HandleGuildUsers(SocketGuild guild, Guild guildConfiguration, Dictionary<long, List<GuildWars2AccountDataModel>> guildWars2Data)
+        private async Task HandleGuildUsers(SocketGuild guild, Guild guildConfiguration, ConcurrentDictionary<long, List<GuildWars2AccountDataModel>> guildWars2Data)
         {
             var primaryRoleId = guildConfiguration.DiscordGuildMemberRoleId;
             var secondaryRoleId = guildConfiguration.DiscordSecondaryMemberRoleId;
@@ -133,13 +136,13 @@ namespace DonBot.Services.DiscordRequestServices
                 return;
             }
 
+            var gwAccounts = _databaseContext.GuildWarsAccount.ToList();
             foreach (var user in guild.Users)
             {
                 _logger.LogInformation("HANDLING {userDisplayName}", user.DisplayName);
 
                 var playerAccount = accounts.FirstOrDefault(f => f.DiscordId == (long)user.Id);
-                var playerGwAccounts = _databaseContext.GuildWarsAccount.Where(s => s.DiscordId == (long)user.Id);
-
+                var playerGwAccounts = gwAccounts.Where(s => s.DiscordId == (long)user.Id).ToList();
                 if (playerAccount == null || !playerGwAccounts.Any() || playerGwAccounts.All(s => string.IsNullOrEmpty(s.GuildWarsApiKey)))
                 {
                     await RemoveAllRolesFromUser(user, primaryRoleId.Value, secondaryRoleId.Value, verifiedRoleId.Value);

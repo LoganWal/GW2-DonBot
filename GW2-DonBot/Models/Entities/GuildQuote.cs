@@ -9,6 +9,7 @@ namespace DonBot.Models.Entities
 
         public long GuildId { get; set; }
 
+        [MaxLength(1000)]
         public string Quote { get; set; } = string.Empty;
     }
 }

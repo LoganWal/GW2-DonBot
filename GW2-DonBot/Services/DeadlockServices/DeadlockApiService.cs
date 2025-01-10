@@ -5,24 +5,14 @@ using Newtonsoft.Json;
 
 namespace DonBot.Services.DeadlockServices
 {
-    internal class DeadlockApiService : IDeadlockApiService
+    internal class DeadlockApiService(ILogger<DiscordCore> logger, IHttpClientFactory httpClientFactory)
+        : IDeadlockApiService
     {
-        private readonly IHttpClientFactory _httpClientFactory;
-
-        private readonly ILogger<DiscordCore> _logger;
-
-        public DeadlockApiService(ILogger<DiscordCore> logger, IHttpClientFactory httpClientFactory)
-        {
-            _logger = logger;
-            _httpClientFactory = httpClientFactory;
-        }
-
-
         public async Task<DeadlockRank> GetDeadlockRank(long accountId)
         {
             try
             {
-                var response = await _httpClientFactory.CreateClient().GetAsync($"https://analytics.deadlock-api.com/v1/players/{accountId}/rank");
+                var response = await httpClientFactory.CreateClient().GetAsync($"https://analytics.deadlock-api.com/v1/players/{accountId}/rank");
                 response.EnsureSuccessStatusCode();
 
                 var jsonString = await response.Content.ReadAsStringAsync();
@@ -32,12 +22,12 @@ namespace DonBot.Services.DeadlockServices
             }
             catch (HttpRequestException ex)
             {
-                _logger.LogError(ex, "Request error to GetDeadlockRank userId {discordId}", accountId);
+                logger.LogError(ex, "Request error to GetDeadlockRank userId {discordId}", accountId);
                 return new DeadlockRank();
             }
             catch (JsonException ex)
             {
-                _logger.LogError(ex, "Json error to GetDeadlockRank userId {discordId}", accountId);
+                logger.LogError(ex, "Json error to GetDeadlockRank userId {discordId}", accountId);
                 return new DeadlockRank();
             }
         }
@@ -46,23 +36,23 @@ namespace DonBot.Services.DeadlockServices
         {
             try
             {
-                var response = await _httpClientFactory.CreateClient().GetAsync($"https://analytics.deadlock-api.com/v1/players/{accountId}/mmr-history");
+                var response = await httpClientFactory.CreateClient().GetAsync($"https://analytics.deadlock-api.com/v1/players/{accountId}/mmr-history");
                 response.EnsureSuccessStatusCode();
 
                 var jsonString = await response.Content.ReadAsStringAsync();
-                var playerStats = JsonConvert.DeserializeObject<List<DeadlockRankHistory>>(jsonString) ?? new List<DeadlockRankHistory>();
+                var playerStats = JsonConvert.DeserializeObject<List<DeadlockRankHistory>>(jsonString) ?? [];
 
                 return playerStats;
             }
             catch (HttpRequestException ex)
             {
-                _logger.LogError(ex, "Request error to GetDeadlockRankHistory userId {discordId}", accountId);
-                return new List<DeadlockRankHistory>();
+                logger.LogError(ex, "Request error to GetDeadlockRankHistory userId {discordId}", accountId);
+                return [];
             }
             catch (JsonException ex)
             {
-                _logger.LogError(ex, "Json error to GetDeadlockRankHistory userId {discordId}", accountId);
-                return new List<DeadlockRankHistory>();
+                logger.LogError(ex, "Json error to GetDeadlockRankHistory userId {discordId}", accountId);
+                return [];
             }
         }
     }

@@ -20,16 +20,16 @@ namespace DonBot.Models.Apis.GuildWars2Api
         public bool Commander { get; set; }
 
         [JsonProperty("guilds")]
-        public string[] Guilds { get; set; } = Array.Empty<string>();
+        public string[] Guilds { get; set; } = [];
 
         [JsonProperty("access")]
-        public string[] Access { get; set; } = Array.Empty<string>();
+        public string[] Access { get; set; } = [];
 
         [JsonProperty("created")]
         public DateTimeOffset Created { get; set; }
 
         [JsonProperty("guild_leader")]
-        public string[] GuildLeader { get; set; } = Array.Empty<string>();
+        public string[] GuildLeader { get; set; } = [];
 
         [JsonProperty("fractal_level")]
         public long FractalLevel { get; set; }

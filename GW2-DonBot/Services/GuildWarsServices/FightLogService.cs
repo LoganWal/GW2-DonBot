@@ -3,15 +3,8 @@ using DonBot.Extensions;
 
 namespace DonBot.Services.GuildWarsServices
 {
-    public class FightLogService : IFightLogService
+    public class FightLogService(IDataModelGenerationService dataModelGenerationService) : IFightLogService
     {
-        private readonly IDataModelGenerationService _dataModelGenerationService;
-
-        public FightLogService(IDataModelGenerationService dataModelGenerationService)
-        {
-            _dataModelGenerationService = dataModelGenerationService;
-        }
-
         public async Task GetEnemyInformation(SocketMessageComponent command)
         {
             await command.DeferAsync(ephemeral: true);
@@ -22,7 +15,7 @@ namespace DonBot.Services.GuildWarsServices
                 return;
             }
 
-            var data = await _dataModelGenerationService.GenerateEliteInsightDataModelFromUrl(url);
+            var data = await dataModelGenerationService.GenerateEliteInsightDataModelFromUrl(url);
             if (data.Targets == null)
             {
                 await command.FollowupAsync("Unable to get enemy targets from the requested log", ephemeral: true);

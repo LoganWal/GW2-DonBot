@@ -3,15 +3,8 @@ using DonBot.Models.Entities;
 
 namespace DonBot.Services.DiscordRequestServices
 {
-    public class DiscordCommandService : IDiscordCommandService
+    public class DiscordCommandService(DatabaseContext databaseContext) : IDiscordCommandService
     {
-        private readonly DatabaseContext _databaseContext;
-
-        public DiscordCommandService(DatabaseContext databaseContext)
-        {
-            _databaseContext = databaseContext;
-        }
-
         public async Task SetLogChannel(SocketSlashCommand command, DiscordSocketClient discordClient)
         {
             var channel = command.Data.Options.First().Value;
@@ -29,7 +22,7 @@ namespace DonBot.Services.DiscordRequestServices
                 return;
             }
 
-            var guild = _databaseContext.Guild.FirstOrDefault(g => g.GuildId == (long)command.GuildId);
+            var guild = databaseContext.Guild.FirstOrDefault(g => g.GuildId == (long)command.GuildId);
             if (guild == null)
             {
                 await command.FollowupAsync("Cannot find the related discord, try the command in the discord you want to change the log channel!", ephemeral: true);
@@ -38,8 +31,8 @@ namespace DonBot.Services.DiscordRequestServices
 
             guild.LogReportChannelId = channelId;
 
-            _databaseContext.Update(guild);
-            await _databaseContext.SaveChangesAsync();
+            databaseContext.Update(guild);
+            await databaseContext.SaveChangesAsync();
 
             await command.FollowupAsync("Update log channel!", ephemeral: true);
         }

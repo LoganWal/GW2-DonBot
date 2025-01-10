@@ -15,8 +15,10 @@ namespace DonBot.Models.Entities
 
         public long? DiscordVerifiedRoleId { get; set; }
 
+        [MaxLength(128)]
         public string? Gw2GuildMemberRoleId { get; set; }
 
+        [MaxLength(1000)]
         public string? Gw2SecondaryMemberRoleIds { get; set; }
 
         public long? PlayerReportChannelId { get; set; }

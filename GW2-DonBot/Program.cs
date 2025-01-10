@@ -36,12 +36,12 @@ namespace DonBot
                         .MinimumLevel.Information()
                         .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Warning);
                 })
-                .ConfigureServices((context, services) =>
+                .ConfigureServices((_, services) =>
                 {
                     services.AddHttpClient();
 
                     // Register DiscordSocketClient
-                    services.AddSingleton<DiscordSocketClient>(provider =>
+                    services.AddSingleton<DiscordSocketClient>(_ =>
                     {
                         var config = new DiscordSocketConfig
                         {

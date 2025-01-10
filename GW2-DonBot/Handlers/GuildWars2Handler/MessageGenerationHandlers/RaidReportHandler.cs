@@ -7,19 +7,11 @@ using DonBot.Models.GuildWars2;
 
 namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 {
-    public class RaidReportHandler
+    public class RaidReportHandler(
+        FooterHandler footerHandler,
+        DatabaseContext databaseContext,
+        WvWFightSummaryHandler wvWFightSummaryHandler)
     {
-        private readonly FooterHandler _footerHandler;
-        private readonly DatabaseContext _databaseContext;
-        private readonly WvWFightSummaryHandler _wvWFightSummaryHandler;
-
-        public RaidReportHandler(FooterHandler footerHandler, DatabaseContext databaseContext, WvWFightSummaryHandler wvWFightSummaryHandler)
-        {
-            _footerHandler = footerHandler;
-            _databaseContext = databaseContext;
-            _wvWFightSummaryHandler = wvWFightSummaryHandler;
-        }
-
         public List<Embed>? Generate(FightsReport fightsReport, long guildId)
         {
             var messages = new List<Embed>();
@@ -28,8 +20,8 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
                 return null;
             }
 
-            var fights = _databaseContext.FightLog.Where(s => s.GuildId == guildId && s.FightStart >= fightsReport.FightsStart && s.FightStart <= fightsReport.FightsEnd).OrderBy(s => s.FightStart).ToList();
-            var playerFights = _databaseContext.PlayerFightLog.ToList(); 
+            var fights = databaseContext.FightLog.Where(s => s.GuildId == guildId && s.FightStart >= fightsReport.FightsStart && s.FightStart <= fightsReport.FightsEnd).OrderBy(s => s.FightStart).ToList();
+            var playerFights = databaseContext.PlayerFightLog.ToList(); 
             playerFights = playerFights.Where(s => fights.Select(f => f.FightLogId).Contains(s.FightLogId)).ToList();
             var groupedPlayerFights = playerFights.GroupBy(s => s.GuildWarsAccountName).OrderByDescending(s => s.Sum(d => d.Damage)).ToList();
             var groupedFights = fights.GroupBy(f => f.FightType).OrderBy(f => f.Key).ToList();
@@ -45,8 +37,8 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
             var duration = lastFight.FightStart.AddMilliseconds(lastFight.FightDurationInMs) - firstFight.FightStart;
             var durationString = $"{(int)duration.TotalHours} hrs {(int)duration.TotalMinutes % 60} mins {duration.Seconds} secs";
 
-            var wvwFightCount = fights.Count(s => s.FightType == (short)FightTypesEnum.WvW && s.FightType != (short)FightTypesEnum.UNKN);
-            var pveFightCount = fights.Count(s => s.FightType != (short)FightTypesEnum.WvW && s.FightType != (short)FightTypesEnum.UNKN);
+            var wvwFightCount = fights.Count(s => s.FightType == (short)FightTypesEnum.WvW && s.FightType != (short)FightTypesEnum.Unkn);
+            var pveFightCount = fights.Count(s => s.FightType != (short)FightTypesEnum.WvW && s.FightType != (short)FightTypesEnum.Unkn);
 
             if (wvwFightCount > pveFightCount)
             {
@@ -80,7 +72,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
             var message = new EmbedBuilder
             {
                 Title = "RAID STARTING!\n",
-                Description = $"***GET IN HERE!***\n",
+                Description = "***GET IN HERE!***\n",
                 Color = (Color)System.Drawing.Color.Gold,
                 Author = new EmbedAuthorBuilder()
                 {
@@ -90,7 +82,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{_footerHandler.Generate(guildId)}",
+                    Text = $"{footerHandler.Generate(guildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 Timestamp = DateTime.Now
@@ -177,7 +169,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
             message.Footer = new EmbedFooterBuilder()
             {
-                Text = $"{_footerHandler.Generate(guildId)}",
+                Text = $"{footerHandler.Generate(guildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             };
 
@@ -218,7 +210,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
             }
             
             // Building the message for use
-            return _wvWFightSummaryHandler.GenerateMessage(advancedLog, 10, gw2Players, message, guildId, statTotals);
+            return wvWFightSummaryHandler.GenerateMessage(advancedLog, 10, gw2Players, message, guildId, statTotals);
         }
 
         private Embed GeneratePvERaidReport(string durationString, List<IGrouping<short, FightLog>> groupedFights, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights, long guildId)
@@ -241,7 +233,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
             var fightsOverview = "```Fight       Best  (t)    Success (t)     Count\n";
 
             // Fetch all the data in one go
-            var allFightLogs = _databaseContext.FightLog
+            var allFightLogs = databaseContext.FightLog
                 .Where(s => s.GuildId == guildId)
                 .ToList();
 
@@ -284,7 +276,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
                 var totalFightTimeSec = playerFights.Sum(s => s.FightDurationInMs) / 1000f;
                 var dps = playerFightsListForType.Sum(s => s.Damage / totalFightTimeSec);
-                var playerLine = $"{groupedPlayerFight.Key?.ClipAt(13),-13}{string.Empty,2}{dps.FormatNumber(true),-8}{string.Empty,2}{playerFightsListForType.Sum(s => s.Cleave / totalFightTimeSec).FormatNumber(true),-8}{string.Empty,2}{Math.Round(playerFightsListForType.Average(s => s.AlacDuration), 2).ToString(CultureInfo.CurrentCulture),-5}{string.Empty,3}{Math.Round(playerFightsListForType.Average(s => s.QuicknessDuration), 2).ToString(CultureInfo.CurrentCulture),-5}\n";
+                var playerLine = $"{groupedPlayerFight.Key.ClipAt(13),-13}{string.Empty,2}{dps.FormatNumber(true),-8}{string.Empty,2}{playerFightsListForType.Sum(s => s.Cleave / totalFightTimeSec).FormatNumber(true),-8}{string.Empty,2}{Math.Round(playerFightsListForType.Average(s => s.AlacDuration), 2).ToString(CultureInfo.CurrentCulture),-5}{string.Empty,3}{Math.Round(playerFightsListForType.Average(s => s.QuicknessDuration), 2).ToString(CultureInfo.CurrentCulture),-5}\n";
                 playerLineByDmg.Add(new Tuple<float, string>(dps, playerLine));
             }
 
@@ -335,7 +327,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
             message.Footer = new EmbedFooterBuilder()
             {
-                Text = $"{_footerHandler.Generate(guildId)}",
+                Text = $"{footerHandler.Generate(guildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             };
 
@@ -359,7 +351,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
                 var playerFightsListForType = groupedPlayerFight.ToList();
                 var playerFights = fights.Where(f => playerFightsListForType.Select(s => s.FightLogId).Contains(f.FightLogId)).ToList();
                 playerFights = playerFights.Where(s => s.FightType == fightType).ToList();
-                playerFightsListForType = playerFightsListForType.Where(s => playerFights.Select(s => s.FightLogId).Contains(s.FightLogId)).ToList();
+                playerFightsListForType = playerFightsListForType.Where(s => playerFights.Select(pf => pf.FightLogId).Contains(s.FightLogId)).ToList();
 
                 if (playerFightsListForType.Any())
                 {
@@ -420,7 +412,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
             message.Footer = new EmbedFooterBuilder()
             {
-                Text = $"{_footerHandler.Generate(guildId)}",
+                Text = $"{footerHandler.Generate(guildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             };
 

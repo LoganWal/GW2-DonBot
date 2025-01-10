@@ -3,15 +3,8 @@ using DonBot.Models.Entities;
 
 namespace DonBot.Services.DiscordRequestServices
 {
-    public class SteamCommandService : ISteamCommandService
+    public class SteamCommandService(DatabaseContext databaseContext) : ISteamCommandService
     {
-        private readonly DatabaseContext _databaseContext;
-
-        public SteamCommandService(DatabaseContext databaseContext)
-        {
-            _databaseContext = databaseContext;
-        }
-
         public async Task VerifySteamAccount(SocketSlashCommand command, DiscordSocketClient discordClient)
         {
             if (long.TryParse(command.Data.Options.First().Value.ToString(), out var steamId))
@@ -35,14 +28,14 @@ namespace DonBot.Services.DiscordRequestServices
                             DiscordId = (long)command.User.Id
                         };
 
-                        if (_databaseContext.SteamAccount.FirstOrDefault(g => g.SteamId64 == steamAccount.SteamId64) != null)
+                        if (databaseContext.SteamAccount.FirstOrDefault(g => g.SteamId64 == steamAccount.SteamId64) != null)
                         {
                             await command.FollowupAsync("This steam account id is already registered", ephemeral: true);
                             return;
                         }
 
-                        await _databaseContext.AddAsync(steamAccount);
-                        await _databaseContext.SaveChangesAsync();
+                        await databaseContext.AddAsync(steamAccount);
+                        await databaseContext.SaveChangesAsync();
 
                         await command.FollowupAsync("Registered!", ephemeral: true);
                         break;

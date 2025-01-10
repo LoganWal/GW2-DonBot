@@ -10,21 +10,12 @@ using DonBot.Handlers;
 
 namespace DonBot.Services.DiscordRequestServices
 {
-    public class RaffleCommandsService : IRaffleCommandsService
+    public class RaffleCommandsService(
+        DatabaseContext databaseContext,
+        FooterHandler footerHandler,
+        ILogger<RaffleCommandsService> logger)
+        : IRaffleCommandsService
     {
-        private readonly ILogger<RaffleCommandsService> _logger;
-
-        private readonly DatabaseContext _databaseContext;
-
-        private readonly FooterHandler _footerHandler;
-
-        public RaffleCommandsService(DatabaseContext databaseContext, FooterHandler footerHandler, ILogger<RaffleCommandsService> logger)
-        {
-            _databaseContext = databaseContext;
-            _footerHandler = footerHandler;
-            _logger = logger;
-        }
-
         public async Task CreateRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
         {
             // Get the user who executed the command
@@ -40,13 +31,13 @@ namespace DonBot.Services.DiscordRequestServices
 
             if (guildUser == null)
             {
-                _logger.LogError("Failed to create raffle: Guild or user not found.");
+                logger.LogError("Failed to create raffle: Guild or user not found.");
                 await command.FollowupAsync("Failed to create raffle, please try again or contact support.", ephemeral: true);
                 return;
             }
 
             // Fetch guild information from the database
-            var guild = await _databaseContext.Guild.FirstOrDefaultAsync(g => g.GuildId == (long)guildUser.Guild.Id);
+            var guild = await databaseContext.Guild.FirstOrDefaultAsync(g => g.GuildId == (long)guildUser.Guild.Id);
 
             if (guild == null)
             {
@@ -67,7 +58,7 @@ namespace DonBot.Services.DiscordRequestServices
             }
 
             // Check for existing active raffles
-            var activeRaffleExists = await _databaseContext.Raffle.AnyAsync(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId);
+            var activeRaffleExists = await databaseContext.Raffle.AnyAsync(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId);
 
             if (activeRaffleExists)
             {
@@ -89,7 +80,7 @@ namespace DonBot.Services.DiscordRequestServices
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = _footerHandler.Generate(guild.GuildId),
+                    Text = footerHandler.Generate(guild.GuildId),
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 Timestamp = DateTime.Now
@@ -97,9 +88,9 @@ namespace DonBot.Services.DiscordRequestServices
 
             var buttonBuilder = new ComponentBuilder()
                 .WithButton("Points", ButtonId.RafflePoints, ButtonStyle.Success)
-                .WithButton("1 Point", ButtonId.Raffle1, ButtonStyle.Primary)
-                .WithButton("50 Points", ButtonId.Raffle50, ButtonStyle.Primary)
-                .WithButton("100 Points", ButtonId.Raffle100, ButtonStyle.Primary)
+                .WithButton("1 Point", ButtonId.Raffle1)
+                .WithButton("50 Points", ButtonId.Raffle50)
+                .WithButton("100 Points", ButtonId.Raffle100)
                 .WithButton("1000 Points", ButtonId.Raffle1000, ButtonStyle.Danger)
                 .WithButton("Random!", ButtonId.RaffleRandom, ButtonStyle.Success)
                 .Build();
@@ -112,10 +103,10 @@ namespace DonBot.Services.DiscordRequestServices
                 RaffleType = (int)RaffleTypeEnum.Normal
             };
 
-            _databaseContext.Add(raffle);
+            databaseContext.Add(raffle);
 
-            await _databaseContext.SaveChangesAsync();
-            await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: new[] { message.Build() }, components: buttonBuilder);
+            await databaseContext.SaveChangesAsync();
+            await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: [message.Build()], components: buttonBuilder);
             await command.FollowupAsync("Raffle created successfully!", ephemeral: true);
         }
 
@@ -196,7 +187,7 @@ namespace DonBot.Services.DiscordRequestServices
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed create event raffle");
+                logger.LogError(ex, "Failed create event raffle");
                 await command.FollowupAsync("Failed to create raffle, please try again, or yell at logan.", ephemeral: true);
                 return;
             }
@@ -208,7 +199,7 @@ namespace DonBot.Services.DiscordRequestServices
             }
 
             // Get the guild from the database
-            var guilds = await _databaseContext.Guild.ToListAsync();
+            var guilds = await databaseContext.Guild.ToListAsync();
             var guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
             
             if (guild == null)
@@ -230,7 +221,7 @@ namespace DonBot.Services.DiscordRequestServices
             }
 
             // Check if there is already an active event raffle
-            var raffles = await _databaseContext.Raffle.ToListAsync();
+            var raffles = await databaseContext.Raffle.ToListAsync();
             if (raffles.Any(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Event && raf.GuildId == guild.GuildId))
             {
                 await command.FollowupAsync("There already is a running raffle, close that one first!", ephemeral: true);
@@ -251,7 +242,7 @@ namespace DonBot.Services.DiscordRequestServices
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{_footerHandler.Generate(guild.GuildId)}",
+                    Text = $"{footerHandler.Generate(guild.GuildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 // Timestamp
@@ -260,9 +251,9 @@ namespace DonBot.Services.DiscordRequestServices
 
             var buttonBuilder = new ComponentBuilder()
                 .WithButton("Points", ButtonId.RafflePoints, ButtonStyle.Success)
-                .WithButton("1 Point", ButtonId.RaffleEvent1, ButtonStyle.Primary)
-                .WithButton("50 Points", ButtonId.RaffleEvent50, ButtonStyle.Primary)
-                .WithButton("100 Points", ButtonId.RaffleEvent100, ButtonStyle.Primary)
+                .WithButton("1 Point", ButtonId.RaffleEvent1)
+                .WithButton("50 Points", ButtonId.RaffleEvent50)
+                .WithButton("100 Points", ButtonId.RaffleEvent100)
                 .WithButton("1000 Points", ButtonId.RaffleEvent1000, ButtonStyle.Danger)
                 .WithButton("Random!", ButtonId.RaffleEventRandom, ButtonStyle.Success)
                 .Build();
@@ -276,11 +267,11 @@ namespace DonBot.Services.DiscordRequestServices
                 RaffleType = (int)RaffleTypeEnum.Event
             };
 
-            _databaseContext.Add(raffle);
-            await _databaseContext.SaveChangesAsync();
+            databaseContext.Add(raffle);
+            await databaseContext.SaveChangesAsync();
 
             // Send to target channel with components
-            await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: new[] { message.Build() }, components: buttonBuilder);
+            await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: [message.Build()], components: buttonBuilder);
 
             await command.FollowupAsync("Created!", ephemeral: true);
         }
@@ -316,7 +307,7 @@ namespace DonBot.Services.DiscordRequestServices
             }
 
             // Get the guild from the database
-            var guild = await _databaseContext.Guild.FirstOrDefaultAsync(g => g.GuildId == (long)guildUser.Guild.Id);
+            var guild = await databaseContext.Guild.FirstOrDefaultAsync(g => g.GuildId == (long)guildUser.Guild.Id);
             if (guild == null)
             {
                 await command.FollowupAsync("This message does not appear to be a part of a server, are you messaging in a server where the bot is running?", ephemeral: true);
@@ -324,7 +315,7 @@ namespace DonBot.Services.DiscordRequestServices
             }
 
             // Get the current active raffle from the database
-            var currentRaffle = await _databaseContext.Raffle.FirstOrDefaultAsync(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId);
+            var currentRaffle = await databaseContext.Raffle.FirstOrDefaultAsync(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId);
             if (currentRaffle == null)
             {
                 await command.FollowupAsync("There are currently no raffles.", ephemeral: true);
@@ -332,14 +323,14 @@ namespace DonBot.Services.DiscordRequestServices
             }
 
             // Get the account of the user from the database
-            var account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
+            var account = await databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
             if (account == null)
             {
                 await command.FollowupAsync("Could not find an account for you, have you verified?", ephemeral: true);
                 return;
             }
 
-            var gw2Accounts = await _databaseContext.GuildWarsAccount.Where(s => s.DiscordId == account.DiscordId).ToListAsync();
+            var gw2Accounts = await databaseContext.GuildWarsAccount.Where(s => s.DiscordId == account.DiscordId).ToListAsync();
             if (!gw2Accounts.Any())
             {
                 await command.FollowupAsync("Could not find a guild wars 2 account for you, have you verified?", ephemeral: true);
@@ -354,12 +345,12 @@ namespace DonBot.Services.DiscordRequestServices
             }
 
             // Get the current bid of the user from the database
-            var currentBid = await _databaseContext.PlayerRaffleBid.FirstOrDefaultAsync(bid => bid.RaffleId == currentRaffle.Id && bid.DiscordId == account.DiscordId);
+            var currentBid = await databaseContext.PlayerRaffleBid.FirstOrDefaultAsync(bid => bid.RaffleId == currentRaffle.Id && bid.DiscordId == account.DiscordId);
             if (currentBid != null)
             {
                 // If the user has already bid, increase the points spent
                 currentBid.PointsSpent += pointsToSpend;
-                _databaseContext.Update(currentBid);
+                databaseContext.Update(currentBid);
             }
             else
             {
@@ -371,15 +362,15 @@ namespace DonBot.Services.DiscordRequestServices
                     PointsSpent = pointsToSpend
                 };
 
-                _databaseContext.Add(currentBid);
+                databaseContext.Add(currentBid);
             }
 
             // Decrease the available points of the account
             account.AvailablePoints -= pointsToSpend;
-            _databaseContext.Update(account);
+            databaseContext.Update(account);
 
             // Save the changes to the database
-            await _databaseContext.SaveChangesAsync();
+            await databaseContext.SaveChangesAsync();
 
             // Respond to the command with the points added
             await command.FollowupAsync($"Added {pointsToSpend} points!{Environment.NewLine}Total points in current raffle is: {currentBid.PointsSpent}", ephemeral: true);
@@ -409,13 +400,13 @@ namespace DonBot.Services.DiscordRequestServices
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed enter event raffle");
+                logger.LogError(ex, "Failed enter event raffle");
                 await command.FollowupAsync("Failed to create raffle, please try again, or yell at someone.", ephemeral: true);
                 return;
             }
 
             // Get the guild from the database
-            var guilds = await _databaseContext.Guild.ToListAsync();
+            var guilds = await databaseContext.Guild.ToListAsync();
             var guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
 
             // Check if the guild exists
@@ -426,7 +417,7 @@ namespace DonBot.Services.DiscordRequestServices
             }
 
             // Get the current event raffle
-            var raffles = await _databaseContext.Raffle.ToListAsync();
+            var raffles = await databaseContext.Raffle.ToListAsync();
             var currentRaffle = raffles.FirstOrDefault(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Event && raf.GuildId == guild.GuildId);
 
             // Check if there is an active event raffle
@@ -438,14 +429,14 @@ namespace DonBot.Services.DiscordRequestServices
 
             // Get the account of the user who executed the command
             // Get the account of the user from the database
-            var account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
+            var account = await databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
             if (account == null)
             {
                 await command.FollowupAsync("Could not find an account for you, have you verified?", ephemeral: true);
                 return;
             }
 
-            var gw2Accounts = await _databaseContext.GuildWarsAccount.Where(s => s.DiscordId == account.DiscordId).ToListAsync();
+            var gw2Accounts = await databaseContext.GuildWarsAccount.Where(s => s.DiscordId == account.DiscordId).ToListAsync();
             if (!gw2Accounts.Any())
             {
                 await command.FollowupAsync("Could not find a guild wars 2 account for you, have you verified?", ephemeral: true);
@@ -460,14 +451,14 @@ namespace DonBot.Services.DiscordRequestServices
             }
 
             // Get the current bid of the user for the current event raffle
-            var bids = await _databaseContext.PlayerRaffleBid.ToListAsync();
+            var bids = await databaseContext.PlayerRaffleBid.ToListAsync();
             var currentBid = bids.FirstOrDefault(bid => bid.RaffleId == currentRaffle.Id && bid.DiscordId == account.DiscordId);
 
             // Update the current bid or create a new one if it doesn't exist
             if (currentBid != null)
             {
                 currentBid.PointsSpent += pointsToSpend;
-                _databaseContext.Update(currentBid);
+                databaseContext.Update(currentBid);
             }
             else
             {
@@ -478,13 +469,13 @@ namespace DonBot.Services.DiscordRequestServices
                     PointsSpent = pointsToSpend
                 };
 
-                _databaseContext.Add(currentBid);
+                databaseContext.Add(currentBid);
             }
 
             // Update the available points of the user and save changes to the database
             account.AvailablePoints -= pointsToSpend;
-            _databaseContext.Update(account);
-            await _databaseContext.SaveChangesAsync();
+            databaseContext.Update(account);
+            await databaseContext.SaveChangesAsync();
 
             // Send a response with the points spent and the total points in the current event raffle
             await command.FollowupAsync($"Added {pointsToSpend} points!{Environment.NewLine}Total points in current event raffle is: {currentBid.PointsSpent}", ephemeral: true);
@@ -500,13 +491,13 @@ namespace DonBot.Services.DiscordRequestServices
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed complete raffle");
+                logger.LogError(ex, "Failed complete raffle");
                 await command.FollowupAsync("Failed to end raffle, please try again, or yell at logan.", ephemeral: true);
                 return;
             }
 
             // Get the guild from the database
-            var guilds = await _databaseContext.Guild.ToListAsync();
+            var guilds = await databaseContext.Guild.ToListAsync();
             var guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
 
             if (guild == null)
@@ -515,7 +506,7 @@ namespace DonBot.Services.DiscordRequestServices
             }
 
             // Get the active raffle for the guild
-            var raffles = await _databaseContext.Raffle.ToListAsync();
+            var raffles = await databaseContext.Raffle.ToListAsync();
             var currentRaffle = raffles.FirstOrDefault(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId);
 
             if (currentRaffle == null)
@@ -525,7 +516,7 @@ namespace DonBot.Services.DiscordRequestServices
             }
 
             // Get all the bids for the current raffle
-            var bids = await _databaseContext.PlayerRaffleBid.ToListAsync();
+            var bids = await databaseContext.PlayerRaffleBid.ToListAsync();
             var currentRaffleBids = bids.Where(bid => bid.RaffleId == currentRaffle.Id)
                 .GroupBy(bid => bid.DiscordId)
                 .Select(group => group.First())
@@ -551,7 +542,7 @@ namespace DonBot.Services.DiscordRequestServices
                 if (pickedBid < rollingTotal)
                 {
                     // Get the account associated with the winning bid
-                    account = await _databaseContext.Account.FirstOrDefaultAsync(a => a.DiscordId == currentRaffleBid.DiscordId);
+                    account = await databaseContext.Account.FirstOrDefaultAsync(a => a.DiscordId == currentRaffleBid.DiscordId);
                     break;
                 }
             }
@@ -587,13 +578,13 @@ namespace DonBot.Services.DiscordRequestServices
 
             foreach (var bidder in currentRaffleBids.Take(3))
             {
-                var gw2Accounts = await _databaseContext.GuildWarsAccount.Where(s => s.DiscordId == bidder.DiscordId).ToListAsync();
+                var gw2Accounts = await databaseContext.GuildWarsAccount.Where(s => s.DiscordId == bidder.DiscordId).ToListAsync();
                 var accountNames = string.Join(", ", gw2Accounts.Where(s => !string.IsNullOrEmpty(s.GuildWarsAccountName)).Select(s => s.GuildWarsAccountName).ToList());
                 topBidders.AppendLine($"<@{bidder.DiscordId}> ({accountNames}) - Bid: {bidder.PointsSpent} points");
             }
 
             // Get account names for the winning bidder
-            var winnerGw2Accounts = await _databaseContext.GuildWarsAccount.Where(s => s.DiscordId == account.DiscordId).ToListAsync();
+            var winnerGw2Accounts = await databaseContext.GuildWarsAccount.Where(s => s.DiscordId == account.DiscordId).ToListAsync();
             var winnerAccountNames = string.Join(", ", winnerGw2Accounts.Where(s => !string.IsNullOrEmpty(s.GuildWarsAccountName)).Select(s => s.GuildWarsAccountName).ToList());
 
             // Build the message to announce the winner
@@ -610,7 +601,7 @@ namespace DonBot.Services.DiscordRequestServices
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{_footerHandler.Generate(guild.GuildId)}",
+                    Text = $"{footerHandler.Generate(guild.GuildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 Timestamp = DateTime.Now
@@ -621,11 +612,11 @@ namespace DonBot.Services.DiscordRequestServices
             // Set the raffle to inactive
             currentRaffle.IsActive = false;
 
-            _databaseContext.Update(currentRaffle);
-            await _databaseContext.SaveChangesAsync();
+            databaseContext.Update(currentRaffle);
+            await databaseContext.SaveChangesAsync();
 
             // Send the message to the webhook
-            await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: new[] { builtMessage });
+            await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: [builtMessage]);
 
             // Modify the original response to indicate success
             await command.FollowupAsync("Selected!", ephemeral: true);
@@ -657,13 +648,13 @@ namespace DonBot.Services.DiscordRequestServices
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to complete event raffle");
+                logger.LogError(ex, "Failed to complete event raffle");
                 await command.FollowupAsync("Failed to end raffle, please try again, or yell at logan.", ephemeral: true);
                 return;
             }
 
             // Get the guild from the database
-            var guilds = await _databaseContext.Guild.ToListAsync();
+            var guilds = await databaseContext.Guild.ToListAsync();
             var guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
 
             if (guild == null)
@@ -671,16 +662,16 @@ namespace DonBot.Services.DiscordRequestServices
                 return;
             }
 
-            var accounts = _databaseContext.Account.ToList();
-            var gw2Accounts = _databaseContext.GuildWarsAccount.ToList();
+            var accounts = databaseContext.Account.ToList();
+            var gw2Accounts = databaseContext.GuildWarsAccount.ToList();
 
             // Check if there is an active event raffle for the guild
-            var raffles = await _databaseContext.Raffle.ToListAsync();
+            var raffles = await databaseContext.Raffle.ToListAsync();
             var currentRaffle = raffles.FirstOrDefault(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Event && raf.GuildId == guild.GuildId);
             if (currentRaffle != null)
             {
                 // Get all the bids for the current raffle
-                var bids = await _databaseContext.PlayerRaffleBid.ToListAsync();
+                var bids = await databaseContext.PlayerRaffleBid.ToListAsync();
                 var currentRaffleBids = bids.Where(bid => bid.RaffleId == currentRaffle.Id)
                     .GroupBy(bid => bid.DiscordId)
                     .Select(group => group.First())
@@ -765,7 +756,7 @@ namespace DonBot.Services.DiscordRequestServices
                     },
                     Footer = new EmbedFooterBuilder()
                     {
-                        Text = $"{_footerHandler.Generate(guild.GuildId)}",
+                        Text = $"{footerHandler.Generate(guild.GuildId)}",
                         IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                     },
                     Timestamp = DateTime.Now
@@ -775,11 +766,11 @@ namespace DonBot.Services.DiscordRequestServices
 
                 // Update the raffle to be inactive
                 currentRaffle.IsActive = false;
-                _databaseContext.Update(currentRaffle);
-                await _databaseContext.SaveChangesAsync();
+                databaseContext.Update(currentRaffle);
+                await databaseContext.SaveChangesAsync();
 
                 // Send the message announcing the winners and top 3 bidders to the webhook
-                await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: new[] { builtMessage });
+                await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: [builtMessage]);
 
                 // Modify the original response to indicate that the command was successful
                 await command.FollowupAsync("Raffle completed!", ephemeral: true);
@@ -807,16 +798,14 @@ namespace DonBot.Services.DiscordRequestServices
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed reopen raffle");
+                logger.LogError(ex, "Failed reopen raffle");
                 await command.FollowupAsync("Failed to end raffle, please try again, or yell at logan.", ephemeral: true);
                 return;
             }
 
             // Get the guild
-            Guild? guild;
-            Raffle? latestRaffle = null;
-            var guilds = await _databaseContext.Guild.ToListAsync();
-            guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
+            var guilds = await databaseContext.Guild.ToListAsync();
+            var guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
 
             // Check if the guild is null
             if (guild == null)
@@ -826,15 +815,15 @@ namespace DonBot.Services.DiscordRequestServices
             }
 
             // Check if there is already an open raffle
-            var raffles = await _databaseContext.Raffle.ToListAsync();
+            var raffles = await databaseContext.Raffle.ToListAsync();
             if (raffles.FirstOrDefault(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId) != null)
             {
                 await command.FollowupAsync("There is currently an open raffle.", ephemeral: true);
                 return;
-            } 
+            }
 
             // Get the latest raffle
-            latestRaffle = raffles.Where(raffle => raffle.RaffleType == (int)RaffleTypeEnum.Normal && raffle.GuildId == guild.GuildId).MaxBy(raffle => raffle.Id);
+            var latestRaffle = raffles.Where(raffle => raffle.RaffleType == (int)RaffleTypeEnum.Normal && raffle.GuildId == guild.GuildId).MaxBy(raffle => raffle.Id);
             if (latestRaffle != null)
             {
                 latestRaffle.IsActive = true;
@@ -871,7 +860,7 @@ namespace DonBot.Services.DiscordRequestServices
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{_footerHandler.Generate(guild.GuildId)}",
+                    Text = $"{footerHandler.Generate(guild.GuildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 // Timestamp
@@ -882,11 +871,11 @@ namespace DonBot.Services.DiscordRequestServices
             var builtMessage = message.Build();
 
             // Update the latest raffle
-            _databaseContext.Update(latestRaffle);
-            await _databaseContext.SaveChangesAsync();
+            databaseContext.Update(latestRaffle);
+            await databaseContext.SaveChangesAsync();
 
             // Send the message to the webhook
-            await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: new[] { builtMessage });
+            await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: [builtMessage]);
 
             // Modify the original response to indicate success
             await command.FollowupAsync("Reopened!", ephemeral: true);
@@ -909,13 +898,13 @@ namespace DonBot.Services.DiscordRequestServices
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed reopen event raffle");
+                logger.LogError(ex, "Failed reopen event raffle");
                 await command.FollowupAsync("Failed to end raffle, please try again, or yell at logan.", ephemeral: true);
                 return;
             }
 
             // Get the guild
-            var guilds = await _databaseContext.Guild.ToListAsync();
+            var guilds = await databaseContext.Guild.ToListAsync();
             var guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
 
             // If the guild is null, return an error message
@@ -926,7 +915,7 @@ namespace DonBot.Services.DiscordRequestServices
             }
 
             // Check if there is already an open event raffle
-            var raffles = await _databaseContext.Raffle.ToListAsync();
+            var raffles = await databaseContext.Raffle.ToListAsync();
             if (raffles.FirstOrDefault(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Event && raf.GuildId == guild.GuildId) != null)
             {
                 await command.FollowupAsync("There is currently an open raffle.", ephemeral: true);
@@ -972,7 +961,7 @@ namespace DonBot.Services.DiscordRequestServices
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{_footerHandler.Generate(guild.GuildId)}",
+                    Text = $"{footerHandler.Generate(guild.GuildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 // Timestamp
@@ -983,11 +972,11 @@ namespace DonBot.Services.DiscordRequestServices
             var builtMessage = message.Build();
 
             // Update the database with the latest event raffle
-            _databaseContext.Update(latestRaffle);
-            await _databaseContext.SaveChangesAsync();
+            databaseContext.Update(latestRaffle);
+            await databaseContext.SaveChangesAsync();
 
             // Send the message to the webhook
-            await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: new[] { builtMessage });
+            await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: [builtMessage]);
 
             // Modify the original response to show that the event raffle has been reopened
             await command.FollowupAsync("Reopened!", ephemeral: true);
@@ -1005,7 +994,7 @@ namespace DonBot.Services.DiscordRequestServices
             var guildUser = guildChannel.GetUser(command.User.Id);
 
             // Get the guild from the database
-            var guild = await _databaseContext.Guild.FirstOrDefaultAsync(g => g.GuildId == (long)guildUser.Guild.Id);
+            var guild = await databaseContext.Guild.FirstOrDefaultAsync(g => g.GuildId == (long)guildUser.Guild.Id);
             if (guild == null)
             {
                 await command.FollowupAsync("This message does not appear to be a part of a server, are you messaging in a server where the bot is running?", ephemeral:true);
@@ -1013,7 +1002,7 @@ namespace DonBot.Services.DiscordRequestServices
             }
 
             // Get the current active raffle from the database
-            var currentRaffle = await _databaseContext.Raffle.FirstOrDefaultAsync(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId);
+            var currentRaffle = await databaseContext.Raffle.FirstOrDefaultAsync(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId);
             if (currentRaffle == null)
             {
                 await command.FollowupAsync("There are currently no raffles.", ephemeral: true);
@@ -1021,14 +1010,14 @@ namespace DonBot.Services.DiscordRequestServices
             }
 
             // Get the account of the user from the database
-            var account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
+            var account = await databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
             if (account == null)
             {
                 await command.FollowupAsync("Could not find an account for you, have you verified?", ephemeral: true);
                 return;
             }
 
-            var gw2Accounts = await _databaseContext.GuildWarsAccount.Where(s => s.DiscordId == account.DiscordId).ToListAsync();
+            var gw2Accounts = await databaseContext.GuildWarsAccount.Where(s => s.DiscordId == account.DiscordId).ToListAsync();
             if (!gw2Accounts.Any())
             {
                 await command.FollowupAsync("Could not find a guild wars 2 account for you, have you verified?", ephemeral: true);
@@ -1055,12 +1044,12 @@ namespace DonBot.Services.DiscordRequestServices
             }
 
             // Get the current bid of the user from the database
-            var currentBid = await _databaseContext.PlayerRaffleBid.FirstOrDefaultAsync(bid => bid.RaffleId == currentRaffle.Id && bid.DiscordId == account.DiscordId);
+            var currentBid = await databaseContext.PlayerRaffleBid.FirstOrDefaultAsync(bid => bid.RaffleId == currentRaffle.Id && bid.DiscordId == account.DiscordId);
             if (currentBid != null)
             {
                 // If the user has already bid, increase the points spent
                 currentBid.PointsSpent += pointsToSpend;
-                _databaseContext.Update(currentBid);
+                databaseContext.Update(currentBid);
             }
             else
             {
@@ -1072,15 +1061,15 @@ namespace DonBot.Services.DiscordRequestServices
                     PointsSpent = pointsToSpend
                 };
 
-                _databaseContext.Add(currentBid);
+                databaseContext.Add(currentBid);
             }
 
             // Decrease the available points of the account
             account.AvailablePoints -= pointsToSpend;
-            _databaseContext.Update(account);
+            databaseContext.Update(account);
 
             // Save the changes to the database
-            await _databaseContext.SaveChangesAsync();
+            await databaseContext.SaveChangesAsync();
 
             // Respond to the command with the points added
             await command.FollowupAsync($"Added {pointsToSpend} points!{Environment.NewLine}Total points in current raffle is: {currentBid.PointsSpent}", ephemeral: true);
@@ -1098,7 +1087,7 @@ namespace DonBot.Services.DiscordRequestServices
             var guildUser = guildChannel.GetUser(command.User.Id);
 
             // Get the guild from the database
-            var guilds = await _databaseContext.Guild.ToListAsync();
+            var guilds = await databaseContext.Guild.ToListAsync();
             var guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
 
             // Check if the guild exists
@@ -1109,7 +1098,7 @@ namespace DonBot.Services.DiscordRequestServices
             }
 
             // Get the current event raffle
-            var raffles = await _databaseContext.Raffle.ToListAsync();
+            var raffles = await databaseContext.Raffle.ToListAsync();
             var currentRaffle = raffles.FirstOrDefault(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Event && raf.GuildId == guild.GuildId);
 
             // Check if there is an active event raffle
@@ -1119,14 +1108,14 @@ namespace DonBot.Services.DiscordRequestServices
                 return;
             }
 
-            var account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
+            var account = await databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
             if (account == null)
             {
                 await command.FollowupAsync("Could not find an account for you, have you verified?", ephemeral: true);
                 return;
             }
 
-            var gw2Accounts = await _databaseContext.GuildWarsAccount.Where(s => s.DiscordId == account.DiscordId).ToListAsync();
+            var gw2Accounts = await databaseContext.GuildWarsAccount.Where(s => s.DiscordId == account.DiscordId).ToListAsync();
             if (!gw2Accounts.Any())
             {
                 await command.FollowupAsync("Could not find a guild wars 2 account for you, have you verified?", ephemeral: true);
@@ -1153,14 +1142,14 @@ namespace DonBot.Services.DiscordRequestServices
             }
 
             // Get the current bid of the user for the current event raffle
-            var bids = await _databaseContext.PlayerRaffleBid.ToListAsync();
+            var bids = await databaseContext.PlayerRaffleBid.ToListAsync();
             var currentBid = bids.FirstOrDefault(bid => bid.RaffleId == currentRaffle.Id && bid.DiscordId == account.DiscordId);
 
             // Update the current bid or create a new one if it doesn't exist
             if (currentBid != null)
             {
                 currentBid.PointsSpent += pointsToSpend;
-                _databaseContext.Update(currentBid);
+                databaseContext.Update(currentBid);
             }
             else
             {
@@ -1171,13 +1160,13 @@ namespace DonBot.Services.DiscordRequestServices
                     PointsSpent = pointsToSpend
                 };
 
-                _databaseContext.Add(currentBid);
+                databaseContext.Add(currentBid);
             }
 
             // Update the available points of the user and save changes to the database
             account.AvailablePoints -= pointsToSpend;
-            _databaseContext.Update(account);
-            await _databaseContext.SaveChangesAsync();
+            databaseContext.Update(account);
+            await databaseContext.SaveChangesAsync();
 
             // Send a response with the points spent and the total points in the current event raffle
             await command.FollowupAsync($"Added {pointsToSpend} points!{Environment.NewLine}Total points in current raffle is: {currentBid.PointsSpent}", ephemeral: true);

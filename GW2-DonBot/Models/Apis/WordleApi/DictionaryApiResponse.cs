@@ -8,7 +8,7 @@ namespace DonBot.Models.Apis.WordleApi
         public string? Word { get; set; }
 
         [JsonProperty("meanings")]
-        public Meaning[] Meanings { get; set; } = Array.Empty<Meaning>();
+        public Meaning[] Meanings { get; set; } = [];
     }
 
     public class Meaning
@@ -17,7 +17,7 @@ namespace DonBot.Models.Apis.WordleApi
         public string? PartOfSpeech { get; set; }
 
         [JsonProperty("definitions")]
-        public Definition[] Definitions { get; set; } = Array.Empty<Definition>();
+        public Definition[] Definitions { get; set; } = [];
     }
 
     public class Definition

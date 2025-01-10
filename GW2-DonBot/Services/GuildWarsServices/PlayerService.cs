@@ -8,20 +8,13 @@ using Newtonsoft.Json.Linq;
 
 namespace DonBot.Services.GuildWarsServices
 {
-    public class PlayerService : IPlayerService
+    public class PlayerService(DatabaseContext databaseContext) : IPlayerService
     {
-        private readonly DatabaseContext _databaseContext;
-
-        public PlayerService(DatabaseContext databaseContext)
-        {
-            _databaseContext = databaseContext;
-        }
-
         public List<Gw2Player> GetGw2Players(EliteInsightDataModel data, ArcDpsPhase fightPhase, HealingPhase healingPhase, BarrierPhase barrierPhase, short? encounterType = null, bool someAllFights = true)
         {
             if (data.Players == null)
             {
-                return new List<Gw2Player>();
+                return [];
             }
 
             var gw2Players = new List<Gw2Player>();
@@ -95,25 +88,29 @@ namespace DonBot.Services.GuildWarsServices
                 existingPlayer.TotalQuick = boons?.CheckIndexIsValid(ArcDpsDataIndices.TotalQuick, 0) ?? false ? boons[ArcDpsDataIndices.TotalQuick][0] : 0;
                 existingPlayer.TotalAlac = boons?.CheckIndexIsValid(ArcDpsDataIndices.TotalAlac, 0) ?? false ? boons[ArcDpsDataIndices.TotalAlac][0] : 0;
 
-                if (encounterType == (short)FightTypesEnum.ToF)
+                switch (encounterType)
                 {
-                    var possibleMechanics = data?.MechanicMap?.Where(s => s.PlayerMech).ToList() ?? new List<MechanicMap>();
-                    existingPlayer.CerusOrbsCollected = GetMechanicValueForPlayer(possibleMechanics, "Insatiable Application", mechanics);
-
-                    if (firstFightPhaseStats != null)
+                    case (short)FightTypesEnum.ToF:
                     {
-                        existingPlayer.CerusPhaseOneDamage = ((double)firstFightPhaseStats[0][0] / data?.Phases?[1].Duration * 1000) ?? 0;
+                        var possibleMechanics = data.MechanicMap?.Where(s => s.PlayerMech).ToList() ?? [];
+                        existingPlayer.CerusOrbsCollected = GetMechanicValueForPlayer(possibleMechanics, "Insatiable Application", mechanics);
+
+                        if (firstFightPhaseStats != null)
+                        {
+                            existingPlayer.CerusPhaseOneDamage = ((double)firstFightPhaseStats[0][0] / data.Phases?[1].Duration * 1000) ?? 0;
+                        }
+
+
+                        existingPlayer.CerusSpreadHitCount = GetMechanicValueForPlayer(possibleMechanics, "Pool of Despair Hit", mechanics);
+                        existingPlayer.CerusSpreadHitCount += GetMechanicValueForPlayer(possibleMechanics, "Empowered Pool of Despair Hit", mechanics);
+                        break;
                     }
-
-
-                    existingPlayer.CerusSpreadHitCount = GetMechanicValueForPlayer(possibleMechanics, "Pool of Despair Hit", mechanics);
-                    existingPlayer.CerusSpreadHitCount += GetMechanicValueForPlayer(possibleMechanics, "Empowered Pool of Despair Hit", mechanics);
-                }
-
-                if (encounterType == (short)FightTypesEnum.Deimos)
-                {
-                    var possibleMechanics = data?.MechanicMap?.Where(s => s.PlayerMech).ToList() ?? new List<MechanicMap>();
-                    existingPlayer.DeimosOilsTriggered = GetMechanicValueForPlayer(possibleMechanics, "Black Oil Trigger", mechanics);
+                    case (short)FightTypesEnum.Deimos:
+                    {
+                        var possibleMechanics = data.MechanicMap?.Where(s => s.PlayerMech).ToList() ?? [];
+                        existingPlayer.DeimosOilsTriggered = GetMechanicValueForPlayer(possibleMechanics, "Black Oil Trigger", mechanics);
+                        break;
+                    }
                 }
             }
 
@@ -138,8 +135,8 @@ namespace DonBot.Services.GuildWarsServices
                 return;
             }
 
-            var accounts = await _databaseContext.Account.ToListAsync();
-            var gw2Accounts = await _databaseContext.GuildWarsAccount.ToListAsync();
+            var accounts = await databaseContext.Account.ToListAsync();
+            var gw2Accounts = await databaseContext.GuildWarsAccount.ToListAsync();
             accounts = accounts.Where(s => gw2Accounts.Any(acc => acc.DiscordId == s.DiscordId)).ToList();
             if (!accounts.Any())
             {
@@ -164,8 +161,8 @@ namespace DonBot.Services.GuildWarsServices
                 account.PreviousPoints = account.Points;
             }
 
-            _databaseContext.UpdateRange(accounts);
-            await _databaseContext.SaveChangesAsync();
+            databaseContext.UpdateRange(accounts);
+            await databaseContext.SaveChangesAsync();
 
             foreach (var player in gw2Players)
             {
@@ -175,7 +172,7 @@ namespace DonBot.Services.GuildWarsServices
                     continue;
                 }
 
-                var account = _databaseContext.Account.FirstOrDefault(s => s.DiscordId == gw2Account.DiscordId);
+                var account = databaseContext.Account.FirstOrDefault(s => s.DiscordId == gw2Account.DiscordId);
                 if (account == null)
                 {
                     continue;
@@ -195,10 +192,10 @@ namespace DonBot.Services.GuildWarsServices
                 account.Points += Convert.ToDecimal(totalPoints);
                 account.AvailablePoints += Convert.ToDecimal(totalPoints);
                 account.LastWvwLogDateTime = currentDateTimeUtc;
-                _databaseContext.Update(account);
+                databaseContext.Update(account);
             }
 
-            await _databaseContext.SaveChangesAsync();
+            await databaseContext.SaveChangesAsync();
         }
     }
 }

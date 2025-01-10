@@ -1,6 +1,5 @@
 ﻿using Discord.WebSocket;
 using DonBot.Extensions;
-using DonBot.Services.LogGenerationServices;
 
 namespace DonBot.Services.GuildWarsServices
 {

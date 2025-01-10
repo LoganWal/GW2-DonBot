@@ -1,10 +1,9 @@
 ﻿using Discord;
 using Discord.WebSocket;
-using DonBot.Models;
 using DonBot.Models.Entities;
 using DonBot.Models.GuildWars2;
 
-namespace DonBot.Services.LogGenerationServices
+namespace DonBot.Services.GuildWarsServices
 {
     public interface IMessageGenerationService
     {

@@ -1,30 +1,26 @@
-﻿using DonBot.Models;
-using DonBot.Models.GuildWars2;
+﻿using DonBot.Models.GuildWars2;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
-namespace DonBot.Services.LogGenerationServices
+namespace DonBot.Services.GuildWarsServices
 {
     public class DataModelGenerationService : IDataModelGenerationService
     {
         private readonly ILogger<DataModelGenerationService> _logger;
 
-        public DataModelGenerationService(ILogger<DataModelGenerationService> logger)
+        private readonly IHttpClientFactory _httpClientFactory;
+
+        public DataModelGenerationService(ILogger<DataModelGenerationService> logger, IHttpClientFactory httpClientFactory)
         {
             _logger = logger;
+            _httpClientFactory = httpClientFactory;
         }
 
         public async Task<EliteInsightDataModel> GenerateEliteInsightDataModelFromUrl(string url)
         {
-            // HTML scraping
-            string result;
-
-            using (var client = new HttpClient())
-            {
-                using var response = await client.GetAsync(url);
-                using var content = response.Content;
-                result = await content.ReadAsStringAsync();
-            }
+            using var response = await _httpClientFactory.CreateClient().GetAsync(url);
+            using var content = response.Content;
+            var result = await content.ReadAsStringAsync();
 
             // Registering start and end of actual log data inside the HTML
             var logDataStartIndex = result.IndexOf("logData", StringComparison.Ordinal) + 10;

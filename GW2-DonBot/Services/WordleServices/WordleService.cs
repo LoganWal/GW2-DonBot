@@ -5,24 +5,23 @@ namespace DonBot.Services.WordleServices
 {
     public class WordleService : IWordleService
     {
-        private readonly HttpClient _httpClient;
+        private readonly IHttpClientFactory _httpClientFactory;
         private readonly ILogger<WordleService> _logger;
 
-        public WordleService(HttpClient httpClient, ILogger<WordleService> logger)
+        public WordleService(ILogger<WordleService> logger, IHttpClientFactory httpClientFactory)
         {
-            _httpClient = httpClient;
             _logger = logger;
+            _httpClientFactory = httpClientFactory;
         }
 
         public async Task<string> FetchWordleWord()
         {
             var date = DateTime.Now.ToString("yyyy-MM-dd");
-            var url = $"https://www.nytimes.com/svc/wordle/v2/{date}.json";
             var wordleWord = string.Empty;
 
             try
             {
-                var response = await _httpClient.GetStringAsync(url);
+                var response = await _httpClientFactory.CreateClient().GetStringAsync($"https://www.nytimes.com/svc/wordle/v2/{date}.json");
                 var wordleData = JsonSerializer.Deserialize<WordleData>(response);
                 wordleWord = wordleData?.Solution.ToLower() ?? string.Empty;
                 _logger.LogInformation("current wordle word: {wordleWord}", wordleWord);

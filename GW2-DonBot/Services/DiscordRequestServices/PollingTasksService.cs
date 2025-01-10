@@ -2,12 +2,11 @@ using Discord;
 using Discord.WebSocket;
 using DonBot.Models.Apis.GuildWars2Api;
 using DonBot.Models.Entities;
-using DonBot.Services.LogGenerationServices;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
+using DonBot.Services.GuildWarsServices;
 
 namespace DonBot.Services.DiscordRequestServices
 {
@@ -19,14 +18,14 @@ namespace DonBot.Services.DiscordRequestServices
 
         private readonly DatabaseContext _databaseContext;
 
-        private readonly IServiceProvider _serviceProvider;
+        private readonly IHttpClientFactory _httpClientFactory;
 
-        public PollingTasksService(ILogger<PollingTasksService> logger, IMessageGenerationService messageGenerationService, DatabaseContext databaseContext, IServiceProvider serviceProvider)
+        public PollingTasksService(ILogger<PollingTasksService> logger, IMessageGenerationService messageGenerationService, DatabaseContext databaseContext, IHttpClientFactory httpClientFactory)
         {
             _logger = logger;
             _messageGenerationService = messageGenerationService;
             _databaseContext = databaseContext;
-            _serviceProvider = serviceProvider;
+            _httpClientFactory = httpClientFactory;
         }
 
         public async Task PollingRoles(DiscordSocketClient discordClient)
@@ -39,7 +38,8 @@ namespace DonBot.Services.DiscordRequestServices
 
             var guildWars2Data = new ConcurrentDictionary<long, List<GuildWars2AccountDataModel>>();
 
-            var maxDegreeOfParallelism = Environment.ProcessorCount; // Limit to available logical processors
+            // Limit to available logical processors
+            var maxDegreeOfParallelism = Environment.ProcessorCount;
             var semaphore = new SemaphoreSlim(maxDegreeOfParallelism);
 
             var tasks = accounts.Select(async account =>
@@ -47,9 +47,13 @@ namespace DonBot.Services.DiscordRequestServices
                 await semaphore.WaitAsync();
                 try
                 {
+                    // Get the guildWarsAccounts associated with the current account
                     var guildWars2Accounts = guildWarsAccounts.Where(s => s.DiscordId == account.DiscordId).ToList();
+
+                    // Fetch account data (this is still done in parallel)
                     var accountData = await FetchAccountData(guildWars2Accounts);
 
+                    // Store the result (not doing any database operations here)
                     guildWars2Data[account.DiscordId] = accountData;
                 }
                 finally
@@ -59,6 +63,9 @@ namespace DonBot.Services.DiscordRequestServices
             });
 
             await Task.WhenAll(tasks);
+
+            _databaseContext.UpdateRange(guildWarsAccounts);
+            await _databaseContext.SaveChangesAsync();
 
             foreach (var clientGuild in discordClient.Guilds)
             {
@@ -76,10 +83,8 @@ namespace DonBot.Services.DiscordRequestServices
 
         private async Task<List<GuildWars2AccountDataModel>> FetchAccountData(List<GuildWarsAccount> guildWarsAccounts)
         {
-            var httpClient = new HttpClient
-            {
-                Timeout = TimeSpan.FromSeconds(20)
-            };
+            var httpClient = _httpClientFactory.CreateClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(20);
 
             var guildWarsAccountData = new List<GuildWars2AccountDataModel>();
 
@@ -92,7 +97,8 @@ namespace DonBot.Services.DiscordRequestServices
                 {
                     try
                     {
-                        _logger.LogInformation("Handling {guildWarsAccountName} - Attempt {attempt}", guildWarsAccount.GuildWarsAccountName?.Trim(), attempt);
+                        _logger.LogInformation("Handling {guildWarsAccountName} - Attempt {attempt}",
+                            guildWarsAccount.GuildWarsAccountName?.Trim(), attempt);
 
                         var response = await httpClient.GetAsync($"https://api.guildwars2.com/v2/account/?access_token={guildWarsAccount.GuildWarsApiKey}");
                         if (response.IsSuccessStatusCode)
@@ -108,11 +114,13 @@ namespace DonBot.Services.DiscordRequestServices
                             break; // Exit the retry loop if successful
                         }
 
-                        _logger.LogWarning("Attempt {attempt} failed for {guildWarsAccountName}: {statusCode}", attempt, guildWarsAccount.GuildWarsAccountName?.Trim(), response.StatusCode);
+                        _logger.LogWarning("Attempt {attempt} failed for {guildWarsAccountName}: {statusCode}",
+                            attempt, guildWarsAccount.GuildWarsAccountName?.Trim(), response.StatusCode);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "FAILED Handling {guildWarsAccountName} on Attempt {attempt}", guildWarsAccount.GuildWarsAccountName?.Trim(), attempt);
+                        _logger.LogError(ex, "FAILED Handling {guildWarsAccountName} on Attempt {attempt}",
+                            guildWarsAccount.GuildWarsAccountName?.Trim(), attempt);
                     }
 
                     await Task.Delay(250);
@@ -127,11 +135,6 @@ namespace DonBot.Services.DiscordRequestServices
                     guildWarsAccountData.Add(accountData);
                 }
             }
-
-            using var scope = _serviceProvider.CreateScope(); // Create a scoped service provider
-            var dbContext = scope.ServiceProvider.GetRequiredService<DatabaseContext>(); // Resolve DbContext
-            dbContext.UpdateRange(guildWarsAccounts);
-            await dbContext.SaveChangesAsync();
 
             return guildWarsAccountData;
         }

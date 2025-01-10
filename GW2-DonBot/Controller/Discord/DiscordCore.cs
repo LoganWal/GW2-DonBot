@@ -1,12 +1,10 @@
 ﻿using System.Text.RegularExpressions;
-using System.Threading;
 using Discord;
 using Discord.WebSocket;
 using DonBot.Models.Entities;
 using DonBot.Models.Statics;
 using DonBot.Services.DiscordRequestServices;
 using DonBot.Services.GuildWarsServices;
-using DonBot.Services.LogGenerationServices;
 using DonBot.Services.Logging;
 using DonBot.Services.SecretsServices;
 using DonBot.Services.WordleServices;

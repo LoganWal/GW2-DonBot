@@ -1,7 +1,6 @@
-﻿using DonBot.Models;
-using DonBot.Models.GuildWars2;
+﻿using DonBot.Models.GuildWars2;
 
-namespace DonBot.Services.LogGenerationServices
+namespace DonBot.Services.GuildWarsServices
 {
     public interface IDataModelGenerationService
     {

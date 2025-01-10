@@ -1,7 +1,7 @@
 ﻿using Discord;
 using Discord.WebSocket;
 using DonBot.Models.Entities;
-using DonBot.Services.LogGenerationServices;
+using DonBot.Services.GuildWarsServices;
 
 namespace DonBot.Services.DiscordRequestServices
 {

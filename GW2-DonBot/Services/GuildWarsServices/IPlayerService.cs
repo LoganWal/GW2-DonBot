@@ -1,5 +1,4 @@
-﻿using DonBot.Models;
-using DonBot.Models.GuildWars2;
+﻿using DonBot.Models.GuildWars2;
 
 namespace DonBot.Services.GuildWarsServices
 {

@@ -6,7 +6,6 @@ using DonBot.Services.DeadlockServices;
 using DonBot.Services.DiscordRequestServices;
 using DonBot.Services.DiscordServices;
 using DonBot.Services.GuildWarsServices;
-using DonBot.Services.LogGenerationServices;
 using DonBot.Services.Logging;
 using DonBot.Services.SecretsServices;
 using DonBot.Services.WordleServices;
@@ -61,6 +60,9 @@ namespace DonBot.Registration
                 var connectionString = secretService.FetchDonBotSqlConnectionString();
                 options.UseSqlServer(connectionString);
             });
+
+            // HttpClient
+            services.AddHttpClient();
         }
     }
 }

@@ -6,20 +6,19 @@ namespace DonBot.Services.WordleServices
 {
     public class DictionaryService
     {
-        private readonly HttpClient _httpClient;
+        private readonly IHttpClientFactory _httpClientFactory;
 
-        public DictionaryService(HttpClient httpClient)
+        public DictionaryService(IHttpClientFactory httpClientFactory)
         {
-            _httpClient = httpClient;
+            _httpClientFactory = httpClientFactory;
         }
 
         public async Task<string> GetDefinitionsAsync(string word)
         {
-            var url = $"https://api.dictionaryapi.dev/api/v2/entries/en/{word}";
             string response;
             try
             {
-                response = await _httpClient.GetStringAsync(url);
+                response = await _httpClientFactory.CreateClient().GetStringAsync($"https://api.dictionaryapi.dev/api/v2/entries/en/{word}");
             }
             catch (Exception)
             {
@@ -40,10 +39,7 @@ namespace DonBot.Services.WordleServices
                 foreach (var meaning in entry.Meanings)
                 {
                     result.AppendLine($"Part of Speech: {meaning.PartOfSpeech}");
-                    foreach (var definition in meaning.Definitions)
-                    {
-                        result.AppendLine($"- Definition: {definition.DefinitionText}");
-                    }
+                    result.AppendLine($"- Definition: {(meaning.Definitions.FirstOrDefault()?.DefinitionText ?? "Unknown")}");
                 }
             }
 

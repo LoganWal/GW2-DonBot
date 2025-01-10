@@ -6,6 +6,8 @@ namespace DonBot.Models.Entities
     {
         public DatabaseContext(DbContextOptions<DatabaseContext> options) : base(options)
         {
+            ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking;
+
             Account = Set<Account>();
             Guild = Set<Guild>();
             Raffle = Set<Raffle>();
@@ -16,7 +18,6 @@ namespace DonBot.Models.Entities
             PlayerFightLog = Set<PlayerFightLog>();
             GuildQuote = Set<GuildQuote>();
             SteamAccount = Set<SteamAccount>();
-
         }
 
         public DbSet<Account> Account { get; set; }
@@ -79,5 +80,7 @@ namespace DonBot.Models.Entities
                 .Property(prb => prb.PointsSpent)
                 .HasPrecision(16, 3);
         }
+
+
     }
 }

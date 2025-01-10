@@ -1,5 +1,4 @@
 ﻿using DonBot.Extensions;
-using DonBot.Models;
 using DonBot.Models.Entities;
 using DonBot.Models.Enums;
 using DonBot.Models.GuildWars2;

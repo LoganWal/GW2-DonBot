@@ -14,10 +14,13 @@ namespace DonBot.Services.DiscordRequestServices
 
         private readonly DatabaseContext _databaseContext;
 
-        public VerifyCommandsService(DatabaseContext databaseContext, ILogger<VerifyCommandsService> logger)
+        private readonly IHttpClientFactory _httpClientFactory;
+
+        public VerifyCommandsService(DatabaseContext databaseContext, ILogger<VerifyCommandsService> logger, IHttpClientFactory httpClientFactory)
         {
             _databaseContext = databaseContext;
             _logger = logger;
+            _httpClientFactory = httpClientFactory;
         }
 
         public async Task VerifyCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
@@ -43,8 +46,7 @@ namespace DonBot.Services.DiscordRequestServices
             }
 
             // Call the GW2 API to get the account data
-            var httpClient = new HttpClient();
-            var response = await httpClient.GetAsync($"https://api.guildwars2.com/v2/account/?access_token={apiKey}");
+            var response = await _httpClientFactory.CreateClient().GetAsync($"https://api.guildwars2.com/v2/account/?access_token={apiKey}");
 
             // Check if the API call was successful
             if (response.IsSuccessStatusCode)

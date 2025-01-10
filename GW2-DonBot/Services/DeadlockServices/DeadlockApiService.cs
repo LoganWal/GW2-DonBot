@@ -7,24 +7,22 @@ namespace DonBot.Services.DeadlockServices
 {
     internal class DeadlockApiService : IDeadlockApiService
     {
-        private readonly HttpClient _httpClient;
+        private readonly IHttpClientFactory _httpClientFactory;
 
         private readonly ILogger<DiscordCore> _logger;
 
-        public DeadlockApiService(HttpClient httpClient, ILogger<DiscordCore> logger)
+        public DeadlockApiService(ILogger<DiscordCore> logger, IHttpClientFactory httpClientFactory)
         {
-            _httpClient = httpClient;
             _logger = logger;
+            _httpClientFactory = httpClientFactory;
         }
 
 
         public async Task<DeadlockRank> GetDeadlockRank(long accountId)
         {
-            var requestUrl = $"https://analytics.deadlock-api.com/v1/players/{accountId}/rank";
-
             try
             {
-                var response = await _httpClient.GetAsync(requestUrl);
+                var response = await _httpClientFactory.CreateClient().GetAsync($"https://analytics.deadlock-api.com/v1/players/{accountId}/rank");
                 response.EnsureSuccessStatusCode();
 
                 var jsonString = await response.Content.ReadAsStringAsync();
@@ -46,11 +44,9 @@ namespace DonBot.Services.DeadlockServices
 
         public async Task<List<DeadlockRankHistory>> GetDeadlockRankHistory(long accountId)
         {
-            var requestUrl = $"https://analytics.deadlock-api.com/v1/players/{accountId}/mmr-history";
-
             try
             {
-                var response = await _httpClient.GetAsync(requestUrl);
+                var response = await _httpClientFactory.CreateClient().GetAsync($"https://analytics.deadlock-api.com/v1/players/{accountId}/mmr-history");
                 response.EnsureSuccessStatusCode();
 
                 var jsonString = await response.Content.ReadAsStringAsync();

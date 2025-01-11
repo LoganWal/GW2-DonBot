@@ -62,6 +62,7 @@ namespace DonBot.Services.DiscordRequestServices
                 {
                     continue;
                 }
+
                 await clientGuild.DownloadUsersAsync();
                 await HandleGuildUsers(clientGuild, guildConfiguration, guildWars2Data, accounts, guildWarsAccounts);
                 await GenerateWvWPlayerReport(guildConfiguration, clientGuild);
@@ -179,6 +180,19 @@ namespace DonBot.Services.DiscordRequestServices
                 }
 
                 await HandleUserRoles(user, accountData, primaryRoleId.Value, secondaryRoleId.Value, verifiedRoleId.Value, guildId, secondaryGuildIds);
+            }
+
+            // remove any remaining API keys on expired users (most likely have left the server)
+            var expiredAccounts = gwAccounts.Where(s => s.FailedApiPullCount >= 48).ToList();
+            foreach (var invalidGuildWarsAccount in expiredAccounts)
+            {
+                logger.LogWarning("Guild Wars 2 account {invalidGuildWarsAccountGuildWarsAccountName} is no longer valid and has expired.", invalidGuildWarsAccount.GuildWarsAccountName);
+                invalidGuildWarsAccount.GuildWarsApiKey = null;
+            }
+
+            if (expiredAccounts.Any())
+            {
+                await entityService.GuildWarsAccount.UpdateRangeAsync(expiredAccounts);
             }
         }
 

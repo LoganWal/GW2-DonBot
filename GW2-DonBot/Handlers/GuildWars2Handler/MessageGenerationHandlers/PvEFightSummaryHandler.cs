@@ -213,7 +213,6 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
                 };
 
                 await entityService.FightLog.AddAsync(fightLog);
-                await entityService.SaveAsync();
 
                 var playerFights = gw2Players.Select(gw2Player => new PlayerFightLog
                 {

@@ -3,7 +3,6 @@
 namespace DonBot.Services.DatabaseServices
 {
     public class EntityService(
-        DatabaseContext context,
         IDatabaseUpdateService<Account> account,
         IDatabaseUpdateService<FightLog> fightLog,
         IDatabaseUpdateService<FightsReport> fightsReport,
@@ -35,10 +34,5 @@ namespace DonBot.Services.DatabaseServices
         public IDatabaseUpdateService<Raffle> Raffle { get; } = raffle;
 
         public IDatabaseUpdateService<SteamAccount> SteamAccount { get; } = steamAccount;
-
-        public async Task SaveAsync()
-        {
-            await context.SaveChangesAsync();
-        }
     }
 }

@@ -23,7 +23,5 @@ namespace DonBot.Services.DatabaseServices
         IDatabaseUpdateService<Raffle> Raffle { get; }
 
         IDatabaseUpdateService<SteamAccount> SteamAccount { get; }
-
-        Task SaveAsync();
     }
 }

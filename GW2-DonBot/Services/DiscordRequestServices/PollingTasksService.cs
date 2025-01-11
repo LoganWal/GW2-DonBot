@@ -186,7 +186,7 @@ namespace DonBot.Services.DiscordRequestServices
             var expiredAccounts = gwAccounts.Where(s => s.FailedApiPullCount >= 48).ToList();
             foreach (var invalidGuildWarsAccount in expiredAccounts)
             {
-                logger.LogWarning("Guild Wars 2 account {invalidGuildWarsAccountGuildWarsAccountName} is no longer valid and has expired.", invalidGuildWarsAccount.GuildWarsAccountName);
+                logger.LogInformation("Guild Wars 2 account {invalidGuildWarsAccountGuildWarsAccountName} is no longer valid and has expired.", invalidGuildWarsAccount.GuildWarsAccountName);
                 invalidGuildWarsAccount.GuildWarsApiKey = null;
             }
 

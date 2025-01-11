@@ -6,16 +6,17 @@ using DonBot.Models.Entities;
 using DonBot.Models.Enums;
 using DonBot.Models.GuildWars2;
 using DonBot.Models.Statics;
+using DonBot.Services.DatabaseServices;
 using DonBot.Services.GuildWarsServices;
 
 namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 {
     public class WvWFightSummaryHandler(
+        IEntityService entityService,
         IPlayerService playerService,
-        FooterHandler footerHandler,
-        DatabaseContext databaseContext)
+        FooterHandler footerHandler)
     {
-        public Embed Generate(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
+        public async Task<Embed> Generate(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
         {
             var playerCount = 5;
 
@@ -69,7 +70,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
                 if (client.GetChannel((ulong)guild.StreamLogChannelId) is ITextChannel streamLogChannel)
                 {
-                    streamLogChannel.SendMessageAsync(text: streamMessage);
+                    await streamLogChannel.SendMessageAsync(text: streamMessage);
                 }
             }
 
@@ -115,7 +116,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
             if (!advancedLog)
             {
-                var fightLog = databaseContext.FightLog.FirstOrDefault(s => s.Url == data.Url);
+                var fightLog = await entityService.FightLog.GetFirstOrDefaultAsync(s => s.Url == data.Url);
 
                 if (fightLog == null)
                 {
@@ -129,8 +130,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                         IsSuccess = data.Success
                     };
 
-                    databaseContext.Add(fightLog);
-                    databaseContext.SaveChanges();
+                    await entityService.FightLog.AddAsync(fightLog);
 
                     var playerFights = gw2Players.Select(gw2Player => new PlayerFightLog
                         {
@@ -164,8 +164,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                         })
                         .ToList();
 
-                    databaseContext.AddRange(playerFights);
-                    databaseContext.SaveChanges();
+                    await entityService.PlayerFightLog.AddRangeAsync(playerFights);
                 }
             }
 

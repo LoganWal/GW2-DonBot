@@ -1,15 +1,14 @@
 ﻿using Discord.WebSocket;
-using DonBot.Models.Entities;
+using DonBot.Services.DatabaseServices;
 using DonBot.Services.DeadlockServices;
 
 namespace DonBot.Services.DiscordRequestServices
 {
-    public class DeadlockCommandService(DatabaseContext databaseContext, IDeadlockApiService deadlockApiService)
-        : IDeadlockCommandService
+    public class DeadlockCommandService(IEntityService entityService, IDeadlockApiService deadlockApiService) : IDeadlockCommandService
     {
         public async Task GetMmr(SocketSlashCommand command, DiscordSocketClient discordClient)
         {
-            var steamAccounts = databaseContext.SteamAccount.Where(g => g.DiscordId == (long)command.User.Id);
+            var steamAccounts = await entityService.SteamAccount.GetWhereAsync(g => g.DiscordId == (long)command.User.Id);
             if (steamAccounts.Any())
             {
                 var userMmr = string.Empty;
@@ -39,7 +38,7 @@ namespace DonBot.Services.DiscordRequestServices
 
         public async Task GetMmrHistory(SocketSlashCommand command, DiscordSocketClient discordClient)
         {
-            var steamAccounts = databaseContext.SteamAccount.Where(g => g.DiscordId == (long)command.User.Id);
+            var steamAccounts = await entityService.SteamAccount.GetWhereAsync(g => g.DiscordId == (long)command.User.Id);
             if (steamAccounts.Any())
             {
                 var mmrOverview = "Account Id         Date        MMR                                                         \n";

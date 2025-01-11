@@ -2,17 +2,13 @@ using Discord;
 using Discord.WebSocket;
 using DonBot.Models.Apis.GuildWars2Api;
 using DonBot.Models.Entities;
-using Microsoft.EntityFrameworkCore;
+using DonBot.Services.DatabaseServices;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
 namespace DonBot.Services.DiscordRequestServices
 {
-    public class VerifyCommandsService(
-        DatabaseContext databaseContext,
-        ILogger<VerifyCommandsService> logger,
-        IHttpClientFactory httpClientFactory)
-        : IVerifyCommandsService
+    public class VerifyCommandsService(IEntityService entityService, ILogger<VerifyCommandsService> logger, IHttpClientFactory httpClientFactory) : IVerifyCommandsService
     {
         public async Task VerifyCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
         {
@@ -50,19 +46,20 @@ namespace DonBot.Services.DiscordRequestServices
 
                 // Check if the account already exists in the database
                 var isNewAccount = false;
-                var account = await databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
+                var account = await entityService.Account.GetFirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
 
                 if (account != null)
                 {
                     // Update existing
-                    var gw2Account = databaseContext.GuildWarsAccount.FirstOrDefault(s => s.DiscordId == account.DiscordId && s.GuildWarsAccountId == accountData.Id);
+                    var gw2Account = await entityService.GuildWarsAccount.GetFirstOrDefaultAsync(s => s.DiscordId == account.DiscordId && s.GuildWarsAccountId == accountData.Id);
                     if (gw2Account != null)
                     {
                         gw2Account.GuildWarsAccountId = accountData.Id;
                         gw2Account.GuildWarsAccountName = accountData.Name;
                         gw2Account.GuildWarsApiKey = apiKey;
                         gw2Account.FailedApiPullCount = 0;
-                        databaseContext.Update(gw2Account);
+
+                        await entityService.GuildWarsAccount.UpdateAsync(gw2Account);
                     }
                     else
                     {
@@ -77,7 +74,7 @@ namespace DonBot.Services.DiscordRequestServices
                             FailedApiPullCount = 0
                         };
 
-                        databaseContext.Add(gw2Account);
+                        await entityService.GuildWarsAccount.AddAsync(gw2Account);
                     }
                 }
                 else
@@ -100,14 +97,12 @@ namespace DonBot.Services.DiscordRequestServices
                         FailedApiPullCount = 0
                     };
 
-                    databaseContext.Add(account);
-                    databaseContext.Add(gw2Account);
+                    await entityService.Account.AddAsync(account);
+                    await entityService.GuildWarsAccount.AddAsync(gw2Account);
                 }
 
-                await databaseContext.SaveChangesAsync();
-
                 // Get the guild from the database
-                var guild = await databaseContext.Guild.FirstOrDefaultAsync(g => g.GuildId == (long)command.GuildId);
+                var guild = await entityService.Guild.GetFirstOrDefaultAsync(g => g.GuildId == (long)command.GuildId);
 
                 if (guild == null)
                 {
@@ -153,11 +148,10 @@ namespace DonBot.Services.DiscordRequestServices
         {
             // Check if the account exists in the database
             var output = "";
-            var gw2Accounts = await databaseContext.GuildWarsAccount.Where(acc => acc.DiscordId == (long)command.User.Id).ToListAsync();
+            var gw2Accounts = await entityService.GuildWarsAccount.GetWhereAsync(acc => acc.DiscordId == (long)command.User.Id);
             var accountFound = gw2Accounts.Any();
 
-            databaseContext.RemoveRange(gw2Accounts);
-            await databaseContext.SaveChangesAsync();
+            await entityService.GuildWarsAccount.DeleteRangeAsync(gw2Accounts);
 
             // Generate output message
             output += accountFound ?
@@ -165,7 +159,7 @@ namespace DonBot.Services.DiscordRequestServices
                 $"Deverify unnecessary! No account data found for: `{command.User}`";
 
             // Check if the guild exists in the database
-            var guilds = await databaseContext.Guild.ToListAsync();
+            var guilds = await entityService.Guild.GetAllAsync();
             if (command.GuildId == null) {
                 await command.FollowupAsync("Failed to deverify, make sure you asking withing a discord server.", ephemeral: true);
                 return;

@@ -2,26 +2,26 @@ using Discord;
 using Discord.WebSocket;
 using DonBot.Models.Apis.GuildWars2Api;
 using DonBot.Models.Entities;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
+using DonBot.Services.DatabaseServices;
 using DonBot.Services.GuildWarsServices;
 
 namespace DonBot.Services.DiscordRequestServices
 {
     public class PollingTasksService(
+        IEntityService entityService,
         ILogger<PollingTasksService> logger,
         IMessageGenerationService messageGenerationService,
-        DatabaseContext databaseContext,
         IHttpClientFactory httpClientFactory)
         : IPollingTasksService
     {
         public async Task PollingRoles(DiscordSocketClient discordClient)
         {
-            var accounts = await databaseContext.Account.ToListAsync();
-            var guilds = await databaseContext.Guild.ToListAsync();
-            var guildWarsAccounts = await databaseContext.GuildWarsAccount.Where(s => s.GuildWarsApiKey != null).ToListAsync();
+            var accounts = await entityService.Account.GetAllAsync();
+            var guilds = await entityService.Guild.GetAllAsync();
+            var guildWarsAccounts = await entityService.GuildWarsAccount.GetWhereAsync(s => s.GuildWarsApiKey != null);
 
             accounts = accounts.Where(s => guildWarsAccounts.Select(gw => gw.DiscordId).Contains(s.DiscordId)).ToList();
 
@@ -53,9 +53,7 @@ namespace DonBot.Services.DiscordRequestServices
 
             await Task.WhenAll(tasks);
 
-            databaseContext.UpdateRange(guildWarsAccounts);
-            await databaseContext.SaveChangesAsync();
-
+            await entityService.GuildWarsAccount.UpdateRangeAsync(guildWarsAccounts);
             foreach (var clientGuild in discordClient.Guilds)
             {
                 var guildConfiguration = guilds.FirstOrDefault(g => g.GuildId == (long)clientGuild.Id);
@@ -155,12 +153,11 @@ namespace DonBot.Services.DiscordRequestServices
                     logger.LogWarning("Guild Wars 2 account {invalidGuildWarsAccountGuildWarsAccountName} is no longer valid .", invalidGuildWarsAccount.GuildWarsAccountName);
 
                     invalidGuildWarsAccount.GuildWarsApiKey = null;
-                    databaseContext.Update(invalidGuildWarsAccount);
                 }
 
                 if (invalidAccounts.Any())
                 {
-                    await databaseContext.SaveChangesAsync();
+                    await entityService.GuildWarsAccount.UpdateRangeAsync(invalidAccounts);
                 }
 
                 if (playerAccount == null || !playerGwAccounts.Any() || playerGwAccounts.All(s => string.IsNullOrEmpty(s.GuildWarsApiKey)))

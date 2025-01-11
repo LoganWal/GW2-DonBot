@@ -1,9 +1,10 @@
 ﻿using Discord.WebSocket;
 using DonBot.Models.Entities;
+using DonBot.Services.DatabaseServices;
 
 namespace DonBot.Services.DiscordRequestServices
 {
-    public class SteamCommandService(DatabaseContext databaseContext) : ISteamCommandService
+    public class SteamCommandService(IEntityService entityService) : ISteamCommandService
     {
         public async Task VerifySteamAccount(SocketSlashCommand command, DiscordSocketClient discordClient)
         {
@@ -28,14 +29,13 @@ namespace DonBot.Services.DiscordRequestServices
                             DiscordId = (long)command.User.Id
                         };
 
-                        if (databaseContext.SteamAccount.FirstOrDefault(g => g.SteamId64 == steamAccount.SteamId64) != null)
+                        if (await entityService.SteamAccount.IfAnyAsync(g => g.SteamId64 == steamAccount.SteamId64))
                         {
                             await command.FollowupAsync("This steam account id is already registered", ephemeral: true);
                             return;
                         }
 
-                        await databaseContext.AddAsync(steamAccount);
-                        await databaseContext.SaveChangesAsync();
+                        await entityService.SteamAccount.AddAsync(steamAccount);
 
                         await command.FollowupAsync("Registered!", ephemeral: true);
                         break;

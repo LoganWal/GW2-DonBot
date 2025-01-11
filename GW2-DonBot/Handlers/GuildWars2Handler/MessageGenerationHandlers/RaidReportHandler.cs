@@ -4,15 +4,16 @@ using DonBot.Extensions;
 using DonBot.Models.Entities;
 using DonBot.Models.Enums;
 using DonBot.Models.GuildWars2;
+using DonBot.Services.DatabaseServices;
 
 namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 {
     public class RaidReportHandler(
+        IEntityService entityService,
         FooterHandler footerHandler,
-        DatabaseContext databaseContext,
         WvWFightSummaryHandler wvWFightSummaryHandler)
     {
-        public List<Embed>? Generate(FightsReport fightsReport, long guildId)
+        public async Task<List<Embed>?> Generate(FightsReport fightsReport, long guildId)
         {
             var messages = new List<Embed>();
             if (fightsReport.FightsEnd == null)
@@ -20,9 +21,10 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
                 return null;
             }
 
-            var fights = databaseContext.FightLog.Where(s => s.GuildId == guildId && s.FightStart >= fightsReport.FightsStart && s.FightStart <= fightsReport.FightsEnd).OrderBy(s => s.FightStart).ToList();
-            var playerFights = databaseContext.PlayerFightLog.ToList(); 
-            playerFights = playerFights.Where(s => fights.Select(f => f.FightLogId).Contains(s.FightLogId)).ToList();
+            var fights = (await entityService.FightLog.GetWhereAsync(s => s.GuildId == guildId && s.FightStart >= fightsReport.FightsStart && s.FightStart <= fightsReport.FightsEnd)).OrderBy(s => s.FightStart).ToList();
+            var fightLogIds = fights.Select(f => f.FightLogId).ToList();
+            var playerFights = await entityService.PlayerFightLog.GetWhereAsync(s => fightLogIds.Contains(s.FightLogId));
+
             var groupedPlayerFights = playerFights.GroupBy(s => s.GuildWarsAccountName).OrderByDescending(s => s.Sum(d => d.Damage)).ToList();
             var groupedFights = fights.GroupBy(f => f.FightType).OrderBy(f => f.Key).ToList();
 
@@ -48,7 +50,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
             }
             else
             {
-                messages.Add(GeneratePvERaidReport(durationString, groupedFights, groupedPlayerFights, fights, guildId));
+                messages.Add(await GeneratePvERaidReport(durationString, groupedFights, groupedPlayerFights, fights, guildId));
                 var successLogs = GeneratePvERaidLogReport(durationString, fights, true, guildId);
                 if (successLogs != null)
                 {
@@ -213,7 +215,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
             return wvWFightSummaryHandler.GenerateMessage(advancedLog, 10, gw2Players, message, guildId, statTotals);
         }
 
-        private Embed GeneratePvERaidReport(string durationString, List<IGrouping<short, FightLog>> groupedFights, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights, long guildId)
+        private async Task<Embed> GeneratePvERaidReport(string durationString, List<IGrouping<short, FightLog>> groupedFights, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights, long guildId)
         {
             // Building the message via embeds
             var message = new EmbedBuilder
@@ -233,9 +235,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
             var fightsOverview = "```Fight       Best  (t)    Success (t)     Count\n";
 
             // Fetch all the data in one go
-            var allFightLogs = databaseContext.FightLog
-                .Where(s => s.GuildId == guildId)
-                .ToList();
+            var allFightLogs = await entityService.FightLog.GetWhereAsync(s => s.GuildId == guildId);
 
             // Create a dictionary to store the best fight duration for each fight type
             var bestFightDurations = allFightLogs

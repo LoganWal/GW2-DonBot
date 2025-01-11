@@ -1,20 +1,20 @@
-﻿using System.Text.RegularExpressions;
-using Discord;
+﻿using Discord;
 using Discord.WebSocket;
-using DonBot.Models.Entities;
 using DonBot.Models.Statics;
+using DonBot.Services.DatabaseServices;
 using DonBot.Services.DiscordRequestServices;
 using DonBot.Services.GuildWarsServices;
-using DonBot.Services.Logging;
+using DonBot.Services.LoggingServices;
 using DonBot.Services.SecretsServices;
 using DonBot.Services.WordleServices;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using static System.Text.RegularExpressions.Regex;
 using ConnectionState = Discord.ConnectionState;
 
 namespace DonBot.Controller.Discord
 {
     public class DiscordCore(
+        IEntityService entityService,
         ILogger<DiscordCore> logger,
         ISecretService secretService,
         IMessageGenerationService messageGenerationService,
@@ -31,7 +31,6 @@ namespace DonBot.Controller.Discord
         ISteamCommandService steamCommandService,
         IDeadlockCommandService deadlockCommandService,
         SchedulerService schedulerService,
-        DatabaseContext databaseContext,
         DiscordSocketClient client)
         : IDiscordCore
     {
@@ -55,7 +54,7 @@ namespace DonBot.Controller.Discord
             logger.LogInformation("GW2-DonBot connected.");
 
             // Load existing fight logs
-            LoadExistingFightLogs();
+            await LoadExistingFightLogs();
 
             // Register event handlers
             RegisterEventHandlers();
@@ -70,16 +69,16 @@ namespace DonBot.Controller.Discord
             logger.LogInformation("GW2-DonBot setup - ready to cause chaos");
 
             // Block this task until the program is closed.
-            var discordCoreCancellationToken = new CancellationToken();
+            var discordCoreCancellationToken = CancellationToken.None;
             await Task.Delay(-1, discordCoreCancellationToken);
 
             // Safely close...
             UnregisterEventHandlers();
 
-            _pollingRolesCancellationTokenSource.Cancel();
+            await _pollingRolesCancellationTokenSource.CancelAsync();
             await pollingRolesTask;
 
-            _wordleBackgroundServiceCancellationTokenSource.Cancel();
+            await _wordleBackgroundServiceCancellationTokenSource.CancelAsync();
         }
 
         private async Task WaitForConnectionAsync()
@@ -90,9 +89,9 @@ namespace DonBot.Controller.Discord
             }
         }
 
-        private void LoadExistingFightLogs()
+        private async Task LoadExistingFightLogs()
         {
-            var fightLogs = databaseContext.FightLog.Select(s => s.Url).Distinct().ToList();
+            var fightLogs = (await entityService.FightLog.GetAllAsync()).Select(s => s.Url).Distinct().ToList();
             foreach (var fightLog in fightLogs)
             {
                 _seenUrls.Add(fightLog);
@@ -102,7 +101,7 @@ namespace DonBot.Controller.Discord
         private void RegisterEventHandlers()
         {
             client.MessageReceived += MessageReceivedAsync;
-            client.Log += msg => loggingService.LogAsync(msg);
+            client.Log += loggingService.LogAsync;
             client.SlashCommandExecuted += SlashCommandExecutedAsync;
 
             client.ButtonExecuted += async buttonComponent =>
@@ -288,27 +287,39 @@ namespace DonBot.Controller.Discord
 
         private async Task SlashCommandExecutedAsync(SocketSlashCommand command)
         {
-            switch (command.Data.Name)
+            try
             {
-                case        "gw2_verify":                   await Gw2VerifyCommandExecuted(command);                break;
-                case        "gw2_deverify":                 await Gw2DeverifyCommandExecuted(command);              break;
-                case        "gw2_points":                   await Gw2PointsCommandExecuted(command);                break;
-                case        "gw2_create_raffle":            await Gw2CreateRaffleCommandExecuted(command);          break;
-                case        "gw2_create_event_raffle":      await Gw2CreateEventRaffleCommandExecuted(command);     break;
-                case        "gw2_enter_raffle":             await Gw2RaffleCommandExecuted(command);                break;
-                case        "gw2_enter_event_raffle":       await Gw2EventRaffleCommandExecuted(command);           break;
-                case        "gw2_complete_raffle":          await Gw2CompleteRaffleCommandExecuted(command);        break;
-                case        "gw2_complete_event_raffle":    await Gw2CompleteEventRaffleCommandExecuted(command);   break;
-                case        "gw2_reopen_raffle":            await Gw2ReopenRaffleCommandExecuted(command);          break;
-                case        "gw2_reopen_event_raffle":      await Gw2ReopenEventRaffleCommandExecuted(command);     break;
-                case        "gw2_start_raid":               await Gw2StartRaidCommandExecuted(command);             break;
-                case        "gw2_close_raid":               await Gw2CloseRaidCommandExecuted(command);             break;
-                case        "gw2_set_log_channel":          await Gw2SetLogChannel(command);                        break;
-                case        "steam_verify":                 await SteamVerifyCommandExecuted(command);              break;
-                case        "deadlock_mmr":                 await DeadlockMmrCommandExecuted(command);              break;
-                case        "deadlock_mmr_history":         await DeadlockMmrHistoryCommandExecuted(command);       break;
-                case        "deadlock_match_history":       await DeadlockMatchHistoryCommandExecuted(command);     break;
-                default:                                    await DefaultCommandExecuted(command);                  break;
+                switch (command.Data.Name)
+                {
+                    case "gw2_verify": await Gw2VerifyCommandExecuted(command); break;
+                    case "gw2_deverify": await Gw2DeverifyCommandExecuted(command); break;
+                    case "gw2_points": await Gw2PointsCommandExecuted(command); break;
+                    case "gw2_create_raffle": await Gw2CreateRaffleCommandExecuted(command); break;
+                    case "gw2_create_event_raffle": await Gw2CreateEventRaffleCommandExecuted(command); break;
+                    case "gw2_enter_raffle": await Gw2RaffleCommandExecuted(command); break;
+                    case "gw2_enter_event_raffle": await Gw2EventRaffleCommandExecuted(command); break;
+                    case "gw2_complete_raffle": await Gw2CompleteRaffleCommandExecuted(command); break;
+                    case "gw2_complete_event_raffle": await Gw2CompleteEventRaffleCommandExecuted(command); break;
+                    case "gw2_reopen_raffle": await Gw2ReopenRaffleCommandExecuted(command); break;
+                    case "gw2_reopen_event_raffle": await Gw2ReopenEventRaffleCommandExecuted(command); break;
+                    case "gw2_start_raid": await Gw2StartRaidCommandExecuted(command); break;
+                    case "gw2_close_raid": await Gw2CloseRaidCommandExecuted(command); break;
+                    case "gw2_set_log_channel": await Gw2SetLogChannel(command); break;
+                    case "steam_verify": await SteamVerifyCommandExecuted(command); break;
+                    case "deadlock_mmr": await DeadlockMmrCommandExecuted(command); break;
+                    case "deadlock_mmr_history": await DeadlockMmrHistoryCommandExecuted(command); break;
+                    case "deadlock_match_history": await DeadlockMatchHistoryCommandExecuted(command); break;
+                    default: await DefaultCommandExecuted(command); break;
+                }
+            }
+            catch (TimeoutException ex)
+            {
+                logger.LogError(ex, "Timeout occurred on {commandDataName} command", command.Data.Name);
+                await command.ModifyOriginalResponseAsync(msg => msg.Content = "Request timeout - Yell at Logan");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed {commandDataName} command", command.Data.Name);
             }
         }
 
@@ -442,15 +453,17 @@ namespace DonBot.Controller.Discord
             }
         }
 
-        private async Task MessageReceivedAsync(SocketMessage seenMessage)
+        private Task MessageReceivedAsync(SocketMessage seenMessage)
         {
-            await HandleMessage(seenMessage);
+            _ = HandleMessage(seenMessage);
+            return Task.CompletedTask;
         }
 
         private async Task HandleMessage(SocketMessage seenMessage)
         {
             try
             {
+                // TODO update this to be config driven
                 var knownBots = new List<ulong>
                 {
                     DonBotId,
@@ -470,15 +483,15 @@ namespace DonBot.Controller.Discord
                     return;
                 }
 
-                var guild = databaseContext.Guild.FirstOrDefault(g => g.GuildId == (long)channel.Guild.Id);
-                if (guild == null || !guild.LogDropOffChannelId.HasValue)
+                var guild = await entityService.Guild.GetFirstOrDefaultAsync(g => g.GuildId == (long)channel.Guild.Id);
+                if (guild?.LogDropOffChannelId == null)
                 {
                     logger.LogWarning("Unable to find guild {channelGuildId}", channel.Guild.Id);
                     return;
                 }
 
 
-                if (guild.RemoveSpamEnabled && Regex.IsMatch(seenMessage.Content, @"\b((https?|ftp)://|www\.|(\w+\.)+\w{2,})(\S*)\b"))
+                if (guild.RemoveSpamEnabled && IsMatch(seenMessage.Content, @"\b((https?|ftp)://|www\.|(\w+\.)+\w{2,})(\S*)\b"))
                 {
                     if (seenMessage.Channel is not SocketTextChannel)
                     {
@@ -486,10 +499,10 @@ namespace DonBot.Controller.Discord
                         return;
                     }
 
-                    var user = databaseContext.Account.FirstOrDefault(g => g.DiscordId == (long)seenMessage.Author.Id);
+                    var user = await entityService.Account.GetFirstOrDefaultAsync(g => g.DiscordId == (long)seenMessage.Author.Id);
                     if (user == null)
                     {
-                        HandleSpamMessage(seenMessage);
+                        await HandleSpamMessage(seenMessage);
                         return;
                     }
 
@@ -497,7 +510,7 @@ namespace DonBot.Controller.Discord
                     {
                         if (seenMessage.Author is SocketGuildUser socketUser && !socketUser.Roles.Select(s => (long)s.Id).ToList().Contains(guild.DiscordVerifiedRoleId.Value))
                         {
-                            HandleSpamMessage(seenMessage);
+                            await HandleSpamMessage(seenMessage);
                             return;
                         }
                     }
@@ -516,12 +529,12 @@ namespace DonBot.Controller.Discord
                     embedMessage = false;
 
                     const string pattern = @"https://(?:wvw|dps)\.report/\S+";
-                    var matches = Regex.Matches(seenMessage.Content, pattern);
+                    var matches = Matches(seenMessage.Content, pattern);
 
                     trimmedUrls = matches.Select(match => match.Value).ToList();
 
                     const string wingmanPattern = @"https://gw2wingman\.nevermindcreations\.de/log/\S+";
-                    matches = Regex.Matches(seenMessage.Content, wingmanPattern);
+                    matches = Matches(seenMessage.Content, wingmanPattern);
 
                     var wingmanMatches = matches.Select(match => match.Value).ToList();
                     for (var i = 0; i < wingmanMatches.Count; i++)
@@ -556,17 +569,17 @@ namespace DonBot.Controller.Discord
             }
         }
 
-        private void HandleSpamMessage(SocketMessage seenMessage)
+        private async Task HandleSpamMessage(SocketMessage seenMessage)
         {
-            seenMessage.DeleteAsync();
+            await seenMessage.DeleteAsync();
 
             var discordGuild = (seenMessage.Channel as SocketGuildChannel)?.Guild;
             if (discordGuild != null)
             {
                 var guildId = discordGuild.Id;
 
-                var guild = databaseContext.Guild.FirstOrDefault(g => g.GuildId == (long)guildId);
-                if (guild == null || !guild.RemovedMessageChannelId.HasValue)
+                var guild = await entityService.Guild.GetFirstOrDefaultAsync(g => g.GuildId == (long)guildId);
+                if (guild?.RemovedMessageChannelId == null)
                 {
                     logger.LogWarning("Unable to find guild {guildId}", guildId);
                     return;
@@ -578,7 +591,7 @@ namespace DonBot.Controller.Discord
                     return;
                 }
 
-                targetChannel.SendMessageAsync($"Removed message from <@{seenMessage.Author.Id}> ({seenMessage.Author.Username}), for posting a discord link without being verified.");
+                await targetChannel.SendMessageAsync($"Removed message from <@{seenMessage.Author.Id}> ({seenMessage.Author.Username}), for posting a discord link without being verified.");
             }
         }
 
@@ -595,7 +608,7 @@ namespace DonBot.Controller.Discord
             logger.LogInformation("Analysing and reporting on: {url}", url);
             var data = await dataModelGenerator.GenerateEliteInsightDataModelFromUrl(url);
 
-            var guilds = await databaseContext.Guild.ToListAsync();
+            var guilds = await entityService.Guild.GetAllAsync();
             var guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildId);
 
             if (guild == null)
@@ -632,7 +645,7 @@ namespace DonBot.Controller.Discord
                             return;
                         }
 
-                        var advancedMessage = messageGenerationService.GenerateWvWFightSummary(data, true, guild, client);
+                        var advancedMessage = await messageGenerationService.GenerateWvWFightSummary(data, true, guild, client);
                         await advanceLogReportChannel.SendMessageAsync(text: "", embeds: [advancedMessage]);
                     }
 
@@ -651,7 +664,7 @@ namespace DonBot.Controller.Discord
                     await playerService.SetPlayerPoints(data);
                 }
 
-                message = messageGenerationService.GenerateWvWFightSummary(data, false, guild, client);
+                message = await messageGenerationService.GenerateWvWFightSummary(data, false, guild, client);
 
                 buttonBuilder = new ComponentBuilder()
                     .WithButton("Know My Enemy", ButtonId.KnowMyEnemy)
@@ -659,7 +672,7 @@ namespace DonBot.Controller.Discord
             }
             else
             {
-                message = messageGenerationService.GeneratePvEFightSummary(data, (long)guildId);
+                message = await messageGenerationService.GeneratePvEFightSummary(data, (long)guildId);
             }
 
             if (isEmbed)

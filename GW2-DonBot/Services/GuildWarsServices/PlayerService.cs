@@ -3,12 +3,12 @@ using DonBot.Models.Entities;
 using DonBot.Models.Enums;
 using DonBot.Models.GuildWars2;
 using DonBot.Models.Statics;
-using Microsoft.EntityFrameworkCore;
+using DonBot.Services.DatabaseServices;
 using Newtonsoft.Json.Linq;
 
 namespace DonBot.Services.GuildWarsServices
 {
-    public class PlayerService(DatabaseContext databaseContext) : IPlayerService
+    public class PlayerService(IEntityService entityService) : IPlayerService
     {
         public List<Gw2Player> GetGw2Players(EliteInsightDataModel data, ArcDpsPhase fightPhase, HealingPhase healingPhase, BarrierPhase barrierPhase, short? encounterType = null, bool someAllFights = true)
         {
@@ -135,8 +135,8 @@ namespace DonBot.Services.GuildWarsServices
                 return;
             }
 
-            var accounts = await databaseContext.Account.ToListAsync();
-            var gw2Accounts = await databaseContext.GuildWarsAccount.ToListAsync();
+            var accounts = await entityService.Account.GetAllAsync();
+            var gw2Accounts = await entityService.GuildWarsAccount.GetAllAsync();
             accounts = accounts.Where(s => gw2Accounts.Any(acc => acc.DiscordId == s.DiscordId)).ToList();
             if (!accounts.Any())
             {
@@ -161,8 +161,9 @@ namespace DonBot.Services.GuildWarsServices
                 account.PreviousPoints = account.Points;
             }
 
-            databaseContext.UpdateRange(accounts);
-            await databaseContext.SaveChangesAsync();
+            await entityService.Account.UpdateRangeAsync(accounts);
+
+            var accountsToUpdate = new List<Account>();
 
             foreach (var player in gw2Players)
             {
@@ -172,7 +173,7 @@ namespace DonBot.Services.GuildWarsServices
                     continue;
                 }
 
-                var account = databaseContext.Account.FirstOrDefault(s => s.DiscordId == gw2Account.DiscordId);
+                var account = await entityService.Account.GetFirstOrDefaultAsync(s => s.DiscordId == gw2Account.DiscordId);
                 if (account == null)
                 {
                     continue;
@@ -180,7 +181,8 @@ namespace DonBot.Services.GuildWarsServices
 
                 var totalPoints = 0d;
 
-                totalPoints += Math.Min(Convert.ToDouble(player.Damage)  / 50000d, 10);
+                // Calculate the total points based on player data
+                totalPoints += Math.Min(Convert.ToDouble(player.Damage) / 50000d, 10);
                 totalPoints += Math.Min(Convert.ToDouble(player.Cleanses) / 100d, 5);
                 totalPoints += Math.Min(Convert.ToDouble(player.Strips) / 30d, 3);
                 totalPoints += Math.Min(Convert.ToDouble(player.StabOnGroup) * (secondsOfFight < 20d ? 1d : secondsOfFight / 20d), 6);
@@ -189,13 +191,20 @@ namespace DonBot.Services.GuildWarsServices
 
                 totalPoints = Math.Max(4, Math.Min(12, totalPoints));
 
+                // Update the account's points
                 account.Points += Convert.ToDecimal(totalPoints);
                 account.AvailablePoints += Convert.ToDecimal(totalPoints);
                 account.LastWvwLogDateTime = currentDateTimeUtc;
-                databaseContext.Update(account);
+
+                // Add the updated account to the list
+                accountsToUpdate.Add(account);
             }
 
-            await databaseContext.SaveChangesAsync();
+            // Update all the accounts in bulk
+            if (accountsToUpdate.Any())
+            {
+                await entityService.Account.UpdateRangeAsync(accountsToUpdate);
+            }
         }
     }
 }

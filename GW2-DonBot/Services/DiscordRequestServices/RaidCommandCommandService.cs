@@ -1,14 +1,12 @@
 ﻿using Discord;
 using Discord.WebSocket;
 using DonBot.Models.Entities;
+using DonBot.Services.DatabaseServices;
 using DonBot.Services.GuildWarsServices;
 
 namespace DonBot.Services.DiscordRequestServices
 {
-    public class RaidCommandCommandService(
-        IMessageGenerationService messageGenerationService,
-        DatabaseContext databaseContext)
-        : IRaidCommandService
+    public class RaidCommandCommandService(IEntityService entityService, IMessageGenerationService messageGenerationService) : IRaidCommandService
     {
         public async Task StartRaid(SocketSlashCommand command, DiscordSocketClient discordClient)
         {
@@ -18,14 +16,14 @@ namespace DonBot.Services.DiscordRequestServices
                 return;
             }
 
-            var guild = databaseContext.Guild.FirstOrDefault(s => s.GuildId == (long)command.GuildId);
+            var guild = await entityService.Guild.GetFirstOrDefaultAsync(s => s.GuildId == (long)command.GuildId);
             if (guild == null)
             {
                 await command.FollowupAsync("This discord server doesn't have raids enabled.", ephemeral: true);
                 return;
             }
 
-            var existingOpenRaids = databaseContext.FightsReport.FirstOrDefault(s => s.GuildId == (long)command.GuildId && s.FightsEnd == null);
+            var existingOpenRaids = await entityService.FightsReport.GetFirstOrDefaultAsync(s => s.GuildId == (long)command.GuildId && s.FightsEnd == null);
             if (existingOpenRaids != null)
             {
                 await command.FollowupAsync("There already exists a raid, close any existing raids.", ephemeral: true);
@@ -38,8 +36,7 @@ namespace DonBot.Services.DiscordRequestServices
                 FightsStart = DateTime.UtcNow
             };
 
-            databaseContext.Add(raid);
-            await databaseContext.SaveChangesAsync();
+            await entityService.FightsReport.AddAsync(raid);
 
             if (guild.RaidAlertEnabled)
             {
@@ -71,7 +68,7 @@ namespace DonBot.Services.DiscordRequestServices
                 return;
             }
 
-            var existingOpenRaid = databaseContext.FightsReport.FirstOrDefault(s => s.GuildId == (long)command.GuildId && s.FightsEnd == null);
+            var existingOpenRaid = await entityService.FightsReport.GetFirstOrDefaultAsync(s => s.GuildId == (long)command.GuildId && s.FightsEnd == null);
             if (existingOpenRaid == null)
             {
                 await command.FollowupAsync("No current raid running.", ephemeral: true);
@@ -80,16 +77,15 @@ namespace DonBot.Services.DiscordRequestServices
 
             existingOpenRaid.FightsEnd = DateTime.UtcNow;
 
-            var messages = messageGenerationService.GenerateRaidReport(existingOpenRaid, (long)command.GuildId);
+            var messages = await messageGenerationService.GenerateRaidReport(existingOpenRaid, (long)command.GuildId);
             if (messages == null)
             {
                 await command.FollowupAsync("No logs found, closing raid!", ephemeral: true);
-                databaseContext.Update(existingOpenRaid);
-                await databaseContext.SaveChangesAsync();
+                await entityService.FightsReport.UpdateAsync(existingOpenRaid);
                 return;
             }
 
-            var guild = databaseContext.Guild.FirstOrDefault(g => g.GuildId == (long)command.GuildId);
+            var guild = await entityService.Guild.GetFirstOrDefaultAsync(g => g.GuildId == (long)command.GuildId);
             if (guild == null)
             {
                 await command.FollowupAsync("Cannot find the related discord, try the command in the discord you want the raffle in!", ephemeral: true);
@@ -114,8 +110,7 @@ namespace DonBot.Services.DiscordRequestServices
                 await targetChannel.SendMessageAsync(embeds: [message]);
             }
 
-            databaseContext.Update(existingOpenRaid);
-            await databaseContext.SaveChangesAsync();
+            await entityService.FightsReport.UpdateAsync(existingOpenRaid);
 
             await command.FollowupAsync("Created!", ephemeral: true);
         }

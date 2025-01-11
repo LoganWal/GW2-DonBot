@@ -1,16 +1,16 @@
 using Discord;
 using DonBot.Extensions;
 using DonBot.Models.Entities;
-using Microsoft.EntityFrameworkCore;
+using DonBot.Services.DatabaseServices;
 
 namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 {
-    public class WvWPlayerSummaryHandler(DatabaseContext databaseContext, FooterHandler footerHandler)
+    public class WvWPlayerSummaryHandler(IEntityService entityService, FooterHandler footerHandler)
     {
         public async Task<Embed> Generate(Guild gw2Guild)
         {
-            var accounts = await databaseContext.Account.OrderByDescending(o => o.Points).ToListAsync();
-            var gw2Accounts = await databaseContext.GuildWarsAccount.ToListAsync();
+            var accounts = (await entityService.Account.GetAllAsync()).OrderByDescending(o => o.Points).ToList();
+            var gw2Accounts = await entityService.GuildWarsAccount.GetAllAsync();
 
             accounts = accounts.Where(s => gw2Accounts.Any(acc => acc.DiscordId == s.DiscordId)).Take(50).ToList();
 
@@ -86,12 +86,12 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
         public async Task<Embed> GenerateActive(Guild gw2Guild, string fightLogUrl)
         {
-            var accounts = await databaseContext.Account.ToListAsync();
+            var accounts = await entityService.Account.GetAllAsync();
             accounts = accounts.Where(account => (account.Points - account.PreviousPoints) > 0)
                 .OrderByDescending(account => account.Points - account.PreviousPoints)
                 .ToList();
 
-            var gw2Accounts = await databaseContext.GuildWarsAccount.ToListAsync();
+            var gw2Accounts = await entityService.GuildWarsAccount.GetAllAsync();
             accounts = accounts.Where(s => gw2Accounts.Any(acc => acc.DiscordId == s.DiscordId)).ToList();
 
             var position = 1;

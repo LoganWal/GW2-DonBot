@@ -2,16 +2,16 @@
 using DonBot.Extensions;
 using DonBot.Models.Apis.GuildWars2Api;
 using DonBot.Models.Entities;
-using Microsoft.EntityFrameworkCore;
+using DonBot.Services.DatabaseServices;
 
 namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 {
-    public class WvWPlayerReportHandler(DatabaseContext databaseContext, FooterHandler footerHandler)
+    public class WvWPlayerReportHandler(IEntityService entityService, FooterHandler footerHandler)
     {
         public async Task<Embed> Generate(Guild guildConfiguration)
         {
-            var accounts = await databaseContext.Account.ToListAsync();
-            var gw2Accounts = await databaseContext.GuildWarsAccount.ToListAsync();
+            var accounts = await entityService.Account.GetAllAsync();
+            var gw2Accounts = await entityService.GuildWarsAccount.GetAllAsync();
             gw2Accounts = gw2Accounts.Where(guildWarsAccount => guildWarsAccount.GuildWarsGuilds?.Split(',', StringSplitOptions.TrimEntries).Contains(guildConfiguration.Gw2GuildMemberRoleId) ?? false).ToList();
             var gw2AccountData = gw2Accounts.Select(g => new Tuple<GuildWarsAccount, Account?>(g, accounts.FirstOrDefault(s => s.DiscordId == g.DiscordId))).ToList();
 

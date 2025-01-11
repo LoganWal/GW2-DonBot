@@ -6,61 +6,47 @@ using DonBot.Models.GuildWars2;
 
 namespace DonBot.Services.GuildWarsServices
 {
-    public class MessageGenerationService: IMessageGenerationService
+    public class MessageGenerationService(
+        WvWFightSummaryHandler wvwFightSummaryHandler,
+        WvWPlayerReportHandler wvwPlayerReportHandler,
+        PvEFightSummaryHandler pveFightSummaryHandler,
+        WvWPlayerSummaryHandler wvwPlayerSummaryHandler,
+        RaidReportHandler raidReportHandler)
+        : IMessageGenerationService
     {
-        private readonly WvWFightSummaryHandler _wvwFightSummaryHandler;
-        private readonly WvWPlayerReportHandler _wvwPlayerReportHandler;
-        private readonly PvEFightSummaryHandler _pveFightSummaryHandler;
-        private readonly WvWPlayerSummaryHandler _wvwPlayerSummaryHandler;
-        private readonly RaidReportHandler _raidReportHandler;
-
-        public MessageGenerationService(
-            WvWFightSummaryHandler wvwFightSummaryHandler,
-            WvWPlayerReportHandler wvwPlayerReportHandler,
-            PvEFightSummaryHandler pveFightSummaryHandler,
-            WvWPlayerSummaryHandler wvwPlayerSummaryHandler,
-            RaidReportHandler raidReportHandler)
+        public async Task<Embed> GenerateWvWFightSummary(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
         {
-            _wvwFightSummaryHandler = wvwFightSummaryHandler;
-            _wvwPlayerReportHandler = wvwPlayerReportHandler;
-            _pveFightSummaryHandler = pveFightSummaryHandler;
-            _wvwPlayerSummaryHandler = wvwPlayerSummaryHandler;
-            _raidReportHandler = raidReportHandler;
-        }
-
-        public Embed GenerateWvWFightSummary(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
-        {
-            return _wvwFightSummaryHandler.Generate(data, advancedLog, guild, client);
+            return await wvwFightSummaryHandler.Generate(data, advancedLog, guild, client);
         }
 
         public async Task<Embed> GenerateWvWPlayerReport(Guild guildConfiguration)
         {
-            return await _wvwPlayerReportHandler.Generate(guildConfiguration);
+            return await wvwPlayerReportHandler.Generate(guildConfiguration);
         }
 
-        public Embed GeneratePvEFightSummary(EliteInsightDataModel data, long guildId)
+        public async Task<Embed> GeneratePvEFightSummary(EliteInsightDataModel data, long guildId)
         {
-            return _pveFightSummaryHandler.GenerateSimple(data, guildId);
+            return await pveFightSummaryHandler.GenerateSimple(data, guildId);
         }
 
         public async Task<Embed> GenerateWvWPlayerSummary(Guild gw2Guild)
         {
-            return await _wvwPlayerSummaryHandler.Generate(gw2Guild);
+            return await wvwPlayerSummaryHandler.Generate(gw2Guild);
         }
 
         public async Task<Embed> GenerateWvWActivePlayerSummary(Guild gw2Guild, string fightLogUrl)
         {
-            return await _wvwPlayerSummaryHandler.GenerateActive(gw2Guild, fightLogUrl);
+            return await wvwPlayerSummaryHandler.GenerateActive(gw2Guild, fightLogUrl);
         }
 
-        public List<Embed>? GenerateRaidReport(FightsReport fightsReport, long guildId)
+        public async Task<List<Embed>?> GenerateRaidReport(FightsReport fightsReport, long guildId)
         {
-            return _raidReportHandler.Generate(fightsReport, guildId);
+            return await raidReportHandler.Generate(fightsReport, guildId);
         }
 
         public Embed GenerateRaidAlert(long guildId)
         {
-            return _raidReportHandler.GenerateRaidAlert(guildId);
+            return raidReportHandler.GenerateRaidAlert(guildId);
         }
     }
 }

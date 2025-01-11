@@ -6,26 +6,17 @@ using DonBot.Models.Entities;
 using DonBot.Models.Enums;
 using DonBot.Models.GuildWars2;
 using DonBot.Models.Statics;
+using DonBot.Services.DatabaseServices;
 using DonBot.Services.GuildWarsServices;
 
 namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 {
-    public class WvWFightSummaryHandler
+    public class WvWFightSummaryHandler(
+        IEntityService entityService,
+        IPlayerService playerService,
+        FooterHandler footerHandler)
     {
-        private readonly IPlayerService _playerService;
-
-        private readonly DatabaseContext _databaseContext;
-
-        private readonly FooterHandler _footerHandler;
-
-        public WvWFightSummaryHandler(IPlayerService playerService, FooterHandler footerHandler, DatabaseContext databaseContext)
-        {
-            _playerService = playerService;
-            _footerHandler = footerHandler;
-            _databaseContext = databaseContext;
-        }
-
-        public Embed Generate(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
+        public async Task<Embed> Generate(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
         {
             var playerCount = 5;
 
@@ -51,7 +42,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
             var healingPhase = data.HealingStatsExtension?.HealingPhases?.FirstOrDefault() ?? new HealingPhase();
             var barrierPhase = data.BarrierStatsExtension?.BarrierPhases?.FirstOrDefault() ?? new BarrierPhase();
 
-            var gw2Players = _playerService.GetGw2Players(data, fightPhase, healingPhase, barrierPhase);
+            var gw2Players = playerService.GetGw2Players(data, fightPhase, healingPhase, barrierPhase);
 
             var friendlyDamage = gw2Players.Sum(s => s.Damage);
             var friendlyDps = friendlyDamage / logLength;
@@ -79,7 +70,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
                 if (client.GetChannel((ulong)guild.StreamLogChannelId) is ITextChannel streamLogChannel)
                 {
-                    streamLogChannel.SendMessageAsync(text: streamMessage);
+                    await streamLogChannel.SendMessageAsync(text: streamMessage);
                 }
             }
 
@@ -125,7 +116,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
             if (!advancedLog)
             {
-                var fightLog = _databaseContext.FightLog.FirstOrDefault(s => s.Url == data.Url);
+                var fightLog = await entityService.FightLog.GetFirstOrDefaultAsync(s => s.Url == data.Url);
 
                 if (fightLog == null)
                 {
@@ -139,8 +130,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                         IsSuccess = data.Success
                     };
 
-                    _databaseContext.Add(fightLog);
-                    _databaseContext.SaveChanges();
+                    await entityService.FightLog.AddAsync(fightLog);
 
                     var playerFights = gw2Players.Select(gw2Player => new PlayerFightLog
                         {
@@ -174,8 +164,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                         })
                         .ToList();
 
-                    _databaseContext.AddRange(playerFights);
-                    _databaseContext.SaveChanges();
+                    await entityService.PlayerFightLog.AddRangeAsync(playerFights);
                 }
             }
 
@@ -183,7 +172,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             var message = new EmbedBuilder
             {
                 Title = $"{battleGroundEmoji} Report (WvW) - {battleGround}\n",
-                Description = $"**Fight Duration:** {data?.EncounterDuration}\n",
+                Description = $"**Fight Duration:** {data.EncounterDuration}\n",
                 Color = (Color)battleGroundColor,
                 Author = new EmbedAuthorBuilder()
                 {
@@ -191,7 +180,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                     Url = "https://github.com/LoganWal/GW2-DonBot",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
-                Url = $"{data?.Url}"
+                Url = $"{data.Url}"
             };
 
             message.AddField(x =>
@@ -441,7 +430,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
             message.Footer = new EmbedFooterBuilder()
             {
-                Text = $"{_footerHandler.Generate(guildId)}",
+                Text = $"{footerHandler.Generate(guildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             };
 

@@ -2,26 +2,16 @@
 using DonBot.Extensions;
 using DonBot.Models.Apis.GuildWars2Api;
 using DonBot.Models.Entities;
-using Microsoft.EntityFrameworkCore;
+using DonBot.Services.DatabaseServices;
 
 namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 {
-    public class WvWPlayerReportHandler
+    public class WvWPlayerReportHandler(IEntityService entityService, FooterHandler footerHandler)
     {
-        private readonly DatabaseContext _databaseContext;
-
-        private readonly FooterHandler _footerHandler;
-
-        public WvWPlayerReportHandler(DatabaseContext databaseContext, FooterHandler footerHandler)
-        {
-            _databaseContext = databaseContext;
-            _footerHandler = footerHandler;
-        }
-
         public async Task<Embed> Generate(Guild guildConfiguration)
         {
-            var accounts = await _databaseContext.Account.ToListAsync();
-            var gw2Accounts = await _databaseContext.GuildWarsAccount.ToListAsync();
+            var accounts = await entityService.Account.GetAllAsync();
+            var gw2Accounts = await entityService.GuildWarsAccount.GetAllAsync();
             gw2Accounts = gw2Accounts.Where(guildWarsAccount => guildWarsAccount.GuildWarsGuilds?.Split(',', StringSplitOptions.TrimEntries).Contains(guildConfiguration.Gw2GuildMemberRoleId) ?? false).ToList();
             var gw2AccountData = gw2Accounts.Select(g => new Tuple<GuildWarsAccount, Account?>(g, accounts.FirstOrDefault(s => s.DiscordId == g.DiscordId))).ToList();
 
@@ -41,7 +31,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{_footerHandler.Generate(guildConfiguration.GuildId)}",
+                    Text = $"{footerHandler.Generate(guildConfiguration.GuildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 Timestamp = DateTime.Now

@@ -7,6 +7,7 @@ namespace DonBot.Models.Entities
         [Key]
         public int Id { get; set; }
 
+        [MaxLength(4000)]
         public string? Description { get; set; }
 
         public bool IsActive { get; set; }

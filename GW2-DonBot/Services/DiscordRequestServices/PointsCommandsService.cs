@@ -1,23 +1,15 @@
 using Discord.WebSocket;
-using DonBot.Models.Entities;
-using Microsoft.EntityFrameworkCore;
+using DonBot.Services.DatabaseServices;
 
 namespace DonBot.Services.DiscordRequestServices
 {
-    public class PointsCommandsService : IPointsCommandsService
+    public class PointsCommandsService(IEntityService entityService) : IPointsCommandsService
     {
-        private readonly DatabaseContext _databaseContext;
-
-        public PointsCommandsService(DatabaseContext databaseContext)
-        {
-            _databaseContext = databaseContext;
-        }
-
         public async Task PointsCommandExecuted(SocketSlashCommand command)
         {
             // Fetch accounts with non-null Gw2ApiKey
-            var accounts = await _databaseContext.Account.ToListAsync();
-            var gw2Accounts = await _databaseContext.GuildWarsAccount.ToListAsync();
+            var accounts = await entityService.Account.GetAllAsync();
+            var gw2Accounts = await entityService.GuildWarsAccount.GetAllAsync();
             accounts = accounts.Where(s => gw2Accounts.Any(acc => acc.DiscordId == s.DiscordId)).ToList();
 
             // Find the account of the user who executed the command
@@ -41,8 +33,8 @@ namespace DonBot.Services.DiscordRequestServices
             await command.DeferAsync(ephemeral: true);
 
             // Fetch accounts with non-null Gw2ApiKey
-            var accounts = await _databaseContext.Account.ToListAsync();
-            var gw2Accounts = await _databaseContext.GuildWarsAccount.ToListAsync();
+            var accounts = await entityService.Account.GetAllAsync();
+            var gw2Accounts = await entityService.GuildWarsAccount.GetAllAsync();
             accounts = accounts.Where(s => gw2Accounts.Any(acc => acc.DiscordId == s.DiscordId)).ToList();
 
             // Find the account of the user who executed the command

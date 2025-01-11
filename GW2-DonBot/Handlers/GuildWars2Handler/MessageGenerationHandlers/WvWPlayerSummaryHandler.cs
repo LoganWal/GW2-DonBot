@@ -1,26 +1,16 @@
 using Discord;
 using DonBot.Extensions;
 using DonBot.Models.Entities;
-using Microsoft.EntityFrameworkCore;
+using DonBot.Services.DatabaseServices;
 
 namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 {
-    public class WvWPlayerSummaryHandler
+    public class WvWPlayerSummaryHandler(IEntityService entityService, FooterHandler footerHandler)
     {
-        private readonly DatabaseContext _databaseContext;
-        
-        private readonly FooterHandler _footerHandler;
-
-        public WvWPlayerSummaryHandler(DatabaseContext databaseContext, FooterHandler footerHandler)
-        {
-            _databaseContext = databaseContext;
-            _footerHandler = footerHandler;
-        }
-
         public async Task<Embed> Generate(Guild gw2Guild)
         {
-            var accounts = await _databaseContext.Account.OrderByDescending(o => o.Points).ToListAsync();
-            var gw2Accounts = await _databaseContext.GuildWarsAccount.ToListAsync();
+            var accounts = (await entityService.Account.GetAllAsync()).OrderByDescending(o => o.Points).ToList();
+            var gw2Accounts = await entityService.GuildWarsAccount.GetAllAsync();
 
             accounts = accounts.Where(s => gw2Accounts.Any(acc => acc.DiscordId == s.DiscordId)).Take(50).ToList();
 
@@ -82,7 +72,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
                 message.Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{_footerHandler.Generate(gw2Guild.GuildId)}",
+                    Text = $"{footerHandler.Generate(gw2Guild.GuildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 };
 
@@ -96,12 +86,12 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
         public async Task<Embed> GenerateActive(Guild gw2Guild, string fightLogUrl)
         {
-            var accounts = await _databaseContext.Account.ToListAsync();
+            var accounts = await entityService.Account.GetAllAsync();
             accounts = accounts.Where(account => (account.Points - account.PreviousPoints) > 0)
                 .OrderByDescending(account => account.Points - account.PreviousPoints)
                 .ToList();
 
-            var gw2Accounts = await _databaseContext.GuildWarsAccount.ToListAsync();
+            var gw2Accounts = await entityService.GuildWarsAccount.GetAllAsync();
             accounts = accounts.Where(s => gw2Accounts.Any(acc => acc.DiscordId == s.DiscordId)).ToList();
 
             var position = 1;
@@ -162,7 +152,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
                 message.Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{_footerHandler.Generate(gw2Guild.GuildId)}",
+                    Text = $"{footerHandler.Generate(gw2Guild.GuildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 };
 

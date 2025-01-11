@@ -21,14 +21,23 @@ namespace DonBot.Models.Entities
         }
 
         public DbSet<Account> Account { get; set; }
+
         public DbSet<Guild> Guild { get; set; }
+
         public DbSet<Raffle> Raffle { get; set; }
+
         public DbSet<PlayerRaffleBid> PlayerRaffleBid { get; set; }
+
         public DbSet<GuildWarsAccount> GuildWarsAccount { get; set; }
+
         public DbSet<FightLog> FightLog { get; set; }
+
         public DbSet<FightsReport> FightsReport { get; set; }
+
         public DbSet<PlayerFightLog> PlayerFightLog { get; set; }
+
         public DbSet<GuildQuote> GuildQuote { get; set; }
+
         public DbSet<SteamAccount> SteamAccount { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -80,7 +89,5 @@ namespace DonBot.Models.Entities
                 .Property(prb => prb.PointsSpent)
                 .HasPrecision(16, 3);
         }
-
-
     }
 }

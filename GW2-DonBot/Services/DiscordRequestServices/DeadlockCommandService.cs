@@ -1,30 +1,20 @@
 ﻿using Discord.WebSocket;
-using DonBot.Models.Entities;
+using DonBot.Services.DatabaseServices;
 using DonBot.Services.DeadlockServices;
 
 namespace DonBot.Services.DiscordRequestServices
 {
-    public class DeadlockCommandService : IDeadlockCommandService
+    public class DeadlockCommandService(IEntityService entityService, IDeadlockApiService deadlockApiService) : IDeadlockCommandService
     {
-        private readonly DatabaseContext _databaseContext;
-
-        private readonly IDeadlockApiService _deadlockApiService;
-
-        public DeadlockCommandService(DatabaseContext databaseContext, IDeadlockApiService deadlockApiService)
-        {
-            _databaseContext = databaseContext;
-            _deadlockApiService = deadlockApiService;
-        }
-
         public async Task GetMmr(SocketSlashCommand command, DiscordSocketClient discordClient)
         {
-            var steamAccounts = _databaseContext.SteamAccount.Where(g => g.DiscordId == (long)command.User.Id);
+            var steamAccounts = await entityService.SteamAccount.GetWhereAsync(g => g.DiscordId == (long)command.User.Id);
             if (steamAccounts.Any())
             {
                 var userMmr = string.Empty;
                 foreach (var steamAccount in steamAccounts)
                 {
-                    var result = await _deadlockApiService.GetDeadlockRank(steamAccount.SteamId3);
+                    var result = await deadlockApiService.GetDeadlockRank(steamAccount.SteamId3);
                     if (result.PlayerScore > 0)
                     {
                         userMmr += $"Account {steamAccount.SteamId64}, MMR: {result.PlayerScore}, Leaderboard: {result.LeaderboardRank}{Environment.NewLine}";
@@ -48,14 +38,14 @@ namespace DonBot.Services.DiscordRequestServices
 
         public async Task GetMmrHistory(SocketSlashCommand command, DiscordSocketClient discordClient)
         {
-            var steamAccounts = _databaseContext.SteamAccount.Where(g => g.DiscordId == (long)command.User.Id);
+            var steamAccounts = await entityService.SteamAccount.GetWhereAsync(g => g.DiscordId == (long)command.User.Id);
             if (steamAccounts.Any())
             {
                 var mmrOverview = "Account Id         Date        MMR                                                         \n";
                 var hasResults = false;
                 foreach (var steamAccount in steamAccounts)
                 {
-                    var result = await _deadlockApiService.GetDeadlockRankHistory(steamAccount.SteamId3);
+                    var result = await deadlockApiService.GetDeadlockRankHistory(steamAccount.SteamId3);
                     result = result.Where(s => s.PlayerScore > 0).OrderByDescending(s => s.MatchStartTime).Take(5).ToList();
 
                     if (!result.Any())

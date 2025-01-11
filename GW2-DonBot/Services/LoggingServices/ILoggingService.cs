@@ -1,6 +1,6 @@
 ﻿using Discord;
 
-namespace DonBot.Services.Logging
+namespace DonBot.Services.LoggingServices
 {
     public interface ILoggingService
     {

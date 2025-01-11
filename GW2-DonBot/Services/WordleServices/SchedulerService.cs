@@ -4,33 +4,19 @@ using Microsoft.Extensions.Logging;
 
 namespace DonBot.Services.WordleServices
 {
-    public class SchedulerService : BackgroundService
+    public class SchedulerService(
+        IWordleService wordleService,
+        IWordGeneratorService wordGeneratorService,
+        ILogger<SchedulerService> logger,
+        DiscordSocketClient client,
+        DictionaryService dictionaryService)
+        : BackgroundService
     {
         private Timer? _timer;
 
-        private readonly IWordleService _wordleService;
-        private readonly IWordGeneratorService _wordGeneratorService;
-        private readonly ILogger<SchedulerService> _logger;
-        private readonly DiscordSocketClient _client;
-        private readonly DictionaryService _dictionaryService;
-
-        public SchedulerService(
-            IWordleService wordleService, 
-            IWordGeneratorService wordGeneratorService, 
-            ILogger<SchedulerService> logger, 
-            DiscordSocketClient client, 
-            DictionaryService dictionaryService)
-        {
-            _wordleService = wordleService;
-            _wordGeneratorService = wordGeneratorService;
-            _logger = logger;
-            _client = client;
-            _dictionaryService = dictionaryService;
-        }
-
         protected override Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("SchedulerService is starting.");
+            logger.LogInformation("SchedulerService is starting.");
             ScheduleWordleStartingWord();
             return Task.CompletedTask;
         }
@@ -58,13 +44,13 @@ namespace DonBot.Services.WordleServices
         {
             _timer?.Change(Timeout.Infinite, Timeout.Infinite);
 
-            var wordleWord = await _wordleService.FetchWordleWord();
+            var wordleWord = await wordleService.FetchWordleWord();
             if (!string.IsNullOrEmpty(wordleWord))
             {
-                var startingWord = _wordGeneratorService.GenerateStartingWord(wordleWord);
-                _logger.LogInformation("Generated Starting Word: {startingWord}", startingWord);
+                var startingWord = wordGeneratorService.GenerateStartingWord(wordleWord);
+                logger.LogInformation("Generated Starting Word: {startingWord}", startingWord);
 
-                var startingWordDefinition = await _dictionaryService.GetDefinitionsAsync(startingWord);
+                var startingWordDefinition = await dictionaryService.GetDefinitionsAsync(startingWord);
 
                 // Fetch the guild first
                 // TODO update this to be config based per guild
@@ -72,17 +58,17 @@ namespace DonBot.Services.WordleServices
                 const ulong channelId = 1021287605897265162;
                 const ulong roleId = 1277580524197515336;
 
-                var guild = _client.GetGuild(guildId);
+                var guild = client.GetGuild(guildId);
                 if (guild != null)
                 {
-                    _logger.LogInformation("Found guild with ID {guildId}", guildId);
+                    logger.LogInformation("Found guild with ID {guildId}", guildId);
                     await Task.Delay(2000);
 
                     // Fetch the channel from the guild
                     var channel = guild.GetTextChannel(channelId);
                     if (channel != null)
                     {
-                        _logger.LogInformation("Found channel with ID {channelId}", channelId);
+                        logger.LogInformation("Found channel with ID {channelId}", channelId);
 
                         var roleMention = $"<@&{roleId}>";
                         var message = $"{roleMention} Today's Wordle starting word: {startingWord}{Environment.NewLine}{startingWordDefinition}{Environment.NewLine}https://www.nytimes.com/games/wordle/index.html";
@@ -92,17 +78,17 @@ namespace DonBot.Services.WordleServices
                         }
                         catch(Exception ex)
                         {
-                            _logger.LogError(ex, "Failed to send wordle message.");
+                            logger.LogError(ex, "Failed to send wordle message.");
                         }
                     }
                     else
                     {
-                        _logger.LogWarning("Text channel with ID {channelId} not found in guild {guildId}.", channelId, guildId);
+                        logger.LogWarning("Text channel with ID {channelId} not found in guild {guildId}.", channelId, guildId);
                     }
                 }
                 else
                 {
-                    _logger.LogWarning("Guild with ID {guildId} not found.", guildId);
+                    logger.LogWarning("Guild with ID {guildId} not found.", guildId);
                 }
             }
 

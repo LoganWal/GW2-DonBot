@@ -4,21 +4,14 @@ using Newtonsoft.Json;
 
 namespace DonBot.Services.GuildWarsServices
 {
-    public class DataModelGenerationService : IDataModelGenerationService
+    public class DataModelGenerationService(
+        ILogger<DataModelGenerationService> logger,
+        IHttpClientFactory httpClientFactory)
+        : IDataModelGenerationService
     {
-        private readonly ILogger<DataModelGenerationService> _logger;
-
-        private readonly IHttpClientFactory _httpClientFactory;
-
-        public DataModelGenerationService(ILogger<DataModelGenerationService> logger, IHttpClientFactory httpClientFactory)
-        {
-            _logger = logger;
-            _httpClientFactory = httpClientFactory;
-        }
-
         public async Task<EliteInsightDataModel> GenerateEliteInsightDataModelFromUrl(string url)
         {
-            using var response = await _httpClientFactory.CreateClient().GetAsync(url);
+            using var response = await httpClientFactory.CreateClient().GetAsync(url);
             using var content = response.Content;
             var result = await content.ReadAsStringAsync();
 
@@ -36,7 +29,7 @@ namespace DonBot.Services.GuildWarsServices
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to create data model from guild wars 2 log");
+                logger.LogError(ex, "Failed to create data model from guild wars 2 log");
             }
 
             deserializeData.Url = url;

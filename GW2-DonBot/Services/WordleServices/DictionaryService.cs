@@ -4,21 +4,14 @@ using Newtonsoft.Json;
 
 namespace DonBot.Services.WordleServices
 {
-    public class DictionaryService
+    public class DictionaryService(IHttpClientFactory httpClientFactory)
     {
-        private readonly IHttpClientFactory _httpClientFactory;
-
-        public DictionaryService(IHttpClientFactory httpClientFactory)
-        {
-            _httpClientFactory = httpClientFactory;
-        }
-
         public async Task<string> GetDefinitionsAsync(string word)
         {
             string response;
             try
             {
-                response = await _httpClientFactory.CreateClient().GetStringAsync($"https://api.dictionaryapi.dev/api/v2/entries/en/{word}");
+                response = await httpClientFactory.CreateClient().GetStringAsync($"https://api.dictionaryapi.dev/api/v2/entries/en/{word}");
             }
             catch (Exception)
             {

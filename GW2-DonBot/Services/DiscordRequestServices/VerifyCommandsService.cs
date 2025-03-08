@@ -1,30 +1,21 @@
 using Discord;
 using Discord.WebSocket;
-using Microsoft.EntityFrameworkCore;
-using Models.Entities;
-using Models.GW2Api;
+using DonBot.Models.Apis.GuildWars2Api;
+using DonBot.Models.Entities;
+using DonBot.Services.DatabaseServices;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
-namespace Services.DiscordRequestServices
+namespace DonBot.Services.DiscordRequestServices
 {
-    public class VerifyCommandsService : IVerifyCommandsService
+    public class VerifyCommandsService(IEntityService entityService, ILogger<VerifyCommandsService> logger, IHttpClientFactory httpClientFactory) : IVerifyCommandsService
     {
-        private readonly DatabaseContext _databaseContext;
-
-        public VerifyCommandsService(DatabaseContext databaseContext)
-        {
-            _databaseContext = databaseContext;
-        }
-
         public async Task VerifyCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
         {
-            // Defer the response to avoid timeouts
-            await command.DeferAsync(ephemeral: true);
-
             // Check if the command was executed in a guild
             if (command.GuildId == null)
             {
-                await command.ModifyOriginalResponseAsync(message => message.Content = "Failed to verify, please try again.");
+                await command.FollowupAsync("Failed to verify, please try again.", ephemeral: true);
                 return;
             }
 
@@ -37,38 +28,38 @@ namespace Services.DiscordRequestServices
             // Check if the API key is null or empty
             if (string.IsNullOrEmpty(apiKey))
             {
-                await command.ModifyOriginalResponseAsync(message => message.Content = "Failed to verify, please try again.");
+                await command.FollowupAsync("Failed to verify, please try again.", ephemeral: true);
                 return;
             }
 
             // Call the GW2 API to get the account data
-            var httpClient = new HttpClient();
-            var response = await httpClient.GetAsync($"https://api.guildwars2.com/v2/account/?access_token={apiKey}");
+            var response = await httpClientFactory.CreateClient().GetAsync($"https://api.guildwars2.com/v2/account/?access_token={apiKey}");
 
             // Check if the API call was successful
             if (response.IsSuccessStatusCode)
             {
-                Console.WriteLine("[DON] API call success");
+                logger.LogInformation("Received guild wars 2 response for verifying {guildUserDisplayName}", guildUser.DisplayName);
 
                 // Deserialize the account data
                 var stringData = await response.Content.ReadAsStringAsync();
-                var accountData = JsonConvert.DeserializeObject<GW2AccountDataModel>(stringData) ?? new GW2AccountDataModel();
+                var accountData = JsonConvert.DeserializeObject<GuildWars2AccountDataModel>(stringData) ?? new GuildWars2AccountDataModel();
 
                 // Check if the account already exists in the database
                 var isNewAccount = false;
-                var account = await _databaseContext.Account.FirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
+                var account = await entityService.Account.GetFirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
 
                 if (account != null)
                 {
                     // Update existing
-                    var gw2Account = _databaseContext.GuildWarsAccount.FirstOrDefault(s => s.DiscordId == account.DiscordId && s.GuildWarsAccountId == accountData.Id);
+                    var gw2Account = await entityService.GuildWarsAccount.GetFirstOrDefaultAsync(s => s.DiscordId == account.DiscordId && s.GuildWarsAccountId == accountData.Id);
                     if (gw2Account != null)
                     {
                         gw2Account.GuildWarsAccountId = accountData.Id;
                         gw2Account.GuildWarsAccountName = accountData.Name;
                         gw2Account.GuildWarsApiKey = apiKey;
                         gw2Account.FailedApiPullCount = 0;
-                        _databaseContext.Update(gw2Account);
+
+                        await entityService.GuildWarsAccount.UpdateAsync(gw2Account);
                     }
                     else
                     {
@@ -83,7 +74,7 @@ namespace Services.DiscordRequestServices
                             FailedApiPullCount = 0
                         };
 
-                        _databaseContext.Add(gw2Account);
+                        await entityService.GuildWarsAccount.AddAsync(gw2Account);
                     }
                 }
                 else
@@ -106,14 +97,12 @@ namespace Services.DiscordRequestServices
                         FailedApiPullCount = 0
                     };
 
-                    _databaseContext.Add(account);
-                    _databaseContext.Add(gw2Account);
+                    await entityService.Account.AddAsync(account);
+                    await entityService.GuildWarsAccount.AddAsync(gw2Account);
                 }
 
-                _databaseContext.SaveChanges();
-
                 // Get the guild from the database
-                var guild = await _databaseContext.Guild.FirstOrDefaultAsync(g => g.GuildId == (long)command.GuildId);
+                var guild = await entityService.Guild.GetFirstOrDefaultAsync(g => g.GuildId == (long)command.GuildId);
 
                 if (guild == null)
                 {
@@ -142,31 +131,27 @@ namespace Services.DiscordRequestServices
                           "User is not in `Standard of Heroes` or a valid Alliance guild - special roles denied! :broken_heart:\nPlease contact Squirrel or an officer if this is incorrect!";
 
                 // Assign the roles to the user
-                AssignRoles(guildUser, guild, inPrimaryGuild, inSecondaryGuild);
+                await AssignRoles(guildUser, guild, inPrimaryGuild, inSecondaryGuild);
 
                 // Edit the response message with the output
-                await command.ModifyOriginalResponseAsync(message => message.Content = output);
+                await command.FollowupAsync(output, ephemeral: true);
             }
             else
             {
-                Console.WriteLine("[DON] API call failed");
+                logger.LogError("Failed to verify {guildUserDisplayName}", guildUser.DisplayName);
 
-                await command.ModifyOriginalResponseAsync(message => message.Content = $"Looks like you screwed up a couple of letters in the api key, try again mate, failed to process with API key: `{apiKey}`");
+                await command.FollowupAsync($"Looks like you screwed up a couple of letters in the api key, try again mate, failed to process with API key: `{apiKey}`", ephemeral: true);
             }
         }
 
         public async Task DeverifyCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
         {
-            // Defer the response to avoid timeouts
-            await command.DeferAsync(ephemeral: true);
-
             // Check if the account exists in the database
             var output = "";
-            var gw2Accounts = await _databaseContext.GuildWarsAccount.Where(acc => acc.DiscordId == (long)command.User.Id).ToListAsync();
+            var gw2Accounts = await entityService.GuildWarsAccount.GetWhereAsync(acc => acc.DiscordId == (long)command.User.Id);
             var accountFound = gw2Accounts.Any();
 
-            _databaseContext.RemoveRange(gw2Accounts);
-            _databaseContext.SaveChanges();
+            await entityService.GuildWarsAccount.DeleteRangeAsync(gw2Accounts);
 
             // Generate output message
             output += accountFound ?
@@ -174,9 +159,9 @@ namespace Services.DiscordRequestServices
                 $"Deverify unnecessary! No account data found for: `{command.User}`";
 
             // Check if the guild exists in the database
-            var guilds = await _databaseContext.Guild.ToListAsync();
+            var guilds = await entityService.Guild.GetAllAsync();
             if (command.GuildId == null) {
-                await command.ModifyOriginalResponseAsync(message => message.Content = "Failed to deverify, make sure you asking withing a discord server.");
+                await command.FollowupAsync("Failed to deverify, make sure you asking withing a discord server.", ephemeral: true);
                 return;
             }
 
@@ -184,7 +169,7 @@ namespace Services.DiscordRequestServices
 
             if (guild == null)
             {
-                await command.ModifyOriginalResponseAsync(message => message.Content = output);
+                await command.FollowupAsync(output, ephemeral: true);
                 return;
             }
 
@@ -196,19 +181,20 @@ namespace Services.DiscordRequestServices
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failing deverify nicely: `{ex.Message}`");
-                await command.ModifyOriginalResponseAsync(message => message.Content = "Failed to deverify, please try again.");
+                logger.LogError(ex, "Failed to de-verify {guildUserDisplayName}", command.User);
+
+                await command.FollowupAsync("Failed to de-verify, please try again.", ephemeral: true);
                 return;
             }
 
             // Remove roles from the user
-            RemoveRoles(guildUser, guild);
+            await RemoveRoles(guildUser, guild);
 
             // Modify the response with the output message
-            await command.ModifyOriginalResponseAsync(message => message.Content = output);
+            await command.FollowupAsync(output, ephemeral: true);
         }
 
-        private async void AssignRoles(SocketGuildUser guildUser, Guild guild, bool inPrimaryGuild, bool inSecondaryGuild)
+        private async Task AssignRoles(SocketGuildUser guildUser, Guild guild, bool inPrimaryGuild, bool inSecondaryGuild)
         {
             // Get the roles from the guild
             var primaryRoleId = guild.DiscordGuildMemberRoleId;
@@ -240,7 +226,7 @@ namespace Services.DiscordRequestServices
             await guildUser.AddRoleAsync(verifiedRole);
         }
 
-        private async void RemoveRoles(SocketGuildUser guildUser, Guild guild)
+        private async Task RemoveRoles(SocketGuildUser guildUser, Guild guild)
         {
             // Get the roles from the guild
             var primaryRoleId = guild.DiscordGuildMemberRoleId;
@@ -254,7 +240,7 @@ namespace Services.DiscordRequestServices
                 return;
             }
 
-            var user = (IGuildUser)guildUser;
+            IGuildUser user = guildUser;
             var primaryRole = ((IGuildChannel)guildUser.VoiceChannel).Guild.GetRole((ulong)primaryRoleId);
             var secondaryRole = ((IGuildChannel)guildUser.VoiceChannel).Guild.GetRole((ulong)secondaryRoleId);
             var verifiedRole = ((IGuildChannel)guildUser.VoiceChannel).Guild.GetRole((ulong)verifiedRoleId);

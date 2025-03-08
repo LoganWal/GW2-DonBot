@@ -1,46 +1,59 @@
 using Discord;
 using Discord.WebSocket;
-using Microsoft.EntityFrameworkCore;
-using Models.Entities;
-using Models.GW2Api;
+using DonBot.Models.Apis.GuildWars2Api;
+using DonBot.Models.Entities;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using Services.LogGenerationServices;
+using System.Collections.Concurrent;
+using DonBot.Services.DatabaseServices;
+using DonBot.Services.GuildWarsServices;
 
-namespace Services.DiscordRequestServices
+namespace DonBot.Services.DiscordRequestServices
 {
-    public class PollingTasksService : IPollingTasksService
+    public class PollingTasksService(
+        IEntityService entityService,
+        ILogger<PollingTasksService> logger,
+        IMessageGenerationService messageGenerationService,
+        IHttpClientFactory httpClientFactory)
+        : IPollingTasksService
     {
-        private readonly DatabaseContext _databaseContext;
-        private readonly IMessageGenerationService _messageGenerationService;
-
-        public PollingTasksService(DatabaseContext databaseContext, IMessageGenerationService messageGenerationService)
-        {
-            _databaseContext = databaseContext;
-            _messageGenerationService = messageGenerationService;
-        }
-
         public async Task PollingRoles(DiscordSocketClient discordClient)
         {
-            var accounts = await _databaseContext.Account.ToListAsync();
-            var guilds = await _databaseContext.Guild.ToListAsync();
-            var guildWarsAccounts = await _databaseContext.GuildWarsAccount.ToListAsync();
+            var accounts = await entityService.Account.GetAllAsync();
+            var guilds = await entityService.Guild.GetAllAsync();
+            var guildWarsAccounts = await entityService.GuildWarsAccount.GetWhereAsync(s => s.GuildWarsApiKey != null);
 
             accounts = accounts.Where(s => guildWarsAccounts.Select(gw => gw.DiscordId).Contains(s.DiscordId)).ToList();
 
-            var guildWars2Data = new Dictionary<long, List<GW2AccountDataModel>>();
+            var guildWars2Data = new ConcurrentDictionary<long, List<GuildWars2AccountDataModel>>();
 
-            foreach (var account in accounts)
+            // Limit to available logical processors
+            var maxDegreeOfParallelism = Environment.ProcessorCount;
+            var semaphore = new SemaphoreSlim(maxDegreeOfParallelism);
+
+            var tasks = accounts.Select(async account =>
             {
-                var guildWars2Accounts = guildWarsAccounts.Where(s => s.DiscordId == account.DiscordId).ToList();
-                var accountData = await FetchAccountData(guildWars2Accounts);
+                await semaphore.WaitAsync();
+                try
+                {
+                    // Get the guildWarsAccounts associated with the current account
+                    var guildWars2Accounts = guildWarsAccounts.Where(s => s.DiscordId == account.DiscordId).ToList();
 
-                guildWars2Data.Add(account.DiscordId, accountData);
+                    // Fetch account data (this is still done in parallel)
+                    var accountData = await FetchAccountData(guildWars2Accounts);
 
-                _databaseContext.Update(account);
-            }
+                    // Store the result (not doing any database operations here)
+                    guildWars2Data[account.DiscordId] = accountData;
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            });
 
-            _databaseContext.SaveChanges();
+            await Task.WhenAll(tasks);
 
+            await entityService.GuildWarsAccount.UpdateRangeAsync(guildWarsAccounts);
             foreach (var clientGuild in discordClient.Guilds)
             {
                 var guildConfiguration = guilds.FirstOrDefault(g => g.GuildId == (long)clientGuild.Id);
@@ -50,76 +63,78 @@ namespace Services.DiscordRequestServices
                     continue;
                 }
 
-                //await RemoveRolesFromNonServerAccounts(clientGuild, accounts);
-                await HandleGuildUsers(clientGuild, guildConfiguration, guildWars2Data);
+                await clientGuild.DownloadUsersAsync();
+                await HandleGuildUsers(clientGuild, guildConfiguration, guildWars2Data, accounts, guildWarsAccounts);
                 await GenerateWvWPlayerReport(guildConfiguration, clientGuild);
             }
         }
 
-        private async Task<List<GW2AccountDataModel>> FetchAccountData(List<GuildWarsAccount> guildWarsAccounts)
+        private async Task<List<GuildWars2AccountDataModel>> FetchAccountData(List<GuildWarsAccount> guildWarsAccounts)
         {
-            var httpClient = new HttpClient
-            {
-                Timeout = TimeSpan.FromSeconds(20)
-            };
+            var httpClient = httpClientFactory.CreateClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(20);
 
-            var guildWarsAccountData = new List<GW2AccountDataModel>();
+            var guildWarsAccountData = new List<GuildWars2AccountDataModel>();
 
             foreach (var guildWarsAccount in guildWarsAccounts)
             {
-                try
+                GuildWars2AccountDataModel? accountData = null;
+                var success = false;
+
+                for (var attempt = 1; attempt <= 3; attempt++)
                 {
-                    Console.WriteLine($"=== Handling {guildWarsAccount.GuildWarsAccountName?.Trim()} ===");
-
-                    var response = await httpClient.GetAsync($"https://api.guildwars2.com/v2/account/?access_token={guildWarsAccount.GuildWarsApiKey}");
-                    if (response.IsSuccessStatusCode)
+                    try
                     {
-                        var stringData = await response.Content.ReadAsStringAsync();
-                        var accountData = JsonConvert.DeserializeObject<GW2AccountDataModel>(stringData) ?? new GW2AccountDataModel();
+                        logger.LogInformation("Handling {guildWarsAccountName} - Attempt {attempt}",
+                            guildWarsAccount.GuildWarsAccountName?.Trim(), attempt);
 
-                        guildWarsAccount.FailedApiPullCount = 0;
-                        guildWarsAccount.World = Convert.ToInt32(accountData.World);
-                        guildWarsAccount.GuildWarsGuilds = string.Join(",", accountData.Guilds);
+                        var response = await httpClient.GetAsync($"https://api.guildwars2.com/v2/account/?access_token={guildWarsAccount.GuildWarsApiKey}");
+                        if (response.IsSuccessStatusCode)
+                        {
+                            var stringData = await response.Content.ReadAsStringAsync();
+                            accountData = JsonConvert.DeserializeObject<GuildWars2AccountDataModel>(stringData) ?? new GuildWars2AccountDataModel();
 
-                        guildWarsAccountData.Add(accountData);
-                        continue;
+                            guildWarsAccount.FailedApiPullCount = 0;
+                            guildWarsAccount.World = Convert.ToInt32(accountData.World);
+                            guildWarsAccount.GuildWarsGuilds = string.Join(",", accountData.Guilds);
+
+                            success = true;
+                            break; // Exit the retry loop if successful
+                        }
+
+                        logger.LogWarning("Attempt {attempt} failed for {guildWarsAccountName}: {statusCode}",
+                            attempt, guildWarsAccount.GuildWarsAccountName?.Trim(), response.StatusCode);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "FAILED Handling {guildWarsAccountName} on Attempt {attempt}",
+                            guildWarsAccount.GuildWarsAccountName?.Trim(), attempt);
                     }
 
-                    guildWarsAccount.FailedApiPullCount += 1;
+                    await Task.Delay(250);
                 }
-                catch (Exception ex)
+
+                if (!success)
                 {
                     guildWarsAccount.FailedApiPullCount += 1;
-
-                    Console.WriteLine($"=== FAILED Handling {guildWarsAccount.GuildWarsAccountName?.Trim()} ===");
-                    Console.WriteLine(ex.Message);
+                }
+                else if (accountData != null)
+                {
+                    guildWarsAccountData.Add(accountData);
                 }
             }
 
             return guildWarsAccountData;
         }
 
-        private async Task RemoveRolesFromNonServerAccounts(SocketGuild guild, List<Account> accounts)
-        {
-            var guildUserIds = guild.Users.Select(s => (long)s.Id);
-            var nonServerAccounts = accounts.Where(s => !guildUserIds.Contains(s.DiscordId)).ToList();
-
-            foreach (var nonServerAccount in nonServerAccounts)
-            {
-                //nonServerAccount.Gw2ApiKey = null;
-                _databaseContext.Update(nonServerAccount);
-                _databaseContext.SaveChanges();
-            }
-        }
-
-        private async Task HandleGuildUsers(SocketGuild guild, Guild guildConfiguration, Dictionary<long, List<GW2AccountDataModel>> guildWars2Data)
+        private async Task HandleGuildUsers(SocketGuild guild, Guild guildConfiguration, ConcurrentDictionary<long, List<GuildWars2AccountDataModel>> guildWars2Data, List<Account> accounts, List<GuildWarsAccount> gwAccounts)
         {
             var primaryRoleId = guildConfiguration.DiscordGuildMemberRoleId;
             var secondaryRoleId = guildConfiguration.DiscordSecondaryMemberRoleId;
             var verifiedRoleId = guildConfiguration.DiscordVerifiedRoleId;
 
             var guildId = guildConfiguration.Gw2GuildMemberRoleId;
-            var secondaryGuildIds = guildConfiguration.Gw2SecondaryMemberRoleIds?.Split(',').ToList() ?? new List<string>();
+            var secondaryGuildIds = guildConfiguration.Gw2SecondaryMemberRoleIds?.Split(',').ToList() ?? [];
 
             if (primaryRoleId == null || secondaryRoleId == null || verifiedRoleId == null)
             {
@@ -128,47 +143,56 @@ namespace Services.DiscordRequestServices
 
             foreach (var user in guild.Users)
             {
-                Console.WriteLine($"=== HANDLING {user.DisplayName} ===");
+                logger.LogInformation("HANDLING {userDisplayName}", user.DisplayName);
 
-                var account = _databaseContext.Account.FirstOrDefault(f => f.DiscordId == (long)user.Id);
-                var gwAccounts = _databaseContext.GuildWarsAccount.Where(s => s.DiscordId == (long)user.Id);
+                var playerAccount = accounts.FirstOrDefault(f => f.DiscordId == (long)user.Id);
+                var playerGwAccounts = gwAccounts.Where(s => s.DiscordId == (long)user.Id).ToList();
+                var invalidAccounts = playerGwAccounts.Where(s => s.FailedApiPullCount >= 48).ToList();
 
-                if (account == null || !gwAccounts.Any() || gwAccounts.All(s => string.IsNullOrEmpty(s.GuildWarsApiKey)))
+                foreach (var invalidGuildWarsAccount in invalidAccounts)
+                {
+                    logger.LogWarning("Guild Wars 2 account {invalidGuildWarsAccountGuildWarsAccountName} is no longer valid .", invalidGuildWarsAccount.GuildWarsAccountName);
+
+                    invalidGuildWarsAccount.GuildWarsApiKey = null;
+                }
+
+                if (invalidAccounts.Any())
+                {
+                    await entityService.GuildWarsAccount.UpdateRangeAsync(invalidAccounts);
+                }
+
+                if (playerAccount == null || !playerGwAccounts.Any() || playerGwAccounts.All(s => string.IsNullOrEmpty(s.GuildWarsApiKey)))
                 {
                     await RemoveAllRolesFromUser(user, primaryRoleId.Value, secondaryRoleId.Value, verifiedRoleId.Value);
 
-                    Console.WriteLine($"Failed to get {user.DisplayName} GW2 details, removing all roles.");
-
                     continue;
                 }
 
-                if (gwAccounts.All(s => s.FailedApiPullCount >= 48))
+                if (playerGwAccounts.All(s => s.FailedApiPullCount >= 48))
                 {
                     await RemoveAllRolesFromUser(user, primaryRoleId.Value, secondaryRoleId.Value, verifiedRoleId.Value);
-                    foreach (var guildWarsAccount in gwAccounts)
-                    {
-                        guildWarsAccount.GuildWarsApiKey = null;
-                    }
-
-                    _databaseContext.UpdateRange(gwAccounts);
-                    _databaseContext.SaveChanges();
-
-                    var dmChannel = await user.CreateDMChannelAsync();
-                    await dmChannel.SendMessageAsync($"Heyo {user.DisplayName}, I failed to pull your GW2 data using your API key throughout the day and have removed your roles for the server {guild.Name}, to get back the roles just use /verify in any channel in {guild.Name}.");
-
                     continue;
                 }
 
-                if (guildWars2Data.TryGetValue(account.DiscordId, out var accountData))
+                if (!guildWars2Data.TryGetValue(playerAccount.DiscordId, out var accountData))
                 {
-                    await HandleUserRoles(user, accountData, primaryRoleId.Value, secondaryRoleId.Value, verifiedRoleId.Value, guildId, secondaryGuildIds);
-
                     continue;
                 }
 
-                await RemoveAllRolesFromUser(user, primaryRoleId.Value, secondaryRoleId.Value, verifiedRoleId.Value);
+                await HandleUserRoles(user, accountData, primaryRoleId.Value, secondaryRoleId.Value, verifiedRoleId.Value, guildId, secondaryGuildIds);
+            }
 
-                Console.WriteLine($"API KEY no longer valid for {user.DisplayName} GW2 details, removing all roles.");
+            // remove any remaining API keys on expired users (most likely have left the server)
+            var expiredAccounts = gwAccounts.Where(s => s.FailedApiPullCount >= 48).ToList();
+            foreach (var invalidGuildWarsAccount in expiredAccounts)
+            {
+                logger.LogInformation("Guild Wars 2 account {invalidGuildWarsAccountGuildWarsAccountName} is no longer valid and has expired.", invalidGuildWarsAccount.GuildWarsAccountName);
+                invalidGuildWarsAccount.GuildWarsApiKey = null;
+            }
+
+            if (expiredAccounts.Any())
+            {
+                await entityService.GuildWarsAccount.UpdateRangeAsync(expiredAccounts);
             }
         }
 
@@ -177,22 +201,22 @@ namespace Services.DiscordRequestServices
             try
             {
                 if (!guildConfiguration.WvwPlayerActivityReportChannelId.HasValue) {
-                    Console.WriteLine("Failed to find WvW Player Activity Report Channel Id for guild {0}", clientGuild.Name);
+                    logger.LogError("Failed to find WvW Player Activity Report Channel Id for guild {clientGuildName}", clientGuild.Name);
                     return;
                 }
 
                 if (clientGuild.GetChannel((ulong)guildConfiguration.WvwPlayerActivityReportChannelId) is SocketTextChannel playerActivityReportChannel)
                 {
-                    var messages = await playerActivityReportChannel.GetMessagesAsync(100).FlattenAsync();
+                    var messages = await playerActivityReportChannel.GetMessagesAsync().FlattenAsync();
                     await playerActivityReportChannel.DeleteMessagesAsync(messages);
-                    var playerReportMessage = await _messageGenerationService.GenerateWvWPlayerReport(guildConfiguration);
+                    var playerReportMessage = await messageGenerationService.GenerateWvWPlayerReport(guildConfiguration);
                     
-                    await playerActivityReportChannel.SendMessageAsync(embeds: new[] { playerReportMessage });
+                    await playerActivityReportChannel.SendMessageAsync(embeds: [playerReportMessage]);
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.Message);
+                logger.LogError(ex.Message, "Failed to generate WvW player report.");
             }
         }
 
@@ -200,26 +224,36 @@ namespace Services.DiscordRequestServices
         {
             var roles = user.Roles.Select(s => s.Id).ToList();
 
+            var removedRoles = false;
+
             if (roles.Contains((ulong)primaryRoleId))
             {
                 await user.RemoveRoleAsync((ulong)primaryRoleId);
-                Console.WriteLine(" - Removing Primary Role");
+                logger.LogInformation("Removing Primary Role");
+                removedRoles = true;
             }
 
             if (roles.Contains((ulong)secondaryRoleId))
             {
                 await user.RemoveRoleAsync((ulong)secondaryRoleId);
-                Console.WriteLine(" - Removing Secondary Role");
+                logger.LogInformation("Removing Secondary Role");
+                removedRoles = true;
             }
 
             if (roles.Contains((ulong)verifiedRoleId))
             {
                 await user.RemoveRoleAsync((ulong)verifiedRoleId);
-                Console.WriteLine(" + Removing Verified Role");
+                logger.LogInformation("Removing Verified Role");
+                removedRoles = true;
+            }
+
+            if (removedRoles)
+            {
+                logger.LogWarning("{userDisplayName} did not have the required GW2 details, removing all roles.", user.DisplayName);
             }
         }
 
-        private async Task HandleUserRoles(SocketGuildUser user, List<GW2AccountDataModel> accountData, long primaryRoleId, long secondaryRoleId, long verifiedRoleId, string? guildId, List<string> secondaryGuildIds)
+        private async Task HandleUserRoles(SocketGuildUser user, List<GuildWars2AccountDataModel> accountData, long primaryRoleId, long secondaryRoleId, long verifiedRoleId, string? guildId, List<string> secondaryGuildIds)
         {
             var inPrimary = accountData.SelectMany(s => s.Guilds).Contains(guildId);
             var inSecondary = secondaryGuildIds.Any(guild => accountData.SelectMany(s => s.Guilds).Contains(guild));
@@ -239,12 +273,12 @@ namespace Services.DiscordRequestServices
             if (roles.Contains((ulong)primaryRoleId) && !inPrimaryGuild)
             {
                 await user.RemoveRoleAsync((ulong)primaryRoleId);
-                Console.WriteLine(" - Removing Primary Role");
+                logger.LogInformation("Removing Primary Role");
             }
             else if (!roles.Contains((ulong)primaryRoleId) && inPrimaryGuild)
             {
                 await user.AddRoleAsync((ulong)primaryRoleId);
-                Console.WriteLine(" + Adding Primary Role");
+                logger.LogInformation("Adding Primary Role");
             }
         }
 
@@ -253,12 +287,12 @@ namespace Services.DiscordRequestServices
             if (roles.Contains((ulong)secondaryRoleId) && !inSecondaryGuild)
             {
                 await user.RemoveRoleAsync((ulong)secondaryRoleId);
-                Console.WriteLine(" - Removing Secondary Role");
+                logger.LogInformation("Removing Secondary Role");
             }
             else if (!roles.Contains((ulong)secondaryRoleId) && inSecondaryGuild)
             {
                 await user.AddRoleAsync((ulong)secondaryRoleId);
-                Console.WriteLine(" + Adding Secondary Role");
+                logger.LogInformation("Adding Secondary Role");
             }
         }
 
@@ -267,7 +301,7 @@ namespace Services.DiscordRequestServices
             if (!roles.Contains((ulong)verifiedRoleId))
             {
                 await user.AddRoleAsync((ulong)verifiedRoleId);
-                Console.WriteLine(" + Adding Verified Role");
+                logger.LogInformation("Adding Verified Role");
             }
         }
     }

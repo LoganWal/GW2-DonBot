@@ -1,6 +1,6 @@
 using Discord.WebSocket;
 
-namespace Services.DiscordRequestServices
+namespace DonBot.Services.DiscordRequestServices
 {
     public interface IRaffleCommandsService
     {
@@ -18,7 +18,6 @@ namespace Services.DiscordRequestServices
         public Task HandleRaffleButton100(SocketMessageComponent command);
         public Task HandleRaffleButton1000(SocketMessageComponent command);
         public Task HandleRaffleButtonRandom(SocketMessageComponent command);
-
 
         public Task HandleEventRaffleButton1(SocketMessageComponent command);
         public Task HandleEventRaffleButton50(SocketMessageComponent command);

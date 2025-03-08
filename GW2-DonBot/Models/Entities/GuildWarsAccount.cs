@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace Models.Entities
+namespace DonBot.Models.Entities
 {
     public class GuildWarsAccount
     {
@@ -9,10 +9,13 @@ namespace Models.Entities
 
         public long DiscordId { get; set; }
 
+        [MaxLength(1000)]
         public string? GuildWarsApiKey { get; set; }
 
+        [MaxLength(1000)]
         public string? GuildWarsAccountName { get; set; }
 
+        [MaxLength(1000)]
         public string? GuildWarsGuilds { get; set; }
 
         public int World { get; set; }

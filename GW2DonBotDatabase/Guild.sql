@@ -12,9 +12,16 @@
 	[LogReportChannelId] [bigint] NULL,
 	[AdvanceLogReportChannelId] [bigint] NULL,
 	[StreamLogChannelId] [bigint] NULL,
+	[RaidAlertEnabled] [bit] NOT NULL,
+	[RaidAlertChannelId] [bigint] NULL,
+	[RemoveSpamEnabled] [bit] NOT NULL,
 PRIMARY KEY CLUSTERED 
 (
 	[GuildId] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
 ) ON [PRIMARY]
+GO
+ALTER TABLE [dbo].[Guild] ADD  DEFAULT ((0)) FOR [RaidAlertEnabled]
+GO
+ALTER TABLE [dbo].[Guild] ADD  DEFAULT ((0)) FOR [RemoveSpamEnabled]
 GO

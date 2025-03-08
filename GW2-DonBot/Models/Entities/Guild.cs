@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace Models.Entities
+namespace DonBot.Models.Entities
 {
     public class Guild
     {
@@ -15,8 +15,10 @@ namespace Models.Entities
 
         public long? DiscordVerifiedRoleId { get; set; }
 
+        [MaxLength(128)]
         public string? Gw2GuildMemberRoleId { get; set; }
 
+        [MaxLength(1000)]
         public string? Gw2SecondaryMemberRoleIds { get; set; }
 
         public long? PlayerReportChannelId { get; set; }
@@ -30,5 +32,13 @@ namespace Models.Entities
         public long? AdvanceLogReportChannelId { get; set; }
 
         public long? StreamLogChannelId { get; set; }
+
+        public bool RaidAlertEnabled { get; set; }
+
+        public long? RaidAlertChannelId { get; set; }
+
+        public bool RemoveSpamEnabled { get; set; }
+
+        public long? RemovedMessageChannelId { get; set; }
     }
 }

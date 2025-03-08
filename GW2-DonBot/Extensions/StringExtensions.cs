@@ -1,4 +1,4 @@
-namespace Extensions
+namespace DonBot.Extensions
 {
     public static class StringExtensions
     {
@@ -32,23 +32,23 @@ namespace Extensions
             }
         }
 
-        public static string FormatNumber(this float number)
+        public static string FormatNumber(this float number, bool asPerSec = false)
         {
             if (number > 1000000000.0f)
             {
-                return $"{(number / 1000000000.0f):F1}B";
+                return $"{(number / 1000000000.0f):F1}B" + $"{(asPerSec ? "/s" : string.Empty)}";
             }
             else if (number > 1000000.0f)
             {
-                return $"{(number / 1000000.0f):F1}M";
+                return $"{(number / 1000000.0f):F1}M" + $"{(asPerSec ? "/s" : string.Empty)}";
             }
             else if (number > 1000.0f)
             {
-                return $"{(number / 1000.0f):F1}K";
+                return $"{(number / 1000.0f):F1}K" + $"{(asPerSec ? "/s" : string.Empty)}";
             }
             else
             {
-                return number.ToString("F1");
+                return number.ToString("F1") + $"{(asPerSec ? "/s" : string.Empty)}";
             }
         }
 

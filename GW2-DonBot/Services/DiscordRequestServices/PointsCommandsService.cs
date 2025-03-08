@@ -1,25 +1,15 @@
 using Discord.WebSocket;
-using Microsoft.EntityFrameworkCore;
-using Models.Entities;
+using DonBot.Services.DatabaseServices;
 
-namespace Services.DiscordRequestServices
+namespace DonBot.Services.DiscordRequestServices
 {
-    public class PointsCommandsService : IPointsCommandsService
+    public class PointsCommandsService(IEntityService entityService) : IPointsCommandsService
     {
-        private readonly DatabaseContext _databaseContext;
-
-        public PointsCommandsService(DatabaseContext databaseContext)
-        {
-            _databaseContext = databaseContext;
-        }
-
         public async Task PointsCommandExecuted(SocketSlashCommand command)
         {
-            await command.DeferAsync(ephemeral: true);
-
             // Fetch accounts with non-null Gw2ApiKey
-            var accounts = await _databaseContext.Account.ToListAsync();
-            var gw2Accounts = await _databaseContext.GuildWarsAccount.ToListAsync();
+            var accounts = await entityService.Account.GetAllAsync();
+            var gw2Accounts = await entityService.GuildWarsAccount.GetAllAsync();
             accounts = accounts.Where(s => gw2Accounts.Any(acc => acc.DiscordId == s.DiscordId)).ToList();
 
             // Find the account of the user who executed the command
@@ -35,14 +25,16 @@ namespace Services.DiscordRequestServices
                 ? $"You have earned {Math.Round(account.Points)} points.{Environment.NewLine}You have {Math.Round(account.AvailablePoints)} Available Points for spending.{Environment.NewLine}Current Rank: {rank}"
                 : "Unable to find account, have you verified?";
 
-            await command.ModifyOriginalResponseAsync(message => message.Content = output);
+            await command.FollowupAsync(output, ephemeral: true);
         }
 
         public async Task PointsCommandExecuted(SocketMessageComponent command)
         {
+            await command.DeferAsync(ephemeral: true);
+
             // Fetch accounts with non-null Gw2ApiKey
-            var accounts = await _databaseContext.Account.ToListAsync();
-            var gw2Accounts = await _databaseContext.GuildWarsAccount.ToListAsync();
+            var accounts = await entityService.Account.GetAllAsync();
+            var gw2Accounts = await entityService.GuildWarsAccount.GetAllAsync();
             accounts = accounts.Where(s => gw2Accounts.Any(acc => acc.DiscordId == s.DiscordId)).ToList();
 
             // Find the account of the user who executed the command
@@ -58,7 +50,7 @@ namespace Services.DiscordRequestServices
                 ? $"You have earned {Math.Round(account.Points)} points.{Environment.NewLine}You have {Math.Round(account.AvailablePoints)} Available Points for spending.{Environment.NewLine}Current Rank: {rank}"
                 : "Unable to find account, have you verified?";
 
-            await command.RespondAsync(output, ephemeral: true);
+            await command.FollowupAsync(output, ephemeral: true);
         }
     }
 }

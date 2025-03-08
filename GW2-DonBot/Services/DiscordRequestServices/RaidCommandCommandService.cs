@@ -53,7 +53,7 @@ namespace DonBot.Services.DiscordRequestServices
                 }
 
                 var message = messageGenerationService.GenerateRaidAlert(guild.GuildId);
-                await targetChannel.SendMessageAsync(text: "@everyone", embeds: [message]);
+                await targetChannel.SendMessageAsync(text: "@everyone", embeds: [await message]);
                 await command.FollowupAsync("Created!", ephemeral: true);
             }
 

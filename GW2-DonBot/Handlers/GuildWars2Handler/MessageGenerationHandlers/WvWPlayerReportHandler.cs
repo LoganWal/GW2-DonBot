@@ -31,7 +31,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{footerHandler.Generate(guildConfiguration.GuildId)}",
+                    Text = $"{await footerHandler.Generate(guildConfiguration.GuildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 Timestamp = DateTime.Now

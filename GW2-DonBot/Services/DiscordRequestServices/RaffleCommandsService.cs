@@ -241,7 +241,7 @@ namespace DonBot.Services.DiscordRequestServices
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{footerHandler.Generate(guild.GuildId)}",
+                    Text = $"{await footerHandler.Generate(guild.GuildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 // Timestamp
@@ -594,7 +594,7 @@ namespace DonBot.Services.DiscordRequestServices
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{footerHandler.Generate(guild.GuildId)}",
+                    Text = $"{await footerHandler.Generate(guild.GuildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 Timestamp = DateTime.Now
@@ -748,7 +748,7 @@ namespace DonBot.Services.DiscordRequestServices
                     },
                     Footer = new EmbedFooterBuilder()
                     {
-                        Text = $"{footerHandler.Generate(guild.GuildId)}",
+                        Text = $"{await footerHandler.Generate(guild.GuildId)}",
                         IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                     },
                     Timestamp = DateTime.Now
@@ -851,7 +851,7 @@ namespace DonBot.Services.DiscordRequestServices
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{footerHandler.Generate(guild.GuildId)}",
+                    Text = $"{await footerHandler.Generate(guild.GuildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 // Timestamp
@@ -951,7 +951,7 @@ namespace DonBot.Services.DiscordRequestServices
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{footerHandler.Generate(guild.GuildId)}",
+                    Text = $"{await footerHandler.Generate(guild.GuildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 // Timestamp

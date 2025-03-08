@@ -71,5 +71,7 @@ namespace DonBot.Models.Entities
         public decimal CerusPhaseOneDamage { get; set; }
 
         public long DeimosOilsTriggered { get; set; }
+
+        public int ResurrectionTime { get; set; }
     }
 }

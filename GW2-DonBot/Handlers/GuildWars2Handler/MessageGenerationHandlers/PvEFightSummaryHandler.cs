@@ -246,7 +246,9 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
                     CerusOrbsCollected = gw2Player.CerusOrbsCollected,
                     CerusSpreadHitCount = gw2Player.CerusSpreadHitCount,
                     CerusPhaseOneDamage = Convert.ToDecimal(gw2Player.CerusPhaseOneDamage),
-                    DeimosOilsTriggered = gw2Player.DeimosOilsTriggered
+                    DeimosOilsTriggered = gw2Player.DeimosOilsTriggered,
+                    TimesInterrupted = gw2Player.TimesInterrupted,
+                    ResurrectionTime = gw2Player.ResurrectionTime
                 })
                 .ToList();
 
@@ -267,7 +269,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
                 Url = $"{data.Url}",
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{footerHandler.Generate(guildId)}",
+                    Text = $"{await footerHandler.Generate(guildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 Timestamp = DateTime.Now
@@ -289,14 +291,29 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
                 x.IsInline = false;
             });
 
+            var survivabilityOverview = "```Player         Res (s)    Dmg Taken   Times Downed                                      \n";
+            foreach (var gw2Player in gw2Players.OrderByDescending(s => s.ResurrectionTime))
+            {
+                survivabilityOverview += $"{gw2Player.AccountName.ClipAt(13),-13}{string.Empty,2}{Math.Round((double)gw2Player.ResurrectionTime / 1000, 3),-9}{string.Empty,2}{(gw2Player.DamageTaken),-10}{string.Empty,2}{gw2Player.TimesDowned}\n";
+            }
+
+            survivabilityOverview += "```";
+
+            message.AddField(x =>
+            {
+                x.Name = "Survivability Overview";
+                x.Value = $"{survivabilityOverview}";
+                x.IsInline = false;
+            });
+
             var mechanicsOverview = string.Empty;
 
             if (encounterType == (short)FightTypesEnum.ToF)
             {
-                mechanicsOverview = "```Player         P1 Dmg    Orbs   Downed\n";
+                mechanicsOverview = "```Player         P1 Dmg    Orbs\n";
                 foreach (var gw2Player in gw2Players.OrderByDescending(s => s.CerusPhaseOneDamage)) 
                 {
-                    mechanicsOverview += $"{gw2Player.AccountName.ClipAt(13),-13}{string.Empty,2}{((float)gw2Player.CerusPhaseOneDamage).FormatNumber(true),-8}{string.Empty,2}{gw2Player.CerusOrbsCollected,-3}{string.Empty,4}{gw2Player.TimesDowned,-3}\n";
+                    mechanicsOverview += $"{gw2Player.AccountName.ClipAt(13),-13}{string.Empty,2}{((float)gw2Player.CerusPhaseOneDamage).FormatNumber(true),-8}{string.Empty,2}{gw2Player.CerusOrbsCollected,-3}\n";
                 }
 
                 mechanicsOverview += "```";

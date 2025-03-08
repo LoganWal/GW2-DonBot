@@ -44,21 +44,21 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
             if (wvwFightCount > pveFightCount)
             {
-                messages.Add(GenerateWvWRaidReport(durationString, groupedPlayerFights, false, guildId));
-                messages.Add(GenerateWvWRaidReport(durationString, groupedPlayerFights, true, guildId));
+                messages.Add(await GenerateWvWRaidReport(durationString, groupedPlayerFights, false, guildId));
+                messages.Add(await GenerateWvWRaidReport(durationString, groupedPlayerFights, true, guildId));
 
             }
             else
             {
                 messages.Add(await GeneratePvERaidReport(durationString, groupedFights, groupedPlayerFights, fights, guildId));
-                var successLogs = GeneratePvERaidLogReport(durationString, fights, true, guildId);
+                var successLogs = await GeneratePvERaidLogReport(durationString, fights, true, guildId);
                 if (successLogs != null)
                 {
                     messages.Add(successLogs);
 
                 }
 
-                var failedLogs = GeneratePvERaidLogReport(durationString, fights, false, guildId);
+                var failedLogs = await GeneratePvERaidLogReport(durationString, fights, false, guildId);
                 if (failedLogs != null)
                 {
                     messages.Add(failedLogs);
@@ -68,7 +68,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
             return messages;
         }
 
-        public Embed GenerateRaidAlert(long guildId)
+        public async Task<Embed> GenerateRaidAlert(long guildId)
         {
             // Building the message via embeds
             var message = new EmbedBuilder
@@ -84,7 +84,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{footerHandler.Generate(guildId)}",
+                    Text = $"{await footerHandler.Generate(guildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 Timestamp = DateTime.Now
@@ -93,7 +93,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
             return message.Build();
         }
 
-        private Embed GenerateWvWRaidReport(string durationString, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, bool advancedLog, long guildId)
+        private async Task<Embed> GenerateWvWRaidReport(string durationString, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, bool advancedLog, long guildId)
         {
             // Building the message via embeds
             var message = new EmbedBuilder
@@ -171,7 +171,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
             message.Footer = new EmbedFooterBuilder()
             {
-                Text = $"{footerHandler.Generate(guildId)}",
+                Text = $"{await footerHandler.Generate(guildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             };
 
@@ -212,7 +212,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
             }
             
             // Building the message for use
-            return wvWFightSummaryHandler.GenerateMessage(advancedLog, 10, gw2Players, message, guildId, statTotals);
+            return await wvWFightSummaryHandler.GenerateMessage(advancedLog, 10, gw2Players, message, guildId, statTotals);
         }
 
         private async Task<Embed> GeneratePvERaidReport(string durationString, List<IGrouping<short, FightLog>> groupedFights, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights, long guildId)
@@ -286,6 +286,22 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
             playerOverview += "```";
 
+
+            var survivabilityOverview = "```Player         Res (s)    Dmg Taken   Times Downed                                      \n";
+            foreach (var gw2Player in groupedPlayerFights.OrderByDescending(s => s.Sum(d => d.ResurrectionTime)))
+            {
+                survivabilityOverview += $"{gw2Player.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,2}{Math.Round((double)gw2Player.Sum(s => s.ResurrectionTime) / 1000, 3),-9}{string.Empty,2}{gw2Player.Sum(s => s.DamageTaken),-10}{string.Empty,2}{gw2Player.Sum(s => s.TimesDowned)}\n";
+            }
+
+            survivabilityOverview += "```";
+
+            message.AddField(x =>
+            {
+                x.Name = "Survivability Overview";
+                x.Value = $"{survivabilityOverview}";
+                x.IsInline = false;
+            });
+
             message.AddField(x =>
             {
                 x.Name = "Fights Overview";
@@ -306,7 +322,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
                 if (groupedFight.Key == (short)FightTypesEnum.ToF)
                 {
-                    mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.ToF, "```Player         P1 Dmg    Orbs   Downed\n", pf => pf.CerusPhaseOneDamage, groupedPlayerFights, fights, true);
+                    mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.ToF, "```Player         P1 Dmg    Orbs\n", pf => pf.CerusPhaseOneDamage, groupedPlayerFights, fights, true);
                 }
 
                 if (groupedFight.Key == (short)FightTypesEnum.Deimos)
@@ -327,7 +343,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
             message.Footer = new EmbedFooterBuilder()
             {
-                Text = $"{footerHandler.Generate(guildId)}",
+                Text = $"{await footerHandler.Generate(guildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             };
 
@@ -357,7 +373,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
                 {
                     if (fightType == (short)FightTypesEnum.ToF)
                     {
-                        mechanicsOverview += $"{playerFightsListForType.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,2}{((float)playerFightsListForType.Max(s => s.CerusPhaseOneDamage)).FormatNumber(true),-8}{string.Empty,2}{playerFightsListForType.Sum(s => s.CerusOrbsCollected),-3}{string.Empty,4}{playerFightsListForType.Sum(s => s.TimesDowned),-3}\n";
+                        mechanicsOverview += $"{playerFightsListForType.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,2}{((float)playerFightsListForType.Max(s => s.CerusPhaseOneDamage)).FormatNumber(true),-8}{string.Empty,2}{playerFightsListForType.Sum(s => s.CerusOrbsCollected),-3}\n";
                     }
                     else if (fightType == (short)FightTypesEnum.Deimos)
                     {
@@ -368,7 +384,8 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
             return mechanicsOverview + "```";
         }
-        private Embed? GeneratePvERaidLogReport(string durationString, List<FightLog> fights, bool isSuccessLogs, long guildId)
+
+        private async Task<Embed?> GeneratePvERaidLogReport(string durationString, List<FightLog> fights, bool isSuccessLogs, long guildId)
         {
             var fightLogs = fights.Where(s => s.IsSuccess == isSuccessLogs).ToList();
             if (!fightLogs.Any())
@@ -412,7 +429,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
             message.Footer = new EmbedFooterBuilder()
             {
-                Text = $"{footerHandler.Generate(guildId)}",
+                Text = $"{await footerHandler.Generate(guildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             };
 

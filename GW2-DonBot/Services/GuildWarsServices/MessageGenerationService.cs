@@ -44,9 +44,9 @@ namespace DonBot.Services.GuildWarsServices
             return await raidReportHandler.Generate(fightsReport, guildId);
         }
 
-        public Embed GenerateRaidAlert(long guildId)
+        public async Task<Embed> GenerateRaidAlert(long guildId)
         {
-            return raidReportHandler.GenerateRaidAlert(guildId);
+            return await raidReportHandler.GenerateRaidAlert(guildId);
         }
     }
 }

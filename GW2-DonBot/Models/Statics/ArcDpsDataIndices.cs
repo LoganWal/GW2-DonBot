@@ -27,5 +27,8 @@
         public const int TotalQuick = 2;
         public const int TotalAlac = 3;
         public const int CerusOrbCollection = 1;
+        public const int RotationSkillIndex = 1;
+        public const int RotationResurrectionSkill = 1066;
+        public const int RotationSkillDurationIndex = 0;
     }
 }

@@ -72,7 +72,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
                 message.Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{footerHandler.Generate(gw2Guild.GuildId)}",
+                    Text = $"{await footerHandler.Generate(gw2Guild.GuildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 };
 
@@ -152,7 +152,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
                 message.Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{footerHandler.Generate(gw2Guild.GuildId)}",
+                    Text = $"{await footerHandler.Generate(gw2Guild.GuildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 };
 

@@ -32,6 +32,7 @@
 	[CerusPhaseOneDamage] [decimal](10, 3) NOT NULL,
 	[Cleave] [bigint] NOT NULL,
 	[StabGenOffGroup] [decimal](6, 2) NOT NULL,
+	[ResurrectionTime] [Int] NOT NULL
 PRIMARY KEY CLUSTERED 
 (
 	[PlayerFightLogId] ASC
@@ -91,6 +92,8 @@ GO
 ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [Cleave]
 GO
 ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [StabGenOffGroup]
+GO
+ALTER TABLE [dbo].[PlayerFightLog] ADD  DEFAULT ((0)) FOR [ResurrectionTime]
 GO
 ALTER TABLE [dbo].[PlayerFightLog] ADD FOREIGN KEY([FightLogId])
 REFERENCES [dbo].[FightLog] ([FightLogId])

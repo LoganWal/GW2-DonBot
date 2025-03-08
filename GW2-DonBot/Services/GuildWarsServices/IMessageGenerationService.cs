@@ -19,6 +19,6 @@ namespace DonBot.Services.GuildWarsServices
 
         public Task<List<Embed>?> GenerateRaidReport(FightsReport fightsReportId, long guildId);
 
-        public Embed GenerateRaidAlert(long guildId);
+        public Task<Embed> GenerateRaidAlert(long guildId);
     }
 }

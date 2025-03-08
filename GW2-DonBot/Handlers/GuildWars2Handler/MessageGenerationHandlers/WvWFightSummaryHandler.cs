@@ -137,30 +137,36 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                             FightLogId = fightLog.FightLogId,
                             GuildWarsAccountName = gw2Player.AccountName,
                             Damage = gw2Player.Damage,
+                            Cleave = gw2Player.Cleave,
                             Kills = gw2Player.Kills,
                             Downs = gw2Player.Downs,
                             Deaths = gw2Player.Deaths,
-                            TimesDowned = Convert.ToInt32(gw2Player.TimesDowned),
-                            QuicknessDuration = Math.Round(Convert.ToDecimal(gw2Player.TotalQuick), 2),
-                            AlacDuration = Math.Round(Convert.ToDecimal(gw2Player.TotalAlac), 2),
+                            QuicknessDuration = Convert.ToDecimal(gw2Player.TotalQuick),
+                            AlacDuration = Convert.ToDecimal(gw2Player.TotalAlac),
                             SubGroup = gw2Player.SubGroup,
                             DamageDownContribution = gw2Player.DamageDownContribution,
                             Cleanses = Convert.ToInt64(gw2Player.Cleanses),
                             Strips = Convert.ToInt64(gw2Player.Strips),
-                            StabGenOnGroup = Math.Round(Convert.ToDecimal(gw2Player.StabOnGroup), 2),
-                            StabGenOffGroup = Math.Round(Convert.ToDecimal(gw2Player.StabOffGroup), 2),
+                            StabGenOnGroup = Convert.ToDecimal(gw2Player.StabOnGroup),
+                            StabGenOffGroup = Convert.ToDecimal(gw2Player.StabOffGroup),
                             Healing = gw2Player.Healing,
                             BarrierGenerated = gw2Player.BarrierGenerated,
-                            DistanceFromTag = Math.Round(Convert.ToDecimal(gw2Player.DistanceFromTag), 2),
+                            DistanceFromTag = Convert.ToDecimal(gw2Player.DistanceFromTag),
+                            TimesDowned = Convert.ToInt32(gw2Player.TimesDowned),
                             Interrupts = gw2Player.Interrupts,
-                            TimesInterrupted = gw2Player.TimesInterrupted,
                             NumberOfHitsWhileBlinded = gw2Player.NumberOfHitsWhileBlinded,
                             NumberOfMissesAgainst = Convert.ToInt64(gw2Player.NumberOfMissesAgainst),
                             NumberOfTimesBlockedAttack = Convert.ToInt64(gw2Player.NumberOfTimesBlockedAttack),
                             NumberOfTimesEnemyBlockedAttack = gw2Player.NumberOfTimesEnemyBlockedAttack,
                             NumberOfBoonsRipped = Convert.ToInt64(gw2Player.NumberOfBoonsRipped),
                             DamageTaken = Convert.ToInt64(gw2Player.DamageTaken),
-                            BarrierMitigation = Convert.ToInt64(gw2Player.BarrierMitigation)
+                            BarrierMitigation = Convert.ToInt64(gw2Player.BarrierMitigation),
+                            CerusOrbsCollected = gw2Player.CerusOrbsCollected,
+                            CerusSpreadHitCount = gw2Player.CerusSpreadHitCount,
+                            CerusPhaseOneDamage = Convert.ToDecimal(gw2Player.CerusPhaseOneDamage),
+                            DeimosOilsTriggered = gw2Player.DeimosOilsTriggered,
+                            TimesInterrupted = gw2Player.TimesInterrupted,
+                            ResurrectionTime = gw2Player.ResurrectionTime
                         })
                         .ToList();
 
@@ -190,10 +196,10 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                 x.IsInline = false;
             });
 
-            return GenerateMessage(advancedLog, playerCount, gw2Players, message, guild.GuildId);
+            return await GenerateMessage(advancedLog, playerCount, gw2Players, message, guild.GuildId);
         }
 
-        public Embed GenerateMessage(bool advancedLog, int playerCount, List<Gw2Player> gw2Players, EmbedBuilder message, long guildId, StatTotals? statTotals = null)
+        public async Task<Embed> GenerateMessage(bool advancedLog, int playerCount, List<Gw2Player> gw2Players, EmbedBuilder message, long guildId, StatTotals? statTotals = null)
         {
             // Damage overview
             var damageOverview = "```#    Name                   Damage    Down C\n";
@@ -430,7 +436,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
             message.Footer = new EmbedFooterBuilder()
             {
-                Text = $"{footerHandler.Generate(guildId)}",
+                Text = $"{await footerHandler.Generate(guildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             };
 

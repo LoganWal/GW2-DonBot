@@ -150,6 +150,15 @@ namespace DonBot.Models.GuildWars2
 
         [JsonProperty("name")]
         public string? Name { get; set; }
+
+        [JsonProperty("details")]
+        public ArcsDpsPlayerDetails? Details { get; set; }
+    }
+
+    public class ArcsDpsPlayerDetails
+    {
+        [JsonProperty("rotation")]
+        public List<List<List<double>>>? Rotation { get; set; }
     }
 
     public class DmgDistribution

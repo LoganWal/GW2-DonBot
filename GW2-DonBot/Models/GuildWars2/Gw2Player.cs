@@ -67,5 +67,7 @@
         public double CerusPhaseOneDamage { get; set; }
 
         public long DeimosOilsTriggered { get; set; }
+
+        public int ResurrectionTime { get; set; }
     }
 }

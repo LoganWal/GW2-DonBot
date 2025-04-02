@@ -286,21 +286,13 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
             playerOverview += "```";
 
-
             var survivabilityOverview = "```Player         Res (s)    Dmg Taken   Times Downed                                      \n";
-            foreach (var gw2Player in groupedPlayerFights.OrderByDescending(s => s.Sum(d => d.ResurrectionTime)))
+            foreach (var gw2Player in groupedPlayerFights.OrderBy(s => s.Sum(d => d.DamageTaken)))
             {
                 survivabilityOverview += $"{gw2Player.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,2}{Math.Round((double)gw2Player.Sum(s => s.ResurrectionTime) / 1000, 3),-9}{string.Empty,2}{gw2Player.Sum(s => s.DamageTaken),-10}{string.Empty,2}{gw2Player.Sum(s => s.TimesDowned)}\n";
             }
 
             survivabilityOverview += "```";
-
-            message.AddField(x =>
-            {
-                x.Name = "Survivability Overview";
-                x.Value = $"{survivabilityOverview}";
-                x.IsInline = false;
-            });
 
             message.AddField(x =>
             {
@@ -313,6 +305,13 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
             {
                 x.Name = "Player Overview";
                 x.Value = $"{playerOverview}";
+                x.IsInline = false;
+            });
+
+            message.AddField(x =>
+            {
+                x.Name = "Survivability Overview";
+                x.Value = $"{survivabilityOverview}";
                 x.IsInline = false;
             });
 

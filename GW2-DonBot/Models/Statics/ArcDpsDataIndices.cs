@@ -29,6 +29,6 @@
         public const int CerusOrbCollection = 1;
         public const int RotationSkillIndex = 1;
         public const int RotationResurrectionSkill = 1066;
-        public const int RotationSkillDurationIndex = 0;
+        public const int RotationSkillDurationIndex = 2;
     }
 }

@@ -292,7 +292,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
             });
 
             var survivabilityOverview = "```Player         Res (s)    Dmg Taken   Times Downed                                      \n";
-            foreach (var gw2Player in gw2Players.OrderByDescending(s => s.ResurrectionTime))
+            foreach (var gw2Player in gw2Players.OrderBy(s => s.DamageTaken))
             {
                 survivabilityOverview += $"{gw2Player.AccountName.ClipAt(13),-13}{string.Empty,2}{Math.Round((double)gw2Player.ResurrectionTime / 1000, 3),-9}{string.Empty,2}{(gw2Player.DamageTaken),-10}{string.Empty,2}{gw2Player.TimesDowned}\n";
             }

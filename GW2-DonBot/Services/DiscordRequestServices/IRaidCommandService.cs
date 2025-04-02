@@ -7,5 +7,7 @@ namespace DonBot.Services.DiscordRequestServices
         public Task StartRaid(SocketSlashCommand command, DiscordSocketClient discordClient);
 
         public Task CloseRaid(SocketSlashCommand command, DiscordSocketClient discordClient);
+
+        public Task StartAllianceRaid(SocketSlashCommand command, DiscordSocketClient discordClient);
     }
 }

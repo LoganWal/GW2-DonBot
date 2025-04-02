@@ -63,7 +63,7 @@ namespace DonBot.Services.GuildWarsServices
                 var resurrectionTime = Convert.ToInt32(data.Players[playerIndex].Details?.Rotation?
                     .FirstOrDefault()
                     ?.Where(s => s.Count > ArcDpsDataIndices.RotationSkillIndex && Convert.ToInt32(s[ArcDpsDataIndices.RotationSkillIndex]) == ArcDpsDataIndices.RotationResurrectionSkill)
-                    .Sum(s => s[ArcDpsDataIndices.RotationSkillDurationIndex]) * 1000 ?? 0);
+                    .Sum(s => s[ArcDpsDataIndices.RotationSkillDurationIndex]) ?? 0);
 
                 existingPlayer.Kills = offensiveStatsTargets?.Sum(s => s[ArcDpsDataIndices.EnemyDeathIndex]) ?? 0;
                 existingPlayer.Deaths = Convert.ToInt64(defStats?[ArcDpsDataIndices.DeathIndex].Double ?? 0L);

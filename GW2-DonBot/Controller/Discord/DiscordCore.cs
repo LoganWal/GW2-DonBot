@@ -231,6 +231,12 @@ namespace DonBot.Controller.Discord
                     .WithDescription("Closes raid."),
 
                 new SlashCommandBuilder()
+                    .WithName("gw2_start_alliance_raid")
+                    .WithDescription("Starts alliance raid.")
+                    .AddOption("raid-message", ApplicationCommandOptionType.String, "Message in your raid alert, feel free to link your discord join link",
+                        isRequired: true),
+
+                new SlashCommandBuilder()
                     .WithName("gw2_set_log_channel")
                     .WithDescription("Set the channel for simple logs.")
                     .AddOption("channel", ApplicationCommandOptionType.Channel, "Which channel?", isRequired: true),
@@ -304,6 +310,7 @@ namespace DonBot.Controller.Discord
                     case "gw2_reopen_event_raffle": await Gw2ReopenEventRaffleCommandExecuted(command); break;
                     case "gw2_start_raid": await Gw2StartRaidCommandExecuted(command); break;
                     case "gw2_close_raid": await Gw2CloseRaidCommandExecuted(command); break;
+                    case "gw2_start_alliance_raid": await Gw2StartAllianceRaidCommandExecuted(command); break;
                     case "gw2_set_log_channel": await Gw2SetLogChannel(command); break;
                     case "steam_verify": await SteamVerifyCommandExecuted(command); break;
                     case "deadlock_mmr": await DeadlockMmrCommandExecuted(command); break;
@@ -333,6 +340,12 @@ namespace DonBot.Controller.Discord
         {
             await command.DeferAsync(ephemeral: true);
             await raidCommandService.CloseRaid(command, client);
+        }
+
+        private async Task Gw2StartAllianceRaidCommandExecuted(SocketSlashCommand command)
+        {
+            await command.DeferAsync(ephemeral: true);
+            await raidCommandService.StartAllianceRaid(command, client);
         }
 
         private async Task Gw2ReopenRaffleCommandExecuted(SocketSlashCommand command)

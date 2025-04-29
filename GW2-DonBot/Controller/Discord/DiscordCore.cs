@@ -63,7 +63,7 @@ namespace DonBot.Controller.Discord
 
             // Start polling roles task
             _pollingRolesCancellationTokenSource = new CancellationTokenSource();
-            //var pollingRolesTask = Task.Run(() => PollingRolesTask(TimeSpan.FromMinutes(30), _pollingRolesCancellationTokenSource.Token));
+            var pollingRolesTask = Task.Run(() => PollingRolesTask(TimeSpan.FromMinutes(30), _pollingRolesCancellationTokenSource.Token));
 
             _wordleBackgroundServiceCancellationTokenSource = new CancellationTokenSource();
             await schedulerService.StartAsync(_wordleBackgroundServiceCancellationTokenSource.Token);
@@ -78,7 +78,7 @@ namespace DonBot.Controller.Discord
             UnregisterEventHandlers();
 
             await _pollingRolesCancellationTokenSource.CancelAsync();
-            //await pollingRolesTask;
+            await pollingRolesTask;
 
             await _wordleBackgroundServiceCancellationTokenSource.CancelAsync();
         }

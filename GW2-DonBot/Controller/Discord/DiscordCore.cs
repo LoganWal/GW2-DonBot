@@ -1,5 +1,7 @@
 ﻿using Discord;
 using Discord.WebSocket;
+using DonBot.Models.Entities;
+using DonBot.Models.GuildWars2;
 using DonBot.Models.Statics;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.DiscordRequestServices;
@@ -61,7 +63,7 @@ namespace DonBot.Controller.Discord
 
             // Start polling roles task
             _pollingRolesCancellationTokenSource = new CancellationTokenSource();
-            var pollingRolesTask = Task.Run(() => PollingRolesTask(TimeSpan.FromMinutes(30), _pollingRolesCancellationTokenSource.Token));
+            //var pollingRolesTask = Task.Run(() => PollingRolesTask(TimeSpan.FromMinutes(30), _pollingRolesCancellationTokenSource.Token));
 
             _wordleBackgroundServiceCancellationTokenSource = new CancellationTokenSource();
             await schedulerService.StartAsync(_wordleBackgroundServiceCancellationTokenSource.Token);
@@ -76,7 +78,7 @@ namespace DonBot.Controller.Discord
             UnregisterEventHandlers();
 
             await _pollingRolesCancellationTokenSource.CancelAsync();
-            await pollingRolesTask;
+            //await pollingRolesTask;
 
             await _wordleBackgroundServiceCancellationTokenSource.CancelAsync();
         }
@@ -490,21 +492,18 @@ namespace DonBot.Controller.Discord
                     return;
                 }
 
+                Guild? guild;
                 if (seenMessage.Channel is not SocketGuildChannel channel)
                 {
                     logger.LogWarning("Did not find channel {seenMessageChannelName} in guild", seenMessage.Channel.Name);
-                    return;
+                    guild = await entityService.Guild.GetFirstOrDefaultAsync(g => g.GuildId == -1);
                 }
-
-                var guild = await entityService.Guild.GetFirstOrDefaultAsync(g => g.GuildId == (long)channel.Guild.Id);
-                if (guild?.LogDropOffChannelId == null)
+                else
                 {
-                    logger.LogWarning("Unable to find guild {channelGuildId}", channel.Guild.Id);
-                    return;
+                    guild = await entityService.Guild.GetFirstOrDefaultAsync(g => g.GuildId == (long)channel.Guild.Id);
                 }
 
-
-                if (guild.RemoveSpamEnabled && IsMatch(seenMessage.Content, @"\b((https?|ftp)://|www\.|(\w+\.)+\w{2,})(\S*)\b"))
+                if ((guild?.RemoveSpamEnabled ?? false) && IsMatch(seenMessage.Content, @"\b((https?|ftp)://|www\.|(\w+\.)+\w{2,})(\S*)\b"))
                 {
                     if (seenMessage.Channel is not SocketTextChannel)
                     {
@@ -531,13 +530,7 @@ namespace DonBot.Controller.Discord
 
                 bool embedMessage;
                 List<string> trimmedUrls;
-                if (seenMessage.Channel is not SocketTextChannel)
-                {
-                    logger.LogWarning("Unable to find channel {seenMessageChannelName}", seenMessage.Channel.Name);
-                    return;
-                }
-
-                if (seenMessage.Source != MessageSource.Webhook || seenMessage.Channel.Id != (ulong)guild.LogDropOffChannelId)
+                if (seenMessage.Source != MessageSource.Webhook || seenMessage.Channel.Id != (ulong)(guild?.LogDropOffChannelId ?? -1))
                 {
                     embedMessage = false;
 
@@ -569,11 +562,8 @@ namespace DonBot.Controller.Discord
 
                 if (trimmedUrls.Any())
                 {
-                    foreach (var url in trimmedUrls)
-                    {
-                        logger.LogInformation("Assessing: {url}", url);
-                        await AnalyseAndReportOnUrl(url, channel.Guild.Id, embedMessage);
-                    }
+                    logger.LogInformation("Assessing: {url}", string.Join(",", trimmedUrls));
+                    await AnalyseAndReportOnUrl(trimmedUrls, guild?.GuildId ?? -1, embedMessage, seenMessage.Channel);
                 }
             }
             catch (Exception e)
@@ -608,96 +598,137 @@ namespace DonBot.Controller.Discord
             }
         }
 
-        private async Task AnalyseAndReportOnUrl(string url, ulong guildId, bool isEmbed)
+        private async Task AnalyseAndReportOnUrl(List<string> urls, long guildId, bool isEmbed, ISocketMessageChannel replyChannel)
         {
-            if (isEmbed && _seenUrls.Contains(url))
+            var urlList = string.Join(",", urls);
+            if (isEmbed && urls.All(url => _seenUrls.Contains(url)))
             {
-                logger.LogWarning("Already seen, not analysing or reporting: {url}", url);
+                logger.LogWarning("Already seen, not analysing or reporting: {url}", urlList);
                 return;
             }
 
-            _seenUrls.Add(url);
+            foreach (var url in urls)
+            {
+                _seenUrls.Add(url);
+            }
 
-            logger.LogInformation("Analysing and reporting on: {url}", url);
-            var data = await dataModelGenerator.GenerateEliteInsightDataModelFromUrl(url);
+            logger.LogInformation("Analysing and reporting on: {url}", urlList);
+            var dataList = new List<EliteInsightDataModel>();
+
+            foreach (var url in urls)
+            {
+                dataList.Add(await dataModelGenerator.GenerateEliteInsightDataModelFromUrl(url));
+            }
 
             var guilds = await entityService.Guild.GetAllAsync();
-            var guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildId);
+            var guild = guilds.FirstOrDefault(g => g.GuildId == guildId) ?? guilds.Single(s => s.GuildId == -1);
 
-            if (guild == null)
-            {
-                return;
-            }
-
-            logger.LogInformation("Generating fight summary: {url}", url);
-
-            if (guild.LogReportChannelId == null)
-            {
-                logger.LogWarning("no log report channel id for guild id `{guildId}`", guild.GuildId);
-                return;
-            }
-
-            if (client.GetChannel((ulong)guild.LogReportChannelId) is not ITextChannel logReportChannel)
-            {
-                logger.LogWarning("Failed to find the target channel {guildLogReportChannelId}", guild.LogReportChannelId);
-                return;
-            }
+            logger.LogInformation("Generating fight summary: {url}", urlList);
 
             Embed message;
             MessageComponent? buttonBuilder = null;
-
-            if (data.Wvw)
-            {
-                if (isEmbed)
-                {
-                    if (guild.AdvanceLogReportChannelId != null)
-                    {
-                        if (client.GetChannel((ulong)guild.AdvanceLogReportChannelId) is not ITextChannel advanceLogReportChannel)
-                        {
-                            logger.LogWarning("Failed to find the target channel {guildAdvanceLogReportChannelId}", guild.AdvanceLogReportChannelId);
-                            return;
-                        }
-
-                        var advancedMessage = await messageGenerationService.GenerateWvWFightSummary(data, true, guild, client);
-                        await advanceLogReportChannel.SendMessageAsync(text: "", embeds: [advancedMessage]);
-                    }
-
-                    if (guild.PlayerReportChannelId != null && client.GetChannel((ulong)guild.PlayerReportChannelId) is SocketTextChannel playerChannel)
-                    {
-                        var messages = await playerChannel.GetMessagesAsync(10).FlattenAsync();
-                        await playerChannel.DeleteMessagesAsync(messages);
-
-                        var activePlayerMessage = await messageGenerationService.GenerateWvWActivePlayerSummary(guild, url);
-                        var playerMessage = await messageGenerationService.GenerateWvWPlayerSummary(guild);
-
-                        await playerChannel.SendMessageAsync(text: "", embeds: [activePlayerMessage]);
-                        await playerChannel.SendMessageAsync(text: "", embeds: [playerMessage]);
-                    }
-
-                    await playerService.SetPlayerPoints(data);
-                }
-
-                message = await messageGenerationService.GenerateWvWFightSummary(data, false, guild, client);
-
-                buttonBuilder = new ComponentBuilder()
-                    .WithButton("Know My Enemy", ButtonId.KnowMyEnemy)
-                    .Build();
-            }
-            else
-            {
-                message = await messageGenerationService.GeneratePvEFightSummary(data, (long)guildId);
-            }
-
             if (isEmbed)
             {
-                await logReportChannel.SendMessageAsync(text: "", embeds: [message], components: buttonBuilder);
+                foreach (var eliteInsightDataModel in dataList)
+                {
+                    if (eliteInsightDataModel.Wvw)
+                    {
+                        if (guild.AdvanceLogReportChannelId != null)
+                        {
+                            if (client.GetChannel((ulong)guild.AdvanceLogReportChannelId) is not ITextChannel
+                                advanceLogReportChannel)
+                            {
+                                logger.LogWarning("Failed to find the target channel {guildAdvanceLogReportChannelId}", guild.AdvanceLogReportChannelId);
+                                await replyChannel.SendMessageAsync("Failed to find the advanced log report channel.");
+                                return;
+                            }
+
+                            var advancedMessage = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, true, guild, client);
+                            await advanceLogReportChannel.SendMessageAsync(text: "", embeds: [advancedMessage]);
+                        }
+
+                        if (guild.PlayerReportChannelId != null && client.GetChannel((ulong)guild.PlayerReportChannelId) is SocketTextChannel playerChannel)
+                        {
+                            var messages = await playerChannel.GetMessagesAsync(10).FlattenAsync();
+                            await playerChannel.DeleteMessagesAsync(messages);
+
+                            var activePlayerMessage = await messageGenerationService.GenerateWvWActivePlayerSummary(guild, eliteInsightDataModel.Url);
+                            var playerMessage = await messageGenerationService.GenerateWvWPlayerSummary(guild);
+
+                            await playerChannel.SendMessageAsync(text: "", embeds: [activePlayerMessage]);
+                            await playerChannel.SendMessageAsync(text: "", embeds: [playerMessage]);
+                        }
+
+                        await playerService.SetPlayerPoints(eliteInsightDataModel);
+
+                        message = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, false, guild, client);
+                        message = await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, (long)guildId);
+
+                        buttonBuilder = new ComponentBuilder()
+                            .WithButton("Know My Enemy", ButtonId.KnowMyEnemy)
+                            .Build();
+                    }
+                    else
+                    {
+                        message = await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, (long)guildId);
+                    }
+
+                    if (guild.LogReportChannelId == null)
+                    {
+                        logger.LogWarning("no log report channel id for guild id `{guildId}`", guild.GuildId);
+                        return;
+                    }
+
+                    if (client.GetChannel((ulong)guild.LogReportChannelId) is not ITextChannel logReportChannel)
+                    {
+                        logger.LogWarning("Failed to find the target channel {guildLogReportChannelId}", guild.LogReportChannelId);
+                        return;
+                    }
+
+                    await logReportChannel.SendMessageAsync(text: "", embeds: [message], components: buttonBuilder);
+                }
             }
             else
             {
-                //TODO: update non embed to give option to user if they want to show the message, if so show, if many show aggregate
-                //await replyChannel.SendMessageAsync(text: "", embeds: new[] { message }, components: buttonBuilder);
+                if (dataList.Count > 1)
+                {
+                    foreach (var eliteInsightDataModel in dataList)
+                    {
+                        if (eliteInsightDataModel.Wvw)
+                        {
+                            await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, false, guild, client);
+                        }
+                        else
+                        {
+                            await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, guildId);
+                        }
+                    }
+
+                    var messages = await messageGenerationService.GenerateRaidReplyReport(urls);
+                    if (messages != null)
+                    {
+                        foreach (var bulkMessage in messages)
+                        {
+                            await replyChannel.SendMessageAsync(embeds: [bulkMessage]);
+                        }
+                    }
+                }
+                else
+                {
+                    if (dataList.First().Wvw)
+                    {
+                        message = await messageGenerationService.GenerateWvWFightSummary(dataList.First(), false, guild, client);
+                    }
+                    else
+                    {
+                        message = await messageGenerationService.GeneratePvEFightSummary(dataList.First(), guild.GuildId);
+                    }
+                    await replyChannel.SendMessageAsync(text: "", embeds: [message], components: buttonBuilder);
+                }
             }
-            logger.LogInformation("Completed and posted report on: {url}", url);
+
+            logger.LogInformation("Completed and posted report on: {url}", urlList);
         }
+
     }
 }

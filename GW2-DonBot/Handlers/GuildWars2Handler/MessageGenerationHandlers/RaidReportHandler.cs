@@ -22,6 +22,44 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
             }
 
             var fights = (await entityService.FightLog.GetWhereAsync(s => s.GuildId == guildId && s.FightStart >= fightsReport.FightsStart && s.FightStart <= fightsReport.FightsEnd)).OrderBy(s => s.FightStart).ToList();
+            return await GetRaidReport(guildId, fights, messages);
+        }
+
+        public async Task<List<Embed>?> GenerateSimpleReply(List<string> urls)
+        {
+            var messages = new List<Embed>();
+            var fights = (await entityService.FightLog.GetWhereAsync(s => urls.Contains(s.Url))).ToList();
+
+            return await GetRaidReport(-1, fights, messages);
+        }
+
+        public async Task<Embed> GenerateRaidAlert(long guildId)
+        {
+            // Building the message via embeds
+            var message = new EmbedBuilder
+            {
+                Title = "RAID STARTING!\n",
+                Description = "***GET IN HERE!***\n",
+                Color = (Color)System.Drawing.Color.Gold,
+                Author = new EmbedAuthorBuilder()
+                {
+                    Name = "GW2-DonBot",
+                    Url = "https://github.com/LoganWal/GW2-DonBot",
+                    IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                },
+                Footer = new EmbedFooterBuilder()
+                {
+                    Text = $"{await footerHandler.Generate(guildId)}",
+                    IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                },
+                Timestamp = DateTime.Now
+            };
+
+            return message.Build();
+        }
+
+        private async Task<List<Embed>?> GetRaidReport(long guildId, List<FightLog> fights, List<Embed> messages)
+        {
             var fightLogIds = fights.Select(f => f.FightLogId).ToList();
             var playerFights = await entityService.PlayerFightLog.GetWhereAsync(s => fightLogIds.Contains(s.FightLogId));
 
@@ -66,31 +104,6 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
             }
 
             return messages;
-        }
-
-        public async Task<Embed> GenerateRaidAlert(long guildId)
-        {
-            // Building the message via embeds
-            var message = new EmbedBuilder
-            {
-                Title = "RAID STARTING!\n",
-                Description = "***GET IN HERE!***\n",
-                Color = (Color)System.Drawing.Color.Gold,
-                Author = new EmbedAuthorBuilder()
-                {
-                    Name = "GW2-DonBot",
-                    Url = "https://github.com/LoganWal/GW2-DonBot",
-                    IconUrl = "https://i.imgur.com/tQ4LD6H.png"
-                },
-                Footer = new EmbedFooterBuilder()
-                {
-                    Text = $"{await footerHandler.Generate(guildId)}",
-                    IconUrl = "https://i.imgur.com/tQ4LD6H.png"
-                },
-                Timestamp = DateTime.Now
-            };
-
-            return message.Build();
         }
 
         private async Task<Embed> GenerateWvWRaidReport(string durationString, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, bool advancedLog, long guildId)
@@ -414,7 +427,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
                 foreach (var item in currentBatch)
                 {
-                    var failedPercentageString = !isSuccessLogs ? $"- {item.FightPercent}" : string.Empty;
+                    var failedPercentageString = !isSuccessLogs ? $" - {(item.FightPhase != null ? item.FightPhase : string.Empty)} - {item.FightPercent}" : string.Empty;
                     fightUrlOverview += $"{Enum.GetName(typeof(FightTypesEnum), item.FightType)}{failedPercentageString} - {item.Url}\n";
                 }
 

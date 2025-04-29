@@ -5,7 +5,7 @@ namespace DonBot.Models.GuildWars2
     public class EliteInsightDataModel
     {
         [JsonProperty("url")]
-        public string? Url { get; set; }
+        public string Url { get; set; } = string.Empty;
 
         [JsonProperty("targets")]
         public List<ArcDpsTarget>? Targets { get; set; }
@@ -175,6 +175,9 @@ namespace DonBot.Models.GuildWars2
 
     public class ArcDpsTarget
     {
+        [JsonProperty("hbWidth")]
+        public int HbWidth { get; set; }
+
         [JsonProperty("percent")]
         public float Percent { get; set; }
 

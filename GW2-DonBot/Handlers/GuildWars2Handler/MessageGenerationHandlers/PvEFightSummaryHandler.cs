@@ -6,6 +6,7 @@ using DonBot.Models.GuildWars2;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.GuildWarsServices;
 using System.Globalization;
+using System.Runtime.ConstrainedExecution;
 
 namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 {
@@ -212,6 +213,13 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
                     FightPercent = Math.Round((mainTarget.HpLeft / (decimal)mainTarget.Health) * 100, 2)
                 };
 
+                if (encounterType == (short)FightTypesEnum.Ht)
+                {
+                    var finalTarget = data.Targets?.LastOrDefault(s => s.HbWidth == 800) ?? mainTarget;
+                    fightLog.FightPhase = data.Targets?.Count(s => s.HbWidth == 800);
+                    fightLog.FightPercent = Math.Round((finalTarget.HpLeft / (decimal)finalTarget.Health) * 100, 2);
+                }
+
                 await entityService.FightLog.AddAsync(fightLog);
 
                 var playerFights = gw2Players.Select(gw2Player => new PlayerFightLog
@@ -258,7 +266,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
             var message = new EmbedBuilder
             {
                 Title = $"Fight Recorded - {data.FightName}\n",
-                Description = $"**Length:** {data.EncounterDuration}{(data.Success ? string.Empty : $" - {fightLog.FightPercent}%")}\n",
+                Description = $"**Length:** {data.EncounterDuration}{(data.Success ? string.Empty : $" {(fightLog.FightPhase != null ? (fightLog.FightPhase) : string.Empty)} - {fightLog.FightPercent}%")}\n",
                 Color = data.Success ? Color.Green : Color.Red,
                 Author = new EmbedAuthorBuilder()
                 {

@@ -44,6 +44,11 @@ namespace DonBot.Services.GuildWarsServices
             return await raidReportHandler.Generate(fightsReport, guildId);
         }
 
+        public async Task<List<Embed>?> GenerateRaidReplyReport(List<string> urls)
+        {
+            return await raidReportHandler.GenerateSimpleReply(urls);
+        }
+
         public async Task<Embed> GenerateRaidAlert(long guildId)
         {
             return await raidReportHandler.GenerateRaidAlert(guildId);

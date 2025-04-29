@@ -17,7 +17,9 @@ namespace DonBot.Services.GuildWarsServices
 
         public Task<Embed> GenerateWvWActivePlayerSummary(Guild gw2Guild, string fightLogUrl);
 
-        public Task<List<Embed>?> GenerateRaidReport(FightsReport fightsReportId, long guildId);
+        public Task<List<Embed>?> GenerateRaidReport(FightsReport fightsReport, long guildId);
+
+        public Task<List<Embed>?> GenerateRaidReplyReport(List<string> urls);
 
         public Task<Embed> GenerateRaidAlert(long guildId);
     }

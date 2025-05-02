@@ -662,8 +662,6 @@ namespace DonBot.Controller.Discord
                         await playerService.SetPlayerPoints(eliteInsightDataModel);
 
                         message = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, false, guild, client);
-                        message = await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, (long)guildId);
-
                         buttonBuilder = new ComponentBuilder()
                             .WithButton("Know My Enemy", ButtonId.KnowMyEnemy)
                             .Build();

@@ -6,7 +6,6 @@ using DonBot.Models.GuildWars2;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.GuildWarsServices;
 using System.Globalization;
-using System.Runtime.ConstrainedExecution;
 
 namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 {

@@ -607,11 +607,6 @@ namespace DonBot.Controller.Discord
                 return;
             }
 
-            foreach (var url in urls)
-            {
-                _seenUrls.Add(url);
-            }
-
             logger.LogInformation("Analysing and reporting on: {url}", urlList);
             var dataList = new List<EliteInsightDataModel>();
 
@@ -631,6 +626,11 @@ namespace DonBot.Controller.Discord
             {
                 foreach (var eliteInsightDataModel in dataList)
                 {
+                    if (_seenUrls.Contains(eliteInsightDataModel.Url))
+                    {
+                        logger.LogInformation("Already seen {url}, going to next log.", eliteInsightDataModel.Url);
+                        continue;
+                    }
                     if (eliteInsightDataModel.Wvw)
                     {
                         if (guild.AdvanceLogReportChannelId != null)
@@ -640,7 +640,7 @@ namespace DonBot.Controller.Discord
                             {
                                 logger.LogWarning("Failed to find the target channel {guildAdvanceLogReportChannelId}", guild.AdvanceLogReportChannelId);
                                 await replyChannel.SendMessageAsync("Failed to find the advanced log report channel.");
-                                return;
+                                continue;
                             }
 
                             var advancedMessage = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, true, guild, client);
@@ -726,6 +726,10 @@ namespace DonBot.Controller.Discord
             }
 
             logger.LogInformation("Completed and posted report on: {url}", urlList);
+            foreach (var url in urls)
+            {
+                _seenUrls.Add(url);
+            }
         }
 
     }

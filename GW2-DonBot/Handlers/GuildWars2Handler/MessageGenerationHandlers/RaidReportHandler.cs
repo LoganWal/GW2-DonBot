@@ -60,6 +60,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
         private async Task<List<Embed>?> GetRaidReport(long guildId, List<FightLog> fights, List<Embed> messages)
         {
+            fights = fights.OrderBy(s => s.FightStart).ToList();
             var fightLogIds = fights.Select(f => f.FightLogId).ToList();
             var playerFights = await entityService.PlayerFightLog.GetWhereAsync(s => fightLogIds.Contains(s.FightLogId));
 

@@ -431,7 +431,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
             if (!isSuccessLogs)
             {
-                fightLogs = fightLogs.OrderBy(s => s.FightPhase).ThenByDescending(s => s.FightPercent).ToList();
+                fightLogs = fightLogs.OrderBy(s => s.FightType).ThenBy(s => s.FightPhase).ThenByDescending(s => s.FightPercent).ToList();
             }
 
             // Building the message via embeds

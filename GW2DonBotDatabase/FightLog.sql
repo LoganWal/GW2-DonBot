@@ -8,6 +8,7 @@
 	[IsSuccess] [bit] NOT NULL,
 	[FightPercent] [decimal](6, 2) NOT NULL,
 	[FightPhase] INT NULL, 
+    [FightMode] INT NULL DEFAULT 0, 
     PRIMARY KEY CLUSTERED 
 (
 	[FightLogId] ASC

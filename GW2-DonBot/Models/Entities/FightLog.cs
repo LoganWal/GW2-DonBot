@@ -23,5 +23,7 @@ namespace DonBot.Models.Entities
         public decimal FightPercent { get; set; }
 
         public int? FightPhase { get; set; }
+
+        public int FightMode { get; set; }
     }
 }

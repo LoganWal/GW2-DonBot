@@ -246,41 +246,69 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
             };
 
 
-            var fightsOverview = "```Fight       Best  (t)    Success (t)     Count\n";
-
-            // Fetch all the data in one go
+            var fightsOverviewBuffer = "Fight           Best  (t)    Success (t)     Count\n";
             var allFightLogs = await entityService.FightLog.GetWhereAsync(s => s.GuildId == guildId);
 
-            // Create a dictionary to store the best fight duration for each fight type
-            var bestFightDurations = allFightLogs
-                .Where(s => s.IsSuccess)
-                .GroupBy(s => s.FightType)
-                .ToDictionary(
-                    g => g.Key,
-                    g => g.MinBy(s => s.FightDurationInMs)?.FightDurationInMs ?? 0
-                );
+            allFightLogs.RemoveAll(s => fights.Select(d => d.FightLogId).Contains(s.FightLogId));
+            var lineCount = 1; // Start with 1 to account for the header line
 
             foreach (var groupedFight in groupedFights)
             {
-                var bestFight = bestFightDurations.GetValueOrDefault(groupedFight.Key, 0);
-
                 var fightsListForType = groupedFight.ToList();
+                var groupedByMode = fightsListForType.GroupBy(s => s.FightMode).ToList();
 
-                var bestFightTime = TimeSpan.FromMilliseconds(bestFight);
-                var bestFightTimeString = $"{(bestFightTime.Hours * 60) + bestFightTime.Minutes:D2}m:{bestFightTime.Seconds:D2}s";
-
-                var successFightTime = TimeSpan.FromMilliseconds(fightsListForType.Where(s => s.IsSuccess).Sum(s => s.FightDurationInMs));
-                var successFightTimeString = $"{(successFightTime.Hours * 60) + successFightTime.Minutes:D2}m:{successFightTime.Seconds:D2}s";
-
-                if (successFightTime <= bestFightTime)
+                foreach (var fightTypeFightMode in groupedByMode)
                 {
-                    successFightTimeString += " (!)";
-                }
+                    var bestFight = allFightLogs
+                        .Where(s => s.IsSuccess && s.FightType == groupedFight.Key && s.FightMode == fightTypeFightMode.Key)
+                        .OrderBy(s => s.FightDurationInMs)
+                        .FirstOrDefault(s => s.IsSuccess);
 
-                fightsOverview += $"{Enum.GetName(typeof(FightTypesEnum), groupedFight.Key)?.PadRight(10) ?? "uknwn"}{string.Empty,2}{bestFightTimeString,-6}{string.Empty,6}{successFightTimeString,-11}{string.Empty,5}{fightsListForType.Count}\n";
+                    var fightTypeFightModeList = fightTypeFightMode.ToList();
+
+                    var bestFightTime = TimeSpan.FromMilliseconds(bestFight?.FightDurationInMs ?? 0);
+                    var bestFightTimeString = bestFightTime.Ticks != 0 ? $"{(bestFightTime.Hours * 60) + bestFightTime.Minutes:D2}m:{bestFightTime.Seconds:D2}s" : "None   ";
+
+                    var successFights = fightTypeFightModeList.Where(s => s.IsSuccess).ToList();
+                    var successFightTime = TimeSpan.FromMilliseconds(successFights.Count != 0 ? successFights.Min(s => s.FightDurationInMs) : 0);
+                    var successFightTimeString = successFightTime.Ticks != 0 ? $"{(successFightTime.Hours * 60) + successFightTime.Minutes:D2}m:{successFightTime.Seconds:D2}s" : "None   ";
+
+                    if (successFightTime <= bestFightTime && successFightTime.Ticks != 0)
+                    {
+                        successFightTimeString += " (!)";
+                    }
+
+                    // Add the current line to the buffer
+                    fightsOverviewBuffer += $"({Enum.GetName(typeof(FightModesEnum), fightTypeFightMode.Key) ?? FightModesEnum.Nm.ToString()}){(Enum.GetName(typeof(FightTypesEnum), groupedFight.Key) ?? FightTypesEnum.Unkn.ToString()),-10}{string.Empty,2}{bestFightTimeString,-6}{string.Empty,6}{successFightTimeString,-11}{string.Empty,5}{fightTypeFightModeList.Count}\n";
+                    lineCount++;
+
+                    // Add a new field every 12 lines
+                    if (lineCount % 12 == 0)
+                    {
+                        var buffer = fightsOverviewBuffer;
+                        message.AddField(x =>
+                        {
+                            x.Name = "Fights Overview";
+                            x.Value = $"```{buffer}```";
+                            x.IsInline = false;
+                        });
+
+                        // Clear the buffer for the next batch
+                        fightsOverviewBuffer = string.Empty;
+                    }
+                }
             }
 
-            fightsOverview += "```";
+            // Add any remaining lines in the buffer as a final field
+            if (!string.IsNullOrEmpty(fightsOverviewBuffer))
+            {
+                message.AddField(x =>
+                {
+                    x.Name = "Fights Overview";
+                    x.Value = fightsOverviewBuffer;
+                    x.IsInline = false;
+                });
+            }
 
             var playerLineByDmg = new List<Tuple<float, string>>();
             foreach (var groupedPlayerFight in groupedPlayerFights)
@@ -308,12 +336,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
             survivabilityOverview += "```";
 
-            message.AddField(x =>
-            {
-                x.Name = "Fights Overview";
-                x.Value = $"{fightsOverview}";
-                x.IsInline = false;
-            });
+
 
             message.AddField(x =>
             {
@@ -406,6 +429,11 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
                 return null;
             }
 
+            if (!isSuccessLogs)
+            {
+                fightLogs = fightLogs.OrderBy(s => s.FightPhase).ThenByDescending(s => s.FightPercent).ToList();
+            }
+
             // Building the message via embeds
             var message = new EmbedBuilder
             {
@@ -428,8 +456,8 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
                 foreach (var item in currentBatch)
                 {
-                    var failedPercentageString = !isSuccessLogs ? $" - {(item.FightPhase != null ? item.FightPhase : string.Empty)} - {item.FightPercent}" : string.Empty;
-                    fightUrlOverview += $"{Enum.GetName(typeof(FightTypesEnum), item.FightType)}{failedPercentageString} - {item.Url}\n";
+                    var failedPercentageString = !isSuccessLogs ? $"{(item.FightPhase != null ? ($" - P{item.FightPhase}") : string.Empty)} - {item.FightPercent}%" : string.Empty;
+                    fightUrlOverview += $"{Enum.GetName(typeof(FightTypesEnum), item.FightType)} - {item.FightMode.GetFightModeName()}{failedPercentageString} - {item.Url}\n";
                 }
 
                 message.AddField(x =>

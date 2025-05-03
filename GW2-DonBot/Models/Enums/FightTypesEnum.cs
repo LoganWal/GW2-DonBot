@@ -46,6 +46,17 @@
         AiDark = 41,
         AiBoth = 42,
         Kanaxai = 43,
-        Unkn = short.MaxValue
+        Greer = 44,
+        Decima = 45,
+        Ura = 46,
+        Icebrood = 47,
+        Fraenir = 48,
+        Kodan = 49,
+        Whisper = 50,
+        Boneskinner = 51,
+        Eparch = 52,
+        Spirit = 53,
+        Golem = 32766,
+        Unkn = short.MaxValue,
     }
 }

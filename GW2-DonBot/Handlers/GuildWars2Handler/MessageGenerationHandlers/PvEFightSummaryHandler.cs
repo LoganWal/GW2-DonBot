@@ -36,6 +36,9 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
                     encounterType = (short)FightTypesEnum.Vale;
                     sumAllTargets = false;
                     break;
+                case 131332:
+                    encounterType = (short)FightTypesEnum.Spirit;
+                    break;
                 case 131330:
                     encounterType = (short)FightTypesEnum.Gorseval;
                     sumAllTargets = false;
@@ -135,6 +138,33 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
                     encounterType = (short)FightTypesEnum.Peerless;
                     sumAllTargets = false;
                     break;
+                case 133121:
+                    encounterType = (short)FightTypesEnum.Greer;
+                    sumAllTargets = false;
+                    break;
+                case 133122:
+                    encounterType = (short)FightTypesEnum.Decima;
+                    sumAllTargets = false;
+                    break;
+                case 133123:
+                    encounterType = (short)FightTypesEnum.Ura;
+                    sumAllTargets = false;
+                    break;
+                case 262657:
+                    encounterType = (short)FightTypesEnum.Icebrood;
+                    break;
+                case 262658:
+                    encounterType = (short)FightTypesEnum.Fraenir;
+                    break;
+                case 262659:
+                    encounterType = (short)FightTypesEnum.Kodan;
+                    break;
+                case 262661:
+                    encounterType = (short)FightTypesEnum.Whisper;
+                    break;
+                case 262660:
+                    encounterType = (short)FightTypesEnum.Boneskinner;
+                    break;
                 case 262913:
                     encounterType = (short)FightTypesEnum.Ah;
                     break;
@@ -186,6 +216,9 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
                 case 197633:
                     encounterType = (short)FightTypesEnum.Kanaxai;
                     break;
+                case 197890:
+                    encounterType = (short)FightTypesEnum.Eparch;
+                    break;
                 default:
                     encounterType = (short)FightTypesEnum.Unkn;
                     break;
@@ -198,18 +231,55 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
                 Health = 1
             };
 
-            var fightLog = await entityService.FightLog.GetFirstOrDefaultAsync(s => s.Url == data.Url);
-            if (fightLog == null)
+            var existingFightLog = await entityService.FightLog.GetFirstOrDefaultAsync(s => s.Url == data.Url);
+
+            if (existingFightLog != null)
             {
-                fightLog = new FightLog
+                // Update the properties of the existing fight log
+                existingFightLog.GuildId = guildId;
+                existingFightLog.FightType = encounterType;
+                existingFightLog.FightStart = dateTimeStart;
+                existingFightLog.FightDurationInMs = duration;
+                existingFightLog.IsSuccess = data.Success;
+                existingFightLog.FightPercent = Math.Round((mainTarget.HpLeft / (decimal)mainTarget.Health) * 100, 2);
+                existingFightLog.FightMode = !string.IsNullOrEmpty(data.FightMode)
+                    ? data.GetFightMode()
+                    : data.FightName?.Split(' ').LastOrDefault() switch
+                    {
+                        "CM" => 1,
+                        "LCM" => 2,
+                        _ => 0
+                    };
+
+                if (encounterType == (short)FightTypesEnum.Ht)
+                {
+                    var finalTarget = data.Targets?.LastOrDefault(s => s.HbWidth == 800) ?? mainTarget;
+                    existingFightLog.FightPhase = data.Targets?.Count(s => s.HbWidth == 800);
+                    existingFightLog.FightPercent = Math.Round((finalTarget.HpLeft / (decimal)finalTarget.Health) * 100, 2);
+                }
+
+                await entityService.FightLog.UpdateAsync(existingFightLog);
+            }
+            else
+            {
+                // Create a new fight log
+                var fightLog = new FightLog
                 {
                     GuildId = guildId,
-                    Url = data.Url ?? string.Empty,
+                    Url = data.Url,
                     FightType = encounterType,
                     FightStart = dateTimeStart,
                     FightDurationInMs = duration,
                     IsSuccess = data.Success,
-                    FightPercent = Math.Round((mainTarget.HpLeft / (decimal)mainTarget.Health) * 100, 2)
+                    FightPercent = Math.Round((mainTarget.HpLeft / (decimal)mainTarget.Health) * 100, 2),
+                    FightMode = !string.IsNullOrEmpty(data.FightMode)
+                        ? data.GetFightMode()
+                        : data.FightName?.Split(' ').LastOrDefault() switch
+                        {
+                            "CM" => 1,
+                            "LCM" => 2,
+                            _ => 0
+                        }
                 };
 
                 if (encounterType == (short)FightTypesEnum.Ht)
@@ -221,6 +291,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
 
                 await entityService.FightLog.AddAsync(fightLog);
 
+                // Add player fight logs
                 var playerFights = gw2Players.Select(gw2Player => new PlayerFightLog
                 {
                     FightLogId = fightLog.FightLogId,
@@ -256,16 +327,15 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
                     DeimosOilsTriggered = gw2Player.DeimosOilsTriggered,
                     TimesInterrupted = gw2Player.TimesInterrupted,
                     ResurrectionTime = gw2Player.ResurrectionTime
-                })
-                .ToList();
+                }).ToList();
 
                 await entityService.PlayerFightLog.AddRangeAsync(playerFights);
             }
 
             var message = new EmbedBuilder
             {
-                Title = $"Fight Recorded - {data.FightName}\n",
-                Description = $"**Length:** {data.EncounterDuration}{(data.Success ? string.Empty : $" {(fightLog.FightPhase != null ? (fightLog.FightPhase) : string.Empty)} - {fightLog.FightPercent}%")}\n",
+                Title = $"{data.FightName}\n",
+                Description = $"**Length:** {data.EncounterDuration}{(data.Success ? string.Empty : $" {(existingFightLog?.FightPhase != null ? (existingFightLog.FightPhase) : string.Empty)} - {existingFightLog?.FightPercent}%")}\n",
                 Color = data.Success ? Color.Green : Color.Red,
                 Author = new EmbedAuthorBuilder()
                 {
@@ -282,7 +352,7 @@ namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers
                 Timestamp = DateTime.Now
             };
 
-            var fightInSeconds = fightLog.FightDurationInMs / 1000f;
+            var fightInSeconds = existingFightLog?.FightDurationInMs / 1000f ?? duration / 1000f;
             var playerOverview = "```Player         Dmg       Cleave    Alac    Quick                                                         \n";
             foreach (var gw2Player in gw2Players.OrderByDescending(s => s.Damage))
             {

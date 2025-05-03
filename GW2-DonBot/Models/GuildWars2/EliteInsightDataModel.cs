@@ -37,6 +37,9 @@ namespace DonBot.Models.GuildWars2
         [JsonProperty("fightName")]
         public string? FightName { get; set; }
 
+        [JsonProperty("fightMode")]
+        public string FightMode { get; set; } = string.Empty;
+
         [JsonProperty("encounterStart")]
         public string EncounterStart { get; set; } = string.Empty;
 
@@ -45,6 +48,17 @@ namespace DonBot.Models.GuildWars2
 
         [JsonProperty("encounterID")]
         public long EncounterId { get; set; }
+
+        public int GetFightMode()
+        {
+            return FightMode switch
+            {
+                "Normal Mode" => 0,
+                "Challenge Mode" => 1,
+                "Legendary Challenge Mode" => 2,
+                _ => 0
+            };
+        }
     }
 
     public class BarrierStatsExtension

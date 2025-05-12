@@ -1,29 +1,28 @@
-﻿namespace DonBot.Services.SecretsServices
+﻿namespace DonBot.Services.SecretsServices;
+
+public class SecretServices : ISecretService
 {
-    public class SecretServices : ISecretService
+    public string FetchDonBotSqlConnectionString()
     {
-        public string FetchDonBotSqlConnectionString()
+        var donBotSqlConnectionString = Environment.GetEnvironmentVariable("DonBotSqlConnectionString", EnvironmentVariableTarget.Machine);
+
+        if (string.IsNullOrEmpty(donBotSqlConnectionString))
         {
-            var donBotSqlConnectionString = Environment.GetEnvironmentVariable("DonBotSqlConnectionString", EnvironmentVariableTarget.Machine);
-
-            if (string.IsNullOrEmpty(donBotSqlConnectionString))
-            {
-                throw new Exception("DonBotSqlConnectionString does not exist");
-            }
-
-            return donBotSqlConnectionString;
+            throw new Exception("DonBotSqlConnectionString does not exist");
         }
 
-        public string FetchDonBotToken()
+        return donBotSqlConnectionString;
+    }
+
+    public string FetchDonBotToken()
+    {
+        var donBotToken = Environment.GetEnvironmentVariable("DonBotToken", EnvironmentVariableTarget.Machine);
+
+        if (string.IsNullOrEmpty(donBotToken))
         {
-            var donBotToken = Environment.GetEnvironmentVariable("DonBotToken", EnvironmentVariableTarget.Machine);
-
-            if (string.IsNullOrEmpty(donBotToken))
-            {
-                throw new Exception("DonBotToken does not exist");
-            }
-
-            return donBotToken;
+            throw new Exception("DonBotToken does not exist");
         }
+
+        return donBotToken;
     }
 }

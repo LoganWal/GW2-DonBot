@@ -1,15 +1,14 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace DonBot.Models.Entities
+namespace DonBot.Models.Entities;
+
+public class GuildQuote
 {
-    public class GuildQuote
-    {
-        [Key]
-        public long GuildQuoteId { get; set; }
+    [Key]
+    public long GuildQuoteId { get; set; }
 
-        public long GuildId { get; set; }
+    public long GuildId { get; set; }
 
-        [MaxLength(1000)]
-        public string Quote { get; set; } = string.Empty;
-    }
+    [MaxLength(1000)]
+    public string Quote { get; set; } = string.Empty;
 }

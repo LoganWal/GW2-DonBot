@@ -1,9 +1,8 @@
-﻿namespace DonBot.Models.Enums
+﻿namespace DonBot.Models.Enums;
+
+public enum FightModesEnum
 {
-    public enum FightModesEnum
-    {
-        Nm = 0,
-        Cm = 1,
-        Lcm = 2,
-    }
+    Nm = 0,
+    Cm = 1,
+    Lcm = 2,
 }

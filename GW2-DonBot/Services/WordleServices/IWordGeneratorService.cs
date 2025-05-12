@@ -1,7 +1,6 @@
-﻿namespace DonBot.Services.WordleServices
+﻿namespace DonBot.Services.WordleServices;
+
+public interface IWordGeneratorService
 {
-    public interface IWordGeneratorService
-    {
-        string GenerateStartingWord(string wordleWord);
-    }
+    string GenerateStartingWord(string wordleWord);
 }

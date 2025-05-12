@@ -1,13 +1,12 @@
 ﻿using Discord.WebSocket;
 
-namespace DonBot.Services.DiscordRequestServices
+namespace DonBot.Services.DiscordRequestServices;
+
+public interface IRaidCommandService
 {
-    public interface IRaidCommandService
-    {
-        public Task StartRaid(SocketSlashCommand command, DiscordSocketClient discordClient);
+    public Task StartRaid(SocketSlashCommand command, DiscordSocketClient discordClient);
 
-        public Task CloseRaid(SocketSlashCommand command, DiscordSocketClient discordClient);
+    public Task CloseRaid(SocketSlashCommand command, DiscordSocketClient discordClient);
 
-        public Task StartAllianceRaid(SocketSlashCommand command, DiscordSocketClient discordClient);
-    }
+    public Task StartAllianceRaid(SocketSlashCommand command, DiscordSocketClient discordClient);
 }

@@ -1,9 +1,8 @@
-﻿namespace DonBot.Services.SecretsServices
-{
-    public interface ISecretService
-    {
-        public string FetchDonBotSqlConnectionString();
+﻿namespace DonBot.Services.SecretsServices;
 
-        public string FetchDonBotToken();
-    }
+public interface ISecretService
+{
+    public string FetchDonBotSqlConnectionString();
+
+    public string FetchDonBotToken();
 }

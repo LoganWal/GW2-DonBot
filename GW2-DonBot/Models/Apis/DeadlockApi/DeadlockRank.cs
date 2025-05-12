@@ -1,16 +1,15 @@
 ﻿using Newtonsoft.Json;
 
-namespace DonBot.Models.Apis.DeadlockApi
+namespace DonBot.Models.Apis.DeadlockApi;
+
+public class DeadlockRank
 {
-    public class DeadlockRank
-    {
-        [JsonProperty("account_id")]
-        public int AccountId { get; set; }
+    [JsonProperty("account_id")]
+    public int AccountId { get; set; }
 
-        [JsonProperty("player_score")]
-        public int PlayerScore { get; set; }
+    [JsonProperty("player_score")]
+    public int PlayerScore { get; set; }
 
-        [JsonProperty("leaderboard_rank")]
-        public int LeaderboardRank { get; set; }
-    }
+    [JsonProperty("leaderboard_rank")]
+    public int LeaderboardRank { get; set; }
 }

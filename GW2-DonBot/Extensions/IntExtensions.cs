@@ -1,16 +1,15 @@
-namespace DonBot.Extensions
+namespace DonBot.Extensions;
+
+public static class IntExtensions
 {
-    public static class IntExtensions
+    public static string GetFightModeName(this int fightMode)
     {
-        public static string GetFightModeName(this int fightMode)
+        return fightMode switch
         {
-            return fightMode switch
-            {
-                0 => "NM",
-                1 => "CM",
-                2 => "LCM",
-                _ => "NM"
-            };
-        }
+            0 => "NM",
+            1 => "CM",
+            2 => "LCM",
+            _ => "NM"
+        };
     }
 }

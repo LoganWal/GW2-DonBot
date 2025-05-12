@@ -1,6 +1,5 @@
-﻿namespace DonBot.Services.DiscordServices
+﻿namespace DonBot.Services.DiscordServices;
+
+internal class DiscordApiService : IDiscordApiService
 {
-    internal class DiscordApiService : IDiscordApiService
-    {
-    }
 }

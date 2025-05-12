@@ -1,9 +1,8 @@
 ﻿using Discord.WebSocket;
 
-namespace DonBot.Services.DiscordRequestServices
+namespace DonBot.Services.DiscordRequestServices;
+
+public interface ISteamCommandService
 {
-    public interface ISteamCommandService
-    {
-        public Task VerifySteamAccount(SocketSlashCommand command, DiscordSocketClient discordClient);
-    }
+    public Task VerifySteamAccount(SocketSlashCommand command, DiscordSocketClient discordClient);
 }

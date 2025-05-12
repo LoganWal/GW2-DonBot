@@ -1,9 +1,8 @@
 ﻿using Discord;
 
-namespace DonBot.Services.LoggingServices
+namespace DonBot.Services.LoggingServices;
+
+public interface ILoggingService
 {
-    public interface ILoggingService
-    {
-        Task LogAsync(LogMessage msg);
-    }
+    Task LogAsync(LogMessage msg);
 }

@@ -326,7 +326,11 @@ public class PvEFightSummaryHandler(
                 CerusPhaseOneDamage = Convert.ToDecimal(gw2Player.CerusPhaseOneDamage),
                 DeimosOilsTriggered = gw2Player.DeimosOilsTriggered,
                 TimesInterrupted = gw2Player.TimesInterrupted,
-                ResurrectionTime = gw2Player.ResurrectionTime
+                ResurrectionTime = gw2Player.ResurrectionTime,
+                FavorUsage = gw2Player.FavorUsage,
+                DesertShroudUsage = gw2Player.DesertShroudUsage,
+                SandstormShroudUsage = gw2Player.SandstormShroudUsage,
+                SandFlareUsage = gw2Player.SandFlareUsage
             }).ToList();
 
             await entityService.PlayerFightLog.AddRangeAsync(playerFights);

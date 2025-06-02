@@ -117,15 +117,15 @@ public class DiscordCore(
 
                 if (customId.StartsWith("join_"))
                 {
-                    await HandleEventButton(buttonComponent, "Roster");
+                    await HandleEventButton(buttonComponent, "✅ Roster");
                 }
                 else if (customId.StartsWith("cantjoin_"))
                 {
-                    await HandleEventButton(buttonComponent, "Can't Join");
+                    await HandleEventButton(buttonComponent, "❌ Can't Join");
                 }
                 else if (customId.StartsWith("canfill_"))
                 {
-                    await HandleEventButton(buttonComponent, "Fillers");
+                    await HandleEventButton(buttonComponent, "🛠️ Fillers");
                 }
                 else
                 {
@@ -207,28 +207,22 @@ public class DiscordCore(
 
         var embedBuilder = embed.ToEmbedBuilder();
 
-        // Check all fields to see if the user is already in one of the lists
+        // Remove the user from all fields and update numbering/counts
         foreach (var field in embedBuilder.Fields)
         {
-            // Safely cast field.Value to a string
             var fieldValue = field.Value as string ?? string.Empty;
+            var userList = fieldValue
+                .Split('\n')
+                .Where(line => !string.IsNullOrWhiteSpace(line) && !line.StartsWith("**Total:") && !GetDefaultFieldValue(field.Name).Equals(line))
+                .ToList();
 
-            if (fieldValue.Contains(user))
+            // Remove the user if present
+            var newUserList = userList.Where(line => !line.Contains(user)).ToList();
+
+            // If the list changed, update the field
+            if (newUserList.Count != userList.Count)
             {
-                // If the user is already in the current field and clicks the same button, ignore the action
-                if (field.Name == fieldName)
-                {
-                    await buttonComponent.RespondAsync("You are already in this list.", ephemeral: true);
-                    return;
-                }
-
-                // Remove the user from the current field
-                var updatedValue = fieldValue
-                    .Split('\n')
-                    .Where(line => line != user)
-                    .ToList();
-
-                field.Value = updatedValue.Count > 0 ? string.Join('\n', updatedValue) : GetDefaultFieldValue(field.Name);
+                field.Value = FormatFieldValue(field.Name, newUserList);
             }
         }
 
@@ -237,15 +231,20 @@ public class DiscordCore(
         if (targetField != null)
         {
             var targetFieldValue = targetField.Value as string ?? string.Empty;
+            var userList = targetFieldValue
+                .Split('\n')
+                .Where(line => !string.IsNullOrWhiteSpace(line) && !line.StartsWith("**Total:") && !GetDefaultFieldValue(fieldName).Equals(line))
+                .ToList();
 
-            if (targetFieldValue == GetDefaultFieldValue(fieldName))
+            // If the user is already in the target field, do nothing
+            if (userList.Any(line => line.Contains(user)))
             {
-                targetField.Value = user;
+                await buttonComponent.RespondAsync("You are already in this list.", ephemeral: true);
+                return;
             }
-            else
-            {
-                targetField.Value += $"\n{user}";
-            }
+
+            userList.Add(user);
+            targetField.Value = FormatFieldValue(fieldName, userList);
         }
 
         // Update the message
@@ -257,17 +256,31 @@ public class DiscordCore(
         logger.LogInformation("Updated {FieldName} field for event with user {User}.", fieldName, user);
     }
 
+    private string FormatFieldValue(string fieldName, List<string> users)
+    {
+        if (users.Count == 0)
+        {
+            return GetDefaultFieldValue(fieldName);
+        }
+
+        var formattedList = string.Join('\n', users);
+
+        // Only add total if there are users
+        formattedList += $"\n\n**Total: {users.Count}**";
+
+        return formattedList;
+    }
+
     private string GetDefaultFieldValue(string fieldName)
     {
         return fieldName switch
         {
-            "Roster" => "No one has joined yet.",
-            "Can't Join" => "No one has declined yet.",
-            "Fillers" => "No fillers yet.",
+            "✅ Roster" => "No one has joined yet.",
+            "❌ Can't Join" => "No one has declined yet.",
+            "🛠️ Fillers" => "No fillers yet.",
             _ => string.Empty
         };
     }
-
 
     private void UnregisterEventHandlers()
     {

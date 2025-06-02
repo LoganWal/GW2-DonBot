@@ -111,9 +111,11 @@ public class SchedulerService(
                     var embed = new EmbedBuilder()
                         .WithTitle("Event Roster")
                         .WithDescription(string.Empty)
-                        .AddField("Roster", "No one has joined yet.", false)
-                        .AddField("Can't Join", "No one has declined yet.", false)
-                        .AddField("Fillers", "No fillers yet.", false)
+                        .AddField("✅ Roster", "No one has joined yet.", true)
+                        .AddField("\u200B", "\u200B", true) // Padding field
+                        .AddField("❌ Can't Join", "No one has declined yet.", true)
+                        .AddField("\u200B", "\u200B", true) // Padding field
+                        .AddField("🛠️ Fillers", "No fillers yet.", true)
                         .WithColor(Color.Blue)
                         .Build();
 

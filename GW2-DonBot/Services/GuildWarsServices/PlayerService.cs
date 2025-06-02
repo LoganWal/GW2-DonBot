@@ -65,6 +65,26 @@ public class PlayerService(IEntityService entityService) : IPlayerService
                 ?.Where(s => s.Count > ArcDpsDataIndices.RotationSkillIndex && Convert.ToInt32(s[ArcDpsDataIndices.RotationSkillIndex]) == ArcDpsDataIndices.RotationResurrectionSkill)
                 .Sum(s => s[ArcDpsDataIndices.RotationSkillDurationIndex]) ?? 0);
 
+            var favorUsage = Convert.ToInt32(data.Players[playerIndex].Details?.Rotation?
+                .FirstOrDefault()
+                ?.Where(s => s.Count > ArcDpsDataIndices.RotationSkillIndex && Convert.ToInt32(s[ArcDpsDataIndices.RotationSkillIndex]) == ArcDpsDataIndices.RotationFavorSkill)
+                .Count());
+
+            var desertShroudUsage = Convert.ToInt32(data.Players[playerIndex].Details?.Rotation?
+                .FirstOrDefault()
+                ?.Where(s => s.Count > ArcDpsDataIndices.RotationSkillIndex && Convert.ToInt32(s[ArcDpsDataIndices.RotationSkillIndex]) == ArcDpsDataIndices.DesertShroudSkill)
+                .Count());
+            
+            var sandstormShroudUsage = Convert.ToInt32(data.Players[playerIndex].Details?.Rotation?
+                .FirstOrDefault()
+                ?.Where(s => s.Count > ArcDpsDataIndices.RotationSkillIndex && Convert.ToInt32(s[ArcDpsDataIndices.RotationSkillIndex]) == ArcDpsDataIndices.SandstormShroud)
+                .Count());
+
+            var sandFlareUsage = Convert.ToInt32(data.Players[playerIndex].Details?.Rotation?
+                .FirstOrDefault()
+                ?.Where(s => s.Count > ArcDpsDataIndices.RotationSkillIndex && Convert.ToInt32(s[ArcDpsDataIndices.RotationSkillIndex]) == ArcDpsDataIndices.SandFlare)
+                .Count());
+
             try
             {
                 existingPlayer.Kills = offensiveStatsTargets?.Sum(s => s[ArcDpsDataIndices.EnemyDeathIndex]) ?? 0;
@@ -94,8 +114,12 @@ public class PlayerService(IEntityService entityService) : IPlayerService
                 existingPlayer.TotalQuick = boons?.CheckIndexIsValid(ArcDpsDataIndices.TotalQuick, 0) ?? false ? boons[ArcDpsDataIndices.TotalQuick][0] : 0;
                 existingPlayer.TotalAlac = boons?.CheckIndexIsValid(ArcDpsDataIndices.TotalAlac, 0) ?? false ? boons[ArcDpsDataIndices.TotalAlac][0] : 0;
                 existingPlayer.ResurrectionTime = resurrectionTime;
+                existingPlayer.FavorUsage = favorUsage;
+                existingPlayer.DesertShroudUsage = desertShroudUsage;
+                existingPlayer.SandstormShroudUsage = sandstormShroudUsage;
+                existingPlayer.SandFlareUsage = sandFlareUsage;
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Console.WriteLine($"Player: {arcDpsPlayer.Acc}");
                 Console.WriteLine($"Log: {data.Url}");

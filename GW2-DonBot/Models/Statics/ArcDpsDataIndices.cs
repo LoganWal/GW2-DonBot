@@ -29,5 +29,9 @@ internal static class ArcDpsDataIndices
     public const int CerusOrbCollection = 1;
     public const int RotationSkillIndex = 1;
     public const int RotationResurrectionSkill = 1066;
+    public const int RotationFavorSkill = 40813;
     public const int RotationSkillDurationIndex = 2;
+    public const int DesertShroudSkill = 44663;
+    public const int SandstormShroud = 54870;
+    public const int SandFlare = 43148;
 }

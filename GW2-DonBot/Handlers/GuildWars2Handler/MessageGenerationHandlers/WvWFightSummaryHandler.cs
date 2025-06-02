@@ -166,7 +166,8 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                         CerusPhaseOneDamage = Convert.ToDecimal(gw2Player.CerusPhaseOneDamage),
                         DeimosOilsTriggered = gw2Player.DeimosOilsTriggered,
                         TimesInterrupted = gw2Player.TimesInterrupted,
-                        ResurrectionTime = gw2Player.ResurrectionTime
+                        ResurrectionTime = gw2Player.ResurrectionTime,
+                        FavorUsage = gw2Player.FavorUsage
                     })
                     .ToList();
 

@@ -73,4 +73,12 @@ public class PlayerFightLog
     public long DeimosOilsTriggered { get; set; }
 
     public int ResurrectionTime { get; set; }
+
+    public int FavorUsage { get; set; }
+
+    public int DesertShroudUsage { get; set; }
+
+    public int SandstormShroudUsage { get; set; }
+
+    public int SandFlareUsage { get; set; }
 }

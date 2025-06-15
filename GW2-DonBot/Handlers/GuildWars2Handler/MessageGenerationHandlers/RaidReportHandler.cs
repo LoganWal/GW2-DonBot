@@ -368,6 +368,11 @@ public class RaidReportHandler(
                 mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.Deimos, "```Player         Oils\n", pf => pf.DeimosOilsTriggered, groupedPlayerFights, fights);
             }
 
+            if (groupedFight.Key == (short)FightTypesEnum.Ura)
+            {
+                mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.Ura, "```Player         Exposed    Shard P    Shard U\n", pf => pf.Exposed, groupedPlayerFights, fights);
+            }
+
             if (!string.IsNullOrEmpty(mechanicsOverview))
             {
                 message.AddField(x =>
@@ -416,6 +421,10 @@ public class RaidReportHandler(
                 else if (fightType == (short)FightTypesEnum.Deimos)
                 {
                     mechanicsOverview += $"{playerFightsListForType.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,2}{playerFightsListForType.Sum(s => s.DeimosOilsTriggered),-3}\n";
+                }
+                else if (fightType == (short)FightTypesEnum.Ura)
+                {
+                    mechanicsOverview += $"{playerFightsListForType.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,2}{playerFightsListForType.Sum(s => s.Exposed),-3}{string.Empty,8}{playerFightsListForType.Sum(s => s.ShardPickUp),-3}{string.Empty,8}{playerFightsListForType.Sum(s => s.ShardUsed),-3}\n";
                 }
             }
         }

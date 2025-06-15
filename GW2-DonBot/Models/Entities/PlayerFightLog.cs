@@ -81,4 +81,10 @@ public class PlayerFightLog
     public int SandstormShroudUsage { get; set; }
 
     public int SandFlareUsage { get; set; }
+
+    public long Exposed { get; set; }
+
+    public long ShardPickUp { get; set; }
+
+    public long ShardUsed { get; set; }
 }

@@ -96,8 +96,16 @@ public class MechanicMap
 
 public class ArcDpsPhase
 {
+    [JsonProperty("name")]
+    public string Name { get; set; } = string.Empty;
+
     [JsonProperty("duration")]
     public long Duration { get; set; }
+
+    public double DurationS => Duration / 1000.0;
+
+    [JsonProperty("end")]
+    public double End { get; set; }
 
     [JsonProperty("dpsStats")]
     public List<List<long>>? DpsStats { get; set; }

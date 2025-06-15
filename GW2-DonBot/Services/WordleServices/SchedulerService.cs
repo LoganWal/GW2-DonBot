@@ -111,13 +111,18 @@ public class SchedulerService(
                     var embed = new EmbedBuilder()
                         .WithTitle("Event Roster")
                         .WithDescription(string.Empty)
-                        .AddField("✅ Roster", "No one has joined yet.", true)
-                        .AddField("\u200B", "\u200B", true) // Padding field
-                        .AddField("❌ Can't Join", "No one has declined yet.", true)
-                        .AddField("\u200B", "\u200B", true) // Padding field
-                        .AddField("🛠️ Fillers", "No fillers yet.", true)
-                        .WithColor(Color.Blue)
-                        .Build();
+                        .WithColor(Color.Blue);
+
+                    if (scheduledEvent.GuildId != 415441457151737870)
+                    {
+                        embed
+                            .AddField("✅ Roster", "No one has joined yet.", false)
+                            .AddField("🛠️ Fillers", "No fillers yet.", false);
+                    }
+
+                    embed.AddField("❌ Can't Join", "No one has declined yet.", false);
+
+                    var builtEmbed = embed.Build();
 
                     // Create buttons
                     var component = new ComponentBuilder()
@@ -127,7 +132,7 @@ public class SchedulerService(
                         .Build();
 
                     // Send the message with the embed and buttons
-                    var message = await channel.SendMessageAsync(text: discordTimestamp + scheduledEvent.Message, embed: embed, components: component);
+                    var message = await channel.SendMessageAsync(text: discordTimestamp + scheduledEvent.Message, embed: builtEmbed, components: component);
 
                     // Update the MessageId
                     scheduledEvent.MessageId = (long)message.Id;

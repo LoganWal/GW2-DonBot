@@ -68,6 +68,8 @@ public class Gw2Player
 
     public long DeimosOilsTriggered { get; set; }
 
+    public long Exposed { get; set; }
+
     public int ResurrectionTime { get; set; }
 
     public int FavorUsage { get; set; }
@@ -77,4 +79,8 @@ public class Gw2Player
     public int SandstormShroudUsage { get; set; }
 
     public int SandFlareUsage { get; set; }
+
+    public long ShardPickUp { get; set; }
+
+    public long ShardUsed { get; set; }
 }

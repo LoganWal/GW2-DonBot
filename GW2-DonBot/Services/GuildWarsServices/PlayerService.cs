@@ -150,6 +150,14 @@ public class PlayerService(IEntityService entityService) : IPlayerService
                     existingPlayer.DeimosOilsTriggered = GetMechanicValueForPlayer(possibleMechanics, "Black Oil Trigger", mechanics);
                     break;
                 }
+                case (short)FightTypesEnum.Ura:
+                {
+                    var possibleMechanics = data.MechanicMap?.Where(s => s.PlayerMech).ToList() ?? [];
+                    existingPlayer.Exposed = GetMechanicValueForPlayer(possibleMechanics, "Exposed Applied", mechanics);
+                    existingPlayer.ShardPickUp = GetMechanicValueForPlayer(possibleMechanics, "Bloodstone Shard Pick-up", mechanics);
+                    existingPlayer.ShardUsed = GetMechanicValueForPlayer(possibleMechanics, "Used Dispel", mechanics);
+                    break;
+                }
             }
         }
 

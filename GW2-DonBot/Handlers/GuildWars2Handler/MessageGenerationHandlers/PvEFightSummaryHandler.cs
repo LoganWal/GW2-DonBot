@@ -330,7 +330,10 @@ public class PvEFightSummaryHandler(
                 FavorUsage = gw2Player.FavorUsage,
                 DesertShroudUsage = gw2Player.DesertShroudUsage,
                 SandstormShroudUsage = gw2Player.SandstormShroudUsage,
-                SandFlareUsage = gw2Player.SandFlareUsage
+                SandFlareUsage = gw2Player.SandFlareUsage,
+                Exposed = gw2Player.Exposed,
+                ShardPickUp = gw2Player.ShardPickUp,
+                ShardUsed = gw2Player.ShardUsed
             }).ToList();
 
             await entityService.PlayerFightLog.AddRangeAsync(playerFights);
@@ -406,6 +409,17 @@ public class PvEFightSummaryHandler(
             foreach (var gw2Player in gw2Players.OrderByDescending(s => s.DeimosOilsTriggered))
             {
                 mechanicsOverview += $"{gw2Player.AccountName.ClipAt(13),-13}{string.Empty,2}{gw2Player.DeimosOilsTriggered}\n";
+            }
+
+            mechanicsOverview += "```";
+        }
+
+        if (encounterType == (short)FightTypesEnum.Ura)
+        {
+            mechanicsOverview = "```Player         Exposed    Shard P    Shard U\n";
+            foreach (var gw2Player in gw2Players.OrderByDescending(s => s.Exposed))
+            {
+                mechanicsOverview += $"{gw2Player.AccountName.ClipAt(13),-13}{string.Empty,2}{gw2Player.Exposed,-3}{string.Empty,8}{gw2Player.ShardPickUp,-3}{string.Empty,8}{gw2Player.ShardUsed,-3}\n";
             }
 
             mechanicsOverview += "```";

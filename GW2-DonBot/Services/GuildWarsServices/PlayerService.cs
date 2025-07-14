@@ -10,15 +10,15 @@ namespace DonBot.Services.GuildWarsServices;
 
 public class PlayerService(IEntityService entityService) : IPlayerService
 {
-    public List<Gw2Player> GetGw2Players(EliteInsightDataModel data, ArcDpsPhase fightPhase, HealingPhase healingPhase, BarrierPhase barrierPhase, short? encounterType = null, bool someAllFights = true)
+    public List<Gw2Player> GetGw2Players(EliteInsightDataModel data, ArcDpsPhase fightPhase, short? encounterType = null, bool someAllFights = true)
     {
-        if (data.Players == null)
+        if (data.FightEliteInsightDataModel.Players == null)
         {
             return [];
         }
 
         var gw2Players = new List<Gw2Player>();
-        foreach (var arcDpsPlayer in data.Players)
+        foreach (var arcDpsPlayer in data.FightEliteInsightDataModel.Players)
         {
             if (arcDpsPlayer.Acc == null || arcDpsPlayer.Profession == null || arcDpsPlayer.Name == null || data == null || arcDpsPlayer.NotInSquad)
             {
@@ -44,43 +44,43 @@ public class PlayerService(IEntityService entityService) : IPlayerService
                 existingPlayer.SubGroup = arcDpsPlayer.Group;
             }
 
-            var playerIndex = data.Players.IndexOf(arcDpsPlayer);
+            var playerIndex = data.FightEliteInsightDataModel.Players.IndexOf(arcDpsPlayer);
             var fightPhaseStats = fightPhase.DpsStatsTargets?.Count >= playerIndex + 1 ? fightPhase.DpsStatsTargets[playerIndex] : null;
             var fightAllDps = fightPhase.DpsStats?.Count >= playerIndex + 1 ? fightPhase.DpsStats[playerIndex] : null;
-            var firstFightPhaseStats = (data.Phases?.Count > 2 && fightPhase.DpsStatsTargets?.Count >= playerIndex + 1) ? data.Phases[1].DpsStatsTargets?[playerIndex] : null;
+            var firstFightPhaseStats = (data.FightEliteInsightDataModel.Phases?.Count > 2 && fightPhase.DpsStatsTargets?.Count >= playerIndex + 1) ? data.FightEliteInsightDataModel.Phases[1].DpsStatsTargets?[playerIndex] : null;
             var supportStats = fightPhase.SupportStats?.Count >= playerIndex + 1 ? fightPhase.SupportStats[playerIndex] : null;
             var boonGenGroupStats = fightPhase.BuffsStatContainer.BoonGenGroupStats?.Count >= playerIndex + 1 ? fightPhase.BuffsStatContainer.BoonGenGroupStats[playerIndex] : null;
             var boonGenOffGroupStats = fightPhase.BuffsStatContainer.BoonGenOGroupStats?.Count >= playerIndex + 1 ? fightPhase.BuffsStatContainer.BoonGenOGroupStats[playerIndex] : null;
 
-            var healingStatsTargets = healingPhase.OutgoingHealingStatsTargets?.Count >= playerIndex + 1 ? healingPhase.OutgoingHealingStatsTargets[playerIndex] : null;
-            var barrierStats = barrierPhase.OutgoingBarrierStats?.Count >= playerIndex + 1 ? barrierPhase.OutgoingBarrierStats[playerIndex] : null;
+            var healingStatsTargets = data.HealingEliteInsightDataModel.HealingPhases[0].OutgoingHealingStatsTargets?.Count >= playerIndex + 1 ? data.HealingEliteInsightDataModel.HealingPhases[0].OutgoingHealingStatsTargets[playerIndex] : null;
+            var barrierStats = data.BarrierEliteInsightDataModel.BarrierPhases[0].OutgoingBarrierStats?.Count >= playerIndex + 1 ? data.BarrierEliteInsightDataModel.BarrierPhases[0].OutgoingBarrierStats[playerIndex] : null;
             var gameplayStats = fightPhase.GameplayStats?.Count >= playerIndex + 1 ? fightPhase.GameplayStats[playerIndex] : null;
             var defStats = fightPhase.DefStats?.Count >= playerIndex + 1 ? fightPhase.DefStats[playerIndex] : null;
             var offensiveStatsTargets = fightPhase.OffensiveStatsTargets?.Count >= playerIndex + 1 ? fightPhase.OffensiveStatsTargets[playerIndex] : null;
 
             var boons = fightPhase.BuffsStatContainer.BoonActiveStats?.Count >= playerIndex + 1 ? fightPhase.BuffsStatContainer.BoonActiveStats[playerIndex].Data : null;
             var mechanics = fightPhase.MechanicStats?.Count >= playerIndex + 1 ? fightPhase.MechanicStats[playerIndex] : null;
-            var resurrectionTime = Convert.ToInt32(data.Players[playerIndex].Details?.Rotation?
+            var resurrectionTime = Convert.ToInt32(data.FightEliteInsightDataModel.Players[playerIndex].Details?.Rotation?
                 .FirstOrDefault()
                 ?.Where(s => s.Count > ArcDpsDataIndices.RotationSkillIndex && Convert.ToInt32(s[ArcDpsDataIndices.RotationSkillIndex]) == ArcDpsDataIndices.RotationResurrectionSkill)
                 .Sum(s => s[ArcDpsDataIndices.RotationSkillDurationIndex]) ?? 0);
 
-            var favorUsage = Convert.ToInt32(data.Players[playerIndex].Details?.Rotation?
+            var favorUsage = Convert.ToInt32(data.FightEliteInsightDataModel.Players[playerIndex].Details?.Rotation?
                 .FirstOrDefault()
                 ?.Where(s => s.Count > ArcDpsDataIndices.RotationSkillIndex && Convert.ToInt32(s[ArcDpsDataIndices.RotationSkillIndex]) == ArcDpsDataIndices.RotationFavorSkill)
                 .Count());
 
-            var desertShroudUsage = Convert.ToInt32(data.Players[playerIndex].Details?.Rotation?
+            var desertShroudUsage = Convert.ToInt32(data.FightEliteInsightDataModel.Players[playerIndex].Details?.Rotation?
                 .FirstOrDefault()
                 ?.Where(s => s.Count > ArcDpsDataIndices.RotationSkillIndex && Convert.ToInt32(s[ArcDpsDataIndices.RotationSkillIndex]) == ArcDpsDataIndices.DesertShroudSkill)
                 .Count());
             
-            var sandstormShroudUsage = Convert.ToInt32(data.Players[playerIndex].Details?.Rotation?
+            var sandstormShroudUsage = Convert.ToInt32(data.FightEliteInsightDataModel.Players[playerIndex].Details?.Rotation?
                 .FirstOrDefault()
                 ?.Where(s => s.Count > ArcDpsDataIndices.RotationSkillIndex && Convert.ToInt32(s[ArcDpsDataIndices.RotationSkillIndex]) == ArcDpsDataIndices.SandstormShroud)
                 .Count());
 
-            var sandFlareUsage = Convert.ToInt32(data.Players[playerIndex].Details?.Rotation?
+            var sandFlareUsage = Convert.ToInt32(data.FightEliteInsightDataModel.Players[playerIndex].Details?.Rotation?
                 .FirstOrDefault()
                 ?.Where(s => s.Count > ArcDpsDataIndices.RotationSkillIndex && Convert.ToInt32(s[ArcDpsDataIndices.RotationSkillIndex]) == ArcDpsDataIndices.SandFlare)
                 .Count());
@@ -122,7 +122,7 @@ public class PlayerService(IEntityService entityService) : IPlayerService
             catch (Exception ex)
             {
                 Console.WriteLine($"Player: {arcDpsPlayer.Acc}");
-                Console.WriteLine($"Log: {data.Url}");
+                Console.WriteLine($"Log: {data.FightEliteInsightDataModel.Url}");
                 Console.WriteLine($"Error parsing player data: {ex.Message}");
                 Console.WriteLine($"Stack: {ex.StackTrace}");
             }
@@ -131,12 +131,12 @@ public class PlayerService(IEntityService entityService) : IPlayerService
             {
                 case (short)FightTypesEnum.ToF:
                 {
-                    var possibleMechanics = data.MechanicMap?.Where(s => s.PlayerMech).ToList() ?? [];
+                    var possibleMechanics = data.FightEliteInsightDataModel.MechanicMap?.Where(s => s.PlayerMech).ToList() ?? [];
                     existingPlayer.CerusOrbsCollected = GetMechanicValueForPlayer(possibleMechanics, "Insatiable Application", mechanics);
 
                     if (firstFightPhaseStats != null)
                     {
-                        existingPlayer.CerusPhaseOneDamage = ((double)firstFightPhaseStats[0][0] / data.Phases?[1].Duration * 1000) ?? 0;
+                        existingPlayer.CerusPhaseOneDamage = ((double)firstFightPhaseStats[0][0] / data.FightEliteInsightDataModel.Phases?[1].Duration * 1000) ?? 0;
                     }
 
 
@@ -146,13 +146,13 @@ public class PlayerService(IEntityService entityService) : IPlayerService
                 }
                 case (short)FightTypesEnum.Deimos:
                 {
-                    var possibleMechanics = data.MechanicMap?.Where(s => s.PlayerMech).ToList() ?? [];
+                    var possibleMechanics = data.FightEliteInsightDataModel.MechanicMap?.Where(s => s.PlayerMech).ToList() ?? [];
                     existingPlayer.DeimosOilsTriggered = GetMechanicValueForPlayer(possibleMechanics, "Black Oil Trigger", mechanics);
                     break;
                 }
                 case (short)FightTypesEnum.Ura:
                 {
-                    var possibleMechanics = data.MechanicMap?.Where(s => s.PlayerMech).ToList() ?? [];
+                    var possibleMechanics = data.FightEliteInsightDataModel.MechanicMap?.Where(s => s.PlayerMech).ToList() ?? [];
                     existingPlayer.Exposed = GetMechanicValueForPlayer(possibleMechanics, "Exposed Applied", mechanics);
                     existingPlayer.ShardPickUp = GetMechanicValueForPlayer(possibleMechanics, "Bloodstone Shard Pick-up", mechanics);
                     existingPlayer.ShardUsed = GetMechanicValueForPlayer(possibleMechanics, "Used Dispel", mechanics);
@@ -175,9 +175,9 @@ public class PlayerService(IEntityService entityService) : IPlayerService
         return 0;
     }
 
-    public async Task SetPlayerPoints(EliteInsightDataModel eliteInsightDataModel)
+    public async Task SetPlayerPoints(EliteInsightDataModel fightEliteInsightDataModel)
     {
-        if (eliteInsightDataModel.Players == null)
+        if (fightEliteInsightDataModel.FightEliteInsightDataModel.Players == null)
         {
             return;
         }
@@ -190,14 +190,12 @@ public class PlayerService(IEntityService entityService) : IPlayerService
             return;
         }
 
-        var fightPhase = eliteInsightDataModel.Phases?.FirstOrDefault() ?? new ArcDpsPhase();
-        var healingPhase = eliteInsightDataModel.HealingStatsExtension?.HealingPhases?.FirstOrDefault() ?? new HealingPhase();
-        var barrierPhase = eliteInsightDataModel.BarrierStatsExtension?.BarrierPhases?.FirstOrDefault() ?? new BarrierPhase();
+        var fightPhase = fightEliteInsightDataModel.FightEliteInsightDataModel.Phases?.FirstOrDefault() ?? new ArcDpsPhase();
 
-        var gw2Players = GetGw2Players(eliteInsightDataModel, fightPhase, healingPhase, barrierPhase);
+        var gw2Players = GetGw2Players(fightEliteInsightDataModel, fightPhase);
 
         var secondsOfFight = 0;
-        if (TimeSpan.TryParse(eliteInsightDataModel.EncounterDuration, out var duration))
+        if (TimeSpan.TryParse(fightEliteInsightDataModel.FightEliteInsightDataModel.EncounterDuration, out var duration))
         {
             secondsOfFight = (int)duration.TotalSeconds;
         }

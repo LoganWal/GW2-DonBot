@@ -47,34 +47,14 @@ public class DataModelGenerationService(ILogger<DataModelGenerationService> logg
                     throw new InvalidOperationException("_logData JSON object not found in the HTML.");
                 }
 
-                // Extract the _logData JSON object
-                var logDataStartIndex = logDataScript.IndexOf("_logData = {", StringComparison.Ordinal) + "_logData = ".Length;
-                var logDataEndIndex = logDataScript.IndexOf("};", logDataStartIndex, StringComparison.Ordinal) + 1;
+                // Extract and deserialize the data models
+                var fightData = ExtractAndDeserialize<FightEliteInsightDataModel>(logDataScript, "_logData");
+                var healingData = ExtractAndDeserialize<HealingEliteInsightDataModel>(logDataScript, "_healingStatsExtension");
+                var barrierData = ExtractAndDeserialize<BarrierEliteInsightDataModel>(logDataScript, "_barrierStatsExtension");
 
-                if (logDataStartIndex == -1 || logDataEndIndex == -1)
-                {
-                    logger.LogError("Failed to locate _logData JSON object in the script content.");
-                    throw new InvalidOperationException("_logData JSON object not found.");
-                }
+                fightData.Url = url;
 
-                var data = logDataScript.Substring(logDataStartIndex, logDataEndIndex - logDataStartIndex);
-
-                // Log the extracted JSON for debugging
-                logger.LogDebug("Extracted _logData JSON: {data}", data);
-
-                // Deserialize the JSON object
-                var deserializeData = new EliteInsightDataModel();
-                try
-                {
-                    deserializeData = JsonConvert.DeserializeObject<EliteInsightDataModel>(data) ?? new EliteInsightDataModel();
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "Failed to deserialize _logData JSON.");
-                }
-
-                deserializeData.Url = url;
-                return deserializeData;
+                return new EliteInsightDataModel(fightData, healingData, barrierData);
             }
             catch (Exception ex)
             {
@@ -84,11 +64,44 @@ public class DataModelGenerationService(ILogger<DataModelGenerationService> logg
                 if (attempt >= maxRetries)
                 {
                     logger.LogError("Max retries reached. Returning an empty EliteInsightDataModel.");
-                    return new EliteInsightDataModel { Url = url };
+                    return new EliteInsightDataModel(url);
                 }
 
                 await Task.Delay(1000); // Wait for 1 second before retrying
             }
+        }
+    }
+
+    private T ExtractAndDeserialize<T>(string script, string variableName) where T : new()
+    {
+        try
+        {
+            // Extract the JSON object
+            var startMarker = $"{variableName} = {{";
+            var startIndex = script.IndexOf(startMarker, StringComparison.Ordinal) + startMarker.Length - 1;
+            var endIndex = script.IndexOf("};", startIndex, StringComparison.Ordinal) + 1;
+
+            if (startIndex < 0 || endIndex <= 0)
+            {
+                logger.LogWarning("Failed to locate {variableName} in script content.", variableName);
+                return new T();
+            }
+
+            var jsonData = script.Substring(startIndex, endIndex - startIndex);
+
+            // Log the extracted JSON for debugging (only for _logData to maintain existing behavior)
+            if (variableName == "_logData")
+            {
+                logger.LogDebug("Extracted {variableName} JSON: {jsonData}", variableName, jsonData);
+            }
+
+            // Deserialize the JSON object
+            return JsonConvert.DeserializeObject<T>(jsonData) ?? new T();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to deserialize {variableName} JSON.", variableName);
+            return new T();
         }
     }
 }

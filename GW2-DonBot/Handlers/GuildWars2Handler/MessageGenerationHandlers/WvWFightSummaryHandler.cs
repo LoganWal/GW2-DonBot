@@ -21,28 +21,25 @@ public class WvWFightSummaryHandler(
         var playerCount = 5;
 
         // Building the actual message to be sent
-        var logLength = data.EncounterDuration?.TimeToSeconds() ?? 0;
+        var logLength = data.FightEliteInsightDataModel.EncounterDuration?.TimeToSeconds() ?? 0;
 
-        var friendlyCount = data.Players?.Count ?? 0;
-        var squadMemberCount = data.Players?.Count(s => !s.NotInSquad) ?? 0;
+        var friendlyCount = data.FightEliteInsightDataModel.Players?.Count ?? 0;
+        var squadMemberCount = data.FightEliteInsightDataModel.Players?.Count(s => !s.NotInSquad) ?? 0;
 
         // remove one from target dummy
-        var enemyCount = (data.Targets?.Count - 1) ?? 0;
-        var enemyDamage = data.Targets?
+        var enemyCount = (data.FightEliteInsightDataModel.Targets?.Count - 1) ?? 0;
+        var enemyDamage = data.FightEliteInsightDataModel.Targets?
             .Sum(player => player.Details?.DmgDistributions?.Any() ?? false
                 ? player.Details?.DmgDistributions[0].ContributedDamage
                 : 0) ?? 0;
 
         var enemyDps = enemyDamage / logLength;
 
-        var fightPhase = data.Phases?.Any() ?? false
-            ? data.Phases[0]
+        var fightPhase = data.FightEliteInsightDataModel.Phases?.Any() ?? false
+            ? data.FightEliteInsightDataModel.Phases[0]
             : new ArcDpsPhase();
 
-        var healingPhase = data.HealingStatsExtension?.HealingPhases?.FirstOrDefault() ?? new HealingPhase();
-        var barrierPhase = data.BarrierStatsExtension?.BarrierPhases?.FirstOrDefault() ?? new BarrierPhase();
-
-        var gw2Players = playerService.GetGw2Players(data, fightPhase, healingPhase, barrierPhase);
+        var gw2Players = playerService.GetGw2Players(data, fightPhase);
 
         var friendlyDamage = gw2Players.Sum(s => s.Damage);
         var friendlyDps = friendlyDamage / logLength;
@@ -75,16 +72,16 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
         }
 
         // Battleground parsing
-        var range = (int)MathF.Min(15, data.FightName?.Length - 1 ?? 0)..;
-        var rangeStart = range.Start.GetOffset(data.FightName?.Length ?? 0);
-        var rangeEnd = range.End.GetOffset(data.FightName?.Length ?? 0);
+        var range = (int)MathF.Min(15, data.FightEliteInsightDataModel.FightName?.Length - 1 ?? 0)..;
+        var rangeStart = range.Start.GetOffset(data.FightEliteInsightDataModel.FightName?.Length ?? 0);
+        var rangeEnd = range.End.GetOffset(data.FightEliteInsightDataModel.FightName?.Length ?? 0);
 
-        if (rangeStart < 0 || rangeStart > data.FightName?.Length || rangeEnd < 0 || rangeEnd > data.FightName?.Length)
+        if (rangeStart < 0 || rangeStart > data.FightEliteInsightDataModel.FightName?.Length || rangeEnd < 0 || rangeEnd > data.FightEliteInsightDataModel.FightName?.Length)
         {
-            throw new Exception($"Bad battleground name: {data.FightName}");
+            throw new Exception($"Bad battleground name: {data.FightEliteInsightDataModel.FightName}");
         }
 
-        var battleGround = data.FightName?[range] ?? string.Empty;
+        var battleGround = data.FightEliteInsightDataModel.FightName?[range] ?? string.Empty;
 
         var battleGroundEmoji = ":grey_question:";
 
@@ -106,28 +103,28 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
         friendlyOverview += $"Ally  {friendlyCountStr.Trim(),-7}{string.Empty,1}{friendlyDamageStr.Trim(),-7}{string.Empty,2}{friendlyDpsStr.Trim(),-6}{string.Empty,2}{friendlyDownsStr.Trim(),-3}{string.Empty,5}{friendlyDeathsStr.Trim(),-3}\n";
         friendlyOverview += $"Foe   {enemyCountStr.Trim(),-3}{string.Empty,5}{enemyDamageStr.Trim(),-7}{string.Empty,2}{enemyDpsStr.Trim(),-6}{string.Empty,2}{enemyDownsStr.Trim(),-3}{string.Empty,5}{enemyDeathsStr.Trim(),-3}```";
 
-        var dateStartString = data.EncounterStart;
+        var dateStartString = data.FightEliteInsightDataModel.EncounterStart;
         var dateTimeStart = DateTime.ParseExact(dateStartString, "yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
 
-        var dateEndString = data.EncounterEnd;
+        var dateEndString = data.FightEliteInsightDataModel.EncounterEnd;
         var dateTimeEnd = DateTime.ParseExact(dateEndString, "yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
 
         var duration = dateTimeEnd - dateTimeStart;
 
         if (!advancedLog)
         {
-            var fightLog = await entityService.FightLog.GetFirstOrDefaultAsync(s => s.Url == data.Url);
+            var fightLog = await entityService.FightLog.GetFirstOrDefaultAsync(s => s.Url == data.FightEliteInsightDataModel.Url);
 
             if (fightLog == null)
             {
                 fightLog = new FightLog
                 {
                     GuildId = guild.GuildId,
-                    Url = data.Url ?? string.Empty,
+                    Url = data.FightEliteInsightDataModel.Url ?? string.Empty,
                     FightType = (short)FightTypesEnum.WvW,
                     FightStart = dateTimeStart,
                     FightDurationInMs = (long)duration.TotalMilliseconds,
-                    IsSuccess = data.Success
+                    IsSuccess = data.FightEliteInsightDataModel.Success
                 };
 
                 await entityService.FightLog.AddAsync(fightLog);
@@ -179,7 +176,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
         var message = new EmbedBuilder
         {
             Title = $"{battleGroundEmoji} Report (WvW) - {battleGround}\n",
-            Description = $"**Fight Duration:** {data.EncounterDuration}\n",
+            Description = $"**Fight Duration:** {data.FightEliteInsightDataModel.EncounterDuration}\n",
             Color = (Color)battleGroundColor,
             Author = new EmbedAuthorBuilder()
             {
@@ -187,7 +184,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                 Url = "https://github.com/LoganWal/GW2-DonBot",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             },
-            Url = $"{data.Url}"
+            Url = $"{data.FightEliteInsightDataModel.Url}"
         };
 
         message.AddField(x =>

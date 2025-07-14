@@ -16,21 +16,18 @@ public class PvEFightSummaryHandler(
 {
     public async Task<Embed> GenerateSimple(EliteInsightDataModel data, long guildId)
     {
-        var fightPhase = data.Phases?.Any() ?? false
-            ? data.Phases[0]
+        var fightPhase = data.FightEliteInsightDataModel.Phases?.Any() ?? false
+            ? data.FightEliteInsightDataModel.Phases[0]
             : new ArcDpsPhase();
 
-        var healingPhase = data.HealingStatsExtension?.HealingPhases?.FirstOrDefault() ?? new HealingPhase();
-        var barrierPhase = data.BarrierStatsExtension?.BarrierPhases?.FirstOrDefault() ?? new BarrierPhase();
-
-        var dateStartString = data.EncounterStart;
+        var dateStartString = data.FightEliteInsightDataModel.EncounterStart;
         var dateTimeStart = DateTime.ParseExact(dateStartString, "yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
 
         var duration = fightPhase.Duration;
         var sumAllTargets = true;
 
         short encounterType;
-        switch (data.EncounterId)
+        switch (data.FightEliteInsightDataModel.EncounterId)
         {
             case 131329:
                 encounterType = (short)FightTypesEnum.Vale;
@@ -224,14 +221,14 @@ public class PvEFightSummaryHandler(
                 break;
         }
 
-        var gw2Players = playerService.GetGw2Players(data, fightPhase, healingPhase, barrierPhase, encounterType, sumAllTargets);
-        var mainTarget = data.Targets?.FirstOrDefault() ?? new ArcDpsTarget
+        var gw2Players = playerService.GetGw2Players(data, fightPhase, encounterType, sumAllTargets);
+        var mainTarget = data.FightEliteInsightDataModel.Targets?.FirstOrDefault() ?? new ArcDpsTarget
         {
             HpLeft = 1,
             Health = 1
         };
 
-        var existingFightLog = await entityService.FightLog.GetFirstOrDefaultAsync(s => s.Url == data.Url);
+        var existingFightLog = await entityService.FightLog.GetFirstOrDefaultAsync(s => s.Url == data.FightEliteInsightDataModel.Url);
 
         if (existingFightLog != null)
         {
@@ -240,11 +237,11 @@ public class PvEFightSummaryHandler(
             existingFightLog.FightType = encounterType;
             existingFightLog.FightStart = dateTimeStart;
             existingFightLog.FightDurationInMs = duration;
-            existingFightLog.IsSuccess = data.Success;
+            existingFightLog.IsSuccess = data.FightEliteInsightDataModel.Success;
             existingFightLog.FightPercent = Math.Round((mainTarget.HpLeft / (decimal)mainTarget.Health) * 100, 2);
-            existingFightLog.FightMode = !string.IsNullOrEmpty(data.FightMode)
-                ? data.GetFightMode()
-                : data.FightName?.Split(' ').LastOrDefault() switch
+            existingFightLog.FightMode = !string.IsNullOrEmpty(data.FightEliteInsightDataModel.FightMode)
+                ? data.FightEliteInsightDataModel.GetFightMode()
+                : data.FightEliteInsightDataModel.FightName?.Split(' ').LastOrDefault() switch
                 {
                     "CM" => 1,
                     "LCM" => 2,
@@ -253,8 +250,8 @@ public class PvEFightSummaryHandler(
 
             if (encounterType == (short)FightTypesEnum.Ht)
             {
-                var finalTarget = data.Targets?.LastOrDefault(s => s.HbWidth == 800) ?? mainTarget;
-                existingFightLog.FightPhase = data.Targets?.Count(s => s.HbWidth == 800);
+                var finalTarget = data.FightEliteInsightDataModel.Targets?.LastOrDefault(s => s.HbWidth == 800) ?? mainTarget;
+                existingFightLog.FightPhase = data.FightEliteInsightDataModel.Targets?.Count(s => s.HbWidth == 800);
                 existingFightLog.FightPercent = Math.Round((finalTarget.HpLeft / (decimal)finalTarget.Health) * 100, 2);
             }
 
@@ -266,15 +263,15 @@ public class PvEFightSummaryHandler(
             var fightLog = new FightLog
             {
                 GuildId = guildId,
-                Url = data.Url,
+                Url = data.FightEliteInsightDataModel.Url,
                 FightType = encounterType,
                 FightStart = dateTimeStart,
                 FightDurationInMs = duration,
-                IsSuccess = data.Success,
+                IsSuccess = data.FightEliteInsightDataModel.Success,
                 FightPercent = Math.Round((mainTarget.HpLeft / (decimal)mainTarget.Health) * 100, 2),
-                FightMode = !string.IsNullOrEmpty(data.FightMode)
-                    ? data.GetFightMode()
-                    : data.FightName?.Split(' ').LastOrDefault() switch
+                FightMode = !string.IsNullOrEmpty(data.FightEliteInsightDataModel.FightMode)
+                    ? data.FightEliteInsightDataModel.GetFightMode()
+                    : data.FightEliteInsightDataModel.FightName?.Split(' ').LastOrDefault() switch
                     {
                         "CM" => 1,
                         "LCM" => 2,
@@ -284,8 +281,8 @@ public class PvEFightSummaryHandler(
 
             if (encounterType == (short)FightTypesEnum.Ht)
             {
-                var finalTarget = data.Targets?.LastOrDefault(s => s.HbWidth == 800) ?? mainTarget;
-                fightLog.FightPhase = data.Targets?.Count(s => s.HbWidth == 800);
+                var finalTarget = data.FightEliteInsightDataModel.Targets?.LastOrDefault(s => s.HbWidth == 800) ?? mainTarget;
+                fightLog.FightPhase = data.FightEliteInsightDataModel.Targets?.Count(s => s.HbWidth == 800);
                 fightLog.FightPercent = Math.Round((finalTarget.HpLeft / (decimal)finalTarget.Health) * 100, 2);
             }
 
@@ -341,16 +338,16 @@ public class PvEFightSummaryHandler(
 
         var message = new EmbedBuilder
         {
-            Title = $"{data.FightName}\n",
-            Description = $"**Length:** {data.EncounterDuration}{(data.Success ? string.Empty : $" {(existingFightLog?.FightPhase != null ? (existingFightLog.FightPhase) : string.Empty)} - {existingFightLog?.FightPercent}%")}\n",
-            Color = data.Success ? Color.Green : Color.Red,
+            Title = $"{data.FightEliteInsightDataModel.FightName}\n",
+            Description = $"**Length:** {data.FightEliteInsightDataModel.EncounterDuration}{(data.FightEliteInsightDataModel.Success ? string.Empty : $" {(existingFightLog?.FightPhase != null ? (existingFightLog.FightPhase) : string.Empty)} - {existingFightLog?.FightPercent}%")}\n",
+            Color = data.FightEliteInsightDataModel.Success ? Color.Green : Color.Red,
             Author = new EmbedAuthorBuilder()
             {
                 Name = "GW2-DonBot",
                 Url = "https://github.com/LoganWal/GW2-DonBot",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             },
-            Url = $"{data.Url}",
+            Url = $"{data.FightEliteInsightDataModel.Url}",
             Footer = new EmbedFooterBuilder()
             {
                 Text = $"{await footerHandler.Generate(guildId)}",

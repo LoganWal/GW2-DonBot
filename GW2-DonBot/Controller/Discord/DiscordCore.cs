@@ -758,12 +758,12 @@ public class DiscordCore(
         {
             foreach (var eliteInsightDataModel in dataList)
             {
-                if (_seenUrls.Contains(eliteInsightDataModel.Url))
+                if (_seenUrls.Contains(eliteInsightDataModel.FightEliteInsightDataModel.Url))
                 {
-                    logger.LogInformation("Already seen {url}, going to next log.", eliteInsightDataModel.Url);
+                    logger.LogInformation("Already seen {url}, going to next log.", eliteInsightDataModel.FightEliteInsightDataModel.Url);
                     continue;
                 }
-                if (eliteInsightDataModel.Wvw)
+                if (eliteInsightDataModel.FightEliteInsightDataModel.Wvw)
                 {
                     if (guild.AdvanceLogReportChannelId != null)
                     {
@@ -784,7 +784,7 @@ public class DiscordCore(
                         var messages = await playerChannel.GetMessagesAsync(10).FlattenAsync();
                         await playerChannel.DeleteMessagesAsync(messages);
 
-                        var activePlayerMessage = await messageGenerationService.GenerateWvWActivePlayerSummary(guild, eliteInsightDataModel.Url);
+                        var activePlayerMessage = await messageGenerationService.GenerateWvWActivePlayerSummary(guild, eliteInsightDataModel.FightEliteInsightDataModel.Url);
                         var playerMessage = await messageGenerationService.GenerateWvWPlayerSummary(guild);
 
                         await playerChannel.SendMessageAsync(text: "", embeds: [activePlayerMessage]);
@@ -800,7 +800,7 @@ public class DiscordCore(
                 }
                 else
                 {
-                    message = await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, (long)guildId);
+                    message = await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, guildId);
                 }
 
                 if (guild.LogReportChannelId == null)
@@ -824,7 +824,7 @@ public class DiscordCore(
             {
                 foreach (var eliteInsightDataModel in dataList)
                 {
-                    if (eliteInsightDataModel.Wvw)
+                    if (eliteInsightDataModel.FightEliteInsightDataModel.Wvw)
                     {
                         await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, false, guild, client);
                     }
@@ -845,7 +845,7 @@ public class DiscordCore(
             }
             else
             {
-                if (dataList.First().Wvw)
+                if (dataList.First().FightEliteInsightDataModel.Wvw)
                 {
                     message = await messageGenerationService.GenerateWvWFightSummary(dataList.First(), false, guild, client);
                 }

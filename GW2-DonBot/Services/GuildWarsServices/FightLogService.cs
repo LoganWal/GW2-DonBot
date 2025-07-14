@@ -16,12 +16,12 @@ public class FightLogService(IDataModelGenerationService dataModelGenerationServ
         }
 
         var data = await dataModelGenerationService.GenerateEliteInsightDataModelFromUrl(url);
-        if (data.Targets == null)
+        if (data.FightEliteInsightDataModel.Targets == null)
         {
             await command.FollowupAsync("Unable to get enemy targets from the requested log", ephemeral: true);
             return;
         }
-        var targets = data.Targets.Where(s => s.Name != "Dummy PvP Agent").ToList();
+        var targets = data.FightEliteInsightDataModel.Targets.Where(s => s.Name != "Dummy PvP Agent").ToList();
 
         var targetsByClass = targets.GroupBy(s => s.Name?.Split(' ').FirstOrDefault());
 
@@ -36,6 +36,6 @@ public class FightLogService(IDataModelGenerationService dataModelGenerationServ
         }
         enemyOverview += "```";
 
-        await command.FollowupAsync($"**Know My Enemy**{Environment.NewLine}{data.Url}{Environment.NewLine}{enemyOverview}", ephemeral: true);
+        await command.FollowupAsync($"**Know My Enemy**{Environment.NewLine}{data.FightEliteInsightDataModel.Url}{Environment.NewLine}{enemyOverview}", ephemeral: true);
     }
 }

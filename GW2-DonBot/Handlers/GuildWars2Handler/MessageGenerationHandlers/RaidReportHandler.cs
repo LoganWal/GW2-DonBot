@@ -324,11 +324,39 @@ public class RaidReportHandler(
             playerLineByDmg.Add(new Tuple<float, string>(dps, playerLine));
         }
 
-        var playerOverview = playerLineByDmg
-            .OrderByDescending(s => s.Item1)
-            .Aggregate("```Player         Dmg       Cleave    Alac    Quick                                                   \n", (current, tuple) => current + tuple.Item2);
+        var playerHeader = "```Player         Dmg       Cleave    Alac    Quick\n";
+        var playerChunks = new List<string>();
+        var currentChunk = playerHeader;
+        var playerCount = 0;
 
-        playerOverview += "```";
+        foreach (var playerLine in playerLineByDmg.OrderByDescending(s => s.Item1))
+        {
+            currentChunk += playerLine.Item2;
+            playerCount++;
+
+            if (playerCount % 12 == 0)
+            {
+                currentChunk += "```";
+                playerChunks.Add(currentChunk);
+                currentChunk = playerHeader;
+            }
+        }
+
+        if (currentChunk != playerHeader)
+        {
+            currentChunk += "```";
+            playerChunks.Add(currentChunk);
+        }
+
+        foreach (var chunk in playerChunks)
+        {
+            message.AddField(x =>
+            {
+                x.Name = "Player Overview";
+                x.Value = chunk;
+                x.IsInline = false;
+            });
+        }
 
         var survivabilityOverview = "```Player         Res (s)    Dmg Taken   Times Downed                                      \n";
         foreach (var gw2Player in groupedPlayerFights.OrderBy(s => s.Sum(d => d.DamageTaken)))
@@ -337,15 +365,6 @@ public class RaidReportHandler(
         }
 
         survivabilityOverview += "```";
-
-
-
-        message.AddField(x =>
-        {
-            x.Name = "Player Overview";
-            x.Value = $"{playerOverview}";
-            x.IsInline = false;
-        });
 
         message.AddField(x =>
         {

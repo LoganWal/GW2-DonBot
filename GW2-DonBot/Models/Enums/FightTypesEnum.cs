@@ -56,6 +56,7 @@ public enum FightTypesEnum
     Boneskinner = 51,
     Eparch = 52,
     Spirit = 53,
+    Shadow = 54,
     Golem = 32766,
     Unkn = short.MaxValue,
 }

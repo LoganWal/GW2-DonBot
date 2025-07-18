@@ -216,6 +216,9 @@ public class PvEFightSummaryHandler(
             case 197890:
                 encounterType = (short)FightTypesEnum.Eparch;
                 break;
+            case 198145:
+                encounterType = (short)FightTypesEnum.Shadow;
+                break;
             default:
                 encounterType = (short)FightTypesEnum.Unkn;
                 break;

@@ -52,8 +52,8 @@ public class PlayerService(IEntityService entityService) : IPlayerService
             var boonGenGroupStats = fightPhase.BuffsStatContainer.BoonGenGroupStats?.Count >= playerIndex + 1 ? fightPhase.BuffsStatContainer.BoonGenGroupStats[playerIndex] : null;
             var boonGenOffGroupStats = fightPhase.BuffsStatContainer.BoonGenOGroupStats?.Count >= playerIndex + 1 ? fightPhase.BuffsStatContainer.BoonGenOGroupStats[playerIndex] : null;
 
-            var healingStatsTargets = data.HealingEliteInsightDataModel.HealingPhases[0].OutgoingHealingStatsTargets?.Count >= playerIndex + 1 ? data.HealingEliteInsightDataModel.HealingPhases[0].OutgoingHealingStatsTargets[playerIndex] : null;
-            var barrierStats = data.BarrierEliteInsightDataModel.BarrierPhases[0].OutgoingBarrierStats?.Count >= playerIndex + 1 ? data.BarrierEliteInsightDataModel.BarrierPhases[0].OutgoingBarrierStats[playerIndex] : null;
+            var healingStatsTargets = data.HealingEliteInsightDataModel.HealingPhases.Any() ? (data.HealingEliteInsightDataModel.HealingPhases[0].OutgoingHealingStatsTargets?.Count >= playerIndex + 1 ? data.HealingEliteInsightDataModel.HealingPhases[0].OutgoingHealingStatsTargets[playerIndex] : null) : null;
+            var barrierStats = data.BarrierEliteInsightDataModel.BarrierPhases.Any() ? (data.BarrierEliteInsightDataModel.BarrierPhases[0].OutgoingBarrierStats?.Count >= playerIndex + 1 ? data.BarrierEliteInsightDataModel.BarrierPhases[0].OutgoingBarrierStats[playerIndex] : null) : null;
             var gameplayStats = fightPhase.GameplayStats?.Count >= playerIndex + 1 ? fightPhase.GameplayStats[playerIndex] : null;
             var defStats = fightPhase.DefStats?.Count >= playerIndex + 1 ? fightPhase.DefStats[playerIndex] : null;
             var offensiveStatsTargets = fightPhase.OffensiveStatsTargets?.Count >= playerIndex + 1 ? fightPhase.OffensiveStatsTargets[playerIndex] : null;

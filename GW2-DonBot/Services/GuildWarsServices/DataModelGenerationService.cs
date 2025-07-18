@@ -89,18 +89,12 @@ public class DataModelGenerationService(ILogger<DataModelGenerationService> logg
 
             var jsonData = script.Substring(startIndex, endIndex - startIndex);
 
-            // Log the extracted JSON for debugging (only for _logData to maintain existing behavior)
-            if (variableName == "_logData")
-            {
-                logger.LogDebug("Extracted {variableName} JSON: {jsonData}", variableName, jsonData);
-            }
-
             // Deserialize the JSON object
             return JsonConvert.DeserializeObject<T>(jsonData) ?? new T();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            logger.LogError(ex, "Failed to deserialize {variableName} JSON.", variableName);
+            logger.LogError("Failed to deserialize {variableName} JSON.", variableName);
             return new T();
         }
     }

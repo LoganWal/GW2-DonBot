@@ -2,5 +2,5 @@
 
 public interface IDiscordCore
 {
-    public Task MainAsync();
+    public Task MainAsync(CancellationToken cancellationToken = default);
 }

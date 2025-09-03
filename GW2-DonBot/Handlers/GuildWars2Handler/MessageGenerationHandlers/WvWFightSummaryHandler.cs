@@ -103,10 +103,10 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
         friendlyOverview += $"Ally  {friendlyCountStr.Trim(),-7}{string.Empty,1}{friendlyDamageStr.Trim(),-7}{string.Empty,2}{friendlyDpsStr.Trim(),-6}{string.Empty,2}{friendlyDownsStr.Trim(),-3}{string.Empty,5}{friendlyDeathsStr.Trim(),-3}\n";
         friendlyOverview += $"Foe   {enemyCountStr.Trim(),-3}{string.Empty,5}{enemyDamageStr.Trim(),-7}{string.Empty,2}{enemyDpsStr.Trim(),-6}{string.Empty,2}{enemyDownsStr.Trim(),-3}{string.Empty,5}{enemyDeathsStr.Trim(),-3}```";
 
-        var dateStartString = data.FightEliteInsightDataModel.EncounterStart;
+        var dateStartString = data.FightEliteInsightDataModel.Start;    
         var dateTimeStart = DateTime.ParseExact(dateStartString, "yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
 
-        var dateEndString = data.FightEliteInsightDataModel.EncounterEnd;
+        var dateEndString = data.FightEliteInsightDataModel.End;
         var dateTimeEnd = DateTime.ParseExact(dateEndString, "yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
 
         var duration = dateTimeEnd - dateTimeStart;
@@ -124,7 +124,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                     FightType = (short)FightTypesEnum.WvW,
                     FightStart = dateTimeStart,
                     FightDurationInMs = (long)duration.TotalMilliseconds,
-                    IsSuccess = data.FightEliteInsightDataModel.Success
+                    IsSuccess = data.FightEliteInsightDataModel.Success ?? fightPhase?.Success ?? false
                 };
 
                 await entityService.FightLog.AddAsync(fightLog);

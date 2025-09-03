@@ -2,10 +2,11 @@
 using Discord.WebSocket;
 using DonBot.Models.Entities;
 using DonBot.Services.DatabaseServices;
+using DonBot.Services.WordleServices;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace DonBot.Services.WordleServices;
+namespace DonBot.Services.SchedulerServices;
 
 public class SchedulerService(
     IEntityService entityService,
@@ -17,7 +18,9 @@ public class SchedulerService(
     : BackgroundService
 {
     private Timer? _timer;
+    private Timer? _eventCheckTimer;
     private readonly List<Timer> _eventTimers = [];
+    private readonly Dictionary<long, bool> _scheduledEventIds = new();
 
     public override async Task StopAsync(CancellationToken stoppingToken)
     {
@@ -27,7 +30,9 @@ public class SchedulerService(
         }
 
         _eventTimers.Clear();
-
+        
+        _eventCheckTimer?.Dispose();
+        
         await base.StopAsync(stoppingToken);
     }
 
@@ -37,11 +42,56 @@ public class SchedulerService(
 
         await ScheduleEventMessages();
         ScheduleWordleStartingWord();
+        
+        // Set up a recurring check for new events every hour
+        _eventCheckTimer = new Timer(async _ => 
+        {
+            await CheckForNewEvents();
+        }, 
+        null, 
+        TimeSpan.FromMinutes(15), // First check after 15 minutes
+        TimeSpan.FromHours(1));   // Then every hour
+    }
+
+    private async Task CheckForNewEvents()
+    {
+        try
+        {
+            logger.LogInformation("Checking for new scheduled events...");
+            var scheduledEvents = await entityService.ScheduledEvent.GetAllAsync();
+            int newEventsScheduled = 0;
+
+            foreach (var scheduledEvent in scheduledEvents)
+            {
+                if (!_scheduledEventIds.ContainsKey(scheduledEvent.ScheduledEventId))
+                {
+                    var now = DateTime.UtcNow;
+                    var nextEventTime = GetNextEventTime(scheduledEvent, now);
+
+                    if (nextEventTime > now)
+                    {
+                        await ScheduleSingleEvent(scheduledEvent, nextEventTime, now);
+                        newEventsScheduled++;
+                    }
+                }
+            }
+
+            if (newEventsScheduled > 0)
+            {
+                logger.LogInformation("Scheduled {count} new events found in database.", newEventsScheduled);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error occurred while checking for new events.");
+        }
     }
 
     private async Task ScheduleEventMessages()
     {
         var scheduledEvents = await entityService.ScheduledEvent.GetAllAsync();
+        
+        _scheduledEventIds.Clear();
 
         foreach (var scheduledEvent in scheduledEvents)
         {
@@ -50,25 +100,34 @@ public class SchedulerService(
 
             if (nextEventTime > now)
             {
-                var timeUntilEvent = (nextEventTime - now).TotalMilliseconds;
-
-                var timer = new Timer(_ =>
-                {
-                    // Wrap the async call in a Task.Run to avoid async void
-                    Task.Run(() => PostScheduledEventMessage(scheduledEvent))
-                        .ContinueWith(task =>
-                        {
-                            if (task.Exception != null)
-                            {
-                                logger.LogError(task.Exception, "Error occurred while posting scheduled event message for event {ScheduledEventId}.", scheduledEvent.ScheduledEventId);
-                            }
-                        });
-                }, null, (long)timeUntilEvent, Timeout.Infinite);
-
-                // Store the timer to prevent it from being garbage collected
-                _eventTimers.Add(timer);
+                await ScheduleSingleEvent(scheduledEvent, nextEventTime, now);
             }
         }
+    }
+
+    private Task ScheduleSingleEvent(ScheduledEvent scheduledEvent, DateTime nextEventTime, DateTime now)
+    {
+        var timeUntilEvent = (nextEventTime - now).TotalMilliseconds;
+
+        var timer = new Timer(_ =>
+        {
+            Task.Run(() => PostScheduledEventMessage(scheduledEvent))
+                .ContinueWith(task =>
+                {
+                    if (task.Exception != null)
+                    {
+                        logger.LogError(task.Exception, "Error occurred while posting scheduled event message for event {ScheduledEventId}.", scheduledEvent.ScheduledEventId);
+                    }
+                });
+        }, null, (long)timeUntilEvent, Timeout.Infinite);
+
+        _eventTimers.Add(timer);
+        
+        _scheduledEventIds[scheduledEvent.ScheduledEventId] = true;
+        
+        logger.LogInformation("Scheduled event {ScheduledEventId} for {NextEventTime}, which is in {TimeUntilEvent} ms", 
+            scheduledEvent.ScheduledEventId, nextEventTime, timeUntilEvent);
+        return Task.CompletedTask;
     }
 
     private DateTime GetNextEventTime(ScheduledEvent scheduledEvent, DateTime now)
@@ -83,7 +142,6 @@ public class SchedulerService(
             DateTimeKind.Utc
         );
 
-        // Adjust to the next occurrence of the specified day and time
         while ((int)nextEventTime.DayOfWeek != scheduledEvent.Day || nextEventTime <= now)
         {
             nextEventTime = nextEventTime.AddDays(1);
@@ -102,12 +160,10 @@ public class SchedulerService(
             {
                 try
                 {
-                    // Convert UtcEventTime to local time
                     var localTime = scheduledEvent.UtcEventTime.ToLocalTime();
                     var unixTimestamp = new DateTimeOffset(localTime).ToUnixTimeSeconds();
                     var discordTimestamp = $"<t:{unixTimestamp}:f>\n";
 
-                    // Create the initial embed
                     var embed = new EmbedBuilder()
                         .WithTitle("Event Roster")
                         .WithDescription(string.Empty)
@@ -124,24 +180,21 @@ public class SchedulerService(
 
                     var builtEmbed = embed.Build();
 
-                    // Create buttons
                     var component = new ComponentBuilder()
                         .WithButton("Join", customId: $"join_{scheduledEvent.ScheduledEventId}", ButtonStyle.Success, Emoji.Parse("✅"))
                         .WithButton("Can't Join", customId: $"cantjoin_{scheduledEvent.ScheduledEventId}", ButtonStyle.Secondary, Emoji.Parse("❌"))
                         .WithButton("Can Fill", customId: $"canfill_{scheduledEvent.ScheduledEventId}", ButtonStyle.Primary, Emoji.Parse("🛠️"))
                         .Build();
 
-                    // Send the message with the embed and buttons
                     var message = await channel.SendMessageAsync(text: discordTimestamp + scheduledEvent.Message, embed: builtEmbed, components: component);
 
-                    // Update the MessageId
                     scheduledEvent.MessageId = (long)message.Id;
 
-                    // Increment the UtcEventTime by 1 week
                     scheduledEvent.UtcEventTime = scheduledEvent.UtcEventTime.AddDays(7);
 
-                    // Update the database with the new MessageId and UtcEventTime
                     await entityService.ScheduledEvent.UpdateAsync(scheduledEvent);
+
+                    _scheduledEventIds.Remove(scheduledEvent.ScheduledEventId);
 
                     logger.LogInformation("Posted scheduled message with buttons to channel {ChannelId} in guild {GuildId}.", scheduledEvent.ChannelId, scheduledEvent.GuildId);
                 }

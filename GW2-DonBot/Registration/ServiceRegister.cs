@@ -8,6 +8,7 @@ using DonBot.Services.DiscordRequestServices;
 using DonBot.Services.DiscordServices;
 using DonBot.Services.GuildWarsServices;
 using DonBot.Services.LoggingServices;
+using DonBot.Services.SchedulerServices;
 using DonBot.Services.SecretsServices;
 using DonBot.Services.WordleServices;
 using Microsoft.EntityFrameworkCore;

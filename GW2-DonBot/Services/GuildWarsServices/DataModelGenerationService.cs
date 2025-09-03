@@ -92,9 +92,9 @@ public class DataModelGenerationService(ILogger<DataModelGenerationService> logg
             // Deserialize the JSON object
             return JsonConvert.DeserializeObject<T>(jsonData) ?? new T();
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            logger.LogError("Failed to deserialize {variableName} JSON.", variableName);
+            logger.LogError(ex, "Failed to deserialize {variableName} JSON.", variableName);
             return new T();
         }
     }

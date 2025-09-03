@@ -26,10 +26,34 @@ public class FightEliteInsightDataModel
     public BarrierStatsExtension? BarrierStatsExtension { get; set; }
 
     [JsonProperty("encounterDuration")]
-    public string? EncounterDuration { get; set; }
+    public string EncounterDuration { get; set; } = string.Empty;
+
+    [JsonProperty("encounterStart")]
+    public string EncounterStart { get; set; } = string.Empty;
+
+    [JsonProperty("logStart")]
+    public string LogStart { get; set; } = string.Empty;
+
+    public string Start => EncounterStart != string.Empty ? EncounterStart : LogStart;
+
+    [JsonProperty("encounterEnd")]
+    public string EncounterEnd { get; set; } = string.Empty;
+
+    [JsonProperty("logEnd")]
+    public string LogEnd { get; set; } = string.Empty;
+
+    public string End => EncounterEnd != string.Empty ? EncounterEnd : LogEnd;
+
+    [JsonProperty("encounterID")]
+    public long? EncounterId { get; set; }
+
+    [JsonProperty("logID")]
+    public long LogID { get; set; }
+
+    public long FightId => EncounterId ?? LogID;
 
     [JsonProperty("success")]
-    public bool Success { get; set; }
+    public bool? Success { get; set; }
 
     [JsonProperty("wvw")]
     public bool Wvw { get; set; }
@@ -38,19 +62,11 @@ public class FightEliteInsightDataModel
     public string? FightName { get; set; }
 
     [JsonProperty("fightMode")]
-    public string FightMode { get; set; } = string.Empty;
-
-    [JsonProperty("encounterStart")]
-    public string EncounterStart { get; set; } = string.Empty;
-
-    [JsonProperty("encounterEnd")]
-    public string EncounterEnd { get; set; } = string.Empty;
-
-    [JsonProperty("encounterID")]
-    public long EncounterId { get; set; }
+    public string? FightMode { get; set; }
 
     public int GetFightMode()
     {
+        var FightMode = this.FightMode ?? Phases?.FirstOrDefault()?.Mode;
         return FightMode switch
         {
             "Normal Mode" => 0,
@@ -121,6 +137,12 @@ public class ArcDpsPhase
 
     [JsonProperty("mechanicStats")]
     public List<List<object>>? MechanicStats { get; set; }
+
+    [JsonProperty("success")]
+    public bool? Success { get; set; }
+
+    [JsonProperty("mode")]
+    public string Mode { get; set; } = string.Empty;
 }
     
 public class BuffsStatContainer

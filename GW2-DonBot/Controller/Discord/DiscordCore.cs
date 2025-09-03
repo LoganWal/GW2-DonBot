@@ -7,8 +7,8 @@ using DonBot.Services.DatabaseServices;
 using DonBot.Services.DiscordRequestServices;
 using DonBot.Services.GuildWarsServices;
 using DonBot.Services.LoggingServices;
+using DonBot.Services.SchedulerServices;
 using DonBot.Services.SecretsServices;
-using DonBot.Services.WordleServices;
 using Microsoft.Extensions.Logging;
 using static System.Text.RegularExpressions.Regex;
 using ConnectionState = Discord.ConnectionState;
@@ -42,7 +42,7 @@ public class DiscordCore(
     private CancellationTokenSource _scheduleServiceCancellationTokenSource = new();
     private static readonly SemaphoreSlim Semaphore = new(1, 1);
 
-    public async Task MainAsync()
+    public async Task MainAsync(CancellationToken cancellationToken = default)
     {
         // Logging in...
         await client.LoginAsync(TokenType.Bot, secretService.FetchDonBotToken());
@@ -71,17 +71,38 @@ public class DiscordCore(
             
         logger.LogInformation("GW2-DonBot setup - ready to cause chaos");
 
-        // Block this task until the program is closed.
-        var discordCoreCancellationToken = CancellationToken.None;
-        await Task.Delay(-1, discordCoreCancellationToken);
-
-        // Safely close...
-        UnregisterEventHandlers();
-
-        await _pollingRolesCancellationTokenSource.CancelAsync();
-        await pollingRolesTask;
-
-        await _scheduleServiceCancellationTokenSource.CancelAsync();
+        try
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogInformation("Service shutdown initiated");
+        }
+        finally
+        {
+            logger.LogInformation("Shutting down Discord client and services...");
+            
+            await _pollingRolesCancellationTokenSource.CancelAsync();
+            await _scheduleServiceCancellationTokenSource.CancelAsync();
+            
+            try
+            {
+                await Task.WhenAny(pollingRolesTask, Task.Delay(5000));
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Error waiting for polling task to complete");
+            }
+            
+            // Unregister handlers before stopping client
+            UnregisterEventHandlers();
+            
+            // Stop and dispose client
+            await client.StopAsync();
+            
+            logger.LogInformation("Discord client shutdown completed");
+        }
     }
 
     private async Task WaitForConnectionAsync()
@@ -614,7 +635,8 @@ public class DiscordCore(
             var knownBots = new List<ulong>
             {
                 DonBotId,
-                1172050606005964820 // gw2Mists.com
+                1172050606005964820, // gw2Mists.com
+                1408608200424554507 // gw2SoxBot
             };
 
             var isKnownBot = knownBots.Contains(seenMessage.Author.Id);
@@ -843,7 +865,8 @@ public class DiscordCore(
                     }
                 }
             }
-            else
+            // for now only return if more than 1 from a not embed message, update later to be a setting
+            /*else
             {
                 if (dataList.First().FightEliteInsightDataModel.Wvw)
                 {
@@ -854,7 +877,7 @@ public class DiscordCore(
                     message = await messageGenerationService.GeneratePvEFightSummary(dataList.First(), guild.GuildId);
                 }
                 await replyChannel.SendMessageAsync(text: "", embeds: [message], components: buttonBuilder);
-            }
+            }*/
         }
 
         logger.LogInformation("Completed and posted report on: {url}", urlList);

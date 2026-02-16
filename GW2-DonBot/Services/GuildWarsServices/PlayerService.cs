@@ -8,7 +8,7 @@ using Newtonsoft.Json.Linq;
 
 namespace DonBot.Services.GuildWarsServices;
 
-public class PlayerService(IEntityService entityService) : IPlayerService
+public sealed class PlayerService(IEntityService entityService) : IPlayerService
 {
     public List<Gw2Player> GetGw2Players(EliteInsightDataModel data, ArcDpsPhase fightPhase, short? encounterType = null, bool someAllFights = true)
     {
@@ -18,6 +18,8 @@ public class PlayerService(IEntityService entityService) : IPlayerService
         }
 
         var gw2Players = new List<Gw2Player>();
+        var characterCountPerAccount = new Dictionary<string, int>();
+        
         foreach (var arcDpsPlayer in data.FightEliteInsightDataModel.Players)
         {
             if (arcDpsPlayer.Acc == null || arcDpsPlayer.Profession == null || arcDpsPlayer.Name == null || data == null || arcDpsPlayer.NotInSquad)
@@ -26,6 +28,7 @@ public class PlayerService(IEntityService entityService) : IPlayerService
             }
 
             var existingPlayer = gw2Players.FirstOrDefault(s => s.AccountName == arcDpsPlayer.Acc);
+            var isNewPlayer = false;
             if (existingPlayer == null)
             {
                 existingPlayer = new Gw2Player
@@ -36,12 +39,15 @@ public class PlayerService(IEntityService entityService) : IPlayerService
                     SubGroup = arcDpsPlayer.Group,
                 };
                 gw2Players.Add(existingPlayer);
+                characterCountPerAccount[arcDpsPlayer.Acc] = 1;
+                isNewPlayer = true;
             }
             else
             {
                 existingPlayer.Profession = arcDpsPlayer.Profession;
                 existingPlayer.CharacterName = arcDpsPlayer.Name;
                 existingPlayer.SubGroup = arcDpsPlayer.Group;
+                characterCountPerAccount[arcDpsPlayer.Acc]++;
             }
 
             var playerIndex = data.FightEliteInsightDataModel.Players.IndexOf(arcDpsPlayer);
@@ -52,72 +58,110 @@ public class PlayerService(IEntityService entityService) : IPlayerService
             var boonGenGroupStats = fightPhase.BuffsStatContainer.BoonGenGroupStats?.Count >= playerIndex + 1 ? fightPhase.BuffsStatContainer.BoonGenGroupStats[playerIndex] : null;
             var boonGenOffGroupStats = fightPhase.BuffsStatContainer.BoonGenOGroupStats?.Count >= playerIndex + 1 ? fightPhase.BuffsStatContainer.BoonGenOGroupStats[playerIndex] : null;
 
-            var healingStatsTargets = data.HealingEliteInsightDataModel.HealingPhases.Any() ? (data.HealingEliteInsightDataModel.HealingPhases[0].OutgoingHealingStatsTargets?.Count >= playerIndex + 1 ? data.HealingEliteInsightDataModel.HealingPhases[0].OutgoingHealingStatsTargets[playerIndex] : null) : null;
-            var barrierStats = data.BarrierEliteInsightDataModel.BarrierPhases.Any() ? (data.BarrierEliteInsightDataModel.BarrierPhases[0].OutgoingBarrierStats?.Count >= playerIndex + 1 ? data.BarrierEliteInsightDataModel.BarrierPhases[0].OutgoingBarrierStats[playerIndex] : null) : null;
+            var healingStatsTargets = data.HealingEliteInsightDataModel.HealingPhases.Any() ? (data.HealingEliteInsightDataModel.HealingPhases[0].OutgoingHealingStatsTargets.Count >= playerIndex + 1 ? data.HealingEliteInsightDataModel.HealingPhases[0].OutgoingHealingStatsTargets[playerIndex] : null) : null;
+            var barrierStats = data.BarrierEliteInsightDataModel.BarrierPhases.Any() ? (data.BarrierEliteInsightDataModel.BarrierPhases[0].OutgoingBarrierStats.Count >= playerIndex + 1 ? data.BarrierEliteInsightDataModel.BarrierPhases[0].OutgoingBarrierStats[playerIndex] : null) : null;
             var gameplayStats = fightPhase.GameplayStats?.Count >= playerIndex + 1 ? fightPhase.GameplayStats[playerIndex] : null;
             var defStats = fightPhase.DefStats?.Count >= playerIndex + 1 ? fightPhase.DefStats[playerIndex] : null;
             var offensiveStatsTargets = fightPhase.OffensiveStatsTargets?.Count >= playerIndex + 1 ? fightPhase.OffensiveStatsTargets[playerIndex] : null;
-
+            var playerDetails = data.FightEliteInsightDataModel.Players[playerIndex].Details;
+            
             var boons = fightPhase.BuffsStatContainer.BoonActiveStats?.Count >= playerIndex + 1 ? fightPhase.BuffsStatContainer.BoonActiveStats[playerIndex].Data : null;
             var mechanics = fightPhase.MechanicStats?.Count >= playerIndex + 1 ? fightPhase.MechanicStats[playerIndex] : null;
-            var resurrectionTime = Convert.ToInt32(data.FightEliteInsightDataModel.Players[playerIndex].Details?.Rotation?
+            var deathTime = playerDetails?.DeathRecap?.FirstOrDefault()?.Time;
+            var resurrectionTime = Convert.ToInt32(playerDetails?.Rotation?
                 .FirstOrDefault()
                 ?.Where(s => s.Count > ArcDpsDataIndices.RotationSkillIndex && Convert.ToInt32(s[ArcDpsDataIndices.RotationSkillIndex]) == ArcDpsDataIndices.RotationResurrectionSkill)
                 .Sum(s => s[ArcDpsDataIndices.RotationSkillDurationIndex]) ?? 0);
 
-            var favorUsage = Convert.ToInt32(data.FightEliteInsightDataModel.Players[playerIndex].Details?.Rotation?
-                .FirstOrDefault()
-                ?.Where(s => s.Count > ArcDpsDataIndices.RotationSkillIndex && Convert.ToInt32(s[ArcDpsDataIndices.RotationSkillIndex]) == ArcDpsDataIndices.RotationFavorSkill)
-                .Count());
-
-            var desertShroudUsage = Convert.ToInt32(data.FightEliteInsightDataModel.Players[playerIndex].Details?.Rotation?
-                .FirstOrDefault()
-                ?.Where(s => s.Count > ArcDpsDataIndices.RotationSkillIndex && Convert.ToInt32(s[ArcDpsDataIndices.RotationSkillIndex]) == ArcDpsDataIndices.DesertShroudSkill)
-                .Count());
-            
-            var sandstormShroudUsage = Convert.ToInt32(data.FightEliteInsightDataModel.Players[playerIndex].Details?.Rotation?
-                .FirstOrDefault()
-                ?.Where(s => s.Count > ArcDpsDataIndices.RotationSkillIndex && Convert.ToInt32(s[ArcDpsDataIndices.RotationSkillIndex]) == ArcDpsDataIndices.SandstormShroud)
-                .Count());
-
-            var sandFlareUsage = Convert.ToInt32(data.FightEliteInsightDataModel.Players[playerIndex].Details?.Rotation?
-                .FirstOrDefault()
-                ?.Where(s => s.Count > ArcDpsDataIndices.RotationSkillIndex && Convert.ToInt32(s[ArcDpsDataIndices.RotationSkillIndex]) == ArcDpsDataIndices.SandFlare)
-                .Count());
-
             try
             {
-                existingPlayer.Kills = offensiveStatsTargets?.Sum(s => s[ArcDpsDataIndices.EnemyDeathIndex]) ?? 0;
-                existingPlayer.Deaths = Convert.ToInt64(defStats?[ArcDpsDataIndices.DeathIndex].Double ?? 0L);
-                existingPlayer.TimesDowned = defStats?[ArcDpsDataIndices.EnemiesDownedIndex].Double ?? 0;
-                existingPlayer.Downs = offensiveStatsTargets?.Sum(s => s[ArcDpsDataIndices.DownIndex]) ?? 0;
-                existingPlayer.Damage = (someAllFights ? fightPhaseStats?.Sum(s => s.FirstOrDefault()) : fightPhaseStats?.FirstOrDefault()?.FirstOrDefault()) ?? 0;
-                existingPlayer.Cleave = fightAllDps?.FirstOrDefault() - existingPlayer.Damage ?? 0;
-                existingPlayer.Cleanses = supportStats?.FirstOrDefault() ?? 0;
-                existingPlayer.Cleanses += supportStats?.Count >= ArcDpsDataIndices.PlayerCleansesIndex + 1 ? supportStats[ArcDpsDataIndices.PlayerCleansesIndex] : 0;
-                existingPlayer.Strips = supportStats?.Count >= ArcDpsDataIndices.PlayerStripsIndex + 1 ? supportStats[ArcDpsDataIndices.PlayerStripsIndex] : 0;
-                existingPlayer.StabOnGroup = boonGenGroupStats?.Data?.Count >= ArcDpsDataIndices.BoonStabDimension1Index - 1 ? boonGenGroupStats?.Data?[ArcDpsDataIndices.BoonStabDimension1Index][0] ?? 0 : 0;
-                existingPlayer.StabOffGroup = boonGenOffGroupStats?.Data?[ArcDpsDataIndices.BoonStabDimension1Index][0] ?? 0;
-                existingPlayer.Healing = healingStatsTargets?.Sum(s => s.FirstOrDefault()) ?? 0;
-                existingPlayer.BarrierGenerated = barrierStats?.FirstOrDefault() ?? 0;
-                existingPlayer.DistanceFromTag = gameplayStats?[ArcDpsDataIndices.DistanceFromTagIndex] ?? 0;
-                existingPlayer.Interrupts = offensiveStatsTargets?.Sum(s => s[ArcDpsDataIndices.InterruptsIndex]) ?? 0;
-                existingPlayer.TimesInterrupted = Convert.ToInt64(defStats?[ArcDpsDataIndices.TimesInterruptedIndex].Double ?? 0L);
-                existingPlayer.DamageDownContribution = offensiveStatsTargets?.Sum(s => s[ArcDpsDataIndices.DamageDownContribution]) ?? 0;
-                existingPlayer.NumberOfHitsWhileBlinded = offensiveStatsTargets?.Sum(s => s[ArcDpsDataIndices.NumberOfHitsWhileBlindedIndex]) ?? 0;
-                existingPlayer.NumberOfMissesAgainst = defStats?[ArcDpsDataIndices.NumberOfMissesAgainstIndex].Double ?? 0;
-                existingPlayer.NumberOfTimesBlockedAttack = defStats?[ArcDpsDataIndices.NumberOfTimesBlockedAttackIndex].Double ?? 0;
-                existingPlayer.NumberOfTimesEnemyBlockedAttack = offensiveStatsTargets?.Sum(s => s[ArcDpsDataIndices.NumberOfTimesEnemyBlockedAttackIndex]) ?? 0;
-                existingPlayer.NumberOfBoonsRipped = defStats?[ArcDpsDataIndices.NumberOfBoonsRippedIndex].Double ?? 0;
-                existingPlayer.DamageTaken = defStats?[ArcDpsDataIndices.DamageTakenIndex].Double ?? 0;
-                existingPlayer.BarrierMitigation = defStats?[ArcDpsDataIndices.BarrierMitigationIndex].Double ?? 0;
-                existingPlayer.TotalQuick = boons?.CheckIndexIsValid(ArcDpsDataIndices.TotalQuick, 0) ?? false ? boons[ArcDpsDataIndices.TotalQuick][0] : 0;
-                existingPlayer.TotalAlac = boons?.CheckIndexIsValid(ArcDpsDataIndices.TotalAlac, 0) ?? false ? boons[ArcDpsDataIndices.TotalAlac][0] : 0;
-                existingPlayer.ResurrectionTime = resurrectionTime;
-                existingPlayer.FavorUsage = favorUsage;
-                existingPlayer.DesertShroudUsage = desertShroudUsage;
-                existingPlayer.SandstormShroudUsage = sandstormShroudUsage;
-                existingPlayer.SandFlareUsage = sandFlareUsage;
+                var kills = offensiveStatsTargets?.Sum(s => s[ArcDpsDataIndices.EnemyDeathIndex]) ?? 0;
+                var deaths = Convert.ToInt64(defStats?[ArcDpsDataIndices.DeathIndex].Double ?? 0L);
+                var timesDowned = defStats?[ArcDpsDataIndices.EnemiesDownedIndex].Double ?? 0;
+                var downs = offensiveStatsTargets?.Sum(s => s[ArcDpsDataIndices.DownIndex]) ?? 0;
+                var damage = (someAllFights ? fightPhaseStats?.Sum(s => s.FirstOrDefault()) : fightPhaseStats?.FirstOrDefault()?.FirstOrDefault()) ?? 0;
+                var cleave = fightAllDps?.FirstOrDefault() - damage ?? 0;
+                var cleanses = supportStats?.FirstOrDefault() ?? 0;
+                cleanses += supportStats?.Count >= ArcDpsDataIndices.PlayerCleansesIndex + 1 ? supportStats[ArcDpsDataIndices.PlayerCleansesIndex] : 0;
+                var strips = supportStats?.Count >= ArcDpsDataIndices.PlayerStripsIndex + 1 ? supportStats[ArcDpsDataIndices.PlayerStripsIndex] : 0;
+                var stabOnGroup = boonGenGroupStats?.Data?.Count >= ArcDpsDataIndices.BoonStabDimension1Index - 1 ? boonGenGroupStats.Data?[ArcDpsDataIndices.BoonStabDimension1Index][0] ?? 0 : 0;
+                var stabOffGroup = boonGenOffGroupStats?.Data?[ArcDpsDataIndices.BoonStabDimension1Index][0] ?? 0;
+                var healing = healingStatsTargets?.Sum(s => s.FirstOrDefault()) ?? 0;
+                var barrierGenerated = barrierStats?.FirstOrDefault() ?? 0;
+                var distanceFromTag = gameplayStats?[ArcDpsDataIndices.DistanceFromTagIndex] ?? 0;
+                var interrupts = offensiveStatsTargets?.Sum(s => s[ArcDpsDataIndices.InterruptsIndex]) ?? 0;
+                var timesInterrupted = Convert.ToInt64(defStats?[ArcDpsDataIndices.TimesInterruptedIndex].Double ?? 0L);
+                var damageDownContribution = offensiveStatsTargets?.Sum(s => s[ArcDpsDataIndices.DamageDownContribution]) ?? 0;
+                var numberOfHitsWhileBlinded = offensiveStatsTargets?.Sum(s => s[ArcDpsDataIndices.NumberOfHitsWhileBlindedIndex]) ?? 0;
+                var numberOfMissesAgainst = defStats?[ArcDpsDataIndices.NumberOfMissesAgainstIndex].Double ?? 0;
+                var numberOfTimesBlockedAttack = defStats?[ArcDpsDataIndices.NumberOfTimesBlockedAttackIndex].Double ?? 0;
+                var numberOfTimesEnemyBlockedAttack = offensiveStatsTargets?.Sum(s => s[ArcDpsDataIndices.NumberOfTimesEnemyBlockedAttackIndex]) ?? 0;
+                var numberOfBoonsRipped = defStats?[ArcDpsDataIndices.NumberOfBoonsRippedIndex].Double ?? 0;
+                var damageTaken = defStats?[ArcDpsDataIndices.DamageTakenIndex].Double ?? 0;
+                var barrierMitigation = defStats?[ArcDpsDataIndices.BarrierMitigationIndex].Double ?? 0;
+                var totalQuick = boons?.CheckIndexIsValid(ArcDpsDataIndices.TotalQuick, 0) ?? false ? boons[ArcDpsDataIndices.TotalQuick][0] : 0;
+                var totalAlac = boons?.CheckIndexIsValid(ArcDpsDataIndices.TotalAlac, 0) ?? false ? boons[ArcDpsDataIndices.TotalAlac][0] : 0;
+
+                if (isNewPlayer)
+                {
+                    existingPlayer.Kills = kills;
+                    existingPlayer.Deaths = deaths;
+                    existingPlayer.TimesDowned = timesDowned;
+                    existingPlayer.Downs = downs;
+                    existingPlayer.Damage = damage;
+                    existingPlayer.Cleave = cleave;
+                    existingPlayer.Cleanses = cleanses;
+                    existingPlayer.Strips = strips;
+                    existingPlayer.StabOnGroup = stabOnGroup;
+                    existingPlayer.StabOffGroup = stabOffGroup;
+                    existingPlayer.Healing = healing;
+                    existingPlayer.BarrierGenerated = barrierGenerated;
+                    existingPlayer.DistanceFromTag = distanceFromTag;
+                    existingPlayer.Interrupts = interrupts;
+                    existingPlayer.TimesInterrupted = timesInterrupted;
+                    existingPlayer.DamageDownContribution = damageDownContribution;
+                    existingPlayer.NumberOfHitsWhileBlinded = numberOfHitsWhileBlinded;
+                    existingPlayer.NumberOfMissesAgainst = numberOfMissesAgainst;
+                    existingPlayer.NumberOfTimesBlockedAttack = numberOfTimesBlockedAttack;
+                    existingPlayer.NumberOfTimesEnemyBlockedAttack = numberOfTimesEnemyBlockedAttack;
+                    existingPlayer.NumberOfBoonsRipped = numberOfBoonsRipped;
+                    existingPlayer.DamageTaken = damageTaken;
+                    existingPlayer.BarrierMitigation = barrierMitigation;
+                    existingPlayer.TotalQuick = totalQuick;
+                    existingPlayer.TotalAlac = totalAlac;
+                    existingPlayer.ResurrectionTime = resurrectionTime;
+                    existingPlayer.TimeOfDeath = deathTime;
+                }
+                else
+                {
+                    existingPlayer.Kills += kills;
+                    existingPlayer.Deaths += deaths;
+                    existingPlayer.TimesDowned += timesDowned;
+                    existingPlayer.Downs += downs;
+                    existingPlayer.Damage += damage;
+                    existingPlayer.Cleave += cleave;
+                    existingPlayer.Cleanses += cleanses;
+                    existingPlayer.Strips += strips;
+                    existingPlayer.StabOnGroup += stabOnGroup;
+                    existingPlayer.StabOffGroup += stabOffGroup;
+                    existingPlayer.Healing += healing;
+                    existingPlayer.BarrierGenerated += barrierGenerated;
+                    existingPlayer.DistanceFromTag += distanceFromTag;
+                    existingPlayer.Interrupts += interrupts;
+                    existingPlayer.TimesInterrupted += timesInterrupted;
+                    existingPlayer.DamageDownContribution += damageDownContribution;
+                    existingPlayer.NumberOfHitsWhileBlinded += numberOfHitsWhileBlinded;
+                    existingPlayer.NumberOfMissesAgainst += numberOfMissesAgainst;
+                    existingPlayer.NumberOfTimesBlockedAttack += numberOfTimesBlockedAttack;
+                    existingPlayer.NumberOfTimesEnemyBlockedAttack += numberOfTimesEnemyBlockedAttack;
+                    existingPlayer.NumberOfBoonsRipped += numberOfBoonsRipped;
+                    existingPlayer.DamageTaken += damageTaken;
+                    existingPlayer.BarrierMitigation += barrierMitigation;
+                    existingPlayer.TotalQuick += totalQuick;
+                    existingPlayer.TotalAlac += totalAlac;
+                    existingPlayer.ResurrectionTime += resurrectionTime;
+                    existingPlayer.TimeOfDeath = deathTime != null && existingPlayer.TimeOfDeath >= deathTime ? deathTime : existingPlayer.TimeOfDeath;
+                }
             }
             catch (Exception ex)
             {
@@ -132,33 +176,84 @@ public class PlayerService(IEntityService entityService) : IPlayerService
                 case (short)FightTypesEnum.ToF:
                 {
                     var possibleMechanics = data.FightEliteInsightDataModel.MechanicMap?.Where(s => s.PlayerMech).ToList() ?? [];
-                    existingPlayer.CerusOrbsCollected = GetMechanicValueForPlayer(possibleMechanics, "Insatiable Application", mechanics);
+                    var cerusOrbsCollected = GetMechanicValueForPlayer(possibleMechanics, "Insatiable Application", mechanics);
+                    var cerusSpreadHitCount = GetMechanicValueForPlayer(possibleMechanics, "Pool of Despair Hit", mechanics);
+                    cerusSpreadHitCount += GetMechanicValueForPlayer(possibleMechanics, "Empowered Pool of Despair Hit", mechanics);
+
+                    if (isNewPlayer)
+                    {
+                        existingPlayer.CerusOrbsCollected = cerusOrbsCollected;
+                        existingPlayer.CerusSpreadHitCount = cerusSpreadHitCount;
+                    }
+                    else
+                    {
+                        existingPlayer.CerusOrbsCollected += cerusOrbsCollected;
+                        existingPlayer.CerusSpreadHitCount += cerusSpreadHitCount;
+                    }
 
                     if (firstFightPhaseStats != null)
                     {
-                        existingPlayer.CerusPhaseOneDamage = ((double)firstFightPhaseStats[0][0] / data.FightEliteInsightDataModel.Phases?[1].Duration * 1000) ?? 0;
+                        var phaseOneDamage = ((double)firstFightPhaseStats[0][0] / data.FightEliteInsightDataModel.Phases?[1].Duration * 1000) ?? 0;
+                        if (isNewPlayer)
+                        {
+                            existingPlayer.CerusPhaseOneDamage = phaseOneDamage;
+                        }
+                        else
+                        {
+                            existingPlayer.CerusPhaseOneDamage += phaseOneDamage;
+                        }
                     }
 
-
-                    existingPlayer.CerusSpreadHitCount = GetMechanicValueForPlayer(possibleMechanics, "Pool of Despair Hit", mechanics);
-                    existingPlayer.CerusSpreadHitCount += GetMechanicValueForPlayer(possibleMechanics, "Empowered Pool of Despair Hit", mechanics);
                     break;
                 }
                 case (short)FightTypesEnum.Deimos:
                 {
                     var possibleMechanics = data.FightEliteInsightDataModel.MechanicMap?.Where(s => s.PlayerMech).ToList() ?? [];
-                    existingPlayer.DeimosOilsTriggered = GetMechanicValueForPlayer(possibleMechanics, "Black Oil Trigger", mechanics);
+                    var deimosOilsTriggered = GetMechanicValueForPlayer(possibleMechanics, "Black Oil Trigger", mechanics);
+                    
+                    if (isNewPlayer)
+                    {
+                        existingPlayer.DeimosOilsTriggered = deimosOilsTriggered;
+                    }
+                    else
+                    {
+                        existingPlayer.DeimosOilsTriggered += deimosOilsTriggered;
+                    }
                     break;
                 }
                 case (short)FightTypesEnum.Ura:
                 {
                     var possibleMechanics = data.FightEliteInsightDataModel.MechanicMap?.Where(s => s.PlayerMech).ToList() ?? [];
-                    existingPlayer.Exposed = GetMechanicValueForPlayer(possibleMechanics, "Exposed Applied", mechanics);
-                    existingPlayer.ShardPickUp = GetMechanicValueForPlayer(possibleMechanics, "Bloodstone Shard Pick-up", mechanics);
-                    existingPlayer.ShardUsed = GetMechanicValueForPlayer(possibleMechanics, "Used Dispel", mechanics);
+                    var shardPickUp = GetMechanicValueForPlayer(possibleMechanics, "Bloodstone Shard Pick-up", mechanics);
+                    var shardUsed = GetMechanicValueForPlayer(possibleMechanics, "Used Dispel", mechanics);
+                    
+                    if (isNewPlayer)
+                    {
+                        existingPlayer.ShardPickUp = shardPickUp;
+                        existingPlayer.ShardUsed = shardUsed;
+                    }
+                    else
+                    {
+                        existingPlayer.ShardPickUp += shardPickUp;
+                        existingPlayer.ShardUsed += shardUsed;
+                    }
                     break;
                 }
             }
+        }
+
+        foreach (var player in gw2Players)
+        {
+            if (!characterCountPerAccount.TryGetValue(player.AccountName, out var count) || count <= 1)
+            {
+                continue;
+            }
+            
+            player.StabOnGroup /= count;
+            player.StabOffGroup /= count;
+            player.DistanceFromTag /= count;
+            player.TotalQuick /= count;
+            player.TotalAlac /= count;
         }
 
         return gw2Players;
@@ -195,7 +290,7 @@ public class PlayerService(IEntityService entityService) : IPlayerService
         var gw2Players = GetGw2Players(fightEliteInsightDataModel, fightPhase);
 
         var secondsOfFight = 0;
-        if (TimeSpan.TryParse(fightEliteInsightDataModel.FightEliteInsightDataModel.EncounterDuration, out var duration))
+        if (TimeSpan.TryParse(fightEliteInsightDataModel.FightEliteInsightDataModel.Phases?.FirstOrDefault()?.EncounterDuration, out var duration))
         {
             secondsOfFight = (int)duration.TotalSeconds;
         }

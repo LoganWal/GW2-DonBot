@@ -8,7 +8,7 @@ using DonBot.Services.DatabaseServices;
 
 namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers;
 
-public class RaidReportHandler(
+public sealed class RaidReportHandler(
     IEntityService entityService,
     FooterHandler footerHandler,
     WvWFightSummaryHandler wvWFightSummaryHandler)
@@ -25,12 +25,12 @@ public class RaidReportHandler(
         return await GetRaidReport(guildId, fights, messages);
     }
 
-    public async Task<List<Embed>?> GenerateSimpleReply(List<string> urls)
+    public async Task<List<Embed>?> GenerateSimpleReply(List<string> urls, long guildId)
     {
         var messages = new List<Embed>();
         var fights = (await entityService.FightLog.GetWhereAsync(s => urls.Contains(s.Url))).ToList();
 
-        return await GetRaidReport(-1, fights, messages);
+        return await GetRaidReport(guildId, fights, messages);
     }
 
     public async Task<Embed> GenerateRaidAlert(long guildId)
@@ -389,7 +389,7 @@ public class RaidReportHandler(
 
             if (groupedFight.Key == (short)FightTypesEnum.Ura)
             {
-                mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.Ura, "```Player         Exposed    Shard P    Shard U\n", pf => pf.Exposed, groupedPlayerFights, fights);
+                mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.Ura, "```Player         Shard P    Shard U\n", pf => pf.ShardPickUp, groupedPlayerFights, fights);
             }
 
             if (!string.IsNullOrEmpty(mechanicsOverview))
@@ -443,7 +443,7 @@ public class RaidReportHandler(
                 }
                 else if (fightType == (short)FightTypesEnum.Ura)
                 {
-                    mechanicsOverview += $"{playerFightsListForType.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,2}{playerFightsListForType.Sum(s => s.Exposed),-3}{string.Empty,8}{playerFightsListForType.Sum(s => s.ShardPickUp),-3}{string.Empty,8}{playerFightsListForType.Sum(s => s.ShardUsed),-3}\n";
+                    mechanicsOverview += $"{playerFightsListForType.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,2}{playerFightsListForType.Sum(s => s.ShardPickUp),-3}{string.Empty,8}{playerFightsListForType.Sum(s => s.ShardUsed),-3}\n";
                 }
             }
         }

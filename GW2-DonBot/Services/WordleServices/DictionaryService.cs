@@ -4,7 +4,7 @@ using Newtonsoft.Json;
 
 namespace DonBot.Services.WordleServices;
 
-public class DictionaryService(IHttpClientFactory httpClientFactory)
+public sealed class DictionaryService(IHttpClientFactory httpClientFactory)
 {
     public async Task<string> GetDefinitionsAsync(string word)
     {

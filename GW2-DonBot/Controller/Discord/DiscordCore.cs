@@ -15,7 +15,7 @@ using ConnectionState = Discord.ConnectionState;
 
 namespace DonBot.Controller.Discord;
 
-public class DiscordCore(
+public sealed class DiscordCore(
     IEntityService entityService,
     ILogger<DiscordCore> logger,
     ISecretService secretService,
@@ -38,8 +38,9 @@ public class DiscordCore(
 {
     private readonly HashSet<string> _seenUrls = [];
     private const long DonBotId = 1021682849797111838;
-    private CancellationTokenSource _pollingRolesCancellationTokenSource = new();
-    private CancellationTokenSource _scheduleServiceCancellationTokenSource = new();
+    private CancellationTokenSource? _pollingRolesCancellationTokenSource;
+    private CancellationTokenSource? _scheduleServiceCancellationTokenSource;
+    private Task? _pollingRolesTask;
     private static readonly SemaphoreSlim Semaphore = new(1, 1);
 
     public async Task MainAsync(CancellationToken cancellationToken = default)
@@ -51,7 +52,7 @@ public class DiscordCore(
         logger.LogInformation("GW2-DonBot attempting to connect...");
 
         // Wait for the client to be connected
-        await WaitForConnectionAsync();
+        await WaitForConnectionAsync(cancellationToken);
         await RegisterCommands();
 
         logger.LogInformation("GW2-DonBot connected.");
@@ -63,10 +64,10 @@ public class DiscordCore(
         RegisterEventHandlers();
 
         // Start polling roles task
-        _pollingRolesCancellationTokenSource = new CancellationTokenSource();
-        var pollingRolesTask = Task.Run(() => PollingRolesTask(TimeSpan.FromMinutes(30), _pollingRolesCancellationTokenSource.Token));
+        _pollingRolesCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _pollingRolesTask = PollingRolesTask(TimeSpan.FromMinutes(30), _pollingRolesCancellationTokenSource.Token);
 
-        _scheduleServiceCancellationTokenSource = new CancellationTokenSource();
+        _scheduleServiceCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         await schedulerService.StartAsync(_scheduleServiceCancellationTokenSource.Token);
             
         logger.LogInformation("GW2-DonBot setup - ready to cause chaos");
@@ -81,44 +82,71 @@ public class DiscordCore(
         }
         finally
         {
-            logger.LogInformation("Shutting down Discord client and services...");
-            
+            await CleanupAsync();
+        }
+    }
+
+    private async Task CleanupAsync()
+    {
+        logger.LogInformation("Shutting down Discord client and services...");
+
+        // Cancel all running tasks
+        if (_pollingRolesCancellationTokenSource is not null)
+        {
             await _pollingRolesCancellationTokenSource.CancelAsync();
+        }
+
+        if (_scheduleServiceCancellationTokenSource is not null)
+        {
             await _scheduleServiceCancellationTokenSource.CancelAsync();
-            
+        }
+
+        // Wait for polling task to complete with timeout
+        if (_pollingRolesTask is not null)
+        {
             try
             {
-                await Task.WhenAny(pollingRolesTask, Task.Delay(5000));
+                await _pollingRolesTask.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            catch (TimeoutException)
+            {
+                logger.LogWarning("Polling task did not complete within timeout period");
             }
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Error waiting for polling task to complete");
             }
-            
-            // Unregister handlers before stopping client
-            UnregisterEventHandlers();
-            
-            // Stop and dispose client
-            await client.StopAsync();
-            
-            logger.LogInformation("Discord client shutdown completed");
         }
+
+        // Unregister handlers before stopping client
+        UnregisterEventHandlers();
+
+        // Stop and dispose client
+        await client.StopAsync();
+
+        // Dispose cancellation token sources
+        _pollingRolesCancellationTokenSource?.Dispose();
+        _scheduleServiceCancellationTokenSource?.Dispose();
+
+        logger.LogInformation("Discord client shutdown completed");
     }
 
-    private async Task WaitForConnectionAsync()
+    private async Task WaitForConnectionAsync(CancellationToken cancellationToken = default)
     {
         while (client.ConnectionState != ConnectionState.Connected)
         {
-            await Task.Delay(100);
+            await Task.Delay(100, cancellationToken);
         }
     }
 
     private async Task LoadExistingFightLogs()
     {
-        var fightLogs = (await entityService.FightLog.GetAllAsync()).Select(s => s.Url).Distinct().ToList();
-        foreach (var fightLog in fightLogs)
+        var fightLogs = await entityService.FightLog.GetAllAsync();
+        var distinctUrls = fightLogs.Select(s => s.Url).Distinct();
+        
+        foreach (var url in distinctUrls)
         {
-            _seenUrls.Add(fightLog);
+            _seenUrls.Add(url);
         }
     }
 
@@ -210,7 +238,7 @@ public class DiscordCore(
 
         // Fetch the latest MessageId from the database
         var scheduledEvent = await entityService.ScheduledEvent.GetFirstOrDefaultAsync(e => e.ScheduledEventId == scheduledEventId);
-        if (scheduledEvent == null || scheduledEvent.MessageId != (long)buttonComponent.Message.Id)
+        if (scheduledEvent is null || scheduledEvent.MessageId != (long)buttonComponent.Message.Id)
         {
             await buttonComponent.RespondAsync("This is not the latest event message. Please interact with the most recent message.", ephemeral: true);
             return;
@@ -220,7 +248,7 @@ public class DiscordCore(
 
         // Get the latest embed from the message
         var embed = buttonComponent.Message.Embeds.FirstOrDefault();
-        if (embed == null)
+        if (embed is null)
         {
             logger.LogWarning("No embed found in the message for button interaction.");
             return;
@@ -234,7 +262,9 @@ public class DiscordCore(
             var fieldValue = field.Value as string ?? string.Empty;
             var userList = fieldValue
                 .Split('\n')
-                .Where(line => !string.IsNullOrWhiteSpace(line) && !line.StartsWith("**Total:") && !GetDefaultFieldValue(field.Name).Equals(line))
+                .Where(line => !string.IsNullOrWhiteSpace(line) && 
+                              !line.StartsWith("**Total:") && 
+                              !GetDefaultFieldValue(field.Name).Equals(line))
                 .ToList();
 
             // Remove the user if present
@@ -249,12 +279,14 @@ public class DiscordCore(
 
         // Add the user to the new field
         var targetField = embedBuilder.Fields.FirstOrDefault(f => f.Name == fieldName);
-        if (targetField != null)
+        if (targetField is not null)
         {
             var targetFieldValue = targetField.Value as string ?? string.Empty;
             var userList = targetFieldValue
                 .Split('\n')
-                .Where(line => !string.IsNullOrWhiteSpace(line) && !line.StartsWith("**Total:") && !GetDefaultFieldValue(fieldName).Equals(line))
+                .Where(line => !string.IsNullOrWhiteSpace(line) && 
+                              !line.StartsWith("**Total:") && 
+                              !GetDefaultFieldValue(fieldName).Equals(line))
                 .ToList();
 
             // If the user is already in the target field, do nothing
@@ -274,7 +306,7 @@ public class DiscordCore(
             msg.Embed = embedBuilder.Build();
         });
 
-        logger.LogInformation("Updated {FieldName} field for event with user {User}.", fieldName, user);
+        logger.LogInformation("Updated {FieldName} field for event with user {User}", fieldName, user);
     }
 
     private string FormatFieldValue(string fieldName, List<string> users)
@@ -319,8 +351,8 @@ public class DiscordCore(
         await client.BulkOverwriteGlobalApplicationCommandsAsync([]);
 
         // Define commands to register
-        var commandsToRegister = new List<SlashCommandBuilder>
-        {
+        SlashCommandBuilder[] commandsToRegister =
+        [
             new SlashCommandBuilder()
                 .WithName("gw2_verify")
                 .WithDescription("Verify your GW2 API key so that your GW2 Account and Discord are linked.")
@@ -412,11 +444,11 @@ public class DiscordCore(
 
             new SlashCommandBuilder()
                 .WithName("deadlock_match_history")
-                .WithDescription("Get your deadlock match history."),
-        };
+                .WithDescription("Get your deadlock match history.")
+        ];
 
         // Build the commands for comparison
-        var newCommands = commandsToRegister.Select(c => c.Build()).ToList();
+        var newCommands = commandsToRegister.Select(c => c.Build()).ToArray();
 
         foreach (var guild in guilds)
         {
@@ -424,10 +456,11 @@ public class DiscordCore(
             var existingCommands = await guild.GetApplicationCommandsAsync();
 
             // Check if there are any differences
-            if (existingCommands.Count != newCommands.Count || existingCommands.Any(ec => newCommands.All(nc => nc.Name.Value != ec.Name)))
+            if (existingCommands.Count != newCommands.Length || 
+                existingCommands.Any(ec => newCommands.All(nc => nc.Name.Value != ec.Name)))
             {
                 // Log the deletion of existing commands
-                logger.LogInformation("Differences found in commands for {guildName}. Deleting all existing commands.", guild.Name);
+                logger.LogInformation("Differences found in commands for {GuildName}. Deleting all existing commands", guild.Name);
 
                 // Delete all existing commands
                 await guild.DeleteApplicationCommandsAsync();
@@ -435,13 +468,13 @@ public class DiscordCore(
                 // Register all new commands
                 foreach (var command in newCommands)
                 {
-                    logger.LogInformation("Registering new command on {guildName} - {commandName}", guild.Name, command.Name);
+                    logger.LogInformation("Registering new command on {GuildName} - {CommandName}", guild.Name, command.Name);
                     await guild.CreateApplicationCommandAsync(command);
                 }
             }
             else
             {
-                logger.LogInformation("No differences in commands for {guildName}. No action taken.", guild.Name);
+                logger.LogInformation("No differences in commands for {GuildName}. No action taken", guild.Name);
             }
         }
     }
@@ -632,12 +665,12 @@ public class DiscordCore(
         try
         {
             // TODO update this to be config driven
-            var knownBots = new List<ulong>
-            {
+            ulong[] knownBots =
+            [
                 DonBotId,
                 1172050606005964820, // gw2Mists.com
                 1408608200424554507 // gw2SoxBot
-            };
+            ];
 
             var isKnownBot = knownBots.Contains(seenMessage.Author.Id);
 
@@ -649,7 +682,7 @@ public class DiscordCore(
             Guild? guild;
             if (seenMessage.Channel is not SocketGuildChannel channel)
             {
-                logger.LogWarning("Did not find channel {seenMessageChannelName} in guild", seenMessage.Channel.Name);
+                logger.LogWarning("Did not find channel {SeenMessageChannelName} in guild", seenMessage.Channel.Name);
                 guild = await entityService.Guild.GetFirstOrDefaultAsync(g => g.GuildId == -1);
             }
             else
@@ -661,20 +694,21 @@ public class DiscordCore(
             {
                 if (seenMessage.Channel is not SocketTextChannel)
                 {
-                    logger.LogWarning("Unable to spam channel {seenMessageChannelName}", seenMessage.Channel.Name);
+                    logger.LogWarning("Unable to spam channel {SeenMessageChannelName}", seenMessage.Channel.Name);
                     return;
                 }
 
                 var user = await entityService.Account.GetFirstOrDefaultAsync(g => g.DiscordId == (long)seenMessage.Author.Id);
-                if (user == null)
+                if (user is null)
                 {
                     await HandleSpamMessage(seenMessage);
                     return;
                 }
 
-                if (guild.DiscordVerifiedRoleId != null)
+                if (guild.DiscordVerifiedRoleId is not null)
                 {
-                    if (seenMessage.Author is SocketGuildUser socketUser && !socketUser.Roles.Select(s => (long)s.Id).ToList().Contains(guild.DiscordVerifiedRoleId.Value))
+                    if (seenMessage.Author is SocketGuildUser socketUser && 
+                        !socketUser.Roles.Select(s => (long)s.Id).Contains(guild.DiscordVerifiedRoleId.Value))
                     {
                         await HandleSpamMessage(seenMessage);
                         return;
@@ -714,9 +748,9 @@ public class DiscordCore(
                 trimmedUrls = urls.Select(url => url.Contains(')') ? url[..url.IndexOf(')')] : url).ToList();
             }
 
-            if (trimmedUrls.Any())
+            if (trimmedUrls.Count != 0)
             {
-                logger.LogInformation("Assessing: {url}", string.Join(",", trimmedUrls));
+                logger.LogInformation("Assessing: {Url}", string.Join(",", trimmedUrls));
                 await AnalyseAndReportOnUrl(trimmedUrls, guild?.GuildId ?? -1, embedMessage, seenMessage.Channel);
             }
         }
@@ -731,25 +765,27 @@ public class DiscordCore(
         await seenMessage.DeleteAsync();
 
         var discordGuild = (seenMessage.Channel as SocketGuildChannel)?.Guild;
-        if (discordGuild != null)
+        if (discordGuild is null)
         {
-            var guildId = discordGuild.Id;
-
-            var guild = await entityService.Guild.GetFirstOrDefaultAsync(g => g.GuildId == (long)guildId);
-            if (guild?.RemovedMessageChannelId == null)
-            {
-                logger.LogWarning("Unable to find guild {guildId}", guildId);
-                return;
-            }
-
-            if (client.GetChannel((ulong)guild.RemovedMessageChannelId) is not ITextChannel targetChannel)
-            {
-                logger.LogWarning("Unable to find guild remove channel {guildRemovedMessageChannelId}", guild.RemovedMessageChannelId);
-                return;
-            }
-
-            await targetChannel.SendMessageAsync($"Removed message from <@{seenMessage.Author.Id}> ({seenMessage.Author.Username}), for posting a discord link without being verified.");
+            return;
         }
+
+        var guildId = discordGuild.Id;
+
+        var guild = await entityService.Guild.GetFirstOrDefaultAsync(g => g.GuildId == (long)guildId);
+        if (guild?.RemovedMessageChannelId is null)
+        {
+            logger.LogWarning("Unable to find guild {GuildId}", guildId);
+            return;
+        }
+
+        if (client.GetChannel((ulong)guild.RemovedMessageChannelId) is not ITextChannel targetChannel)
+        {
+            logger.LogWarning("Unable to find guild remove channel {GuildRemovedMessageChannelId}", guild.RemovedMessageChannelId);
+            return;
+        }
+
+        await targetChannel.SendMessageAsync($"Removed message from <@{seenMessage.Author.Id}> ({seenMessage.Author.Username}), for posting a discord link without being verified.");
     }
 
     private async Task AnalyseAndReportOnUrl(List<string> urls, long guildId, bool isEmbed, ISocketMessageChannel replyChannel)
@@ -774,7 +810,6 @@ public class DiscordCore(
 
         logger.LogInformation("Generating fight summary: {url}", urlList);
 
-        Embed message;
         MessageComponent? buttonBuilder = null;
         if (isEmbed)
         {
@@ -785,6 +820,8 @@ public class DiscordCore(
                     logger.LogInformation("Already seen {url}, going to next log.", eliteInsightDataModel.FightEliteInsightDataModel.Url);
                     continue;
                 }
+
+                Embed message;
                 if (eliteInsightDataModel.FightEliteInsightDataModel.Wvw)
                 {
                     if (guild.AdvanceLogReportChannelId != null)
@@ -856,7 +893,7 @@ public class DiscordCore(
                     }
                 }
 
-                var messages = await messageGenerationService.GenerateRaidReplyReport(urls);
+                var messages = await messageGenerationService.GenerateRaidReplyReport(urls, guildId);
                 if (messages != null)
                 {
                     foreach (var bulkMessage in messages)

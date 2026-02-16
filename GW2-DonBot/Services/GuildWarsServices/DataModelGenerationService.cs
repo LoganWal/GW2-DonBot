@@ -4,7 +4,7 @@ using Newtonsoft.Json;
 
 namespace DonBot.Services.GuildWarsServices;
 
-public class DataModelGenerationService(ILogger<DataModelGenerationService> logger, IHttpClientFactory httpClientFactory) : IDataModelGenerationService
+public sealed class DataModelGenerationService(ILogger<DataModelGenerationService> logger, IHttpClientFactory httpClientFactory) : IDataModelGenerationService
 {
     public async Task<EliteInsightDataModel> GenerateEliteInsightDataModelFromUrl(string url)
     {

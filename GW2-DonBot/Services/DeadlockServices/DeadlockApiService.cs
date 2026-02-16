@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 
 namespace DonBot.Services.DeadlockServices;
 
-internal class DeadlockApiService(ILogger<DiscordCore> logger, IHttpClientFactory httpClientFactory)
+internal sealed class DeadlockApiService(ILogger<DiscordCore> logger, IHttpClientFactory httpClientFactory)
     : IDeadlockApiService
 {
     public async Task<DeadlockRank> GetDeadlockRank(long accountId)

@@ -20,7 +20,7 @@ public static class ServiceRegister
 {
     public static void ConfigureServices(IServiceCollection services)
     {
-        // Handlers
+        // Handlers - Transient for stateless handlers
         services.AddTransient<FooterHandler>();
         services.AddTransient<PvEFightSummaryHandler>();
         services.AddTransient<WvWFightSummaryHandler>();
@@ -28,7 +28,7 @@ public static class ServiceRegister
         services.AddTransient<WvWPlayerSummaryHandler>();
         services.AddTransient<RaidReportHandler>();
 
-        // Services (Scoped, Transient, Singleton)
+        // Core Services - Scoped for per-request/operation services
         services.AddScoped<ISecretService, SecretServices>();
         services.AddScoped<IDataModelGenerationService, DataModelGenerationService>();
         services.AddScoped<IMessageGenerationService, MessageGenerationService>();
@@ -39,12 +39,12 @@ public static class ServiceRegister
         services.AddScoped<IFightLogService, FightLogService>();
         services.AddScoped<IDeadlockApiService, DeadlockApiService>();
 
-        // Singletons (ensure they are stateless)
+        // Singleton Services - Thread-safe, stateless services
         services.AddSingleton<IWordleService, WordleService>();
         services.AddSingleton<IWordGeneratorService, WordGeneratorService>();
         services.AddSingleton<DictionaryService>();
 
-        // Command Services
+        // Command Services - Transient for command handlers
         services.AddTransient<IGenericCommandsService, GenericCommandsService>();
         services.AddTransient<IVerifyCommandsService, VerifyCommandsService>();
         services.AddTransient<IPointsCommandsService, PointsCommandsService>();
@@ -53,18 +53,18 @@ public static class ServiceRegister
         services.AddTransient<ISteamCommandService, SteamCommandService>();
         services.AddTransient<IDeadlockCommandService, DeadlockCommandService>();
 
-        // Polling and API Services
+        // Polling and API Services - Transient for operational services
         services.AddTransient<IPollingTasksService, PollingTasksService>();
         services.AddTransient<IDiscordApiService, DiscordApiService>();
 
-        // Scheduling
+        // Scheduling - Transient for scheduler instances
         services.AddTransient<SchedulerService>();
 
-        // DbContext and Unit of Work
-        services.AddScoped(typeof(IDatabaseUpdateService<>), typeof(DatabaseUpdateService<>));  // Generic
-        services.AddScoped<IEntityService, EntityService>();  // Repository Manager
+        // Database Services
+        services.AddScoped(typeof(IDatabaseUpdateService<>), typeof(DatabaseUpdateService<>));
+        services.AddScoped<IEntityService, EntityService>();
 
-        // Register IDbContextFactory so it can be injected in your service
+        // DbContext Factory with connection string resolution
         services.AddDbContextFactory<DatabaseContext>((serviceProvider, options) =>
         {
             var secretService = serviceProvider.GetRequiredService<ISecretService>();
@@ -72,7 +72,7 @@ public static class ServiceRegister
             options.UseSqlServer(connectionString);
         });
 
-        // HttpClient Factory for HTTP requests
+        // HttpClient Factory for HTTP requests with default configuration
         services.AddHttpClient();
     }
 }

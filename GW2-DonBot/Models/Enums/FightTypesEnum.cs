@@ -57,6 +57,7 @@ public enum FightTypesEnum
     Eparch = 52,
     Spirit = 53,
     Shadow = 54,
+    Kela = 55,
     Golem = 32766,
     Unkn = short.MaxValue,
 }

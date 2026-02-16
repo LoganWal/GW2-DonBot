@@ -2,7 +2,7 @@
 
 namespace DonBot.Services.DatabaseServices;
 
-public class EntityService(
+public sealed class EntityService(
     IDatabaseUpdateService<Account> account,
     IDatabaseUpdateService<FightLog> fightLog,
     IDatabaseUpdateService<FightsReport> fightsReport,

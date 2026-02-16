@@ -5,7 +5,7 @@ using DonBot.Services.DatabaseServices;
 
 namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers;
 
-public class WvWPlayerSummaryHandler(IEntityService entityService, FooterHandler footerHandler)
+public sealed class WvWPlayerSummaryHandler(IEntityService entityService, FooterHandler footerHandler)
 {
     public async Task<Embed> Generate(Guild gw2Guild)
     {

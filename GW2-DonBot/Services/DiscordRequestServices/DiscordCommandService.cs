@@ -3,7 +3,7 @@ using DonBot.Services.DatabaseServices;
 
 namespace DonBot.Services.DiscordRequestServices;
 
-public class DiscordCommandService(IEntityService entityService) : IDiscordCommandService
+public sealed class DiscordCommandService(IEntityService entityService) : IDiscordCommandService
 {
     public async Task SetLogChannel(SocketSlashCommand command, DiscordSocketClient discordClient)
     {

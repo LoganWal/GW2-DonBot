@@ -11,7 +11,7 @@ using DonBot.Services.GuildWarsServices;
 
 namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers;
 
-public class WvWFightSummaryHandler(
+public sealed class WvWFightSummaryHandler(
     IEntityService entityService,
     IPlayerService playerService,
     FooterHandler footerHandler)
@@ -21,7 +21,7 @@ public class WvWFightSummaryHandler(
         var playerCount = 5;
 
         // Building the actual message to be sent
-        var logLength = data.FightEliteInsightDataModel.EncounterDuration?.TimeToSeconds() ?? 0;
+        var logLength = data.FightEliteInsightDataModel.Phases?.FirstOrDefault()?.EncounterDuration?.TimeToSeconds() ?? 0;
 
         var friendlyCount = data.FightEliteInsightDataModel.Players?.Count ?? 0;
         var squadMemberCount = data.FightEliteInsightDataModel.Players?.Count(s => !s.NotInSquad) ?? 0;
@@ -72,16 +72,16 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
         }
 
         // Battleground parsing
-        var range = (int)MathF.Min(15, data.FightEliteInsightDataModel.FightName?.Length - 1 ?? 0)..;
-        var rangeStart = range.Start.GetOffset(data.FightEliteInsightDataModel.FightName?.Length ?? 0);
-        var rangeEnd = range.End.GetOffset(data.FightEliteInsightDataModel.FightName?.Length ?? 0);
+        var range = (int)MathF.Min(15, data.FightEliteInsightDataModel.LogName?.Length - 1 ?? 0)..;
+        var rangeStart = range.Start.GetOffset(data.FightEliteInsightDataModel.LogName?.Length ?? 0);
+        var rangeEnd = range.End.GetOffset(data.FightEliteInsightDataModel.LogName?.Length ?? 0);
 
-        if (rangeStart < 0 || rangeStart > data.FightEliteInsightDataModel.FightName?.Length || rangeEnd < 0 || rangeEnd > data.FightEliteInsightDataModel.FightName?.Length)
+        if (rangeStart < 0 || rangeStart > data.FightEliteInsightDataModel.LogName?.Length || rangeEnd < 0 || rangeEnd > data.FightEliteInsightDataModel.LogName?.Length)
         {
-            throw new Exception($"Bad battleground name: {data.FightEliteInsightDataModel.FightName}");
+            throw new Exception($"Bad battleground name: {data.FightEliteInsightDataModel.LogName}");
         }
 
-        var battleGround = data.FightEliteInsightDataModel.FightName?[range] ?? string.Empty;
+        var battleGround = data.FightEliteInsightDataModel.LogName?[range] ?? string.Empty;
 
         var battleGroundEmoji = ":grey_question:";
 
@@ -164,7 +164,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                         DeimosOilsTriggered = gw2Player.DeimosOilsTriggered,
                         TimesInterrupted = gw2Player.TimesInterrupted,
                         ResurrectionTime = gw2Player.ResurrectionTime,
-                        FavorUsage = gw2Player.FavorUsage
+                        TimeOfDeath = gw2Player.TimeOfDeath,
                     })
                     .ToList();
 
@@ -176,7 +176,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
         var message = new EmbedBuilder
         {
             Title = $"{battleGroundEmoji} Report (WvW) - {battleGround}\n",
-            Description = $"**Fight Duration:** {data.FightEliteInsightDataModel.EncounterDuration}\n",
+            Description = $"**Fight Duration:** {data.FightEliteInsightDataModel.Phases?.FirstOrDefault()?.EncounterDuration}\n",
             Color = (Color)battleGroundColor,
             Author = new EmbedAuthorBuilder()
             {

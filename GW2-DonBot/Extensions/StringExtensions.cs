@@ -2,80 +2,46 @@ namespace DonBot.Extensions;
 
 public static class StringExtensions
 {
-    public static string ClipAt(this string str, int length)
-    {
-        return str.Substring(0, Math.Min(str.Length, length));
-    }
+    public static string ClipAt(this string str, int length) =>
+        str[..Math.Min(str.Length, length)];
 
-    public static string PadCenter(this string str, int length, char paddingChar = ' ')
-    {
-        return str.PadLeft(((length - str.Length) / 2 + str.Length), paddingChar).PadRight(length, paddingChar);
-    }
+    public static string PadCenter(this string str, int length, char paddingChar = ' ') =>
+        str.PadLeft((length - str.Length) / 2 + str.Length, paddingChar).PadRight(length, paddingChar);
 
-    public static string FormatNumber(this float number, float referenceNumber)
+    public static string FormatNumber(this float number, float referenceNumber) => referenceNumber switch
     {
-        if (referenceNumber > 1000000000.0f)
-        {
-            return $"{(number / 1000000000.0f):F1}B";
-        }
-        else if (referenceNumber > 1000000.0f)
-        {
-            return $"{(number / 1000000.0f):F1}M";
-        }
-        else if (referenceNumber > 1000.0f)
-        {
-            return $"{(number / 1000.0f):F1}K";
-        }
-        else
-        {
-            return number.ToString("F1");
-        }
-    }
+        > 1000000000.0f => $"{number / 1000000000.0f:F1}B",
+        > 1000000.0f => $"{number / 1000000.0f:F1}M",
+        > 1000.0f => $"{number / 1000.0f:F1}K",
+        _ => number.ToString("F1")
+    };
 
     public static string FormatNumber(this float number, bool asPerSec = false)
     {
-        if (number > 1000000000.0f)
+        var suffix = asPerSec ? "/s" : string.Empty;
+        return number switch
         {
-            return $"{(number / 1000000000.0f):F1}B" + $"{(asPerSec ? "/s" : string.Empty)}";
-        }
-        else if (number > 1000000.0f)
-        {
-            return $"{(number / 1000000.0f):F1}M" + $"{(asPerSec ? "/s" : string.Empty)}";
-        }
-        else if (number > 1000.0f)
-        {
-            return $"{(number / 1000.0f):F1}K" + $"{(asPerSec ? "/s" : string.Empty)}";
-        }
-        else
-        {
-            return number.ToString("F1") + $"{(asPerSec ? "/s" : string.Empty)}";
-        }
+            > 1000000000.0f => $"{number / 1000000000.0f:F1}B{suffix}",
+            > 1000000.0f => $"{number / 1000000.0f:F1}M{suffix}",
+            > 1000.0f => $"{number / 1000.0f:F1}K{suffix}",
+            _ => $"{number:F1}{suffix}"
+        };
     }
 
-    public static string FormatNumber(this long number)
-    {
-        return ((float)number).FormatNumber();
-    }
+    public static string FormatNumber(this long number) =>
+        ((float)number).FormatNumber();
 
-    public static string FormatNumber(this int number)
-    {
-        return ((float)number).FormatNumber();
-    }
+    public static string FormatNumber(this int number) =>
+        ((float)number).FormatNumber();
 
-    public static string FormatPercentage(this float number)
-    {
-        return $"{number:F1}%";
-    }
+    public static string FormatPercentage(this float number) =>
+        $"{number:F1}%";
 
-    public static string FormatSimplePercentage(this float number)
-    {
-        return $"{number:F0}%";
-    }
+    public static string FormatSimplePercentage(this float number) =>
+        $"{number:F0}%";
 
-    public static string FormatPercentage(this double number)
-    {
-        return FormatPercentage((float)number);
-    }
+    public static string FormatPercentage(this double number) =>
+        FormatPercentage((float)number);
 
     public static float TimeToSeconds(this string timeString)
     {

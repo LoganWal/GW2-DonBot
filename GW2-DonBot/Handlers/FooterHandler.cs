@@ -2,7 +2,7 @@ using DonBot.Services.DatabaseServices;
 
 namespace DonBot.Handlers;
 
-public class FooterHandler(IEntityService entityService)
+public sealed class FooterHandler(IEntityService entityService)
 {
     public async Task<string> Generate(long guildId)
     {

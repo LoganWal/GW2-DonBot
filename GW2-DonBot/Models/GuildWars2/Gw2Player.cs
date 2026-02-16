@@ -67,20 +67,12 @@ public class Gw2Player
     public double CerusPhaseOneDamage { get; set; }
 
     public long DeimosOilsTriggered { get; set; }
-
-    public long Exposed { get; set; }
-
+    
     public int ResurrectionTime { get; set; }
-
-    public int FavorUsage { get; set; }
-
-    public int DesertShroudUsage { get; set; }
-
-    public int SandstormShroudUsage { get; set; }
-
-    public int SandFlareUsage { get; set; }
 
     public long ShardPickUp { get; set; }
 
     public long ShardUsed { get; set; }
+    
+    public long? TimeOfDeath { get; set; }
 }

@@ -4,7 +4,7 @@ using DonBot.Services.DatabaseServices;
 
 namespace DonBot.Services.DiscordRequestServices;
 
-public class SteamCommandService(IEntityService entityService) : ISteamCommandService
+public sealed class SteamCommandService(IEntityService entityService) : ISteamCommandService
 {
     public async Task VerifySteamAccount(SocketSlashCommand command, DiscordSocketClient discordClient)
     {

@@ -19,7 +19,7 @@ public interface IMessageGenerationService
 
     public Task<List<Embed>?> GenerateRaidReport(FightsReport fightsReport, long guildId);
 
-    public Task<List<Embed>?> GenerateRaidReplyReport(List<string> urls);
+    public Task<List<Embed>?> GenerateRaidReplyReport(List<string> urls, long guildId);
 
     public Task<Embed> GenerateRaidAlert(long guildId);
 }

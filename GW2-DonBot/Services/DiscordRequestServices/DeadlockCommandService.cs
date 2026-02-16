@@ -4,7 +4,7 @@ using DonBot.Services.DeadlockServices;
 
 namespace DonBot.Services.DiscordRequestServices;
 
-public class DeadlockCommandService(IEntityService entityService, IDeadlockApiService deadlockApiService) : IDeadlockCommandService
+public sealed class DeadlockCommandService(IEntityService entityService, IDeadlockApiService deadlockApiService) : IDeadlockCommandService
 {
     public async Task GetMmr(SocketSlashCommand command, DiscordSocketClient discordClient)
     {

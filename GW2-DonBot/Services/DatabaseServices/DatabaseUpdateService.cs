@@ -4,12 +4,10 @@ using System.Linq.Expressions;
 
 namespace DonBot.Services.DatabaseServices;
 
-public class DatabaseUpdateService<T>(IDbContextFactory<DatabaseContext> contextFactory) : IDatabaseUpdateService<T> where T : class
+public sealed class DatabaseUpdateService<T>(IDbContextFactory<DatabaseContext> contextFactory) : IDatabaseUpdateService<T> where T : class
 {
-    private async Task<DatabaseContext> GetContextAsync()
-    {
-        return await Task.FromResult(await contextFactory.CreateDbContextAsync());
-    }
+    private Task<DatabaseContext> GetContextAsync() =>
+        contextFactory.CreateDbContextAsync();
 
     public async Task AddAsync(T entity)
     {

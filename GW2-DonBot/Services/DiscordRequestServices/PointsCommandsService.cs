@@ -3,7 +3,7 @@ using DonBot.Services.DatabaseServices;
 
 namespace DonBot.Services.DiscordRequestServices;
 
-public class PointsCommandsService(IEntityService entityService) : IPointsCommandsService
+public sealed class PointsCommandsService(IEntityService entityService) : IPointsCommandsService
 {
     public async Task PointsCommandExecuted(SocketSlashCommand command)
     {

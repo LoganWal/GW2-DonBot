@@ -10,7 +10,7 @@ using DonBot.Services.GuildWarsServices;
 
 namespace DonBot.Services.DiscordRequestServices;
 
-public class PollingTasksService(
+public sealed class PollingTasksService(
     IEntityService entityService,
     ILogger<PollingTasksService> logger,
     IMessageGenerationService messageGenerationService,
@@ -240,11 +240,12 @@ public class PollingTasksService(
             removedRoles = true;
         }
 
+        // TODO this isn't safe, need to check api is up before nuking
         if (roles.Contains((ulong)verifiedRoleId))
         {
-            await user.RemoveRoleAsync((ulong)verifiedRoleId);
-            logger.LogInformation("Removing Verified Role");
-            removedRoles = true;
+            //await user.RemoveRoleAsync((ulong)verifiedRoleId);
+            //logger.LogInformation("Removing Verified Role");
+            //removedRoles = true;
         }
 
         if (removedRoles)

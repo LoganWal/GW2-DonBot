@@ -3,7 +3,7 @@ using Discord.WebSocket;
 
 namespace DonBot.Services.DiscordRequestServices;
 
-public class GenericCommandsService : IGenericCommandsService
+public sealed class GenericCommandsService : IGenericCommandsService
 {
     public async Task HelpCommandExecuted(SocketSlashCommand command)
     {

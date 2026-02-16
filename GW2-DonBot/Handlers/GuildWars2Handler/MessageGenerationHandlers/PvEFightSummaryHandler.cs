@@ -9,7 +9,7 @@ using System.Globalization;
 
 namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers;
 
-public class PvEFightSummaryHandler(
+public sealed class PvEFightSummaryHandler(
     IEntityService entityService,
     FooterHandler footerHandler,
     IPlayerService playerService)
@@ -219,6 +219,9 @@ public class PvEFightSummaryHandler(
             case 198145:
                 encounterType = (short)FightTypesEnum.Shadow;
                 break;
+            case 263681:
+                encounterType = (short)FightTypesEnum.Kela;
+                break;
             default:
                 encounterType = (short)FightTypesEnum.Unkn;
                 break;
@@ -240,11 +243,11 @@ public class PvEFightSummaryHandler(
             existingFightLog.FightType = encounterType;
             existingFightLog.FightStart = dateTimeStart;
             existingFightLog.FightDurationInMs = duration;
-            existingFightLog.IsSuccess = data.FightEliteInsightDataModel.Success ?? fightPhase?.Success ?? false;
+            existingFightLog.IsSuccess = data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false;
             existingFightLog.FightPercent = Math.Round((mainTarget.HpLeft / (decimal)mainTarget.Health) * 100, 2);
-            existingFightLog.FightMode = !string.IsNullOrEmpty(data.FightEliteInsightDataModel.FightMode ?? fightPhase?.Mode)
+            existingFightLog.FightMode = !string.IsNullOrEmpty(data.FightEliteInsightDataModel.FightMode ?? fightPhase.Mode)
                 ? data.FightEliteInsightDataModel.GetFightMode()
-                : data.FightEliteInsightDataModel.FightName?.Split(' ').LastOrDefault() switch
+                : data.FightEliteInsightDataModel.LogName?.Split(' ').LastOrDefault() switch
                 {
                     "CM" => 1,
                     "LCM" => 2,
@@ -270,11 +273,11 @@ public class PvEFightSummaryHandler(
                 FightType = encounterType,
                 FightStart = dateTimeStart,
                 FightDurationInMs = duration,
-                IsSuccess = data.FightEliteInsightDataModel.Success ?? fightPhase?.Success ?? false,
+                IsSuccess = data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false,
                 FightPercent = Math.Round((mainTarget.HpLeft / (decimal)mainTarget.Health) * 100, 2),
-                FightMode = !string.IsNullOrEmpty(data.FightEliteInsightDataModel.FightMode ?? fightPhase?.Mode)
+                FightMode = !string.IsNullOrEmpty(data.FightEliteInsightDataModel.FightMode ?? fightPhase.Mode)
                     ? data.FightEliteInsightDataModel.GetFightMode()
-                    : data.FightEliteInsightDataModel.FightName?.Split(' ').LastOrDefault() switch
+                    : data.FightEliteInsightDataModel.LogName?.Split(' ').LastOrDefault() switch
                     {
                         "CM" => 1,
                         "LCM" => 2,
@@ -327,23 +330,22 @@ public class PvEFightSummaryHandler(
                 DeimosOilsTriggered = gw2Player.DeimosOilsTriggered,
                 TimesInterrupted = gw2Player.TimesInterrupted,
                 ResurrectionTime = gw2Player.ResurrectionTime,
-                FavorUsage = gw2Player.FavorUsage,
-                DesertShroudUsage = gw2Player.DesertShroudUsage,
-                SandstormShroudUsage = gw2Player.SandstormShroudUsage,
-                SandFlareUsage = gw2Player.SandFlareUsage,
-                Exposed = gw2Player.Exposed,
                 ShardPickUp = gw2Player.ShardPickUp,
-                ShardUsed = gw2Player.ShardUsed
+                ShardUsed = gw2Player.ShardUsed,
+                TimeOfDeath = gw2Player.TimeOfDeath
             }).ToList();
 
             await entityService.PlayerFightLog.AddRangeAsync(playerFights);
+
+            // Ensure existingFightLog is set to the newly created fightLog for downstream usage
+            existingFightLog = fightLog;
         }
 
         var message = new EmbedBuilder
         {
-            Title = $"{data.FightEliteInsightDataModel.FightName}\n",
-            Description = $"**Length:** {data.FightEliteInsightDataModel.EncounterDuration}{(data.FightEliteInsightDataModel.Success ?? fightPhase?.Success ?? false ? string.Empty : $" {(existingFightLog?.FightPhase != null ? (existingFightLog.FightPhase) : string.Empty)} - {existingFightLog?.FightPercent}%")}\n",
-            Color = data.FightEliteInsightDataModel.Success ?? fightPhase?.Success ?? false ? Color.Green : Color.Red,
+            Title = $"{data.FightEliteInsightDataModel.LogName}\n",
+            Description = $"**Length:** {data.FightEliteInsightDataModel.Phases?.FirstOrDefault()?.EncounterDuration}{(data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false ? string.Empty : $" {(existingFightLog.FightPhase != null ? (existingFightLog.FightPhase) : string.Empty)} - {existingFightLog.FightPercent}%")}\n",
+            Color = data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false ? Color.Green : Color.Red,
             Author = new EmbedAuthorBuilder()
             {
                 Name = "GW2-DonBot",
@@ -359,7 +361,7 @@ public class PvEFightSummaryHandler(
             Timestamp = DateTime.Now
         };
 
-        var fightInSeconds = existingFightLog?.FightDurationInMs / 1000f ?? duration / 1000f;
+        var fightInSeconds = existingFightLog.FightDurationInMs / 1000f;
         var playerOverview = "```Player         Dmg       Cleave    Alac    Quick                                                         \n";
         foreach (var gw2Player in gw2Players.OrderByDescending(s => s.Damage))
         {
@@ -416,10 +418,10 @@ public class PvEFightSummaryHandler(
 
         if (encounterType == (short)FightTypesEnum.Ura)
         {
-            mechanicsOverview = "```Player         Exposed    Shard P    Shard U\n";
-            foreach (var gw2Player in gw2Players.OrderByDescending(s => s.Exposed))
+            mechanicsOverview = "```Player         Shard P    Shard U\n";
+            foreach (var gw2Player in gw2Players.OrderByDescending(s => s.ShardPickUp))
             {
-                mechanicsOverview += $"{gw2Player.AccountName.ClipAt(13),-13}{string.Empty,2}{gw2Player.Exposed,-3}{string.Empty,8}{gw2Player.ShardPickUp,-3}{string.Empty,8}{gw2Player.ShardUsed,-3}\n";
+                mechanicsOverview += $"{gw2Player.AccountName.ClipAt(13),-13}{string.Empty,2}{gw2Player.ShardPickUp,-3}{string.Empty,8}{gw2Player.ShardUsed,-3}\n";
             }
 
             mechanicsOverview += "```";

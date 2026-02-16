@@ -3,7 +3,7 @@ using DonBot.Extensions;
 
 namespace DonBot.Services.GuildWarsServices;
 
-public class FightLogService(IDataModelGenerationService dataModelGenerationService) : IFightLogService
+public sealed class FightLogService(IDataModelGenerationService dataModelGenerationService) : IFightLogService
 {
     public async Task GetEnemyInformation(SocketMessageComponent command)
     {

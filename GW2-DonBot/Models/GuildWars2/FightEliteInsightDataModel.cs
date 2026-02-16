@@ -25,9 +25,6 @@ public class FightEliteInsightDataModel
     [JsonProperty("barrierStatsExtension")]
     public BarrierStatsExtension? BarrierStatsExtension { get; set; }
 
-    [JsonProperty("encounterDuration")]
-    public string EncounterDuration { get; set; } = string.Empty;
-
     [JsonProperty("encounterStart")]
     public string EncounterStart { get; set; } = string.Empty;
 
@@ -48,9 +45,9 @@ public class FightEliteInsightDataModel
     public long? EncounterId { get; set; }
 
     [JsonProperty("logID")]
-    public long LogID { get; set; }
+    public long LogId { get; set; }
 
-    public long FightId => EncounterId ?? LogID;
+    public long FightId => EncounterId ?? LogId;
 
     [JsonProperty("success")]
     public bool? Success { get; set; }
@@ -58,8 +55,8 @@ public class FightEliteInsightDataModel
     [JsonProperty("wvw")]
     public bool Wvw { get; set; }
 
-    [JsonProperty("fightName")]
-    public string? FightName { get; set; }
+    [JsonProperty("logName")]
+    public string? LogName { get; set; }
 
     [JsonProperty("fightMode")]
     public string? FightMode { get; set; }
@@ -143,6 +140,9 @@ public class ArcDpsPhase
 
     [JsonProperty("mode")]
     public string Mode { get; set; } = string.Empty;
+
+    [JsonProperty("encounterDuration")]
+    public string EncounterDuration { get; set; } = string.Empty;
 }
     
 public class BuffsStatContainer
@@ -189,8 +189,17 @@ public class ArcDpsPlayer
 
 public class ArcsDpsPlayerDetails
 {
+    [JsonProperty("deathRecap")]
+    public List<DeathRecap> DeathRecap { get; set; } = new();
+
     [JsonProperty("rotation")]
     public List<List<List<double>>>? Rotation { get; set; }
+}
+
+public class DeathRecap
+{
+    [JsonProperty("deathRecap")]
+    public long Time { get; set; }
 }
 
 public class DmgDistribution

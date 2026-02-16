@@ -1,6 +1,6 @@
-﻿namespace DonBot.Services.SecretsServices;
+﻿﻿namespace DonBot.Services.SecretsServices;
 
-public class SecretServices : ISecretService
+public sealed class SecretServices : ISecretService
 {
     public string FetchDonBotSqlConnectionString()
     {

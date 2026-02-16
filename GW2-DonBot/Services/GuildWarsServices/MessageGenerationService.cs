@@ -6,7 +6,7 @@ using DonBot.Models.GuildWars2;
 
 namespace DonBot.Services.GuildWarsServices;
 
-public class MessageGenerationService(
+public sealed class MessageGenerationService(
     WvWFightSummaryHandler wvwFightSummaryHandler,
     WvWPlayerReportHandler wvwPlayerReportHandler,
     PvEFightSummaryHandler pveFightSummaryHandler,
@@ -44,9 +44,9 @@ public class MessageGenerationService(
         return await raidReportHandler.Generate(fightsReport, guildId);
     }
 
-    public async Task<List<Embed>?> GenerateRaidReplyReport(List<string> urls)
+    public async Task<List<Embed>?> GenerateRaidReplyReport(List<string> urls, long guildId)
     {
-        return await raidReportHandler.GenerateSimpleReply(urls);
+        return await raidReportHandler.GenerateSimpleReply(urls, guildId);
     }
 
     public async Task<Embed> GenerateRaidAlert(long guildId)

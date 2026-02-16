@@ -6,7 +6,7 @@ using DonBot.Services.GuildWarsServices;
 
 namespace DonBot.Services.DiscordRequestServices;
 
-public class RaidCommandCommandService(IEntityService entityService, IMessageGenerationService messageGenerationService) : IRaidCommandService
+public sealed class RaidCommandCommandService(IEntityService entityService, IMessageGenerationService messageGenerationService) : IRaidCommandService
 {
     public async Task StartRaid(SocketSlashCommand command, DiscordSocketClient discordClient)
     {

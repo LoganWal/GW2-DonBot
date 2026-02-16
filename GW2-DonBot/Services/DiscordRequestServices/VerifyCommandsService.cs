@@ -8,7 +8,7 @@ using Newtonsoft.Json;
 
 namespace DonBot.Services.DiscordRequestServices;
 
-public class VerifyCommandsService(IEntityService entityService, ILogger<VerifyCommandsService> logger, IHttpClientFactory httpClientFactory) : IVerifyCommandsService
+public sealed class VerifyCommandsService(IEntityService entityService, ILogger<VerifyCommandsService> logger, IHttpClientFactory httpClientFactory) : IVerifyCommandsService
 {
     public async Task VerifyCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
     {

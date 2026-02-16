@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 
 namespace DonBot.Services.SchedulerServices;
 
-public class SchedulerService(
+public sealed class SchedulerService(
     IEntityService entityService,
     IWordleService wordleService,
     IWordGeneratorService wordGeneratorService,
@@ -20,7 +20,7 @@ public class SchedulerService(
     private Timer? _timer;
     private Timer? _eventCheckTimer;
     private readonly List<Timer> _eventTimers = [];
-    private readonly Dictionary<long, bool> _scheduledEventIds = new();
+    private readonly Dictionary<long, bool> _scheduledEventIds = [];
 
     public override async Task StopAsync(CancellationToken stoppingToken)
     {

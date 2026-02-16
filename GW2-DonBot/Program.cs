@@ -13,42 +13,47 @@ internal class Program
 {
     public static void Main(string[] args)
     {
-        CreateHostBuilder(args).Build().Run();
+        var builder = Host.CreateApplicationBuilder(args);
+
+        // Configure Serilog
+        builder.Services.AddSerilog((_, config) =>
+        {
+            config
+                .ReadFrom.Configuration(builder.Configuration)
+                .WriteTo.Console()
+                .WriteTo.File(Path.Combine(AppContext.BaseDirectory, "Logs", "DonBot-.txt"),
+                    rollingInterval: RollingInterval.Day)
+                .Enrich.FromLogContext()
+                .MinimumLevel.Information()
+                .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Warning)
+                .MinimumLevel.Override("System.Net.Http.HttpClient", LogEventLevel.Warning);
+        });
+
+        // Configure Windows Service
+        builder.Services.AddWindowsService();
+
+        // Register application services
+        ServiceRegister.ConfigureServices(builder.Services);
+
+        // Register Discord client
+        builder.Services.AddSingleton(_ =>
+        {
+            var config = new DiscordSocketConfig
+            {
+                GatewayIntents = GatewayIntents.Guilds |
+                                 GatewayIntents.GuildMessages |
+                                 GatewayIntents.DirectMessages |
+                                 GatewayIntents.MessageContent |
+                                 GatewayIntents.GuildWebhooks |
+                                 GatewayIntents.GuildMembers
+            };
+            return new DiscordSocketClient(config);
+        });
+
+        builder.Services.AddTransient<IDiscordCore, DiscordCore>();
+        builder.Services.AddHostedService<DiscordCoreHostedService>();
+
+        var host = builder.Build();
+        host.Run();
     }
-
-    public static IHostBuilder CreateHostBuilder(string[] args) =>
-        Host.CreateDefaultBuilder(args)
-            .UseWindowsService()
-            .UseSerilog((context, config) =>
-            {
-                config
-                    .ReadFrom.Configuration(context.Configuration)
-                    .WriteTo.Console()
-                    .WriteTo.File(Path.Combine(AppContext.BaseDirectory, "Logs", "DonBot-.txt"), rollingInterval: RollingInterval.Day)
-                    .Enrich.FromLogContext()
-                    .MinimumLevel.Information()
-                    .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Warning)
-                    .MinimumLevel.Override("System.Net.Http.HttpClient", LogEventLevel.Warning);
-            })
-            .ConfigureServices((_, services) =>
-            {
-                ServiceRegister.ConfigureServices(services);
-
-                services.AddSingleton(_ =>
-                {
-                    var config = new DiscordSocketConfig
-                    {
-                        GatewayIntents = GatewayIntents.Guilds |
-                                         GatewayIntents.GuildMessages |
-                                         GatewayIntents.DirectMessages |
-                                         GatewayIntents.MessageContent |
-                                         GatewayIntents.GuildWebhooks |
-                                         GatewayIntents.GuildMembers
-                    };
-                    return new DiscordSocketClient(config);
-                });
-
-                services.AddTransient<IDiscordCore, DiscordCore>();
-                services.AddHostedService<DiscordCoreHostedService>();
-            });
 }

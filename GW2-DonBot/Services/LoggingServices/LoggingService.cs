@@ -1,9 +1,9 @@
-﻿using Discord;
+﻿﻿using Discord;
 using Microsoft.Extensions.Logging;
 
 namespace DonBot.Services.LoggingServices;
 
-public class LoggingService(ILogger<LoggingService> logger) : ILoggingService
+public sealed class LoggingService(ILogger<LoggingService> logger) : ILoggingService
 {
     public Task LogAsync(LogMessage msg)
     {

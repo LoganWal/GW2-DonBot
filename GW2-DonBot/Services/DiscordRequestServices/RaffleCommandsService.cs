@@ -10,7 +10,7 @@ using DonBot.Services.DatabaseServices;
 
 namespace DonBot.Services.DiscordRequestServices;
 
-public class RaffleCommandsService(
+public sealed class RaffleCommandsService(
     IEntityService entityService,
     FooterHandler footerHandler,
     ILogger<RaffleCommandsService> logger)

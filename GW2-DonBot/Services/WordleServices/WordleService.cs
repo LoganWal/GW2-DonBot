@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 
 namespace DonBot.Services.WordleServices;
 
-public class WordleService(
+public sealed class WordleService(
     ILogger<WordleService> logger, 
     IHttpClientFactory httpClientFactory)
     : IWordleService

@@ -1,6 +1,6 @@
 ﻿namespace DonBot.Services.WordleServices;
 
-public class WordGeneratorService : IWordGeneratorService
+public sealed class WordGeneratorService : IWordGeneratorService
 {
     private readonly HashSet<string> _wordList = LoadWordList(@"Resources\wordleWords.txt");
 

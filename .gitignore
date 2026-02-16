@@ -402,3 +402,4 @@ FodyWeavers.xsd
 *.sln.iml
 /GW2-DonBot/Properties/launchSettings.json
 /GW2-DonBot/appsettings.json
+/.idea/

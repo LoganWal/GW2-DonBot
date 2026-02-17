@@ -5,14 +5,14 @@ using DonBot.Models.Enums;
 using DonBot.Models.Statics;
 using Microsoft.Extensions.Logging;
 using System.Text;
-using DonBot.Handlers;
 using DonBot.Services.DatabaseServices;
+using DonBot.Services.GuildWarsServices.MessageGeneration;
 
 namespace DonBot.Services.DiscordRequestServices;
 
 public sealed class RaffleCommandsService(
     IEntityService entityService,
-    FooterHandler footerHandler,
+    IFooterService footerService,
     ILogger<RaffleCommandsService> logger)
     : IRaffleCommandsService
 {
@@ -80,7 +80,7 @@ public sealed class RaffleCommandsService(
             },
             Footer = new EmbedFooterBuilder()
             {
-                Text = await footerHandler.Generate(guild.GuildId),
+                Text = await footerService.Generate(guild.GuildId),
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             },
             Timestamp = DateTime.Now
@@ -241,7 +241,7 @@ public sealed class RaffleCommandsService(
             },
             Footer = new EmbedFooterBuilder()
             {
-                Text = $"{await footerHandler.Generate(guild.GuildId)}",
+                Text = $"{await footerService.Generate(guild.GuildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             },
             // Timestamp
@@ -594,7 +594,7 @@ public sealed class RaffleCommandsService(
             },
             Footer = new EmbedFooterBuilder()
             {
-                Text = $"{await footerHandler.Generate(guild.GuildId)}",
+                Text = $"{await footerService.Generate(guild.GuildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             },
             Timestamp = DateTime.Now
@@ -748,7 +748,7 @@ public sealed class RaffleCommandsService(
                 },
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"{await footerHandler.Generate(guild.GuildId)}",
+                    Text = $"{await footerService.Generate(guild.GuildId)}",
                     IconUrl = "https://i.imgur.com/tQ4LD6H.png"
                 },
                 Timestamp = DateTime.Now
@@ -851,7 +851,7 @@ public sealed class RaffleCommandsService(
             },
             Footer = new EmbedFooterBuilder()
             {
-                Text = $"{await footerHandler.Generate(guild.GuildId)}",
+                Text = $"{await footerService.Generate(guild.GuildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             },
             // Timestamp
@@ -951,7 +951,7 @@ public sealed class RaffleCommandsService(
             },
             Footer = new EmbedFooterBuilder()
             {
-                Text = $"{await footerHandler.Generate(guild.GuildId)}",
+                Text = $"{await footerService.Generate(guild.GuildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             },
             // Timestamp

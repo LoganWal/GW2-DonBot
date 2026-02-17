@@ -1,8 +1,8 @@
 using DonBot.Services.DatabaseServices;
 
-namespace DonBot.Handlers;
+namespace DonBot.Services.GuildWarsServices.MessageGeneration;
 
-public sealed class FooterHandler(IEntityService entityService)
+public sealed class FooterService(IEntityService entityService) : IFooterService
 {
     public async Task<string> Generate(long guildId)
     {

@@ -1,6 +1,7 @@
 ﻿using Discord;
 using Discord.WebSocket;
 using DonBot.Models.Entities;
+using DonBot.Models.Statics;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.GuildWarsServices;
 
@@ -105,9 +106,19 @@ public sealed class RaidCommandCommandService(IEntityService entityService, IMes
         }
 
         // Send to target channel with components
+        var firstPveMessage = messages.FirstOrDefault(m => m.Title?.Contains("PvE") == true);
+        MessageComponent? bestTimesComponent = null;
+        if (firstPveMessage != null)
+        {
+            bestTimesComponent = new ComponentBuilder()
+                .WithButton("Best Times", $"{ButtonId.BestTimesPvEPrefix}{existingOpenRaid.FightsReportId}")
+                .Build();
+        }
+
         foreach (var message in messages)
         {
-            await targetChannel.SendMessageAsync(embeds: [message]);
+            var components = message == firstPveMessage ? bestTimesComponent : null;
+            await targetChannel.SendMessageAsync(embeds: [message], components: components);
         }
 
         await entityService.FightsReport.UpdateAsync(existingOpenRaid);

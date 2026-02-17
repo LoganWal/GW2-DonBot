@@ -1,9 +1,12 @@
 ﻿using Discord.WebSocket;
 using DonBot.Extensions;
+using DonBot.Models.Enums;
+using DonBot.Models.Statics;
+using DonBot.Services.DatabaseServices;
 
 namespace DonBot.Services.GuildWarsServices;
 
-public sealed class FightLogService(IDataModelGenerationService dataModelGenerationService) : IFightLogService
+public sealed class FightLogService(IDataModelGenerationService dataModelGenerationService, IEntityService entityService) : IFightLogService
 {
     public async Task GetEnemyInformation(SocketMessageComponent command)
     {
@@ -37,5 +40,91 @@ public sealed class FightLogService(IDataModelGenerationService dataModelGenerat
         enemyOverview += "```";
 
         await command.FollowupAsync($"**Know My Enemy**{Environment.NewLine}{data.FightEliteInsightDataModel.Url}{Environment.NewLine}{enemyOverview}", ephemeral: true);
+    }
+
+    public async Task GetBestTimes(SocketMessageComponent command)
+    {
+        await command.DeferAsync(ephemeral: true);
+
+        var fightsReportId = long.Parse(command.Data.CustomId[ButtonId.BestTimesPvEPrefix.Length..]);
+        var fightsReport = await entityService.FightsReport.GetFirstOrDefaultAsync(r => r.FightsReportId == fightsReportId);
+        if (fightsReport == null)
+        {
+            await command.FollowupAsync("Session data not found.", ephemeral: true);
+            return;
+        }
+
+        var sessionFights = await entityService.FightLog.GetWhereAsync(s =>
+            s.GuildId == fightsReport.GuildId &&
+            s.FightStart >= fightsReport.FightsStart &&
+            s.FightStart <= fightsReport.FightsEnd &&
+            s.FightType != (short)FightTypesEnum.WvW &&
+            s.FightType != (short)FightTypesEnum.Unkn &&
+            s.FightType != (short)FightTypesEnum.Golem);
+
+        var sessionCombos = sessionFights
+            .Select(f => (f.FightType, f.FightMode))
+            .ToHashSet();
+
+        if (sessionCombos.Count == 0)
+        {
+            await command.FollowupAsync("No PvE fights found in this session.", ephemeral: true);
+            return;
+        }
+
+        var historicalFights = await entityService.FightLog.GetWhereAsync(s =>
+            s.GuildId == fightsReport.GuildId &&
+            s.IsSuccess &&
+            s.FightType != (short)FightTypesEnum.WvW &&
+            s.FightType != (short)FightTypesEnum.Unkn &&
+            s.FightType != (short)FightTypesEnum.Golem);
+
+        var bestTimes = historicalFights
+            .Where(f => sessionCombos.Contains((f.FightType, f.FightMode)))
+            .GroupBy(f => (f.FightType, f.FightMode))
+            .Select(g => g.OrderBy(f => f.FightDurationInMs).First())
+            .OrderBy(x => x.FightType)
+            .ThenBy(x => x.FightMode)
+            .ToList();
+
+        if (!bestTimes.Any())
+        {
+            await command.FollowupAsync("No successful records found for the fights in this session.", ephemeral: true);
+            return;
+        }
+
+        const int maxLength = 2000;
+        var header = "**PvE Best Times**\n";
+        var chunks = new List<string>();
+        var current = new System.Text.StringBuilder(header);
+
+        foreach (var fight in bestTimes)
+        {
+            var bossName = Enum.GetName(typeof(FightTypesEnum), fight.FightType) ?? "Unknown";
+            var modeName = fight.FightMode.GetFightModeName();
+            var time = TimeSpan.FromMilliseconds(fight.FightDurationInMs);
+            var timeString = $"{(time.Hours * 60) + time.Minutes:D2}m:{time.Seconds:D2}s";
+            var line = $"**{bossName} ({modeName})** - `{timeString}` - [view log]({fight.Url})\n";
+
+            if (current.Length + line.Length > maxLength)
+            {
+                chunks.Add(current.ToString());
+                current = new System.Text.StringBuilder(line);
+            }
+            else
+            {
+                current.Append(line);
+            }
+        }
+
+        if (current.Length > 0)
+        {
+            chunks.Add(current.ToString());
+        }
+
+        foreach (var chunk in chunks)
+        {
+            await command.FollowupAsync(chunk, ephemeral: true);
+        }
     }
 }

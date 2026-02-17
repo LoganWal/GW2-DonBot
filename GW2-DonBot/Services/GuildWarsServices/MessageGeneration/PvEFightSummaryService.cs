@@ -4,15 +4,14 @@ using DonBot.Models.Entities;
 using DonBot.Models.Enums;
 using DonBot.Models.GuildWars2;
 using DonBot.Services.DatabaseServices;
-using DonBot.Services.GuildWarsServices;
 using System.Globalization;
 
-namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers;
+namespace DonBot.Services.GuildWarsServices.MessageGeneration;
 
-public sealed class PvEFightSummaryHandler(
+public sealed class PvEFightSummaryService(
     IEntityService entityService,
-    FooterHandler footerHandler,
-    IPlayerService playerService)
+    IFooterService footerService,
+    IPlayerService playerService) : IPvEFightSummaryService
 {
     public async Task<Embed> GenerateSimple(EliteInsightDataModel data, long guildId)
     {
@@ -355,7 +354,7 @@ public sealed class PvEFightSummaryHandler(
             Url = $"{data.FightEliteInsightDataModel.Url}",
             Footer = new EmbedFooterBuilder()
             {
-                Text = $"{await footerHandler.Generate(guildId)}",
+                Text = $"{await footerService.Generate(guildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             },
             Timestamp = DateTime.Now
@@ -397,7 +396,7 @@ public sealed class PvEFightSummaryHandler(
         if (encounterType == (short)FightTypesEnum.ToF)
         {
             mechanicsOverview = "```Player         P1 Dmg    Orbs\n";
-            foreach (var gw2Player in gw2Players.OrderByDescending(s => s.CerusPhaseOneDamage)) 
+            foreach (var gw2Player in gw2Players.OrderByDescending(s => s.CerusPhaseOneDamage))
             {
                 mechanicsOverview += $"{gw2Player.AccountName.ClipAt(13),-13}{string.Empty,2}{((float)gw2Player.CerusPhaseOneDamage).FormatNumber(true),-8}{string.Empty,2}{gw2Player.CerusOrbsCollected,-3}\n";
             }
@@ -436,7 +435,7 @@ public sealed class PvEFightSummaryHandler(
                 x.IsInline = false;
             });
         }
-            
+
         // Building the message for use
         return message.Build();
     }

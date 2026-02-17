@@ -1,12 +1,12 @@
-﻿using Discord;
+using Discord;
 using DonBot.Extensions;
 using DonBot.Models.Apis.GuildWars2Api;
 using DonBot.Models.Entities;
 using DonBot.Services.DatabaseServices;
 
-namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers;
+namespace DonBot.Services.GuildWarsServices.MessageGeneration;
 
-public sealed class WvWPlayerReportHandler(IEntityService entityService, FooterHandler footerHandler)
+public sealed class WvWPlayerReportService(IEntityService entityService, IFooterService footerService) : IWvWPlayerReportService
 {
     public async Task<Embed> Generate(Guild guildConfiguration)
     {
@@ -31,7 +31,7 @@ public sealed class WvWPlayerReportHandler(IEntityService entityService, FooterH
             },
             Footer = new EmbedFooterBuilder()
             {
-                Text = $"{await footerHandler.Generate(guildConfiguration.GuildId)}",
+                Text = $"{await footerService.Generate(guildConfiguration.GuildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             },
             Timestamp = DateTime.Now

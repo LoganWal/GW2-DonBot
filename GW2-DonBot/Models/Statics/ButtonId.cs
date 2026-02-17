@@ -17,4 +17,6 @@ internal static class ButtonId
     public const string RafflePoints = "Raffle_Points";
 
     public const string KnowMyEnemy = "Know_My_Enemy";
+
+    public const string BestTimesPvEPrefix = "Best_Times_PvE_";
 }

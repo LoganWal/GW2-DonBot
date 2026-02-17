@@ -1,12 +1,11 @@
 ﻿using DonBot.Controller.Discord;
-using DonBot.Handlers;
-using DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers;
 using DonBot.Models.Entities;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.DeadlockServices;
 using DonBot.Services.DiscordRequestServices;
 using DonBot.Services.DiscordServices;
 using DonBot.Services.GuildWarsServices;
+using DonBot.Services.GuildWarsServices.MessageGeneration;
 using DonBot.Services.LoggingServices;
 using DonBot.Services.SchedulerServices;
 using DonBot.Services.SecretsServices;
@@ -20,19 +19,23 @@ public static class ServiceRegister
 {
     public static void ConfigureServices(IServiceCollection services)
     {
-        // Handlers - Transient for stateless handlers
-        services.AddTransient<FooterHandler>();
-        services.AddTransient<PvEFightSummaryHandler>();
-        services.AddTransient<WvWFightSummaryHandler>();
-        services.AddTransient<WvWPlayerReportHandler>();
-        services.AddTransient<WvWPlayerSummaryHandler>();
-        services.AddTransient<RaidReportHandler>();
+        // Message Generation Services - Transient for stateless embed generation
+        services.AddTransient<IFooterService, FooterService>();
+        services.AddTransient<IPvEFightSummaryService, PvEFightSummaryService>();
+        services.AddTransient<IWvWFightSummaryService, WvWFightSummaryService>();
+        services.AddTransient<IWvWPlayerReportService, WvWPlayerReportService>();
+        services.AddTransient<IWvWPlayerSummaryService, WvWPlayerSummaryService>();
+        services.AddTransient<IRaidReportService, RaidReportService>();
+        services.AddTransient<IMessageGenerationService, MessageGenerationService>();
 
         // Core Services - Scoped for per-request/operation services
         services.AddScoped<ISecretService, SecretServices>();
         services.AddScoped<IDataModelGenerationService, DataModelGenerationService>();
-        services.AddScoped<IMessageGenerationService, MessageGenerationService>();
         services.AddScoped<IDiscordCore, DiscordCore>();
+        services.AddScoped<DiscordCommandRegistrar>();
+        services.AddScoped<DiscordCommandHandler>();
+        services.AddScoped<DiscordButtonHandler>();
+        services.AddScoped<DiscordMessageHandler>();
         services.AddScoped<ILoggingService, LoggingService>();
         services.AddScoped<IPlayerService, PlayerService>();
         services.AddScoped<IRaidCommandService, RaidCommandCommandService>();

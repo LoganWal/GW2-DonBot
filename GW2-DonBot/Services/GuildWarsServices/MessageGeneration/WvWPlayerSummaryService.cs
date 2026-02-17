@@ -3,9 +3,9 @@ using DonBot.Extensions;
 using DonBot.Models.Entities;
 using DonBot.Services.DatabaseServices;
 
-namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers;
+namespace DonBot.Services.GuildWarsServices.MessageGeneration;
 
-public sealed class WvWPlayerSummaryHandler(IEntityService entityService, FooterHandler footerHandler)
+public sealed class WvWPlayerSummaryService(IEntityService entityService, IFooterService footerService) : IWvWPlayerSummaryService
 {
     public async Task<Embed> Generate(Guild gw2Guild)
     {
@@ -72,7 +72,7 @@ public sealed class WvWPlayerSummaryHandler(IEntityService entityService, Footer
 
             message.Footer = new EmbedFooterBuilder()
             {
-                Text = $"{await footerHandler.Generate(gw2Guild.GuildId)}",
+                Text = $"{await footerService.Generate(gw2Guild.GuildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             };
 
@@ -152,7 +152,7 @@ public sealed class WvWPlayerSummaryHandler(IEntityService entityService, Footer
 
             message.Footer = new EmbedFooterBuilder()
             {
-                Text = $"{await footerHandler.Generate(gw2Guild.GuildId)}",
+                Text = $"{await footerService.Generate(gw2Guild.GuildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             };
 

@@ -6,12 +6,12 @@ using DonBot.Models.Enums;
 using DonBot.Models.GuildWars2;
 using DonBot.Services.DatabaseServices;
 
-namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers;
+namespace DonBot.Services.GuildWarsServices.MessageGeneration;
 
-public sealed class RaidReportHandler(
+public sealed class RaidReportService(
     IEntityService entityService,
-    FooterHandler footerHandler,
-    WvWFightSummaryHandler wvWFightSummaryHandler)
+    IFooterService footerService,
+    IWvWFightSummaryService wvWFightSummaryService) : IRaidReportService
 {
     public async Task<List<Embed>?> Generate(FightsReport fightsReport, long guildId)
     {
@@ -49,7 +49,7 @@ public sealed class RaidReportHandler(
             },
             Footer = new EmbedFooterBuilder()
             {
-                Text = $"{await footerHandler.Generate(guildId)}",
+                Text = $"{await footerService.Generate(guildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             },
             Timestamp = DateTime.Now
@@ -185,7 +185,7 @@ public sealed class RaidReportHandler(
 
         message.Footer = new EmbedFooterBuilder()
         {
-            Text = $"{await footerHandler.Generate(guildId)}",
+            Text = $"{await footerService.Generate(guildId)}",
             IconUrl = "https://i.imgur.com/tQ4LD6H.png"
         };
 
@@ -224,9 +224,9 @@ public sealed class RaidReportHandler(
                 x.IsInline = false;
             });
         }
-            
+
         // Building the message for use
-        return await wvWFightSummaryHandler.GenerateMessage(advancedLog, 10, gw2Players, message, guildId, statTotals);
+        return await wvWFightSummaryService.GenerateMessage(advancedLog, 10, gw2Players, message, guildId, statTotals);
     }
 
     private async Task<Embed> GeneratePvERaidReport(string durationString, List<IGrouping<short, FightLog>> groupedFights, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights, long guildId)
@@ -247,8 +247,8 @@ public sealed class RaidReportHandler(
 
 
         var fightsOverviewBuffer = "Fight           Best  (t)    Success (t)     Count\n";
-        var allFightLogs = guildId != -1 
-            ? await entityService.FightLog.GetWhereAsync(s => s.GuildId == guildId) 
+        var allFightLogs = guildId != -1
+            ? await entityService.FightLog.GetWhereAsync(s => s.GuildId == guildId)
             : [];
 
         allFightLogs.RemoveAll(s => fights.Select(d => d.FightLogId).Contains(s.FightLogId));
@@ -405,7 +405,7 @@ public sealed class RaidReportHandler(
 
         message.Footer = new EmbedFooterBuilder()
         {
-            Text = $"{await footerHandler.Generate(guildId)}",
+            Text = $"{await footerService.Generate(guildId)}",
             IconUrl = "https://i.imgur.com/tQ4LD6H.png"
         };
 
@@ -500,7 +500,7 @@ public sealed class RaidReportHandler(
 
         message.Footer = new EmbedFooterBuilder()
         {
-            Text = $"{await footerHandler.Generate(guildId)}",
+            Text = $"{await footerService.Generate(guildId)}",
             IconUrl = "https://i.imgur.com/tQ4LD6H.png"
         };
 

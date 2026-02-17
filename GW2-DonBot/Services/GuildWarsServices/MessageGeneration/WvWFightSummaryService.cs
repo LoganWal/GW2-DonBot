@@ -7,14 +7,13 @@ using DonBot.Models.Enums;
 using DonBot.Models.GuildWars2;
 using DonBot.Models.Statics;
 using DonBot.Services.DatabaseServices;
-using DonBot.Services.GuildWarsServices;
 
-namespace DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers;
+namespace DonBot.Services.GuildWarsServices.MessageGeneration;
 
-public sealed class WvWFightSummaryHandler(
+public sealed class WvWFightSummaryService(
     IEntityService entityService,
     IPlayerService playerService,
-    FooterHandler footerHandler)
+    IFooterService footerService) : IWvWFightSummaryService
 {
     public async Task<Embed> Generate(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
     {
@@ -60,8 +59,8 @@ public sealed class WvWFightSummaryHandler(
         {
             var streamMessage =
                 $@"```
-Who     Count    Damage      DPS       Downs     Deaths  
-Friends {friendlyCountStr.Trim(),-7} {friendlyDamageStr.Trim(),-7}     {friendlyDpsStr.Trim(),-6}    {friendlyDownsStr.Trim(),-3}       {friendlyDeathsStr.Trim(),-3}   
+Who     Count    Damage      DPS       Downs     Deaths
+Friends {friendlyCountStr.Trim(),-7} {friendlyDamageStr.Trim(),-7}     {friendlyDpsStr.Trim(),-6}    {friendlyDownsStr.Trim(),-3}       {friendlyDeathsStr.Trim(),-3}
 Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsStr.Trim(),-6}    {enemyDownsStr.Trim(),-3}       {enemyDeathsStr.Trim(),-3}
 ```";
 
@@ -103,7 +102,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
         friendlyOverview += $"Ally  {friendlyCountStr.Trim(),-7}{string.Empty,1}{friendlyDamageStr.Trim(),-7}{string.Empty,2}{friendlyDpsStr.Trim(),-6}{string.Empty,2}{friendlyDownsStr.Trim(),-3}{string.Empty,5}{friendlyDeathsStr.Trim(),-3}\n";
         friendlyOverview += $"Foe   {enemyCountStr.Trim(),-3}{string.Empty,5}{enemyDamageStr.Trim(),-7}{string.Empty,2}{enemyDpsStr.Trim(),-6}{string.Empty,2}{enemyDownsStr.Trim(),-3}{string.Empty,5}{enemyDeathsStr.Trim(),-3}```";
 
-        var dateStartString = data.FightEliteInsightDataModel.Start;    
+        var dateStartString = data.FightEliteInsightDataModel.Start;
         var dateTimeStart = DateTime.ParseExact(dateStartString, "yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
 
         var dateEndString = data.FightEliteInsightDataModel.End;
@@ -434,7 +433,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
         message.Footer = new EmbedFooterBuilder()
         {
-            Text = $"{await footerHandler.Generate(guildId)}",
+            Text = $"{await footerService.Generate(guildId)}",
             IconUrl = "https://i.imgur.com/tQ4LD6H.png"
         };
 

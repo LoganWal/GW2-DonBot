@@ -403,3 +403,5 @@ FodyWeavers.xsd
 /GW2-DonBot/Properties/launchSettings.json
 /GW2-DonBot/appsettings.json
 /.idea/
+/.claude
+/CLAUDE.md

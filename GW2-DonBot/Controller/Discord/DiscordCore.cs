@@ -35,7 +35,7 @@ public sealed class DiscordCore(
         logger.LogInformation("GW2-DonBot attempting to connect...");
 
         await WaitForConnectionAsync(cancellationToken);
-        //await commandRegistrar.RegisterCommands(client);
+        await commandRegistrar.RegisterCommands(client);
 
         logger.LogInformation("GW2-DonBot connected.");
 
@@ -44,10 +44,10 @@ public sealed class DiscordCore(
         RegisterEventHandlers();
 
         _pollingRolesCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        //_pollingRolesTask = PollingRolesTask(TimeSpan.FromMinutes(30), _pollingRolesCancellationTokenSource.Token);
+        _pollingRolesTask = PollingRolesTask(TimeSpan.FromMinutes(30), _pollingRolesCancellationTokenSource.Token);
 
         _scheduleServiceCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        //await schedulerService.StartAsync(_scheduleServiceCancellationTokenSource.Token);
+        await schedulerService.StartAsync(_scheduleServiceCancellationTokenSource.Token);
 
         logger.LogInformation("GW2-DonBot setup - ready to cause chaos");
 

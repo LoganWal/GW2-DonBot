@@ -32,7 +32,10 @@
 	[CerusPhaseOneDamage] [decimal](10, 3) NOT NULL,
 	[Cleave] [bigint] NOT NULL,
 	[StabGenOffGroup] [decimal](6, 2) NOT NULL,
-	[ResurrectionTime] [Int] NOT NULL
+	[ResurrectionTime] [Int] NOT NULL,
+	[ShardPickUp] [bigint] NOT NULL DEFAULT ((0)),
+	[ShardUsed] [bigint] NOT NULL DEFAULT ((0)),
+	[TimeOfDeath] [bigint] NULL,
 PRIMARY KEY CLUSTERED 
 (
 	[PlayerFightLogId] ASC

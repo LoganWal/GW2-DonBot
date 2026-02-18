@@ -15,6 +15,7 @@
 	[RaidAlertEnabled] [bit] NOT NULL,
 	[RaidAlertChannelId] [bigint] NULL,
 	[RemoveSpamEnabled] [bit] NOT NULL,
+	[RemovedMessageChannelId] [bigint] NULL,
 PRIMARY KEY CLUSTERED 
 (
 	[GuildId] ASC

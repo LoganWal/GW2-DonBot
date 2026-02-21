@@ -33,7 +33,7 @@ public class DiscordCommandHandler(
                 case "gw2_start_raid": await Gw2StartRaidCommandExecuted(command, client); break;
                 case "gw2_close_raid": await Gw2CloseRaidCommandExecuted(command, client); break;
                 case "gw2_start_alliance_raid": await Gw2StartAllianceRaidCommandExecuted(command, client); break;
-                case "gw2_set_log_channel": await Gw2SetLogChannel(command, client); break;
+                case "gw2_server_config": await Gw2ServerConfig(command, client); break;
                 case "steam_verify": await SteamVerifyCommandExecuted(command, client); break;
                 case "deadlock_mmr": await DeadlockMmrCommandExecuted(command, client); break;
                 case "deadlock_mmr_history": await DeadlockMmrHistoryCommandExecuted(command, client); break;
@@ -136,10 +136,10 @@ public class DiscordCommandHandler(
         await raidCommandService.StartAllianceRaid(command, client);
     }
 
-    private async Task Gw2SetLogChannel(SocketSlashCommand command, DiscordSocketClient client)
+    private async Task Gw2ServerConfig(SocketSlashCommand command, DiscordSocketClient client)
     {
         await command.DeferAsync(ephemeral: true);
-        await discordCommandService.SetLogChannel(command, client);
+        await discordCommandService.ConfigureServer(command, client);
     }
 
     private async Task SteamVerifyCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)

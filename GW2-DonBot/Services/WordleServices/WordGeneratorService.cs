@@ -120,7 +120,7 @@ public sealed class WordGeneratorService : IWordGeneratorService
             candidateWords = _wordList
                 .Where(word =>
                     word != wordleWord &&
-                    distinctiveLetters.Any(letter => word.Contains(letter)))
+                    distinctiveLetters.Any(word.Contains))
                 .ToList();
         }
 
@@ -166,7 +166,7 @@ public sealed class WordGeneratorService : IWordGeneratorService
         if (candidateWords.Count == 0)
         {
             candidateWords = _wordList
-                .Where(word => word != wordleWord && word.Intersect(wordleWord).Count() >= 1)
+                .Where(word => word != wordleWord && word.Intersect(wordleWord).Any())
                 .ToList();
         }
 

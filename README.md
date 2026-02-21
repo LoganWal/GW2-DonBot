@@ -15,6 +15,7 @@ Automatically detects and processes combat log URLs posted in Discord:
 - **Supported sources**: `dps.report`, `wvw.report`, `gw2wingman.nevermindcreations.de`
 - **WvW fights**: Generates fight summaries with participant stats, damage, deaths, and builds. Posts advanced reports to a configurable channel. Updates player rankings and points. Includes a "Know My Enemy" button to view enemy team composition.
 - **PvE fights**: Generates fight summaries for strikes, fractals, and raids. Supports multi-log aggregation raid reports.
+- **Rotation analysis**: Automatically inspects player skill rotations in PvE logs to detect suspiciously consistent cast intervals that may indicate macro or bot usage. Detected anomalies are recorded in the database for review.
 
 ### Points & Rankings
 

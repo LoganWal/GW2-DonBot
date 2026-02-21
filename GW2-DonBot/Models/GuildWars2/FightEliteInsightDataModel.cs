@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 
 namespace DonBot.Models.GuildWars2;
 
@@ -24,6 +24,9 @@ public class FightEliteInsightDataModel
 
     [JsonProperty("barrierStatsExtension")]
     public BarrierStatsExtension? BarrierStatsExtension { get; set; }
+
+    [JsonProperty("skillMap")]
+    public Dictionary<string, SkillMapEntry>? SkillMap { get; set; }
 
     [JsonProperty("encounterStart")]
     public string EncounterStart { get; set; } = string.Empty;
@@ -63,8 +66,8 @@ public class FightEliteInsightDataModel
 
     public int GetFightMode()
     {
-        var FightMode = this.FightMode ?? Phases?.FirstOrDefault()?.Mode;
-        return FightMode switch
+        var fightMode = this.FightMode ?? Phases?.FirstOrDefault()?.Mode;
+        return fightMode switch
         {
             "Normal Mode" => 0,
             "Challenge Mode" => 1,
@@ -198,7 +201,7 @@ public class ArcsDpsPlayerDetails
 
 public class DeathRecap
 {
-    [JsonProperty("deathRecap")]
+    [JsonProperty("time")]
     public long Time { get; set; }
 }
 

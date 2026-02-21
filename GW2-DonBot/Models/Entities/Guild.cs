@@ -1,11 +1,11 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace DonBot.Models.Entities;
 
 public class Guild
 {
     [Key]
-    public long GuildId { get; set; }
+    public long GuildId { get; init; }
 
     public long? LogDropOffChannelId { get; set; }
 

@@ -30,8 +30,7 @@ public sealed class SchedulerService(
         }
 
         _eventTimers.Clear();
-        
-        _eventCheckTimer?.Dispose();
+        await (_eventCheckTimer?.DisposeAsync() ?? ValueTask.CompletedTask);
         
         await base.StopAsync(stoppingToken);
     }
@@ -44,11 +43,8 @@ public sealed class SchedulerService(
         ScheduleWordleStartingWord();
         
         // Set up a recurring check for new events every hour
-        _eventCheckTimer = new Timer(async _ => 
-        {
-            await CheckForNewEvents();
-        }, 
-        null, 
+        _eventCheckTimer = new Timer(_ => Task.Run(CheckForNewEvents, stoppingToken),
+        null,
         TimeSpan.FromMinutes(15), // First check after 15 minutes
         TimeSpan.FromHours(1));   // Then every hour
     }
@@ -172,11 +168,11 @@ public sealed class SchedulerService(
                     if (scheduledEvent.GuildId != 415441457151737870)
                     {
                         embed
-                            .AddField("✅ Roster", "No one has joined yet.", false)
-                            .AddField("🛠️ Fillers", "No fillers yet.", false);
+                            .AddField("✅ Roster", "No one has joined yet.")
+                            .AddField("🛠️ Fillers", "No fillers yet.");
                     }
 
-                    embed.AddField("❌ Can't Join", "No one has declined yet.", false);
+                    embed.AddField("❌ Can't Join", "No one has declined yet.");
 
                     var builtEmbed = embed.Build();
 
@@ -231,7 +227,7 @@ public sealed class SchedulerService(
 
     private void OnTimerElapsed(object? state)
     {
-        TimerElapsedAsync().ConfigureAwait(false);
+        Task.Run(TimerElapsedAsync);
     }
 
     private async Task TimerElapsedAsync()

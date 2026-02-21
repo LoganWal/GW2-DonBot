@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace DonBot.Models.Entities;
 
@@ -7,7 +7,7 @@ public class GuildWarsAccount
     [Key]
     public Guid GuildWarsAccountId { get; set; }
 
-    public long DiscordId { get; set; }
+    public long DiscordId { get; init; }
 
     [MaxLength(1000)]
     public string? GuildWarsApiKey { get; set; }

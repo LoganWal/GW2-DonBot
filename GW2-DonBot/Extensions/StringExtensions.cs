@@ -34,14 +34,9 @@ public static class StringExtensions
     public static string FormatNumber(this int number) =>
         ((float)number).FormatNumber();
 
-    public static string FormatPercentage(this float number) =>
-        $"{number:F1}%";
+    public static string FormatSimplePercentage(this float number) => $"{number:F0}%";
 
-    public static string FormatSimplePercentage(this float number) =>
-        $"{number:F0}%";
-
-    public static string FormatPercentage(this double number) =>
-        FormatPercentage((float)number);
+    public static string FormatPercentage(this double number) => ((float)number).FormatPercentage();
 
     public static float TimeToSeconds(this string timeString)
     {
@@ -68,4 +63,6 @@ public static class StringExtensions
         }
         return time;
     }
+    
+    private static string FormatPercentage(this float number) => $"{number:F1}%";
 }

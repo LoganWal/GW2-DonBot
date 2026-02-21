@@ -57,6 +57,28 @@ public sealed class RaidReportService(
 
         return message.Build();
     }
+    
+    internal static string BuildSurvivabilityTable(List<IGrouping<string, PlayerFightLog>> groupedPlayerFights)
+    {
+        var allLogs = groupedPlayerFights.SelectMany(g => g).ToList();
+
+        var firstToDieCounts = allLogs
+            .GroupBy(pfl => pfl.FightLogId)
+            .Where(g => g.Any(pfl => pfl.TimeOfDeath.HasValue))
+            .Select(g => g.Where(pfl => pfl.TimeOfDeath.HasValue)
+                .OrderBy(pfl => pfl.TimeOfDeath)
+                .First().GuildWarsAccountName)
+            .GroupBy(name => name)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        var table = "```Player         Res (s)    Dmg Taken   Downed   Died 1st\n";
+        foreach (var gw2Player in groupedPlayerFights.OrderBy(s => s.Sum(d => d.DamageTaken)))
+        {
+            table += $"{gw2Player.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,2}{Math.Round((double)gw2Player.Sum(s => s.ResurrectionTime) / 1000, 3),-9}{string.Empty,2}{gw2Player.Sum(s => s.DamageTaken),-10}{string.Empty,2}{gw2Player.Sum(s => s.TimesDowned),-7}{string.Empty,2}{firstToDieCounts.GetValueOrDefault(gw2Player.Key, 0)}\n";
+        }
+
+        return table + "```";
+    }
 
     private async Task<List<Embed>?> GetRaidReport(long guildId, List<FightLog> fights, List<Embed> messages)
     {
@@ -281,7 +303,7 @@ public sealed class RaidReportService(
                 }
 
                 // Add the current line to the buffer
-                fightsOverviewBuffer += $"({Enum.GetName(typeof(FightModesEnum), fightTypeFightMode.Key) ?? FightModesEnum.Nm.ToString()}){(Enum.GetName(typeof(FightTypesEnum), groupedFight.Key) ?? FightTypesEnum.Unkn.ToString()),-10}{string.Empty,2}{bestFightTimeString,-6}{string.Empty,6}{successFightTimeString,-11}{string.Empty,5}{fightTypeFightModeList.Count}\n";
+                fightsOverviewBuffer += $"({Enum.GetName(typeof(FightModesEnum), fightTypeFightMode.Key) ?? nameof(FightModesEnum.Nm)}){(Enum.GetName(typeof(FightTypesEnum), groupedFight.Key) ?? nameof(FightTypesEnum.Unkn)),-10}{string.Empty,2}{bestFightTimeString,-6}{string.Empty,6}{successFightTimeString,-11}{string.Empty,5}{fightTypeFightModeList.Count}\n";
                 lineCount++;
 
                 // Add a new field every 12 lines
@@ -358,13 +380,7 @@ public sealed class RaidReportService(
             });
         }
 
-        var survivabilityOverview = "```Player         Res (s)    Dmg Taken   Times Downed                                      \n";
-        foreach (var gw2Player in groupedPlayerFights.OrderBy(s => s.Sum(d => d.DamageTaken)))
-        {
-            survivabilityOverview += $"{gw2Player.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,2}{Math.Round((double)gw2Player.Sum(s => s.ResurrectionTime) / 1000, 3),-9}{string.Empty,2}{gw2Player.Sum(s => s.DamageTaken),-10}{string.Empty,2}{gw2Player.Sum(s => s.TimesDowned)}\n";
-        }
-
-        survivabilityOverview += "```";
+        var survivabilityOverview = BuildSurvivabilityTable(groupedPlayerFights);
 
         message.AddField(x =>
         {

@@ -5,23 +5,23 @@ namespace DonBot.Models.Apis.WordleApi;
 public class DictionaryApiResponse
 {
     [JsonProperty("word")]
-    public string? Word { get; set; }
+    public string? Word { get; init; }
 
     [JsonProperty("meanings")]
-    public Meaning[] Meanings { get; set; } = [];
+    public Meaning[] Meanings { get; init; } = [];
 }
 
 public class Meaning
 {
     [JsonProperty("partOfSpeech")]
-    public string? PartOfSpeech { get; set; }
+    public string? PartOfSpeech { get; init; }
 
     [JsonProperty("definitions")]
-    public Definition[] Definitions { get; set; } = [];
+    public Definition[] Definitions { get; init; } = [];
 }
 
 public class Definition
 {
     [JsonProperty("definition")]
-    public string? DefinitionText { get; set; }
+    public string? DefinitionText { get; init; }
 }

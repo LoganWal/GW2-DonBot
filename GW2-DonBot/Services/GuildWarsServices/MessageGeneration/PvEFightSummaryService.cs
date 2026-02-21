@@ -11,10 +11,24 @@ namespace DonBot.Services.GuildWarsServices.MessageGeneration;
 public sealed class PvEFightSummaryService(
     IEntityService entityService,
     IFooterService footerService,
-    IPlayerService playerService) : IPvEFightSummaryService
+    IPlayerService playerService,
+    IRotationAnalysisService rotationAnalysisService) : IPvEFightSummaryService
 {
     public async Task<Embed> GenerateSimple(EliteInsightDataModel data, long guildId)
     {
+        // Analyze player rotations for potential cheating (fire and forget - don't wait)
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await rotationAnalysisService.AnalyzePlayerRotations(data);
+            }
+            catch
+            {
+                // Swallow exceptions to prevent disrupting the main flow
+            }
+        });
+
         var fightPhase = data.FightEliteInsightDataModel.Phases?.Any() ?? false
             ? data.FightEliteInsightDataModel.Phases[0]
             : new ArcDpsPhase();
@@ -376,7 +390,7 @@ public sealed class PvEFightSummaryService(
             x.IsInline = false;
         });
 
-        var survivabilityOverview = "```Player         Res (s)    Dmg Taken   Times Downed                                      \n";
+        var survivabilityOverview = "```Player         Res (s)    Dmg Taken   Downed                                            \n";
         foreach (var gw2Player in gw2Players.OrderBy(s => s.DamageTaken))
         {
             survivabilityOverview += $"{gw2Player.AccountName.ClipAt(13),-13}{string.Empty,2}{Math.Round((double)gw2Player.ResurrectionTime / 1000, 3),-9}{string.Empty,2}{(gw2Player.DamageTaken),-10}{string.Empty,2}{gw2Player.TimesDowned}\n";

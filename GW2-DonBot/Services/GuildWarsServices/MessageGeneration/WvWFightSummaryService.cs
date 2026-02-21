@@ -20,7 +20,7 @@ public sealed class WvWFightSummaryService(
         var playerCount = 5;
 
         // Building the actual message to be sent
-        var logLength = data.FightEliteInsightDataModel.Phases?.FirstOrDefault()?.EncounterDuration?.TimeToSeconds() ?? 0;
+        var logLength = data.FightEliteInsightDataModel.Phases?.FirstOrDefault()?.EncounterDuration.TimeToSeconds() ?? 0;
 
         var friendlyCount = data.FightEliteInsightDataModel.Players?.Count ?? 0;
         var squadMemberCount = data.FightEliteInsightDataModel.Players?.Count(s => !s.NotInSquad) ?? 0;
@@ -119,11 +119,11 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                 fightLog = new FightLog
                 {
                     GuildId = guild.GuildId,
-                    Url = data.FightEliteInsightDataModel.Url ?? string.Empty,
+                    Url = data.FightEliteInsightDataModel.Url,
                     FightType = (short)FightTypesEnum.WvW,
                     FightStart = dateTimeStart,
                     FightDurationInMs = (long)duration.TotalMilliseconds,
-                    IsSuccess = data.FightEliteInsightDataModel.Success ?? fightPhase?.Success ?? false
+                    IsSuccess = data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false
                 };
 
                 await entityService.FightLog.AddAsync(fightLog);

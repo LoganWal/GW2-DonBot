@@ -13,7 +13,8 @@ public sealed class EntityService(
     IDatabaseUpdateService<PlayerRaffleBid> playerRaffleBid,
     IDatabaseUpdateService<Raffle> raffle,
     IDatabaseUpdateService<SteamAccount> steamAccount,
-    IDatabaseUpdateService<ScheduledEvent> scheduledEvent)
+    IDatabaseUpdateService<ScheduledEvent> scheduledEvent,
+    IDatabaseUpdateService<RotationAnomaly> rotationAnomaly)
     : IEntityService
 {
     public IDatabaseUpdateService<Account> Account { get; } = account;
@@ -37,4 +38,6 @@ public sealed class EntityService(
     public IDatabaseUpdateService<SteamAccount> SteamAccount { get; } = steamAccount;
 
     public IDatabaseUpdateService<ScheduledEvent> ScheduledEvent { get; } = scheduledEvent;
+
+    public IDatabaseUpdateService<RotationAnomaly> RotationAnomaly { get; } = rotationAnomaly;
 }

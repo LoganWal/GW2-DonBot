@@ -1,16 +1,16 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace DonBot.Models.Entities;
 
 public class FightLog
 {
     [Key]
-    public long FightLogId { get; set; }
+    public long FightLogId { get; init; }
 
     public long GuildId { get; set; }
 
     [MaxLength(2000)]
-    public string Url { get; set; } = string.Empty;
+    public string Url { get; init; } = string.Empty;
 
     public short FightType { get; set; }
 

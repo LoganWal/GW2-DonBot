@@ -67,7 +67,12 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
             
             var boons = fightPhase.BuffsStatContainer.BoonActiveStats?.Count >= playerIndex + 1 ? fightPhase.BuffsStatContainer.BoonActiveStats[playerIndex].Data : null;
             var mechanics = fightPhase.MechanicStats?.Count >= playerIndex + 1 ? fightPhase.MechanicStats[playerIndex] : null;
-            var deathTime = playerDetails?.DeathRecap?.FirstOrDefault()?.Time;
+
+            long? deathTime = null;
+            if (playerDetails?.DeathRecap != null)
+            {
+                deathTime = playerDetails.DeathRecap.FirstOrDefault()?.Time;
+            }
             var resurrectionTime = Convert.ToInt32(playerDetails?.Rotation?
                 .FirstOrDefault()
                 ?.Where(s => s.Count > ArcDpsDataIndices.RotationSkillIndex && Convert.ToInt32(s[ArcDpsDataIndices.RotationSkillIndex]) == ArcDpsDataIndices.RotationResurrectionSkill)

@@ -16,16 +16,16 @@ public class BarrierEliteInsightDataModel
 public class BarrierDistribution
 {
     [JsonProperty("contributedBarrier")]
-    public int ContributedBarrier { get; set; }
+    public int ContributedBarrier { get; init; }
 
     [JsonProperty("totalBarrier")]
-    public int TotalBarrier { get; set; }
+    public int TotalBarrier { get; init; }
 
     [JsonProperty("totalCasting")]
-    public int TotalCasting { get; set; }
+    public int TotalCasting { get; init; }
 
     [JsonProperty("distribution")]
-    public List<List<object>>? Distribution { get; set; }
+    public List<List<object>>? Distribution { get; init; }
 }
 
 public class BarrierPhase

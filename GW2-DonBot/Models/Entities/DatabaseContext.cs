@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 
 namespace DonBot.Models.Entities;
 
@@ -19,6 +19,7 @@ public sealed class DatabaseContext : DbContext
         GuildQuote = Set<GuildQuote>();
         SteamAccount = Set<SteamAccount>();
         ScheduledEvent = Set<ScheduledEvent>();
+        RotationAnomaly = Set<RotationAnomaly>();
     }
 
     public DbSet<Account> Account { get; set; }
@@ -42,6 +43,8 @@ public sealed class DatabaseContext : DbContext
     public DbSet<SteamAccount> SteamAccount { get; set; }
 
     public DbSet<ScheduledEvent> ScheduledEvent { get; set; }
+
+    public DbSet<RotationAnomaly> RotationAnomaly { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -25,4 +25,6 @@ public interface IEntityService
     IDatabaseUpdateService<SteamAccount> SteamAccount { get; }
 
     IDatabaseUpdateService<ScheduledEvent> ScheduledEvent { get; }
+
+    IDatabaseUpdateService<RotationAnomaly> RotationAnomaly { get; }
 }

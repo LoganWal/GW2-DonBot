@@ -1,4 +1,4 @@
-﻿namespace DonBot.Models.GuildWars2;
+namespace DonBot.Models.GuildWars2;
 
 public class EliteInsightDataModel()
 {

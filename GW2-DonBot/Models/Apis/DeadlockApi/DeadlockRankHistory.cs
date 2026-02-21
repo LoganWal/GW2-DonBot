@@ -5,14 +5,14 @@ namespace DonBot.Models.Apis.DeadlockApi;
 public class DeadlockRankHistory
 {
     [JsonProperty("account_id")]
-    public int AccountId { get; set; }
+    public int AccountId { get; init; }
 
     [JsonProperty("match_id")]
-    public int MatchId { get; set; }
+    public int MatchId { get; init; }
 
     [JsonProperty("match_start_time")]
-    public DateTime MatchStartTime { get; set; }
+    public DateTime MatchStartTime { get; init; }
 
     [JsonProperty("player_score")]
-    public int PlayerScore { get; set; }
+    public int PlayerScore { get; init; }
 }

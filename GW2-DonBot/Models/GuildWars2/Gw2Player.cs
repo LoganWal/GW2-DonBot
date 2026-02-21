@@ -1,8 +1,8 @@
-﻿namespace DonBot.Models.GuildWars2;
+namespace DonBot.Models.GuildWars2;
 
 public class Gw2Player
 {
-    public string AccountName { get; set; } = string.Empty;
+    public string AccountName { get; init; } = string.Empty;
 
     public string CharacterName { get; set; } = string.Empty;
 

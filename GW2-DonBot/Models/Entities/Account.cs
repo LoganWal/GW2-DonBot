@@ -1,11 +1,11 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace DonBot.Models.Entities;
 
 public class Account
 {
     [Key]
-    public long DiscordId { get; set; }
+    public long DiscordId { get; init; }
 
     public decimal Points { get; set; }
 

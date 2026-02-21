@@ -41,6 +41,7 @@ public static class ServiceRegister
         services.AddScoped<IRaidCommandService, RaidCommandCommandService>();
         services.AddScoped<IFightLogService, FightLogService>();
         services.AddScoped<IDeadlockApiService, DeadlockApiService>();
+        services.AddScoped<IRotationAnalysisService, RotationAnalysisService>();
 
         // Singleton Services - Thread-safe, stateless services
         services.AddSingleton<IWordleService, WordleService>();

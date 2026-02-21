@@ -1,5 +1,7 @@
 using Discord;
 using Discord.WebSocket;
+using DonBot.Models.Entities;
+using DonBot.Services.DatabaseServices;
 using DonBot.Services.LoggingServices;
 using DonBot.Services.SchedulerServices;
 using DonBot.Services.DiscordRequestServices;
@@ -20,7 +22,8 @@ public sealed class DiscordCore(
     DiscordCommandRegistrar commandRegistrar,
     DiscordCommandHandler commandHandler,
     DiscordButtonHandler buttonHandler,
-    DiscordMessageHandler messageHandler)
+    DiscordMessageHandler messageHandler,
+    IDatabaseUpdateService<Guild> guildService)
     : IDiscordCore
 {
     private CancellationTokenSource? _pollingRolesCancellationTokenSource;
@@ -71,12 +74,27 @@ public sealed class DiscordCore(
         client.MessageReceived += messageHandler.MessageReceivedAsync;
         client.SlashCommandExecuted += command => commandHandler.SlashCommandExecutedAsync(command, client);
         client.ButtonExecuted += buttonHandler.ButtonExecutedAsync;
+        client.JoinedGuild += OnJoinedGuildAsync;
     }
 
     private void UnregisterEventHandlers()
     {
         client.Log -= loggingService.LogAsync;
         client.MessageReceived -= messageHandler.MessageReceivedAsync;
+        client.JoinedGuild -= OnJoinedGuildAsync;
+    }
+
+    private async Task OnJoinedGuildAsync(SocketGuild socketGuild)
+    {
+        var guildId = (long)socketGuild.Id;
+        var exists = await guildService.IfAnyAsync(g => g.GuildId == guildId);
+        if (exists)
+        {
+            return;
+        }
+
+        await guildService.AddAsync(new Guild { GuildId = guildId });
+        logger.LogInformation("Added new guild {GuildId} ({GuildName}) to database", guildId, socketGuild.Name);
     }
 
     private async Task WaitForConnectionAsync(CancellationToken cancellationToken = default)

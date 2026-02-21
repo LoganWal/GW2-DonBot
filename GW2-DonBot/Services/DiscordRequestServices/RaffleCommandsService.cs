@@ -221,7 +221,7 @@ public sealed class RaffleCommandsService(
 
         // Check if there is already an active event raffle
         var raffles = await entityService.Raffle.GetAllAsync();
-        if (raffles.Any(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Event && raf.GuildId == guild.GuildId))
+        if (raffles.Any(raf => raf is { IsActive: true, RaffleType: (int)RaffleTypeEnum.Event } && raf.GuildId == guild.GuildId))
         {
             await command.FollowupAsync("There already is a running raffle, close that one first!", ephemeral: true);
             return;
@@ -413,7 +413,7 @@ public sealed class RaffleCommandsService(
 
         // Get the current event raffle
         var raffles = await entityService.Raffle.GetAllAsync();
-        var currentRaffle = raffles.FirstOrDefault(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Event && raf.GuildId == guild.GuildId);
+        var currentRaffle = raffles.FirstOrDefault(raf => raf is { IsActive: true, RaffleType: (int)RaffleTypeEnum.Event } && raf.GuildId == guild.GuildId);
 
         // Check if there is an active event raffle
         if (currentRaffle == null)
@@ -501,7 +501,7 @@ public sealed class RaffleCommandsService(
 
         // Get the active raffle for the guild
         var raffles = await entityService.Raffle.GetAllAsync();
-        var currentRaffle = raffles.FirstOrDefault(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId);
+        var currentRaffle = raffles.FirstOrDefault(raf => raf is { IsActive: true, RaffleType: (int)RaffleTypeEnum.Normal } && raf.GuildId == guild.GuildId);
 
         if (currentRaffle == null)
         {
@@ -659,7 +659,7 @@ public sealed class RaffleCommandsService(
 
         // Check if there is an active event raffle for the guild
         var raffles = await entityService.Raffle.GetAllAsync();
-        var currentRaffle = raffles.FirstOrDefault(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Event && raf.GuildId == guild.GuildId);
+        var currentRaffle = raffles.FirstOrDefault(raf => raf is { IsActive: true, RaffleType: (int)RaffleTypeEnum.Event } && raf.GuildId == guild.GuildId);
         if (currentRaffle != null)
         {
             // Get all the bids for the current raffle
@@ -807,7 +807,7 @@ public sealed class RaffleCommandsService(
 
         // Check if there is already an open raffle
         var raffles = await entityService.Raffle.GetAllAsync();
-        if (raffles.FirstOrDefault(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId) != null)
+        if (raffles.FirstOrDefault(raf => raf is { IsActive: true, RaffleType: (int)RaffleTypeEnum.Normal } && raf.GuildId == guild.GuildId) != null)
         {
             await command.FollowupAsync("There is currently an open raffle.", ephemeral: true);
             return;
@@ -906,7 +906,7 @@ public sealed class RaffleCommandsService(
 
         // Check if there is already an open event raffle
         var raffles = await entityService.Raffle.GetAllAsync();
-        if (raffles.FirstOrDefault(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Event && raf.GuildId == guild.GuildId) != null)
+        if (raffles.FirstOrDefault(raf => raf is { IsActive: true, RaffleType: (int)RaffleTypeEnum.Event } && raf.GuildId == guild.GuildId) != null)
         {
             await command.FollowupAsync("There is currently an open raffle.", ephemeral: true);
             return;
@@ -1085,7 +1085,7 @@ public sealed class RaffleCommandsService(
 
         // Get the current event raffle
         var raffles = await entityService.Raffle.GetAllAsync();
-        var currentRaffle = raffles.FirstOrDefault(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Event && raf.GuildId == guild.GuildId);
+        var currentRaffle = raffles.FirstOrDefault(raf => raf is { IsActive: true, RaffleType: (int)RaffleTypeEnum.Event } && raf.GuildId == guild.GuildId);
 
         // Check if there is an active event raffle
         if (currentRaffle == null)

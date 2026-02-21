@@ -4,6 +4,8 @@
 
 A Discord bot for Guild Wars 2 communities that processes [EliteInsights](https://github.com/baaron4/GW2-Elite-Insights-Parser) combat logs, tracks player performance, manages raffles, and handles guild administration.
 
+**[Add DonBot to your server](https://discord.com/api/oauth2/authorize?client_id=1021682849797111838&permissions=8&scope=bot)**
+
 ---
 
 ## Features

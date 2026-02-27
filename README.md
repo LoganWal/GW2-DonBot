@@ -93,7 +93,7 @@ Additional per-guild settings (configured in the database):
 - **Discord.Net 3.18.0**
 - **Entity Framework Core 10.0.3** with SQL Server
 - **Serilog**: structured logging to console and daily rolling files
-- **Microsoft.Extensions.Hosting**: runs as a Windows Service
+- **Microsoft.Extensions.Hosting**: supports Windows Service, Linux systemd, and Docker
 
 ## Build & Deploy
 
@@ -104,5 +104,10 @@ dotnet build --configuration Release
 # Publish
 dotnet publish -c Release -o ./publish
 ```
+
+**Deployment options:**
+- **Docker**: `docker-compose up` using the included `Dockerfile` and `docker-compose.yml`
+- **Linux systemd**: use `deploy/donbot.service` — copy to `/etc/systemd/system/`, place the published output at `/opt/donbot/`
+- **Windows Service**: register the published executable with `sc.exe`
 
 Configuration is provided via `appsettings.json` at deploy time (excluded from the repo). Secrets are managed at runtime via `ISecretService`. Logs are written to `Logs/DonBot-*.txt`.

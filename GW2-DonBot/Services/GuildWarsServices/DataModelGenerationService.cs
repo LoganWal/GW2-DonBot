@@ -1,4 +1,4 @@
-﻿using DonBot.Models.GuildWars2;
+using DonBot.Models.GuildWars2;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
@@ -10,6 +10,7 @@ public sealed class DataModelGenerationService(ILogger<DataModelGenerationServic
     {
         const int maxRetries = 3;
         var attempt = 0;
+        var reparseAttempted = false;
 
         while (true)
         {
@@ -59,6 +60,24 @@ public sealed class DataModelGenerationService(ILogger<DataModelGenerationServic
             catch (Exception ex)
             {
                 attempt++;
+
+                if (!reparseAttempted && IsWingmanUrl(url))
+                {
+                    reparseAttempted = true;
+                    logger.LogInformation("Wingman log not yet parsed, triggering reparse for {url}", url);
+                    try
+                    {
+                        await TriggerWingmanReparseAsync(url);
+                        logger.LogInformation("Reparse completed for {url}, retrying fetch", url);
+                        attempt = 0;
+                        continue;
+                    }
+                    catch (Exception reparseEx)
+                    {
+                        logger.LogWarning(reparseEx, "Wingman reparse failed for {url}", url);
+                    }
+                }
+
                 logger.LogWarning(ex, "Attempt {attempt} failed to retrieve or process data from URL: {url}. Retrying in 1 second...", attempt, url);
 
                 if (attempt >= maxRetries)
@@ -67,9 +86,35 @@ public sealed class DataModelGenerationService(ILogger<DataModelGenerationServic
                     return new EliteInsightDataModel(url);
                 }
 
-                await Task.Delay(1000); // Wait for 1 second before retrying
+                await Task.Delay(1000);
             }
         }
+    }
+
+    private static bool IsWingmanUrl(string url) =>
+        url.Contains("gw2wingman.nevermindcreations.de/logContent/");
+
+    private async Task TriggerWingmanReparseAsync(string logContentUrl)
+    {
+        var reparseUrl = logContentUrl.Replace("/logContent/", "/reparse/");
+        logger.LogInformation("Calling wingman reparse endpoint: {ReparseUrl}", reparseUrl);
+
+        var client = httpClientFactory.CreateClient();
+        client.Timeout = TimeSpan.FromMinutes(5);
+        using var response = await client.GetAsync(reparseUrl);
+        var json = await response.Content.ReadAsStringAsync();
+        var result = JsonConvert.DeserializeObject<WingmanReparseResponse>(json);
+
+        if (result?.Result != true)
+        {
+            throw new InvalidOperationException($"Wingman reparse did not return success for {reparseUrl}. Response: {json}");
+        }
+    }
+
+    private class WingmanReparseResponse
+    {
+        [JsonProperty("result")]
+        public bool Result { get; set; }
     }
 
     private T ExtractAndDeserialize<T>(string script, string variableName) where T : new()

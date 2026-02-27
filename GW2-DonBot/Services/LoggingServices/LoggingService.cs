@@ -1,4 +1,4 @@
-﻿﻿using Discord;
+﻿using Discord;
 using Microsoft.Extensions.Logging;
 
 namespace DonBot.Services.LoggingServices;

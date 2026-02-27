@@ -1,0 +1,14 @@
+[Unit]
+Description=GW2 DonBot Discord Bot
+After=network.target
+
+[Service]
+Type=notify
+WorkingDirectory=/opt/donbot
+ExecStart=/opt/donbot/DonBot
+EnvironmentFile=/etc/donbot/env
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

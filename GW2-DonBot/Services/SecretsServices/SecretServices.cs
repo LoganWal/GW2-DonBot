@@ -1,10 +1,10 @@
-﻿﻿namespace DonBot.Services.SecretsServices;
+﻿namespace DonBot.Services.SecretsServices;
 
 public sealed class SecretServices : ISecretService
 {
     public string FetchDonBotSqlConnectionString()
     {
-        var donBotSqlConnectionString = Environment.GetEnvironmentVariable("DonBotSqlConnectionString", EnvironmentVariableTarget.Machine);
+        var donBotSqlConnectionString = Environment.GetEnvironmentVariable("DonBotSqlConnectionString");
 
         if (string.IsNullOrEmpty(donBotSqlConnectionString))
         {
@@ -16,7 +16,7 @@ public sealed class SecretServices : ISecretService
 
     public string FetchDonBotToken()
     {
-        var donBotToken = Environment.GetEnvironmentVariable("DonBotToken", EnvironmentVariableTarget.Machine);
+        var donBotToken = Environment.GetEnvironmentVariable("DonBotToken");
 
         if (string.IsNullOrEmpty(donBotToken))
         {

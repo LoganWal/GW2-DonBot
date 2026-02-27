@@ -10,6 +10,21 @@ public class DiscordCommandRegistrar(ILogger<DiscordCommandRegistrar> logger)
     {
         await client.BulkOverwriteGlobalApplicationCommandsAsync([]);
 
+        var newCommands = BuildCommands();
+
+        foreach (var guild in client.Guilds)
+        {
+            await RegisterCommandsForGuild(guild, newCommands);
+        }
+    }
+
+    public async Task RegisterCommandsForGuild(SocketGuild guild)
+    {
+        await RegisterCommandsForGuild(guild, BuildCommands());
+    }
+
+    private static ApplicationCommandProperties[] BuildCommands()
+    {
         SlashCommandBuilder[] commandsToRegister =
         [
             new SlashCommandBuilder()
@@ -186,28 +201,28 @@ public class DiscordCommandRegistrar(ILogger<DiscordCommandRegistrar> logger)
                     .AddOption("channel", ApplicationCommandOptionType.Channel, "The channel", isRequired: true))
         ];
 
-        var newCommands = commandsToRegister.Select(c => c.Build()).ToArray();
+        return commandsToRegister.Select(c => (ApplicationCommandProperties)c.Build()).ToArray();
+    }
 
-        foreach (var guild in client.Guilds)
+    private async Task RegisterCommandsForGuild(SocketGuild guild, ApplicationCommandProperties[] newCommands)
+    {
+        var existingCommands = await guild.GetApplicationCommandsAsync();
+
+        if (existingCommands.Count != newCommands.Length ||
+            existingCommands.Any(ec => newCommands.All(nc => nc.Name.Value != ec.Name)))
         {
-            var existingCommands = await guild.GetApplicationCommandsAsync();
+            logger.LogInformation("Differences found in commands for {GuildName}. Deleting all existing commands", guild.Name);
+            await guild.DeleteApplicationCommandsAsync();
 
-            if (existingCommands.Count != newCommands.Length ||
-                existingCommands.Any(ec => newCommands.All(nc => nc.Name.Value != ec.Name)))
+            foreach (var command in newCommands)
             {
-                logger.LogInformation("Differences found in commands for {GuildName}. Deleting all existing commands", guild.Name);
-                await guild.DeleteApplicationCommandsAsync();
-
-                foreach (var command in newCommands)
-                {
-                    logger.LogInformation("Registering new command on {GuildName} - {CommandName}", guild.Name, command.Name);
-                    await guild.CreateApplicationCommandAsync(command);
-                }
+                logger.LogInformation("Registering new command on {GuildName} - {CommandName}", guild.Name, command.Name);
+                await guild.CreateApplicationCommandAsync(command);
             }
-            else
-            {
-                logger.LogInformation("No differences in commands for {GuildName}. No action taken", guild.Name);
-            }
+        }
+        else
+        {
+            logger.LogInformation("No differences in commands for {GuildName}. No action taken", guild.Name);
         }
     }
 }

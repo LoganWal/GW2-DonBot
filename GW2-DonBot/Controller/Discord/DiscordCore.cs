@@ -88,13 +88,14 @@ public sealed class DiscordCore(
     {
         var guildId = (long)socketGuild.Id;
         var exists = await guildService.IfAnyAsync(g => g.GuildId == guildId);
-        if (exists)
+        if (!exists)
         {
-            return;
+            await guildService.AddAsync(new Guild { GuildId = guildId });
+            logger.LogInformation("Added new guild {GuildId} ({GuildName}) to database", guildId, socketGuild.Name);
         }
 
-        await guildService.AddAsync(new Guild { GuildId = guildId });
-        logger.LogInformation("Added new guild {GuildId} ({GuildName}) to database", guildId, socketGuild.Name);
+        await commandRegistrar.RegisterCommandsForGuild(socketGuild);
+        logger.LogInformation("Registered commands for new guild {GuildId} ({GuildName})", guildId, socketGuild.Name);
     }
 
     private async Task WaitForConnectionAsync(CancellationToken cancellationToken = default)

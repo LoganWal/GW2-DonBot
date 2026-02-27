@@ -97,7 +97,7 @@ public class DiscordMessageHandler(
             {
                 embedMessage = false;
 
-                const string pattern = @"https://(?:wvw|dps)\.report/\S+";
+                const string pattern = @"https://(?:b\.dps|wvw|dps)\.report/\S+";
                 var matches = Matches(seenMessage.Content, pattern);
                 trimmedUrls = matches.Select(match => match.Value).ToList();
 
@@ -107,7 +107,7 @@ public class DiscordMessageHandler(
                 var wingmanMatches = matches.Select(match => match.Value).ToList();
                 for (var i = 0; i < wingmanMatches.Count; i++)
                 {
-                    wingmanMatches[i] = wingmanMatches[i].Replace("https://gw2wingman.nevermindcreations.de/log/", "https://dps.report/");
+                    wingmanMatches[i] = wingmanMatches[i].Replace("https://gw2wingman.nevermindcreations.de/log/", "https://gw2wingman.nevermindcreations.de/logContent/");
                 }
 
                 trimmedUrls.AddRange(wingmanMatches);

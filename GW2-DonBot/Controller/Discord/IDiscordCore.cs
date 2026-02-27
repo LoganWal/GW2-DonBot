@@ -1,7 +1,6 @@
-﻿namespace DonBot.Controller.Discord
+﻿namespace DonBot.Controller.Discord;
+
+public interface IDiscordCore
 {
-    public interface IDiscordCore
-    {
-        public Task MainAsync();
-    }
+    public Task MainAsync(CancellationToken cancellationToken = default);
 }

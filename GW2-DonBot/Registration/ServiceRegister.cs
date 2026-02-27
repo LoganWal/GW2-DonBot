@@ -1,78 +1,82 @@
 ﻿using DonBot.Controller.Discord;
-using DonBot.Handlers;
-using DonBot.Handlers.GuildWars2Handler.MessageGenerationHandlers;
 using DonBot.Models.Entities;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.DeadlockServices;
 using DonBot.Services.DiscordRequestServices;
 using DonBot.Services.DiscordServices;
 using DonBot.Services.GuildWarsServices;
+using DonBot.Services.GuildWarsServices.MessageGeneration;
 using DonBot.Services.LoggingServices;
+using DonBot.Services.SchedulerServices;
 using DonBot.Services.SecretsServices;
 using DonBot.Services.WordleServices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace DonBot.Registration
+namespace DonBot.Registration;
+
+public static class ServiceRegister
 {
-    public static class ServiceRegister
+    public static void ConfigureServices(IServiceCollection services)
     {
-        public static void ConfigureServices(IServiceCollection services)
+        // Message Generation Services - Transient for stateless embed generation
+        services.AddTransient<IFooterService, FooterService>();
+        services.AddTransient<IPvEFightSummaryService, PvEFightSummaryService>();
+        services.AddTransient<IWvWFightSummaryService, WvWFightSummaryService>();
+        services.AddTransient<IWvWPlayerReportService, WvWPlayerReportService>();
+        services.AddTransient<IWvWPlayerSummaryService, WvWPlayerSummaryService>();
+        services.AddTransient<IRaidReportService, RaidReportService>();
+        services.AddTransient<IMessageGenerationService, MessageGenerationService>();
+
+        // Core Services - Scoped for per-request/operation services
+        services.AddScoped<ISecretService, SecretServices>();
+        services.AddScoped<IDataModelGenerationService, DataModelGenerationService>();
+        services.AddScoped<IDiscordCore, DiscordCore>();
+        services.AddScoped<DiscordCommandRegistrar>();
+        services.AddScoped<DiscordCommandHandler>();
+        services.AddScoped<DiscordButtonHandler>();
+        services.AddScoped<DiscordMessageHandler>();
+        services.AddScoped<ILoggingService, LoggingService>();
+        services.AddScoped<IPlayerService, PlayerService>();
+        services.AddScoped<IRaidCommandService, RaidCommandCommandService>();
+        services.AddScoped<IFightLogService, FightLogService>();
+        services.AddScoped<IDeadlockApiService, DeadlockApiService>();
+        services.AddScoped<IRotationAnalysisService, RotationAnalysisService>();
+
+        // Singleton Services - Thread-safe, stateless services
+        services.AddSingleton<IWordleService, WordleService>();
+        services.AddSingleton<IWordGeneratorService, WordGeneratorService>();
+        services.AddSingleton<DictionaryService>();
+
+        // Command Services - Transient for command handlers
+        services.AddTransient<IGenericCommandsService, GenericCommandsService>();
+        services.AddTransient<IVerifyCommandsService, VerifyCommandsService>();
+        services.AddTransient<IPointsCommandsService, PointsCommandsService>();
+        services.AddTransient<IRaffleCommandsService, RaffleCommandsService>();
+        services.AddTransient<IDiscordCommandService, DiscordCommandService>();
+        services.AddTransient<ISteamCommandService, SteamCommandService>();
+        services.AddTransient<IDeadlockCommandService, DeadlockCommandService>();
+
+        // Polling and API Services - Transient for operational services
+        services.AddTransient<IPollingTasksService, PollingTasksService>();
+        services.AddTransient<IDiscordApiService, DiscordApiService>();
+
+        // Scheduling - Transient for scheduler instances
+        services.AddTransient<SchedulerService>();
+
+        // Database Services
+        services.AddScoped(typeof(IDatabaseUpdateService<>), typeof(DatabaseUpdateService<>));
+        services.AddScoped<IEntityService, EntityService>();
+
+        // DbContext Factory with connection string resolution
+        services.AddDbContextFactory<DatabaseContext>((serviceProvider, options) =>
         {
-            // Handlers
-            services.AddTransient<FooterHandler>();
-            services.AddTransient<PvEFightSummaryHandler>();
-            services.AddTransient<WvWFightSummaryHandler>();
-            services.AddTransient<WvWPlayerReportHandler>();
-            services.AddTransient<WvWPlayerSummaryHandler>();
-            services.AddTransient<RaidReportHandler>();
+            var secretService = serviceProvider.GetRequiredService<ISecretService>();
+            var connectionString = secretService.FetchDonBotSqlConnectionString();
+            options.UseSqlServer(connectionString);
+        });
 
-            // Services (Scoped, Transient, Singleton)
-            services.AddScoped<ISecretService, SecretServices>();
-            services.AddScoped<IDataModelGenerationService, DataModelGenerationService>();
-            services.AddScoped<IMessageGenerationService, MessageGenerationService>();
-            services.AddScoped<IDiscordCore, DiscordCore>();
-            services.AddScoped<ILoggingService, LoggingService>();
-            services.AddScoped<IPlayerService, PlayerService>();
-            services.AddScoped<IRaidCommandService, RaidCommandCommandService>();
-            services.AddScoped<IFightLogService, FightLogService>();
-            services.AddScoped<IDeadlockApiService, DeadlockApiService>();
-
-            // Singletons (ensure they are stateless)
-            services.AddSingleton<IWordleService, WordleService>();
-            services.AddSingleton<IWordGeneratorService, WordGeneratorService>();
-            services.AddSingleton<DictionaryService>();
-
-            // Command Services
-            services.AddTransient<IGenericCommandsService, GenericCommandsService>();
-            services.AddTransient<IVerifyCommandsService, VerifyCommandsService>();
-            services.AddTransient<IPointsCommandsService, PointsCommandsService>();
-            services.AddTransient<IRaffleCommandsService, RaffleCommandsService>();
-            services.AddTransient<IDiscordCommandService, DiscordCommandService>();
-            services.AddTransient<ISteamCommandService, SteamCommandService>();
-            services.AddTransient<IDeadlockCommandService, DeadlockCommandService>();
-
-            // Polling and API Services
-            services.AddTransient<IPollingTasksService, PollingTasksService>();
-            services.AddTransient<IDiscordApiService, DiscordApiService>();
-
-            // Scheduling
-            services.AddTransient<SchedulerService>();
-
-            // DbContext and Unit of Work
-            services.AddScoped(typeof(IDatabaseUpdateService<>), typeof(DatabaseUpdateService<>));  // Generic
-            services.AddScoped<IEntityService, EntityService>();  // Repository Manager
-
-            // Register IDbContextFactory so it can be injected in your service
-            services.AddDbContextFactory<DatabaseContext>((serviceProvider, options) =>
-            {
-                var secretService = serviceProvider.GetRequiredService<ISecretService>();
-                var connectionString = secretService.FetchDonBotSqlConnectionString();
-                options.UseSqlServer(connectionString);
-            });
-
-            // HttpClient Factory for HTTP requests
-            services.AddHttpClient();
-        }
+        // HttpClient Factory for HTTP requests with default configuration
+        services.AddHttpClient();
     }
 }

@@ -1,7 +1,6 @@
-﻿namespace DonBot.Services.WordleServices
+﻿namespace DonBot.Services.WordleServices;
+
+public interface IWordleService
 {
-    public interface IWordleService
-    {
-        Task<string> FetchWordleWord();
-    }
+    Task<string> FetchWordleWord();
 }

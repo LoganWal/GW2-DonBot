@@ -68,7 +68,9 @@
     <Build Include="PlayerFightLog.sql" />
     <Build Include="FightsReport.sql" />
     <Build Include="GuildQuote.sql" />
+    <Build Include="RotationAnomaly.sql" />
     <Build Include="SteamAccount.sql" />
+    <Build Include="ScheduledEvent.sql" />
   </ItemGroup>
   <ItemGroup>
     <RefactorLog Include="GW2DonBotDatabase.refactorlog" />

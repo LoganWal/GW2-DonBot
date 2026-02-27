@@ -1,27 +1,30 @@
 ﻿using DonBot.Models.Entities;
 
-namespace DonBot.Services.DatabaseServices
+namespace DonBot.Services.DatabaseServices;
+
+public interface IEntityService
 {
-    public interface IEntityService
-    {
-        IDatabaseUpdateService<Account> Account { get; }
+    IDatabaseUpdateService<Account> Account { get; }
 
-        IDatabaseUpdateService<FightLog> FightLog { get; }
+    IDatabaseUpdateService<FightLog> FightLog { get; }
 
-        IDatabaseUpdateService<FightsReport> FightsReport { get; }
+    IDatabaseUpdateService<FightsReport> FightsReport { get; }
 
-        IDatabaseUpdateService<Guild> Guild { get; }
+    IDatabaseUpdateService<Guild> Guild { get; }
 
-        IDatabaseUpdateService<GuildQuote> GuildQuote { get; }
+    IDatabaseUpdateService<GuildQuote> GuildQuote { get; }
 
-        IDatabaseUpdateService<GuildWarsAccount> GuildWarsAccount { get; }
+    IDatabaseUpdateService<GuildWarsAccount> GuildWarsAccount { get; }
 
-        IDatabaseUpdateService<PlayerFightLog> PlayerFightLog { get; }
+    IDatabaseUpdateService<PlayerFightLog> PlayerFightLog { get; }
 
-        IDatabaseUpdateService<PlayerRaffleBid> PlayerRaffleBid { get; }
+    IDatabaseUpdateService<PlayerRaffleBid> PlayerRaffleBid { get; }
 
-        IDatabaseUpdateService<Raffle> Raffle { get; }
+    IDatabaseUpdateService<Raffle> Raffle { get; }
 
-        IDatabaseUpdateService<SteamAccount> SteamAccount { get; }
-    }
+    IDatabaseUpdateService<SteamAccount> SteamAccount { get; }
+
+    IDatabaseUpdateService<ScheduledEvent> ScheduledEvent { get; }
+
+    IDatabaseUpdateService<RotationAnomaly> RotationAnomaly { get; }
 }

@@ -1,7 +1,6 @@
-﻿namespace DonBot.Models.GuildWars2
+namespace DonBot.Models.GuildWars2;
+
+public class StatTotals
 {
-    public class StatTotals
-    {
-        public long? TotalStrips { get; set; }
-    }
+    public long? TotalStrips { get; init; }
 }

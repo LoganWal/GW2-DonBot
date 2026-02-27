@@ -398,7 +398,49 @@ FodyWeavers.xsd
 *.msm
 *.msp
 
-# JetBrains Rider
-*.sln.iml
 /GW2-DonBot/Properties/launchSettings.json
 /GW2-DonBot/appsettings.json
+
+/.idea/
+/.env
+
+# Anthropic Claude
+claude.md
+claude.txt
+.claude/
+.claude-cache/
+.claude_history
+.claude.json
+
+# OpenAI / ChatGPT / Codex
+chatgpt.md
+chatgpt.txt
+.openai/
+.openai-cache/
+.openai_history
+.prompt.md
+prompts.md
+.prompt/
+.prompts/
+
+# Cursor IDE
+.cursor/
+.cursor-cache/
+.cursor_history
+.cursor/rules/
+.cursor/prompts/
+
+# GitHub Copilot
+.github/copilot/
+.copilot/
+copilot.md
+.copilotignore
+
+# Continue.dev
+.continue/
+continue.config.json
+
+# Aider
+.aider*
+.aider/
+.aider.chat.history.md

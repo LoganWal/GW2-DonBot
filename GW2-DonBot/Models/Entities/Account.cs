@@ -1,18 +1,17 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
-namespace DonBot.Models.Entities
+namespace DonBot.Models.Entities;
+
+public class Account
 {
-    public class Account
-    {
-        [Key]
-        public long DiscordId { get; set; }
+    [Key]
+    public long DiscordId { get; init; }
 
-        public decimal Points { get; set; }
+    public decimal Points { get; set; }
 
-        public decimal PreviousPoints { get; set; }
+    public decimal PreviousPoints { get; set; }
 
-        public decimal AvailablePoints { get; set; }
+    public decimal AvailablePoints { get; set; }
 
-        public DateTime? LastWvwLogDateTime { get; set; }
-    }
+    public DateTime? LastWvwLogDateTime { get; set; }
 }

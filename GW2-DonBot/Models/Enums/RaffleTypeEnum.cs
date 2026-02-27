@@ -1,8 +1,7 @@
-﻿namespace DonBot.Models.Enums
+﻿namespace DonBot.Models.Enums;
+
+public enum RaffleTypeEnum
 {
-    public enum RaffleTypeEnum
-    {
-        Normal = 0,
-        Event = 1
-    }
+    Normal = 0,
+    Event = 1
 }

@@ -1,0 +1,7 @@
+services:
+  donbot:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./logs:/app/Logs

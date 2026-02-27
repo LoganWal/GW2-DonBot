@@ -1,9 +1,8 @@
 using Discord.WebSocket;
 
-namespace DonBot.Services.DiscordRequestServices
+namespace DonBot.Services.DiscordRequestServices;
+
+public interface IPollingTasksService
 {
-    public interface IPollingTasksService
-    {
-        public Task PollingRoles(DiscordSocketClient discordClient);
-    }
+    public Task PollingRoles(DiscordSocketClient discordClient);
 }

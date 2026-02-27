@@ -7,7 +7,9 @@
 	[FightDurationInMs] [bigint] NOT NULL,
 	[IsSuccess] [bit] NOT NULL,
 	[FightPercent] [decimal](6, 2) NOT NULL,
-PRIMARY KEY CLUSTERED 
+	[FightPhase] INT NULL, 
+    [FightMode] INT NULL DEFAULT 0, 
+    PRIMARY KEY CLUSTERED 
 (
 	[FightLogId] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]

@@ -1,6 +1,6 @@
 ﻿CREATE TABLE [dbo].[Raffle](
 	[Id] [int] IDENTITY(1,1) NOT NULL,
-	[Description] [nvarchar](4000) NOT NULL,
+	[Description] [nvarchar](4000) NULL,
 	[IsActive] [bit] NOT NULL,
 	[GuildId] [bigint] NOT NULL,
 	[RaffleType] [int] NOT NULL,

@@ -1,77 +1,82 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
-namespace DonBot.Models.Entities
+namespace DonBot.Models.Entities;
+
+public class PlayerFightLog
 {
-    public class PlayerFightLog
-    {
-        [Key]
-        public long PlayerFightLogId { get; set; }
+    [Key]
+    public long PlayerFightLogId { get; init; }
 
-        public long FightLogId { get; set; }
+    public long FightLogId { get; init; }
 
-        [MaxLength(1000)]
-        public string GuildWarsAccountName { get; set; } = string.Empty;
+    [MaxLength(1000)]
+    public string GuildWarsAccountName { get; init; } = string.Empty;
 
-        public long Damage { get; set; }
+    public long Damage { get; init; }
 
-        public long Cleave { get; set; }
+    public long Cleave { get; init; }
 
-        public long Kills { get; set; }
+    public long Kills { get; init; }
 
-        public long Deaths { get; set; }
+    public long Deaths { get; init; }
 
-        public long Downs { get; set; }
+    public long Downs { get; init; }
 
-        public decimal QuicknessDuration { get; set; }
+    public decimal QuicknessDuration { get; init; }
 
-        public decimal AlacDuration { get; set; }
+    public decimal AlacDuration { get; init; }
 
-        public long SubGroup { get; set; }
+    public long SubGroup { get; init; }
 
-        public long DamageDownContribution { get; set; }
+    public long DamageDownContribution { get; init; }
 
-        public long Cleanses { get; set; }
+    public long Cleanses { get; init; }
 
-        public long Strips { get; set; }
+    public long Strips { get; init; }
 
-        public decimal StabGenOnGroup { get; set; }
+    public decimal StabGenOnGroup { get; init; }
 
-        public decimal StabGenOffGroup { get; set; }
+    public decimal StabGenOffGroup { get; init; }
 
-        public long Healing { get; set; }
+    public long Healing { get; init; }
 
-        public long BarrierGenerated { get; set; }
+    public long BarrierGenerated { get; init; }
 
-        public decimal DistanceFromTag { get; set; }
+    public decimal DistanceFromTag { get; init; }
 
-        public int TimesDowned { get; set; }
+    public int TimesDowned { get; init; }
 
-        public long Interrupts { get; set; }
+    public long Interrupts { get; init; }
 
-        public long TimesInterrupted { get; set; }
+    public long TimesInterrupted { get; init; }
 
-        public long NumberOfHitsWhileBlinded { get; set; }
+    public long NumberOfHitsWhileBlinded { get; init; }
 
-        public long NumberOfMissesAgainst { get; set; }
+    public long NumberOfMissesAgainst { get; init; }
 
-        public long NumberOfTimesBlockedAttack { get; set; }
+    public long NumberOfTimesBlockedAttack { get; init; }
 
-        public long NumberOfTimesEnemyBlockedAttack { get; set; }
+    public long NumberOfTimesEnemyBlockedAttack { get; init; }
 
-        public long NumberOfBoonsRipped { get; set; }
+    public long NumberOfBoonsRipped { get; init; }
 
-        public long DamageTaken { get; set; }
+    public long DamageTaken { get; init; }
 
-        public long BarrierMitigation { get; set; }
+    public long BarrierMitigation { get; init; }
 
-        public long CerusOrbsCollected { get; set; }
+    public long CerusOrbsCollected { get; init; }
 
-        public long CerusSpreadHitCount { get; set; }
+    public long CerusSpreadHitCount { get; init; }
 
-        public decimal CerusPhaseOneDamage { get; set; }
+    public decimal CerusPhaseOneDamage { get; init; }
 
-        public long DeimosOilsTriggered { get; set; }
+    public long DeimosOilsTriggered { get; init; }
 
-        public int ResurrectionTime { get; set; }
-    }
+    public int ResurrectionTime { get; init; }
+
+    public long ShardPickUp { get; init; }
+
+    public long ShardUsed { get; init; }
+    
+    public long? TimeOfDeath { get; init; }
 }

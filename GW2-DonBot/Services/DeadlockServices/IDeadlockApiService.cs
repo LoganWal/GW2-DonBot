@@ -1,11 +1,10 @@
 ﻿using DonBot.Models.Apis.DeadlockApi;
 
-namespace DonBot.Services.DeadlockServices
-{
-    public interface IDeadlockApiService
-    {
-        Task<DeadlockRank> GetDeadlockRank(long accountId);
+namespace DonBot.Services.DeadlockServices;
 
-        Task<List<DeadlockRankHistory>> GetDeadlockRankHistory(long accountId);
-    }
+public interface IDeadlockApiService
+{
+    Task<DeadlockRank> GetDeadlockRank(long accountId);
+
+    Task<List<DeadlockRankHistory>> GetDeadlockRankHistory(long accountId);
 }

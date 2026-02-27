@@ -1,19 +1,18 @@
 ﻿using Newtonsoft.Json;
 
-namespace DonBot.Models.Apis.DeadlockApi
+namespace DonBot.Models.Apis.DeadlockApi;
+
+public class DeadlockRankHistory
 {
-    public class DeadlockRankHistory
-    {
-        [JsonProperty("account_id")]
-        public int AccountId { get; set; }
+    [JsonProperty("account_id")]
+    public int AccountId { get; init; }
 
-        [JsonProperty("match_id")]
-        public int MatchId { get; set; }
+    [JsonProperty("match_id")]
+    public int MatchId { get; init; }
 
-        [JsonProperty("match_start_time")]
-        public DateTime MatchStartTime { get; set; }
+    [JsonProperty("match_start_time")]
+    public DateTime MatchStartTime { get; init; }
 
-        [JsonProperty("player_score")]
-        public int PlayerScore { get; set; }
-    }
+    [JsonProperty("player_score")]
+    public int PlayerScore { get; init; }
 }

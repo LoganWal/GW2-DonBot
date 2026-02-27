@@ -1,14 +1,13 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
-namespace DonBot.Models.Entities
+namespace DonBot.Models.Entities;
+
+public class SteamAccount
 {
-    public class SteamAccount
-    {
-        [Key]
-        public long SteamId64 { get; set; }
+    [Key]
+    public long SteamId64 { get; init; }
 
-        public long SteamId3 { get; set; }
+    public long SteamId3 { get; init; }
 
-        public long DiscordId { get; set; }
-    }
+    public long DiscordId { get; init; }
 }

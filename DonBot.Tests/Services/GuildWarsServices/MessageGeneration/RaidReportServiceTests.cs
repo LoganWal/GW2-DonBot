@@ -28,8 +28,8 @@ public class RaidReportServiceTests(ITestOutputHelper output)
         Assert.Contains("Player", header);
         Assert.Contains("Res (s)", header);
         Assert.Contains("Dmg Taken", header);
-        Assert.Contains("Times Downed", header);
-        Assert.Contains("First", header);
+        Assert.Contains("Downed", header);
+        Assert.Contains("Died 1st", header);
     }
     
     [Fact]
@@ -56,13 +56,13 @@ public class RaidReportServiceTests(ITestOutputHelper output)
         // Find where each column header starts
         var resStart   = header.IndexOf("Res (s)", StringComparison.Ordinal);
         var dmgStart   = header.IndexOf("Dmg Taken", StringComparison.Ordinal);
-        var downsStart = header.IndexOf("Times Downed", StringComparison.Ordinal);
-        var firstStart = header.IndexOf("First", StringComparison.Ordinal);
+        var downsStart = header.IndexOf("Downed", StringComparison.Ordinal);
+        var firstStart = header.IndexOf("Died 1st", StringComparison.Ordinal);
 
         Assert.True(resStart > 0,   "Res (s) column header not found");
         Assert.True(dmgStart > 0,   "Dmg Taken column header not found");
-        Assert.True(downsStart > 0, "Times Downed column header not found");
-        Assert.True(firstStart > 0, "First column header not found");
+        Assert.True(downsStart > 0, "Downed column header not found");
+        Assert.True(firstStart > 0, "Died 1st column header not found");
 
         // Columns must be in left-to-right order
         Assert.True(resStart < dmgStart,     "Res (s) must come before Dmg Taken");

@@ -106,7 +106,7 @@ dotnet publish -c Release -o ./publish
 ```
 
 **Deployment options:**
-- **Docker**: `docker-compose up` using the included `Dockerfile` and `docker-compose.yml`
+- **Docker**: copy `.env.example` to `.env`, fill in your values, then `docker-compose up`
 - **Linux systemd**: use `deploy/donbot.service` — copy to `/etc/systemd/system/`, place the published output at `/opt/donbot/`
 - **Windows Service**: register the published executable with `sc.exe`
 

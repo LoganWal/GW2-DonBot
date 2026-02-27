@@ -13,10 +13,15 @@
     </AssemblyAttribute>
   </ItemGroup>
   <ItemGroup>
-    <None Remove="appsettingsExample.json" />
     <None Remove="Resources\wordleWords.txt" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="appsettings.user.json" Condition="Exists('appsettings.user.json')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <EmbeddedResource Include="Resources\wordleWords.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </EmbeddedResource>

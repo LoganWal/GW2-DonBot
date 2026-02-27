@@ -110,4 +110,11 @@ dotnet publish -c Release -o ./publish
 - **Linux systemd**: use `deploy/donbot.service` — copy to `/etc/systemd/system/`, place the published output at `/opt/donbot/`
 - **Windows Service**: register the published executable with `sc.exe`
 
-Configuration is provided via `appsettings.json` at deploy time (excluded from the repo). Secrets are managed at runtime via `ISecretService`. Logs are written to `Logs/DonBot-*.txt`.
+**Configuration** is via environment variables (see `.env.example`):
+
+| Variable | Description |
+|---|---|
+| `DonBotToken` | Discord bot token |
+| `DonBotSqlConnectionString` | SQL Server connection string |
+
+`appsettings.json` is committed and contains base Serilog configuration. For local overrides, create `appsettings.user.json` in the project folder - it is loaded automatically and can override any setting from `appsettings.json`. Logs are written to `Logs/DonBot-*.txt` by default.

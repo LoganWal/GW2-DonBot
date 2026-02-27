@@ -47,7 +47,7 @@ public class RaidReportServiceTests(ITestOutputHelper output)
         var table = RaidReportService.BuildSurvivabilityTable(Group(logs));
         var rawLines = table.Split('\n');
 
-        // The first raw line is "```Player   Res (s)   ..." — strip the opening fence
+        // The first raw line is "```Player   Res (s)   ..." - strip the opening fence
         var header = rawLines[0].TrimStart('`');
 
         // Data rows are everything after the header, excluding the closing ``` and empty lines
@@ -207,7 +207,7 @@ public class RaidReportServiceTests(ITestOutputHelper output)
         Assert.Contains("VeryLongAccou", dataLine);
     }
 
-    // Visual output (not a pass/fail assertion — prints to console for review)
+    // Visual output (not a pass/fail assertion - prints to console for review)
     [Fact]
     public void BuildSurvivabilityTable_WithRealisticData_PrintsFormattedTable()
     {

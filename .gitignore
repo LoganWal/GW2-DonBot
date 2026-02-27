@@ -399,7 +399,7 @@ FodyWeavers.xsd
 *.msp
 
 /GW2-DonBot/Properties/launchSettings.json
-/GW2-DonBot/appsettings.json
+appsettings.user.json
 
 /.idea/
 /.env

@@ -239,14 +239,8 @@ public class DiscordCommandRegistrar(ILogger<DiscordCommandRegistrar> logger)
 
         if (commandsChanged)
         {
-            logger.LogInformation("Differences found in commands for {GuildName}. Deleting all existing commands", guild.Name);
-            await guild.DeleteApplicationCommandsAsync();
-
-            foreach (var command in newCommands)
-            {
-                logger.LogInformation("Registering new command on {GuildName} - {CommandName}", guild.Name, command.Name);
-                await guild.CreateApplicationCommandAsync(command);
-            }
+            logger.LogInformation("Differences found in commands for {GuildName}. Overwriting commands", guild.Name);
+            await ((IGuild)guild).BulkOverwriteApplicationCommandsAsync(newCommands);
         }
         else
         {

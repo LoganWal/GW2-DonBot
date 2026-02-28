@@ -201,14 +201,18 @@ public sealed class PollingTasksService(
         try
         {
             if (!guildConfiguration.WvwPlayerActivityReportChannelId.HasValue) {
-                logger.LogError("Failed to find WvW Player Activity Report Channel Id for guild {clientGuildName}", clientGuild.Name);
+                logger.LogInformation("WvW Player Activity Report Channel not configured for guild {clientGuildName}, skipping", clientGuild.Name);
                 return;
             }
 
             if (clientGuild.GetChannel((ulong)guildConfiguration.WvwPlayerActivityReportChannelId) is SocketTextChannel playerActivityReportChannel)
             {
                 var messages = await playerActivityReportChannel.GetMessagesAsync().FlattenAsync();
-                await playerActivityReportChannel.DeleteMessagesAsync(messages);
+                var recentMessages = messages.Where(m => (DateTimeOffset.UtcNow - m.CreatedAt).TotalDays < 14).ToList();
+                if (recentMessages.Count > 0)
+                {
+                    await playerActivityReportChannel.DeleteMessagesAsync(recentMessages);
+                }
                 var playerReportMessage = await messageGenerationService.GenerateWvWPlayerReport(guildConfiguration);
                     
                 await playerActivityReportChannel.SendMessageAsync(embeds: [playerReportMessage]);

@@ -16,6 +16,9 @@
 	[RaidAlertChannelId] [bigint] NULL,
 	[RemoveSpamEnabled] [bit] NOT NULL,
 	[RemovedMessageChannelId] [bigint] NULL,
+	[AutoSubmitToWingman] [bit] NOT NULL,
+	[AutoAggregateLogs] [bit] NOT NULL,
+	[AutoReplySingleLog] [bit] NOT NULL,
 PRIMARY KEY CLUSTERED 
 (
 	[GuildId] ASC
@@ -25,4 +28,10 @@ GO
 ALTER TABLE [dbo].[Guild] ADD  DEFAULT ((0)) FOR [RaidAlertEnabled]
 GO
 ALTER TABLE [dbo].[Guild] ADD  DEFAULT ((0)) FOR [RemoveSpamEnabled]
+GO
+ALTER TABLE [dbo].[Guild] ADD  DEFAULT ((1)) FOR [AutoSubmitToWingman]
+GO
+ALTER TABLE [dbo].[Guild] ADD  DEFAULT ((1)) FOR [AutoAggregateLogs]
+GO
+ALTER TABLE [dbo].[Guild] ADD  DEFAULT ((0)) FOR [AutoReplySingleLog]
 GO

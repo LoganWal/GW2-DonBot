@@ -121,25 +121,29 @@ public sealed class DataModelGenerationService(ILogger<DataModelGenerationServic
     {
         try
         {
-            // Extract the JSON object
             var startMarker = $"{variableName} = {{";
-            var startIndex = script.IndexOf(startMarker, StringComparison.Ordinal) + startMarker.Length - 1;
+            var rawStartIndex = script.IndexOf(startMarker, StringComparison.Ordinal);
+            if (rawStartIndex < 0)
+            {
+                logger.LogInformation("{variableName} not present in log — stats extension likely not enabled.", variableName);
+                return new T();
+            }
+
+            var startIndex = rawStartIndex + startMarker.Length - 1;
             var endIndex = script.IndexOf("};", startIndex, StringComparison.Ordinal) + 1;
 
-            if (startIndex < 0 || endIndex <= 0)
+            if (endIndex <= 0)
             {
-                logger.LogWarning("Failed to locate {variableName} in script content.", variableName);
+                logger.LogWarning("Failed to locate end of {variableName} in script content.", variableName);
                 return new T();
             }
 
             var jsonData = script.Substring(startIndex, endIndex - startIndex);
-
-            // Deserialize the JSON object
             return JsonConvert.DeserializeObject<T>(jsonData) ?? new T();
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to deserialize {variableName} JSON.", variableName);
+            logger.LogInformation(ex, "Failed to deserialize {variableName} JSON — stats extension likely not enabled.", variableName);
             return new T();
         }
     }

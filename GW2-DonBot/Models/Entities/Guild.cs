@@ -40,4 +40,10 @@ public class Guild
     public bool RemoveSpamEnabled { get; set; }
 
     public long? RemovedMessageChannelId { get; set; }
+
+    public bool AutoSubmitToWingman { get; set; } = true;
+
+    public bool AutoAggregateLogs { get; set; } = true;
+
+    public bool AutoReplySingleLog { get; set; }
 }

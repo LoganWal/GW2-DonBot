@@ -17,6 +17,7 @@ public class DiscordMessageHandler(
     IMessageGenerationService messageGenerationService,
     IPlayerService playerService,
     IDataModelGenerationService dataModelGenerator,
+    IHttpClientFactory httpClientFactory,
     DiscordSocketClient client)
 {
     private const long DonBotId = 1021682849797111838;
@@ -182,6 +183,11 @@ public class DiscordMessageHandler(
 
         logger.LogInformation("Generating fight summary: {url}", urlList);
 
+        if (guild.AutoSubmitToWingman)
+        {
+            await SubmitToWingmanAsync(urls);
+        }
+
         MessageComponent? buttonBuilder = null;
         if (isEmbed)
         {
@@ -264,38 +270,60 @@ public class DiscordMessageHandler(
                     }
                 }
 
-                var messages = await messageGenerationService.GenerateRaidReplyReport(urls, guildId);
-                if (messages != null)
+                if (guild.AutoAggregateLogs)
                 {
-                    var firstPveMessage = messages.FirstOrDefault(m => m.Title?.Contains("PvE") == true);
-                    MessageComponent? bestTimesComponent = null;
-                    if (firstPveMessage != null)
+                    var messages = await messageGenerationService.GenerateRaidReplyReport(urls, guildId);
+                    if (messages != null)
                     {
-                        var urlFights = await entityService.FightLog.GetWhereAsync(s =>
-                            urls.Contains(s.Url) &&
-                            s.FightType != (short)FightTypesEnum.WvW &&
-                            s.FightType != (short)FightTypesEnum.Unkn);
-                        if (urlFights.Any())
+                        var firstPveMessage = messages.FirstOrDefault(m => m.Title?.Contains("PvE") == true);
+                        MessageComponent? bestTimesComponent = null;
+                        if (firstPveMessage != null)
                         {
-                            var fightsReport = new FightsReport
+                            var urlFights = await entityService.FightLog.GetWhereAsync(s =>
+                                urls.Contains(s.Url) &&
+                                s.FightType != (short)FightTypesEnum.WvW &&
+                                s.FightType != (short)FightTypesEnum.Unkn);
+                            if (urlFights.Any())
                             {
-                                GuildId = guildId,
-                                FightsStart = urlFights.Min(f => f.FightStart),
-                                FightsEnd = urlFights.Max(f => f.FightStart.AddMilliseconds(f.FightDurationInMs))
-                            };
-                            await entityService.FightsReport.AddAsync(fightsReport);
-                            bestTimesComponent = new ComponentBuilder()
-                                .WithButton("Best Times", $"{ButtonId.BestTimesPvEPrefix}{fightsReport.FightsReportId}")
-                                .Build();
+                                var fightsReport = new FightsReport
+                                {
+                                    GuildId = guildId,
+                                    FightsStart = urlFights.Min(f => f.FightStart),
+                                    FightsEnd = urlFights.Max(f => f.FightStart.AddMilliseconds(f.FightDurationInMs))
+                                };
+                                await entityService.FightsReport.AddAsync(fightsReport);
+                                bestTimesComponent = new ComponentBuilder()
+                                    .WithButton("Best Times", $"{ButtonId.BestTimesPvEPrefix}{fightsReport.FightsReportId}")
+                                    .Build();
+                            }
+                        }
+
+                        foreach (var bulkMessage in messages)
+                        {
+                            var components = bulkMessage == firstPveMessage ? bestTimesComponent : null;
+                            await replyChannel.SendMessageAsync(embeds: [bulkMessage], components: components);
                         }
                     }
-
-                    foreach (var bulkMessage in messages)
-                    {
-                        var components = bulkMessage == firstPveMessage ? bestTimesComponent : null;
-                        await replyChannel.SendMessageAsync(embeds: [bulkMessage], components: components);
-                    }
                 }
+            }
+            else if (dataList.Count == 1 && guild.AutoReplySingleLog)
+            {
+                var eliteInsightDataModel = dataList[0];
+                Embed singleMessage;
+                MessageComponent? singleButtonBuilder = null;
+                if (eliteInsightDataModel.FightEliteInsightDataModel.Wvw)
+                {
+                    singleMessage = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, false, guild, client);
+                    singleButtonBuilder = new ComponentBuilder()
+                        .WithButton("Know My Enemy", ButtonId.KnowMyEnemy)
+                        .Build();
+                }
+                else
+                {
+                    singleMessage = await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, guildId);
+                }
+
+                await replyChannel.SendMessageAsync(text: "", embeds: [singleMessage], components: singleButtonBuilder);
             }
         }
 
@@ -303,6 +331,31 @@ public class DiscordMessageHandler(
         foreach (var url in urls)
         {
             _seenUrls.Add(url);
+        }
+    }
+
+    private async Task SubmitToWingmanAsync(List<string> urls)
+    {
+        const string dpsReportPattern = @"https://(?:b\.dps|wvw|dps)\.report/\S+";
+        var dpsReportUrls = urls.Where(u => IsMatch(u, dpsReportPattern)).ToList();
+        if (dpsReportUrls.Count == 0)
+        {
+            return;
+        }
+
+        var httpClient = httpClientFactory.CreateClient();
+        foreach (var url in dpsReportUrls)
+        {
+            try
+            {
+                var wingmanUrl = $"https://gw2wingman.nevermindcreations.de/api/importLogQueued?link={Uri.EscapeDataString(url)}";
+                var response = await httpClient.GetAsync(wingmanUrl);
+                logger.LogInformation("Submitted {Url} to wingman, status: {Status}", url, response.StatusCode);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to submit {Url} to wingman", url);
+            }
         }
     }
 }

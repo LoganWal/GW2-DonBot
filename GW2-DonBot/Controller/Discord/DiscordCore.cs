@@ -8,7 +8,6 @@ using DonBot.Services.DiscordRequestServices;
 using DonBot.Services.DiscordServices;
 using DonBot.Services.SecretsServices;
 using Microsoft.Extensions.Logging;
-using ConnectionState = Discord.ConnectionState;
 
 namespace DonBot.Controller.Discord;
 
@@ -37,7 +36,7 @@ public sealed class DiscordCore(
 
         logger.LogInformation("GW2-DonBot attempting to connect...");
 
-        await WaitForConnectionAsync(cancellationToken);
+        await WaitForReadyAsync(cancellationToken);
         await commandRegistrar.RegisterCommands(client);
 
         logger.LogInformation("GW2-DonBot connected.");
@@ -98,12 +97,12 @@ public sealed class DiscordCore(
         logger.LogInformation("Registered commands for new guild {GuildId} ({GuildName})", guildId, socketGuild.Name);
     }
 
-    private async Task WaitForConnectionAsync(CancellationToken cancellationToken = default)
+    private async Task WaitForReadyAsync(CancellationToken cancellationToken = default)
     {
-        while (client.ConnectionState != ConnectionState.Connected)
-        {
-            await Task.Delay(100, cancellationToken);
-        }
+        var tcs = new TaskCompletionSource();
+        cancellationToken.Register(() => tcs.TrySetCanceled());
+        client.Ready += () => { tcs.TrySetResult(); return Task.CompletedTask; };
+        await tcs.Task;
     }
 
     private async Task PollingRolesTask(TimeSpan interval, CancellationToken cancellationToken)

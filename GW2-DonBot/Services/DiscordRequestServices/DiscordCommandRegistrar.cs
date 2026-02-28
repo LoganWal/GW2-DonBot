@@ -8,7 +8,12 @@ public class DiscordCommandRegistrar(ILogger<DiscordCommandRegistrar> logger)
 {
     public async Task RegisterCommands(DiscordSocketClient client)
     {
-        await client.BulkOverwriteGlobalApplicationCommandsAsync([]);
+        var globalCommands = await client.GetGlobalApplicationCommandsAsync();
+        if (globalCommands.Count > 0)
+        {
+            logger.LogInformation("Clearing {Count} global command(s)", globalCommands.Count);
+            await client.BulkOverwriteGlobalApplicationCommandsAsync([]);
+        }
 
         var newCommands = BuildCommands();
 
@@ -199,6 +204,21 @@ public class DiscordCommandRegistrar(ILogger<DiscordCommandRegistrar> logger)
                     .WithDescription("Set the channel where removed spam messages are logged.")
                     .WithType(ApplicationCommandOptionType.SubCommand)
                     .AddOption("channel", ApplicationCommandOptionType.Channel, "The channel", isRequired: true))
+                .AddOption(new SlashCommandOptionBuilder()
+                    .WithName("auto_submit_to_wingman")
+                    .WithDescription("Automatically submit dps.report logs to gw2wingman for import. Default: enabled.")
+                    .WithType(ApplicationCommandOptionType.SubCommand)
+                    .AddOption("value", ApplicationCommandOptionType.Boolean, "Enable auto wingman submission?", isRequired: true))
+                .AddOption(new SlashCommandOptionBuilder()
+                    .WithName("auto_aggregate_logs")
+                    .WithDescription("Automatically post an aggregate summary when multiple logs are shared at once. Default: enabled.")
+                    .WithType(ApplicationCommandOptionType.SubCommand)
+                    .AddOption("value", ApplicationCommandOptionType.Boolean, "Enable auto log aggregation?", isRequired: true))
+                .AddOption(new SlashCommandOptionBuilder()
+                    .WithName("auto_reply_single_log")
+                    .WithDescription("Automatically reply with a fight summary when a single log is shared. Default: disabled.")
+                    .WithType(ApplicationCommandOptionType.SubCommand)
+                    .AddOption("value", ApplicationCommandOptionType.Boolean, "Enable single log auto-reply?", isRequired: true))
         ];
 
         return commandsToRegister.Select(c => (ApplicationCommandProperties)c.Build()).ToArray();
@@ -208,17 +228,19 @@ public class DiscordCommandRegistrar(ILogger<DiscordCommandRegistrar> logger)
     {
         var existingCommands = await guild.GetApplicationCommandsAsync();
 
-        if (existingCommands.Count != newCommands.Length ||
-            existingCommands.Any(ec => newCommands.All(nc => nc.Name.Value != ec.Name)))
-        {
-            logger.LogInformation("Differences found in commands for {GuildName}. Deleting all existing commands", guild.Name);
-            await guild.DeleteApplicationCommandsAsync();
-
-            foreach (var command in newCommands)
+        var commandsChanged = existingCommands.Count != newCommands.Length ||
+            existingCommands.Any(ec => newCommands.All(nc => nc.Name.Value != ec.Name)) ||
+            existingCommands.Any(ec =>
             {
-                logger.LogInformation("Registering new command on {GuildName} - {CommandName}", guild.Name, command.Name);
-                await guild.CreateApplicationCommandAsync(command);
-            }
+                var matching = newCommands.FirstOrDefault(nc => nc.Name.Value == ec.Name);
+                return matching is SlashCommandProperties sc &&
+                       (sc.Options.IsSpecified ? sc.Options.Value.Count : 0) != ec.Options.Count;
+            });
+
+        if (commandsChanged)
+        {
+            logger.LogInformation("Differences found in commands for {GuildName}. Overwriting commands", guild.Name);
+            await ((IGuild)guild).BulkOverwriteApplicationCommandsAsync(newCommands);
         }
         else
         {

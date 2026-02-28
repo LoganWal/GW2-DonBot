@@ -149,6 +149,18 @@ public sealed class DiscordCommandService(IEntityService entityService) : IDisco
                 guild.RemovedMessageChannelId = (long)removedMessageChannel.Id;
                 break;
 
+            case "auto_submit_to_wingman":
+                guild.AutoSubmitToWingman = (bool)option.Value;
+                break;
+
+            case "auto_aggregate_logs":
+                guild.AutoAggregateLogs = (bool)option.Value;
+                break;
+
+            case "auto_reply_single_log":
+                guild.AutoReplySingleLog = (bool)option.Value;
+                break;
+
             default:
                 await command.FollowupAsync("Unknown configuration option.", ephemeral: true);
                 return;

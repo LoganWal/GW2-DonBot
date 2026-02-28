@@ -218,7 +218,11 @@ public class DiscordMessageHandler(
                     if (guild.PlayerReportChannelId != null && client.GetChannel((ulong)guild.PlayerReportChannelId) is SocketTextChannel playerChannel)
                     {
                         var messages = await playerChannel.GetMessagesAsync(10).FlattenAsync();
-                        await playerChannel.DeleteMessagesAsync(messages);
+                        var recentMessages = messages.Where(m => (DateTimeOffset.UtcNow - m.CreatedAt).TotalDays < 14).ToList();
+                        if (recentMessages.Count > 0)
+                        {
+                            await playerChannel.DeleteMessagesAsync(recentMessages);
+                        }
 
                         var activePlayerMessage = await messageGenerationService.GenerateWvWActivePlayerSummary(guild, eliteInsightDataModel.FightEliteInsightDataModel.Url);
                         var playerMessage = await messageGenerationService.GenerateWvWPlayerSummary(guild);

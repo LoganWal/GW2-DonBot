@@ -78,12 +78,29 @@ Raffle messages include buttons to check your points and enter with 1, 50, 100, 
 
 ### Server Configuration
 
-`/gw2_set_log_channel`: Set which channel receives combat log summaries.
+All per-guild settings are configured via `/gw2_server_config` (Administrator only). Each setting is a subcommand:
 
-Additional per-guild settings (configured in the database):
-- Announcement, raid alert, advanced log, player report, and moderation channels
-- GW2 verified role, primary guild ID & role, secondary/alliance guild IDs
-- Spam removal toggle
+| Subcommand | Type | Description |
+|---|---|---|
+| `log_drop_off_channel` | Channel | Channel where fight logs are dropped off via webhook |
+| `log_report_channel` | Channel | Channel where fight summaries are posted |
+| `advance_log_report_channel` | Channel | Channel for advanced WvW log reports |
+| `stream_log_channel` | Channel | Channel for stream log output |
+| `player_report_channel` | Channel | Channel for player ranking reports |
+| `wvw_activity_report_channel` | Channel | Channel for WvW activity reports |
+| `announcement_channel` | Channel | Channel for announcements |
+| `raid_alert_channel` | Channel | Channel for raid alerts |
+| `removed_message_channel` | Channel | Channel where removed spam messages are logged |
+| `guild_member_role` | Role | Discord role assigned to primary GW2 guild members |
+| `secondary_member_role` | Role | Discord role assigned to alliance guild members |
+| `verified_role` | Role | Discord role assigned to verified members |
+| `gw2_guild_member_role_id` | String | GW2 guild UUID for primary membership |
+| `gw2_secondary_member_role_ids` | String | Comma-separated GW2 guild UUIDs for alliance membership |
+| `raid_alert_enabled` | Boolean | Enable or disable raid alerts |
+| `remove_spam_enabled` | Boolean | Auto-remove links posted by unverified users |
+| `auto_submit_to_wingman` | Boolean | Submit dps.report logs to gw2wingman automatically (default: on) |
+| `auto_aggregate_logs` | Boolean | Post an aggregate summary when multiple logs are shared at once (default: on) |
+| `auto_reply_single_log` | Boolean | Reply with a fight summary when a single log is shared (default: off) |
 
 ---
 

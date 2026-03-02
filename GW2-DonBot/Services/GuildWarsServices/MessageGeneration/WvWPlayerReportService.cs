@@ -2,6 +2,7 @@ using Discord;
 using DonBot.Extensions;
 using DonBot.Models.Apis.GuildWars2Api;
 using DonBot.Models.Entities;
+using DonBot.Models.Enums;
 using DonBot.Services.DatabaseServices;
 
 namespace DonBot.Services.GuildWarsServices.MessageGeneration;
@@ -58,7 +59,7 @@ public sealed class WvWPlayerReportService(IEntityService entityService, IFooter
             foreach (var gw2Account in playerBatch)
             {
                 var name = gw2Account.Item1.GuildWarsAccountName ?? gw2Account.Item1.DiscordId.ToString();
-                var server = ((GuildWars2WorldEnum)gw2Account.Item1.World).ToString();
+                var server = ((WorldEnum)gw2Account.Item1.World).ToString();
 
                 var lastLogDateTime = "Never";
 

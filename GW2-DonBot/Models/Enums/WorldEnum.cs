@@ -1,6 +1,6 @@
-﻿namespace DonBot.Models.Apis.GuildWars2Api;
+﻿namespace DonBot.Models.Enums;
 
-public enum GuildWars2WorldEnum
+public enum WorldEnum
 {
     Unknown = 0,
     Ar = 1001,

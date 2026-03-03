@@ -450,6 +450,8 @@ public sealed class PvEFightSummaryService(
             });
         }
 
+        footerService.AddInviteLink(message);
+
         // Building the message for use
         return message.Build();
     }

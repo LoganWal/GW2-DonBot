@@ -76,6 +76,8 @@ public sealed class WvWPlayerSummaryService(IEntityService entityService, IFoote
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             };
 
+            footerService.AddInviteLink(message);
+
             // Timestamp
             message.Timestamp = DateTime.Now;
         }
@@ -155,6 +157,8 @@ public sealed class WvWPlayerSummaryService(IEntityService entityService, IFoote
                 Text = $"{await footerService.Generate(gw2Guild.GuildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             };
+
+            footerService.AddInviteLink(message);
 
             // Timestamp
             message.Timestamp = DateTime.Now;

@@ -47,6 +47,7 @@ public static class ServiceRegister
         services.AddSingleton<IWordleService, WordleService>();
         services.AddSingleton<IWordGeneratorService, WordGeneratorService>();
         services.AddSingleton<DictionaryService>();
+        services.AddSingleton<IPendingLogService, PendingLogService>();
 
         // Command Services - Transient for command handlers
         services.AddTransient<IGenericCommandsService, GenericCommandsService>();

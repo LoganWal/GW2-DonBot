@@ -18,7 +18,8 @@ public class DiscordMessageHandler(
     IPlayerService playerService,
     IDataModelGenerationService dataModelGenerator,
     IHttpClientFactory httpClientFactory,
-    DiscordSocketClient client)
+    DiscordSocketClient client,
+    IPendingLogService pendingLogService)
 {
     private const long DonBotId = 1021682849797111838;
     private readonly HashSet<string> _seenUrls = [];
@@ -126,7 +127,7 @@ public class DiscordMessageHandler(
             if (trimmedUrls.Count != 0)
             {
                 logger.LogInformation("Assessing: {Url}", string.Join(",", trimmedUrls));
-                await AnalyseAndReportOnUrl(trimmedUrls, guild?.GuildId ?? -1, embedMessage, seenMessage.Channel);
+                await AnalyseAndReportOnUrl(trimmedUrls, guild?.GuildId ?? -1, embedMessage, seenMessage.Channel, seenMessage.Author.Id);
             }
         }
         catch (Exception e)
@@ -161,10 +162,43 @@ public class DiscordMessageHandler(
         await targetChannel.SendMessageAsync($"Removed message from <@{seenMessage.Author.Id}> ({seenMessage.Author.Username}), for posting a discord link without being verified.");
     }
 
-    private async Task AnalyseAndReportOnUrl(List<string> urls, long guildId, bool isEmbed, ISocketMessageChannel replyChannel)
+    private async Task AnalyseAndReportOnUrl(List<string> urls, long guildId, bool isEmbed, ISocketMessageChannel replyChannel, ulong uploaderId)
     {
         var urlList = string.Join(",", urls);
-        if (isEmbed && urls.All(url => _seenUrls.Contains(url)))
+
+        var guilds = await entityService.Guild.GetAllAsync();
+        var guild = guilds.FirstOrDefault(g => g.GuildId == guildId) ?? guilds.Single(s => s.GuildId == -1);
+
+        if (!isEmbed)
+        {
+            var shouldAsk = (urls.Count > 1 && guild.AutoAggregateLogs) || (urls.Count == 1 && guild.AutoReplySingleLog);
+            if (!shouldAsk)
+            {
+                return;
+            }
+
+            var key = pendingLogService.StorePending(new PendingLogState(urls, guildId, uploaderId));
+            var logCount = urls.Count;
+            var postButton = new ButtonBuilder()
+                .WithLabel("Post Summary")
+                .WithCustomId($"{ButtonId.PostLogsPrefix}{key}")
+                .WithStyle(ButtonStyle.Primary);
+            var dismissButton = new ButtonBuilder()
+                .WithLabel("Dismiss")
+                .WithCustomId($"{ButtonId.DismissLogsPrefix}{key}")
+                .WithStyle(ButtonStyle.Secondary);
+            var components = new ComponentBuilder()
+                .WithButton(postButton)
+                .WithButton(dismissButton)
+                .Build();
+            await replyChannel.SendMessageAsync(
+                $"<@{uploaderId}>, would you like to post the fight summary for {logCount} log{(logCount > 1 ? "s" : "")}?",
+                components: components);
+            return;
+        }
+
+        // Embed path — auto-process as before
+        if (urls.All(url => _seenUrls.Contains(url)))
         {
             logger.LogWarning("Already seen, not analysing or reporting: {url}", urlList);
             return;
@@ -178,163 +212,203 @@ public class DiscordMessageHandler(
             dataList.Add(await dataModelGenerator.GenerateEliteInsightDataModelFromUrl(url));
         }
 
-        var guilds = await entityService.Guild.GetAllAsync();
-        var guild = guilds.FirstOrDefault(g => g.GuildId == guildId) ?? guilds.Single(s => s.GuildId == -1);
-
         logger.LogInformation("Generating fight summary: {url}", urlList);
 
         if (guild.AutoSubmitToWingman)
         {
-            await SubmitToWingmanAsync(urls);
+            var nonWvwUrls = urls.Where((url, i) => !dataList[i].FightEliteInsightDataModel.Wvw).ToList();
+            if (nonWvwUrls.Count > 0)
+            {
+                await SubmitToWingmanAsync(nonWvwUrls);
+            }
         }
 
         MessageComponent? buttonBuilder = null;
-        if (isEmbed)
+        foreach (var eliteInsightDataModel in dataList)
         {
-            foreach (var eliteInsightDataModel in dataList)
+            if (_seenUrls.Contains(eliteInsightDataModel.FightEliteInsightDataModel.Url))
             {
-                if (_seenUrls.Contains(eliteInsightDataModel.FightEliteInsightDataModel.Url))
-                {
-                    logger.LogInformation("Already seen {url}, going to next log.", eliteInsightDataModel.FightEliteInsightDataModel.Url);
-                    continue;
-                }
-
-                Embed message;
-                if (eliteInsightDataModel.FightEliteInsightDataModel.Wvw)
-                {
-                    if (guild.AdvanceLogReportChannelId != null)
-                    {
-                        if (client.GetChannel((ulong)guild.AdvanceLogReportChannelId) is not ITextChannel advanceLogReportChannel)
-                        {
-                            logger.LogWarning("Failed to find the target channel {guildAdvanceLogReportChannelId}", guild.AdvanceLogReportChannelId);
-                            await replyChannel.SendMessageAsync("Failed to find the advanced log report channel.");
-                            continue;
-                        }
-
-                        var advancedMessage = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, true, guild, client);
-                        await advanceLogReportChannel.SendMessageAsync(text: "", embeds: [advancedMessage]);
-                    }
-
-                    if (guild.PlayerReportChannelId != null && client.GetChannel((ulong)guild.PlayerReportChannelId) is SocketTextChannel playerChannel)
-                    {
-                        var messages = await playerChannel.GetMessagesAsync(10).FlattenAsync();
-                        var recentMessages = messages.Where(m => (DateTimeOffset.UtcNow - m.CreatedAt).TotalDays < 14).ToList();
-                        if (recentMessages.Count > 0)
-                        {
-                            await playerChannel.DeleteMessagesAsync(recentMessages);
-                        }
-
-                        var activePlayerMessage = await messageGenerationService.GenerateWvWActivePlayerSummary(guild, eliteInsightDataModel.FightEliteInsightDataModel.Url);
-                        var playerMessage = await messageGenerationService.GenerateWvWPlayerSummary(guild);
-
-                        await playerChannel.SendMessageAsync(text: "", embeds: [activePlayerMessage]);
-                        await playerChannel.SendMessageAsync(text: "", embeds: [playerMessage]);
-                    }
-
-                    await playerService.SetPlayerPoints(eliteInsightDataModel);
-
-                    message = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, false, guild, client);
-                    buttonBuilder = new ComponentBuilder()
-                        .WithButton("Know My Enemy", ButtonId.KnowMyEnemy)
-                        .Build();
-                }
-                else
-                {
-                    message = await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, guildId);
-                }
-
-                if (guild.LogReportChannelId == null)
-                {
-                    logger.LogWarning("no log report channel id for guild id `{guildId}`", guild.GuildId);
-                    return;
-                }
-
-                if (client.GetChannel((ulong)guild.LogReportChannelId) is not ITextChannel logReportChannel)
-                {
-                    logger.LogWarning("Failed to find the target channel {guildLogReportChannelId}", guild.LogReportChannelId);
-                    return;
-                }
-
-                await logReportChannel.SendMessageAsync(text: "", embeds: [message], components: buttonBuilder);
+                logger.LogInformation("Already seen {url}, going to next log.", eliteInsightDataModel.FightEliteInsightDataModel.Url);
+                continue;
             }
-        }
-        else
-        {
-            if (dataList.Count > 1)
+
+            Embed message;
+            if (eliteInsightDataModel.FightEliteInsightDataModel.Wvw)
             {
-                foreach (var eliteInsightDataModel in dataList)
+                if (guild.AdvanceLogReportChannelId != null)
                 {
-                    if (eliteInsightDataModel.FightEliteInsightDataModel.Wvw)
+                    if (client.GetChannel((ulong)guild.AdvanceLogReportChannelId) is not ITextChannel advanceLogReportChannel)
                     {
-                        await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, false, guild, client);
+                        logger.LogWarning("Failed to find the target channel {guildAdvanceLogReportChannelId}", guild.AdvanceLogReportChannelId);
+                        await replyChannel.SendMessageAsync("Failed to find the advanced log report channel.");
+                        continue;
                     }
-                    else
-                    {
-                        await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, guildId);
-                    }
+
+                    var advancedMessage = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, true, guild, client);
+                    await advanceLogReportChannel.SendMessageAsync(text: "", embeds: [advancedMessage]);
                 }
 
-                if (guild.AutoAggregateLogs)
+                if (guild.PlayerReportChannelId != null && client.GetChannel((ulong)guild.PlayerReportChannelId) is SocketTextChannel playerChannel)
                 {
-                    var messages = await messageGenerationService.GenerateRaidReplyReport(urls, guildId);
-                    if (messages != null)
+                    var messages = await playerChannel.GetMessagesAsync(10).FlattenAsync();
+                    var recentMessages = messages.Where(m => (DateTimeOffset.UtcNow - m.CreatedAt).TotalDays < 14).ToList();
+                    if (recentMessages.Count > 0)
                     {
-                        var firstPveMessage = messages.FirstOrDefault(m => m.Title?.Contains("PvE") == true);
-                        MessageComponent? bestTimesComponent = null;
-                        if (firstPveMessage != null)
-                        {
-                            var urlFights = await entityService.FightLog.GetWhereAsync(s =>
-                                urls.Contains(s.Url) &&
-                                s.FightType != (short)FightTypesEnum.WvW &&
-                                s.FightType != (short)FightTypesEnum.Unkn);
-                            if (urlFights.Any())
-                            {
-                                var fightsReport = new FightsReport
-                                {
-                                    GuildId = guildId,
-                                    FightsStart = urlFights.Min(f => f.FightStart),
-                                    FightsEnd = urlFights.Max(f => f.FightStart.AddMilliseconds(f.FightDurationInMs))
-                                };
-                                await entityService.FightsReport.AddAsync(fightsReport);
-                                bestTimesComponent = new ComponentBuilder()
-                                    .WithButton("Best Times", $"{ButtonId.BestTimesPvEPrefix}{fightsReport.FightsReportId}")
-                                    .Build();
-                            }
-                        }
-
-                        foreach (var bulkMessage in messages)
-                        {
-                            var components = bulkMessage == firstPveMessage ? bestTimesComponent : null;
-                            await replyChannel.SendMessageAsync(embeds: [bulkMessage], components: components);
-                        }
+                        await playerChannel.DeleteMessagesAsync(recentMessages);
                     }
+
+                    var activePlayerMessage = await messageGenerationService.GenerateWvWActivePlayerSummary(guild, eliteInsightDataModel.FightEliteInsightDataModel.Url);
+                    var playerMessage = await messageGenerationService.GenerateWvWPlayerSummary(guild);
+
+                    await playerChannel.SendMessageAsync(text: "", embeds: [activePlayerMessage]);
+                    await playerChannel.SendMessageAsync(text: "", embeds: [playerMessage]);
                 }
+
+                await playerService.SetPlayerPoints(eliteInsightDataModel);
+
+                message = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, false, guild, client);
+                buttonBuilder = new ComponentBuilder()
+                    .WithButton("Know My Enemy", ButtonId.KnowMyEnemy)
+                    .Build();
             }
-            else if (dataList.Count == 1 && guild.AutoReplySingleLog)
+            else
             {
-                var eliteInsightDataModel = dataList[0];
-                Embed singleMessage;
-                MessageComponent? singleButtonBuilder = null;
-                if (eliteInsightDataModel.FightEliteInsightDataModel.Wvw)
-                {
-                    singleMessage = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, false, guild, client);
-                    singleButtonBuilder = new ComponentBuilder()
-                        .WithButton("Know My Enemy", ButtonId.KnowMyEnemy)
-                        .Build();
-                }
-                else
-                {
-                    singleMessage = await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, guildId);
-                }
-
-                await replyChannel.SendMessageAsync(text: "", embeds: [singleMessage], components: singleButtonBuilder);
+                message = await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, guildId);
             }
+
+            if (guild.LogReportChannelId == null)
+            {
+                logger.LogWarning("no log report channel id for guild id `{guildId}`", guild.GuildId);
+                return;
+            }
+
+            if (client.GetChannel((ulong)guild.LogReportChannelId) is not ITextChannel logReportChannel)
+            {
+                logger.LogWarning("Failed to find the target channel {guildLogReportChannelId}", guild.LogReportChannelId);
+                return;
+            }
+
+            await logReportChannel.SendMessageAsync(text: "", embeds: [message], components: buttonBuilder);
         }
 
         logger.LogInformation("Completed and posted report on: {url}", urlList);
         foreach (var url in urls)
         {
             _seenUrls.Add(url);
+        }
+    }
+
+    public async Task ProcessAndPostLogsAsync(SocketMessageComponent interaction, PendingLogState state)
+    {
+        var urls = state.Urls;
+        var guildId = state.GuildId;
+
+        // DeferAsync on SocketMessageComponent uses type 6 (DeferredUpdateMessage) which creates
+        // no response message, so ModifyOriginalResponseAsync would fail with Unknown Message.
+        // RespondAsync (type 4) creates an actual ephemeral message we can modify.
+        await interaction.RespondAsync($"Fetching log 1 of {urls.Count}...", ephemeral: true);
+        await interaction.Message.DeleteAsync();
+
+        var dataList = new List<EliteInsightDataModel>();
+        dataList.Add(await dataModelGenerator.GenerateEliteInsightDataModelFromUrl(urls[0]));
+        for (var i = 1; i < urls.Count; i++)
+        {
+            await interaction.ModifyOriginalResponseAsync(m => m.Content = $"Fetching log {i + 1} of {urls.Count}...");
+            dataList.Add(await dataModelGenerator.GenerateEliteInsightDataModelFromUrl(urls[i]));
+        }
+
+        var guilds = await entityService.Guild.GetAllAsync();
+        var guild = guilds.FirstOrDefault(g => g.GuildId == guildId) ?? guilds.Single(s => s.GuildId == -1);
+
+        if (guild.AutoSubmitToWingman)
+        {
+            var nonWvwUrls = urls.Where((url, i) => !dataList[i].FightEliteInsightDataModel.Wvw).ToList();
+            if (nonWvwUrls.Count > 0)
+            {
+                await interaction.ModifyOriginalResponseAsync(m => m.Content = "Submitting to Wingman...");
+                await SubmitToWingmanAsync(nonWvwUrls);
+            }
+        }
+
+        await interaction.ModifyOriginalResponseAsync(m => m.Content = "Generating and posting summary...");
+
+        if (urls.Count > 1)
+        {
+            foreach (var eliteInsightDataModel in dataList)
+            {
+                if (eliteInsightDataModel.FightEliteInsightDataModel.Wvw)
+                    await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, false, guild, client);
+                else
+                    await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, guildId);
+            }
+
+            var messages = await messageGenerationService.GenerateRaidReplyReport(urls, guildId);
+            if (messages != null)
+            {
+                var firstPveMessage = messages.FirstOrDefault(m => m.Title?.Contains("PvE") == true);
+                MessageComponent? bestTimesComponent = null;
+                if (firstPveMessage != null)
+                {
+                    var urlFights = await entityService.FightLog.GetWhereAsync(s =>
+                        urls.Contains(s.Url) &&
+                        s.FightType != (short)FightTypesEnum.WvW &&
+                        s.FightType != (short)FightTypesEnum.Unkn);
+                    if (urlFights.Any())
+                    {
+                        var fightsReport = new FightsReport
+                        {
+                            GuildId = guildId,
+                            FightsStart = urlFights.Min(f => f.FightStart),
+                            FightsEnd = urlFights.Max(f => f.FightStart.AddMilliseconds(f.FightDurationInMs))
+                        };
+                        await entityService.FightsReport.AddAsync(fightsReport);
+                        bestTimesComponent = new ComponentBuilder()
+                            .WithButton("Best Times", $"{ButtonId.BestTimesPvEPrefix}{fightsReport.FightsReportId}")
+                            .Build();
+                    }
+                }
+
+                foreach (var bulkMessage in messages)
+                {
+                    var components = bulkMessage == firstPveMessage ? bestTimesComponent : null;
+                    await interaction.Channel.SendMessageAsync(embeds: [bulkMessage], components: components);
+                }
+            }
+        }
+        else if (dataList.Count == 1)
+        {
+            var eliteInsightDataModel = dataList[0];
+            Embed singleMessage;
+            MessageComponent? singleButtonBuilder = null;
+            if (eliteInsightDataModel.FightEliteInsightDataModel.Wvw)
+            {
+                singleMessage = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, false, guild, client);
+                singleButtonBuilder = new ComponentBuilder()
+                    .WithButton("Know My Enemy", ButtonId.KnowMyEnemy)
+                    .Build();
+            }
+            else
+            {
+                singleMessage = await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, guildId);
+            }
+
+            await interaction.Channel.SendMessageAsync(text: "", embeds: [singleMessage], components: singleButtonBuilder);
+        }
+
+        foreach (var url in urls)
+        {
+            _seenUrls.Add(url);
+        }
+
+        logger.LogInformation("Completed and posted report on: {url}", string.Join(",", urls));
+
+        try
+        {
+            await interaction.DeleteOriginalResponseAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to delete interaction progress message");
         }
     }
 

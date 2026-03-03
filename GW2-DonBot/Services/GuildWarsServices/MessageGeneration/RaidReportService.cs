@@ -57,6 +57,8 @@ public sealed class RaidReportService(
             Timestamp = DateTime.Now
         };
 
+        footerService.AddInviteLink(message);
+
         return message.Build();
     }
     
@@ -383,6 +385,10 @@ public sealed class RaidReportService(
             }
         }
 
+        footerService.AddInviteLink(fightsEmbed);
+        footerService.AddInviteLink(playerEmbed);
+        footerService.AddInviteLink(survEmbed);
+
         return [fightsEmbed.Build(), playerEmbed.Build(), survEmbed.Build()];
     }
 
@@ -473,6 +479,8 @@ public sealed class RaidReportService(
             Text = $"{await footerService.Generate(guildId)}",
             IconUrl = "https://i.imgur.com/tQ4LD6H.png"
         };
+
+        footerService.AddInviteLink(message);
 
         // Timestamp
         message.Timestamp = DateTime.Now;

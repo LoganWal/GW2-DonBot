@@ -304,17 +304,18 @@ public class DiscordMessageHandler(
         var urls = state.Urls;
         var guildId = state.GuildId;
 
-        // DeferAsync on SocketMessageComponent uses type 6 (DeferredUpdateMessage) which creates
-        // no response message, so ModifyOriginalResponseAsync would fail with Unknown Message.
-        // RespondAsync (type 4) creates an actual ephemeral message we can modify.
-        await interaction.RespondAsync($"Fetching log 1 of {urls.Count}...", ephemeral: true);
+        // DeferAsync uses type 6 (DeferredUpdateMessage) — no visible response, lets us delete
+        // the button prompt and manage our own public progress message.
+        await interaction.DeferAsync();
         await interaction.Message.DeleteAsync();
+
+        var progressMessage = (IUserMessage)await interaction.Channel.SendMessageAsync($"Fetching log 1 of {urls.Count}...");
 
         var dataList = new List<EliteInsightDataModel>();
         dataList.Add(await dataModelGenerator.GenerateEliteInsightDataModelFromUrl(urls[0]));
         for (var i = 1; i < urls.Count; i++)
         {
-            await interaction.ModifyOriginalResponseAsync(m => m.Content = $"Fetching log {i + 1} of {urls.Count}...");
+            await progressMessage.ModifyAsync(m => m.Content = $"Fetching log {i + 1} of {urls.Count}...");
             dataList.Add(await dataModelGenerator.GenerateEliteInsightDataModelFromUrl(urls[i]));
         }
 
@@ -326,12 +327,12 @@ public class DiscordMessageHandler(
             var nonWvwUrls = urls.Where((url, i) => !dataList[i].FightEliteInsightDataModel.Wvw).ToList();
             if (nonWvwUrls.Count > 0)
             {
-                await interaction.ModifyOriginalResponseAsync(m => m.Content = "Submitting to Wingman...");
+                await progressMessage.ModifyAsync(m => m.Content = "Submitting to Wingman...");
                 await SubmitToWingmanAsync(nonWvwUrls);
             }
         }
 
-        await interaction.ModifyOriginalResponseAsync(m => m.Content = "Generating and posting summary...");
+        await progressMessage.ModifyAsync(m => m.Content = "Generating and posting summary...");
 
         if (urls.Count > 1)
         {
@@ -405,11 +406,11 @@ public class DiscordMessageHandler(
 
         try
         {
-            await interaction.DeleteOriginalResponseAsync();
+            await progressMessage.DeleteAsync();
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to delete interaction progress message");
+            logger.LogWarning(ex, "Failed to delete progress message");
         }
     }
 

@@ -19,4 +19,7 @@ internal static class ButtonId
     public const string KnowMyEnemy = "Know_My_Enemy";
 
     public const string BestTimesPvEPrefix = "Best_Times_PvE_";
+
+    public const string PostLogsPrefix = "Post_Logs_";
+    public const string DismissLogsPrefix = "Dismiss_Logs_";
 }

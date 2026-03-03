@@ -82,6 +82,8 @@ public sealed class WvWPlayerReportService(IEntityService entityService, IFooter
             });
         }
 
+        footerService.AddInviteLink(message);
+
         return message.Build();
     }
 }

@@ -2,6 +2,7 @@ using Discord;
 using Discord.WebSocket;
 using DonBot.Models.Statics;
 using DonBot.Services.DatabaseServices;
+using DonBot.Services.DiscordServices;
 using DonBot.Services.GuildWarsServices;
 using Microsoft.Extensions.Logging;
 
@@ -12,17 +13,34 @@ public class DiscordButtonHandler(
     IEntityService entityService,
     IRaffleCommandsService raffleCommandsService,
     IPointsCommandsService pointsCommandsService,
-    IFightLogService fightLogService)
+    IFightLogService fightLogService,
+    DiscordMessageHandler discordMessageHandler,
+    IPendingLogService pendingLogService)
 {
     private static readonly SemaphoreSlim Semaphore = new(1, 1);
 
     public async Task ButtonExecutedAsync(SocketMessageComponent buttonComponent)
     {
+        var customId = buttonComponent.Data.CustomId;
+
+        // Log post/dismiss are fire-and-forget so ButtonExecutedAsync returns immediately,
+        // freeing Discord.Net's event dispatch thread. DeferAsync is called on the thread pool
+        // within milliseconds, well inside Discord's 3-second acknowledgement window.
+        if (customId.StartsWith(ButtonId.PostLogsPrefix))
+        {
+            _ = HandlePostLogs(buttonComponent, customId);
+            return;
+        }
+
+        if (customId.StartsWith(ButtonId.DismissLogsPrefix))
+        {
+            _ = HandleDismissLogs(buttonComponent, customId);
+            return;
+        }
+
         await Semaphore.WaitAsync();
         try
         {
-            var customId = buttonComponent.Data.CustomId;
-
             if (customId.StartsWith("join_"))
             {
                 await HandleEventButton(buttonComponent, "✅ Roster");
@@ -86,11 +104,67 @@ public class DiscordButtonHandler(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error handling button interaction with CustomId: {CustomId}", buttonComponent.Data.CustomId);
+            logger.LogError(ex, "Error handling button interaction with CustomId: {CustomId}", customId);
         }
         finally
         {
             Semaphore.Release();
+        }
+    }
+
+    private async Task HandlePostLogs(SocketMessageComponent buttonComponent, string customId)
+    {
+        try
+        {
+            var key = customId[ButtonId.PostLogsPrefix.Length..];
+            var state = pendingLogService.TryConsume(key);
+            if (state == null)
+            {
+                await buttonComponent.RespondAsync("This log request has expired or was already handled.", ephemeral: true);
+                return;
+            }
+
+            if (buttonComponent.User.Id != state.UploaderId)
+            {
+                await buttonComponent.RespondAsync("Only the log uploader can post this summary.", ephemeral: true);
+                return;
+            }
+
+            await discordMessageHandler.ProcessAndPostLogsAsync(buttonComponent, state);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error handling post logs button: {CustomId}", customId);
+        }
+    }
+
+    private async Task HandleDismissLogs(SocketMessageComponent buttonComponent, string customId)
+    {
+        try
+        {
+            var key = customId[ButtonId.DismissLogsPrefix.Length..];
+            var state = pendingLogService.TryConsume(key);
+            if (state == null)
+            {
+                await buttonComponent.RespondAsync("This log request has expired or was already handled.", ephemeral: true);
+                return;
+            }
+
+            if (buttonComponent.User.Id != state.UploaderId)
+            {
+                await buttonComponent.RespondAsync("Only the log uploader can dismiss this.", ephemeral: true);
+                return;
+            }
+
+            // DeferAsync on message components uses type 6 (DeferredUpdateMessage) — silently
+            // ACKs the interaction without creating a response message, so no
+            // DeleteOriginalResponseAsync needed (there is no response to delete).
+            await buttonComponent.DeferAsync(ephemeral: true);
+            await buttonComponent.Message.DeleteAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error handling dismiss logs button: {CustomId}", customId);
         }
     }
 

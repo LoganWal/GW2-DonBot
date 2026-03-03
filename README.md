@@ -18,6 +18,9 @@ Automatically detects and processes combat log URLs posted in Discord:
 - **WvW fights**: Generates fight summaries with participant stats, damage, deaths, and builds. Posts advanced reports to a configurable channel. Updates player rankings and points. Includes a "Know My Enemy" button to view enemy team composition.
 - **PvE fights**: Generates fight summaries for strikes, fractals, and raids. Supports multi-log aggregation raid reports.
 - **Rotation analysis**: Automatically inspects player skill rotations in PvE logs to detect suspiciously consistent cast intervals that may indicate macro or bot usage. Detected anomalies are recorded in the database for review.
+- **Log auto-submit to Wingman**: PvE log URLs are automatically submitted to [gw2wingman](https://gw2wingman.nevermindcreations.de) in the background (WvW logs are excluded). Configurable per guild.
+
+When logs are detected, the bot can optionally prompt the uploader (via an ephemeral "Post Summary" / "Dismiss" button message) before posting the summary publicly. Behaviour is controlled by the `auto_aggregate_logs` and `auto_reply_single_log` guild toggles.
 
 ### Points & Rankings
 
@@ -48,6 +51,8 @@ Raffle messages include buttons to check your points and enter with 1, 50, 100, 
 - `/gw2_start_raid`: Start a raid session; all logs posted during the session are aggregated
 - `/gw2_close_raid`: Close the raid and generate a summary report
 - `/gw2_start_alliance_raid`: Start a raid with a custom alliance alert message
+
+The aggregate raid summary includes a **Best Times** button that compares session clear times against all-time bests per boss/mode.
 
 ### Scheduled Events
 
@@ -98,7 +103,7 @@ All per-guild settings are configured via `/gw2_server_config` (Administrator on
 | `gw2_secondary_member_role_ids` | String | Comma-separated GW2 guild UUIDs for alliance membership |
 | `raid_alert_enabled` | Boolean | Enable or disable raid alerts |
 | `remove_spam_enabled` | Boolean | Auto-remove links posted by unverified users |
-| `auto_submit_to_wingman` | Boolean | Submit dps.report logs to gw2wingman automatically (default: on) |
+| `auto_submit_to_wingman` | Boolean | Submit PvE dps.report logs to gw2wingman automatically (default: on) |
 | `auto_aggregate_logs` | Boolean | Post an aggregate summary when multiple logs are shared at once (default: on) |
 | `auto_reply_single_log` | Boolean | Reply with a fight summary when a single log is shared (default: off) |
 

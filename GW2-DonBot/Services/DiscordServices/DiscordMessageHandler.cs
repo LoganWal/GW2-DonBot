@@ -5,6 +5,7 @@ using DonBot.Models.Enums;
 using DonBot.Models.GuildWars2;
 using DonBot.Models.Statics;
 using DonBot.Services.DatabaseServices;
+using DonBot.Services.DiscordRequestServices;
 using DonBot.Services.GuildWarsServices;
 using Microsoft.Extensions.Logging;
 using static System.Text.RegularExpressions.Regex;
@@ -345,9 +346,9 @@ public class DiscordMessageHandler(
             var messages = await messageGenerationService.GenerateRaidReplyReport(urls, guildId);
             if (messages != null)
             {
-                var firstPveMessage = messages.FirstOrDefault(m => m.Title?.Contains("PvE") == true);
                 MessageComponent? bestTimesComponent = null;
-                if (firstPveMessage != null)
+                var bestTimesIndex = RaidCommandCommandService.BestTimesTargetIndex(messages);
+                if (bestTimesIndex.HasValue)
                 {
                     var urlFights = await entityService.FightLog.GetWhereAsync(s =>
                         urls.Contains(s.Url) &&
@@ -368,10 +369,10 @@ public class DiscordMessageHandler(
                     }
                 }
 
-                foreach (var bulkMessage in messages)
+                for (var i = 0; i < messages.Count; i++)
                 {
-                    var components = bulkMessage == firstPveMessage ? bestTimesComponent : null;
-                    await interaction.Channel.SendMessageAsync(embeds: [bulkMessage], components: components);
+                    var components = i == bestTimesIndex ? bestTimesComponent : null;
+                    await interaction.Channel.SendMessageAsync(embeds: [messages[i]], components: components);
                 }
             }
         }

@@ -106,25 +106,35 @@ public sealed class RaidCommandCommandService(IEntityService entityService, IMes
         }
 
         // Send to target channel with components
-        var firstPveMessage = messages.FirstOrDefault(m => m.Title?.Contains("PvE") == true);
         MessageComponent? bestTimesComponent = null;
-        if (firstPveMessage != null)
+        var bestTimesIndex = BestTimesTargetIndex(messages);
+        if (bestTimesIndex.HasValue)
         {
             bestTimesComponent = new ComponentBuilder()
                 .WithButton("Best Times", $"{ButtonId.BestTimesPvEPrefix}{existingOpenRaid.FightsReportId}")
                 .Build();
         }
 
-        foreach (var message in messages)
+        for (var i = 0; i < messages.Count; i++)
         {
-            var components = message == firstPveMessage ? bestTimesComponent : null;
-            await targetChannel.SendMessageAsync(embeds: [message], components: components);
+            var components = i == bestTimesIndex ? bestTimesComponent : null;
+            await targetChannel.SendMessageAsync(embeds: [messages[i]], components: components);
         }
 
         await entityService.FightsReport.UpdateAsync(existingOpenRaid);
 
         await command.FollowupAsync("Created!", ephemeral: true);
     }
+
+    /// <summary>
+    /// Returns the index of the message that should receive the Best Times button,
+    /// or null if no button should be added (i.e. no PvE embed in the list).
+    /// Always targets the last message in the list.
+    /// </summary>
+    public static int? BestTimesTargetIndex(IReadOnlyList<Embed> messages) =>
+        messages.Count > 0 && messages.Any(m => m.Title?.Contains("PvE") == true)
+            ? messages.Count - 1
+            : null;
 
     public async Task StartAllianceRaid(SocketSlashCommand command, DiscordSocketClient discordClient)
     {

@@ -191,6 +191,13 @@ public sealed class RaidReportService(
             }
         }
 
+        if (messages.Count > 0)
+        {
+            var lastBuilder = messages[^1].ToEmbedBuilder();
+            footerService.AddInviteLink(lastBuilder);
+            messages[^1] = lastBuilder.Build();
+        }
+
         return messages;
     }
 
@@ -358,19 +365,23 @@ public sealed class RaidReportService(
         foreach (var groupedFight in groupedFights)
         {
             var mechanicsOverview = string.Empty;
+            var mechanicsHeading = string.Empty;
 
             if (groupedFight.Key == (short)FightTypesEnum.ToF)
             {
+                mechanicsHeading = "Cerus Mechanics";
                 mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.ToF, "```Player         P1 Dmg    Orbs\n", pf => pf.CerusPhaseOneDamage, groupedPlayerFights, fights, true);
             }
 
             if (groupedFight.Key == (short)FightTypesEnum.Deimos)
             {
+                mechanicsHeading = "Deimos Mechanics";
                 mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.Deimos, "```Player         Oils\n", pf => pf.DeimosOilsTriggered, groupedPlayerFights, fights);
             }
 
             if (groupedFight.Key == (short)FightTypesEnum.Ura)
             {
+                mechanicsHeading = "Ura Mechanics";
                 mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.Ura, "```Player         Shard P    Shard U\n", pf => pf.ShardPickUp, groupedPlayerFights, fights);
             }
 
@@ -378,16 +389,12 @@ public sealed class RaidReportService(
             {
                 survEmbed.AddField(x =>
                 {
-                    x.Name = "Mechanics Overview";
+                    x.Name = mechanicsHeading;
                     x.Value = mechanicsOverview;
                     x.IsInline = false;
                 });
             }
         }
-
-        footerService.AddInviteLink(fightsEmbed);
-        footerService.AddInviteLink(playerEmbed);
-        footerService.AddInviteLink(survEmbed);
 
         return [fightsEmbed.Build(), playerEmbed.Build(), survEmbed.Build()];
     }
@@ -479,8 +486,6 @@ public sealed class RaidReportService(
             Text = $"{await footerService.Generate(guildId)}",
             IconUrl = "https://i.imgur.com/tQ4LD6H.png"
         };
-
-        footerService.AddInviteLink(message);
 
         // Timestamp
         message.Timestamp = DateTime.Now;

@@ -406,9 +406,11 @@ public sealed class PvEFightSummaryService(
         });
 
         var mechanicsOverview = string.Empty;
+        var mechanicsHeading = string.Empty;
 
         if (encounterType == (short)FightTypesEnum.ToF)
         {
+            mechanicsHeading = "Cerus Mechanics";
             mechanicsOverview = "```Player         P1 Dmg    Orbs\n";
             foreach (var gw2Player in gw2Players.OrderByDescending(s => s.CerusPhaseOneDamage))
             {
@@ -420,6 +422,7 @@ public sealed class PvEFightSummaryService(
 
         if (encounterType == (short)FightTypesEnum.Deimos)
         {
+            mechanicsHeading = "Deimos Mechanics";
             mechanicsOverview = "```Player         Oils\n";
             foreach (var gw2Player in gw2Players.OrderByDescending(s => s.DeimosOilsTriggered))
             {
@@ -431,6 +434,7 @@ public sealed class PvEFightSummaryService(
 
         if (encounterType == (short)FightTypesEnum.Ura)
         {
+            mechanicsHeading = "Ura Mechanics";
             mechanicsOverview = "```Player         Shard P    Shard U\n";
             foreach (var gw2Player in gw2Players.OrderByDescending(s => s.ShardPickUp))
             {
@@ -444,7 +448,7 @@ public sealed class PvEFightSummaryService(
         {
             message.AddField(x =>
             {
-                x.Name = "Mechanics Overview";
+                x.Name = mechanicsHeading;
                 x.Value = $"{mechanicsOverview}";
                 x.IsInline = false;
             });

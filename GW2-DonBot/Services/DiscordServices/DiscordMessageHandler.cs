@@ -304,17 +304,18 @@ public class DiscordMessageHandler(
         var urls = state.Urls;
         var guildId = state.GuildId;
 
-        // DeferAsync on SocketMessageComponent uses type 6 (DeferredUpdateMessage) which creates
-        // no response message, so ModifyOriginalResponseAsync would fail with Unknown Message.
-        // RespondAsync (type 4) creates an actual ephemeral message we can modify.
-        await interaction.RespondAsync($"Fetching log 1 of {urls.Count}...", ephemeral: true);
+        // DeferAsync uses type 6 (DeferredUpdateMessage) — no visible response, lets us delete
+        // the button prompt and manage our own public progress message.
+        await interaction.DeferAsync();
         await interaction.Message.DeleteAsync();
+
+        var progressMessage = (IUserMessage)await interaction.Channel.SendMessageAsync($"Fetching log 1 of {urls.Count}...");
 
         var dataList = new List<EliteInsightDataModel>();
         dataList.Add(await dataModelGenerator.GenerateEliteInsightDataModelFromUrl(urls[0]));
         for (var i = 1; i < urls.Count; i++)
         {
-            await interaction.ModifyOriginalResponseAsync(m => m.Content = $"Fetching log {i + 1} of {urls.Count}...");
+            await progressMessage.ModifyAsync(m => m.Content = $"Fetching log {i + 1} of {urls.Count}...");
             dataList.Add(await dataModelGenerator.GenerateEliteInsightDataModelFromUrl(urls[i]));
         }
 
@@ -326,12 +327,13 @@ public class DiscordMessageHandler(
             var nonWvwUrls = urls.Where((url, i) => !dataList[i].FightEliteInsightDataModel.Wvw).ToList();
             if (nonWvwUrls.Count > 0)
             {
-                await interaction.ModifyOriginalResponseAsync(m => m.Content = "Submitting to Wingman...");
-                await SubmitToWingmanAsync(nonWvwUrls);
+                await progressMessage.ModifyAsync(m => m.Content = $"Submitting log 1 of {nonWvwUrls.Count} to Wingman...");
+                await SubmitToWingmanAsync(nonWvwUrls, async (current, total) =>
+                    await progressMessage.ModifyAsync(m => m.Content = $"Submitting log {current} of {total} to Wingman..."));
             }
         }
 
-        await interaction.ModifyOriginalResponseAsync(m => m.Content = "Generating and posting summary...");
+        await progressMessage.ModifyAsync(m => m.Content = "Generating and posting summary...");
 
         if (urls.Count > 1)
         {
@@ -405,15 +407,15 @@ public class DiscordMessageHandler(
 
         try
         {
-            await interaction.DeleteOriginalResponseAsync();
+            await progressMessage.DeleteAsync();
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to delete interaction progress message");
+            logger.LogWarning(ex, "Failed to delete progress message");
         }
     }
 
-    private async Task SubmitToWingmanAsync(List<string> urls)
+    private async Task SubmitToWingmanAsync(List<string> urls, Func<int, int, Task>? onProgress = null)
     {
         const string dpsReportPattern = @"https://(?:b\.dps|wvw|dps)\.report/\S+";
         var dpsReportUrls = urls.Where(u => IsMatch(u, dpsReportPattern)).ToList();
@@ -423,17 +425,22 @@ public class DiscordMessageHandler(
         }
 
         var httpClient = httpClientFactory.CreateClient();
-        foreach (var url in dpsReportUrls)
+        for (var i = 0; i < dpsReportUrls.Count; i++)
         {
+            if (i > 0 && onProgress != null)
+            {
+                await onProgress(i + 1, dpsReportUrls.Count);
+            }
+
             try
             {
-                var wingmanUrl = $"https://gw2wingman.nevermindcreations.de/api/importLogQueued?link={Uri.EscapeDataString(url)}";
+                var wingmanUrl = $"https://gw2wingman.nevermindcreations.de/api/importLogQueued?link={Uri.EscapeDataString(dpsReportUrls[i])}";
                 var response = await httpClient.GetAsync(wingmanUrl);
-                logger.LogInformation("Submitted {Url} to wingman, status: {Status}", url, response.StatusCode);
+                logger.LogInformation("Submitted {Url} to wingman, status: {Status}", dpsReportUrls[i], response.StatusCode);
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to submit {Url} to wingman", url);
+                logger.LogWarning(ex, "Failed to submit {Url} to wingman", dpsReportUrls[i]);
             }
         }
     }

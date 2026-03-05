@@ -6,8 +6,6 @@
 	[DiscordVerifiedRoleId] [bigint] NULL,
 	[Gw2GuildMemberRoleId] [nvarchar](128) NULL,
 	[Gw2SecondaryMemberRoleIds] [nvarchar](1000) NULL,
-	[PlayerReportChannelId] [bigint] NULL,
-	[WvwPlayerActivityReportChannelId] [bigint] NULL,
 	[AnnouncementChannelId] [bigint] NULL,
 	[LogReportChannelId] [bigint] NULL,
 	[AdvanceLogReportChannelId] [bigint] NULL,
@@ -19,6 +17,10 @@
 	[AutoSubmitToWingman] [bit] NOT NULL,
 	[AutoAggregateLogs] [bit] NOT NULL,
 	[AutoReplySingleLog] [bit] NOT NULL,
+	[WvwLeaderboardEnabled] [bit] NOT NULL,
+	[WvwLeaderboardChannelId] [bigint] NULL,
+	[PveLeaderboardEnabled] [bit] NOT NULL,
+	[PveLeaderboardChannelId] [bigint] NULL,
 PRIMARY KEY CLUSTERED 
 (
 	[GuildId] ASC
@@ -34,4 +36,8 @@ GO
 ALTER TABLE [dbo].[Guild] ADD  DEFAULT ((1)) FOR [AutoAggregateLogs]
 GO
 ALTER TABLE [dbo].[Guild] ADD  DEFAULT ((0)) FOR [AutoReplySingleLog]
+GO
+ALTER TABLE [dbo].[Guild] ADD  DEFAULT ((0)) FOR [WvwLeaderboardEnabled]
+GO
+ALTER TABLE [dbo].[Guild] ADD  DEFAULT ((0)) FOR [PveLeaderboardEnabled]
 GO

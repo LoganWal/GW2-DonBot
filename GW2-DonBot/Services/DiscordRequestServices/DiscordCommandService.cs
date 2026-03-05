@@ -69,24 +69,6 @@ public sealed class DiscordCommandService(IEntityService entityService) : IDisco
                 guild.Gw2SecondaryMemberRoleIds = option.Value.ToString();
                 break;
 
-            case "player_report_channel":
-                if (option.Value is not SocketTextChannel playerReportChannel)
-                {
-                    await command.FollowupAsync("Please provide a valid text channel.", ephemeral: true);
-                    return;
-                }
-                guild.PlayerReportChannelId = (long)playerReportChannel.Id;
-                break;
-
-            case "wvw_activity_report_channel":
-                if (option.Value is not SocketTextChannel wvwActivityChannel)
-                {
-                    await command.FollowupAsync("Please provide a valid text channel.", ephemeral: true);
-                    return;
-                }
-                guild.WvwPlayerActivityReportChannelId = (long)wvwActivityChannel.Id;
-                break;
-
             case "announcement_channel":
                 if (option.Value is not SocketTextChannel announcementChannel)
                 {
@@ -159,6 +141,32 @@ public sealed class DiscordCommandService(IEntityService entityService) : IDisco
 
             case "auto_reply_single_log":
                 guild.AutoReplySingleLog = (bool)option.Value;
+                break;
+
+            case "wvw_leaderboard_enabled":
+                guild.WvwLeaderboardEnabled = (bool)option.Value;
+                break;
+
+            case "wvw_leaderboard_channel":
+                if (option.Value is not SocketTextChannel wvwLeaderboardChannel)
+                {
+                    await command.FollowupAsync("Please provide a valid text channel.", ephemeral: true);
+                    return;
+                }
+                guild.WvwLeaderboardChannelId = (long)wvwLeaderboardChannel.Id;
+                break;
+
+            case "pve_leaderboard_enabled":
+                guild.PveLeaderboardEnabled = (bool)option.Value;
+                break;
+
+            case "pve_leaderboard_channel":
+                if (option.Value is not SocketTextChannel pveLeaderboardChannel)
+                {
+                    await command.FollowupAsync("Please provide a valid text channel.", ephemeral: true);
+                    return;
+                }
+                guild.PveLeaderboardChannelId = (long)pveLeaderboardChannel.Id;
                 break;
 
             default:

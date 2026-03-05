@@ -23,9 +23,8 @@ public static class ServiceRegister
         services.AddTransient<IFooterService, FooterService>();
         services.AddTransient<IPvEFightSummaryService, PvEFightSummaryService>();
         services.AddTransient<IWvWFightSummaryService, WvWFightSummaryService>();
-        services.AddTransient<IWvWPlayerReportService, WvWPlayerReportService>();
-        services.AddTransient<IWvWPlayerSummaryService, WvWPlayerSummaryService>();
         services.AddTransient<IRaidReportService, RaidReportService>();
+        services.AddTransient<IWeeklyLeaderboardService, WeeklyLeaderboardService>();
         services.AddTransient<IMessageGenerationService, MessageGenerationService>();
 
         // Core Services - Scoped for per-request/operation services
@@ -57,6 +56,7 @@ public static class ServiceRegister
         services.AddTransient<IDiscordCommandService, DiscordCommandService>();
         services.AddTransient<ISteamCommandService, SteamCommandService>();
         services.AddTransient<IDeadlockCommandService, DeadlockCommandService>();
+        services.AddTransient<ILeaderboardCommandsService, LeaderboardCommandsService>();
 
         // Polling and API Services - Transient for operational services
         services.AddTransient<IPollingTasksService, PollingTasksService>();

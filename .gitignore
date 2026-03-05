@@ -404,6 +404,13 @@ appsettings.user.json
 /.idea/
 /.env
 
+# Deploy scripts (contain server-specific paths/credentials)
+deploy/deploy-remote.ps1
+deploy/deploy-to-local.sh
+
+# JetBrains run configurations (may contain server-specific details)
+.run/
+
 # Anthropic Claude
 claude.md
 claude.txt

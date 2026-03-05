@@ -7,13 +7,14 @@ using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.GuildWarsServices;
+using DonBot.Services.GuildWarsServices.MessageGeneration;
 
 namespace DonBot.Services.DiscordRequestServices;
 
 public sealed class PollingTasksService(
     IEntityService entityService,
     ILogger<PollingTasksService> logger,
-    IMessageGenerationService messageGenerationService,
+    IWeeklyLeaderboardService weeklyLeaderboardService,
     IHttpClientFactory httpClientFactory)
     : IPollingTasksService
 {
@@ -65,7 +66,7 @@ public sealed class PollingTasksService(
 
             await clientGuild.DownloadUsersAsync();
             await HandleGuildUsers(clientGuild, guildConfiguration, guildWars2Data, accounts, guildWarsAccounts);
-            await GenerateWvWPlayerReport(guildConfiguration, clientGuild);
+            await PostWeeklyLeaderboards(guildConfiguration, clientGuild);
         }
     }
 
@@ -196,31 +197,61 @@ public sealed class PollingTasksService(
         }
     }
 
-    private async Task GenerateWvWPlayerReport(Guild guildConfiguration, SocketGuild clientGuild)
+    private async Task PostWeeklyLeaderboards(Guild guildConfiguration, SocketGuild clientGuild)
     {
-        try
+        if (guildConfiguration.WvwLeaderboardEnabled && guildConfiguration.WvwLeaderboardChannelId.HasValue)
         {
-            if (!guildConfiguration.WvwPlayerActivityReportChannelId.HasValue) {
-                logger.LogInformation("WvW Player Activity Report Channel not configured for guild {clientGuildName}, skipping", clientGuild.Name);
-                return;
-            }
-
-            if (clientGuild.GetChannel((ulong)guildConfiguration.WvwPlayerActivityReportChannelId) is SocketTextChannel playerActivityReportChannel)
+            try
             {
-                var messages = await playerActivityReportChannel.GetMessagesAsync().FlattenAsync();
-                var recentMessages = messages.Where(m => (DateTimeOffset.UtcNow - m.CreatedAt).TotalDays < 14).ToList();
-                if (recentMessages.Count > 0)
+                if (clientGuild.GetChannel((ulong)guildConfiguration.WvwLeaderboardChannelId) is SocketTextChannel wvwChannel)
                 {
-                    await playerActivityReportChannel.DeleteMessagesAsync(recentMessages);
+                    var messages = await wvwChannel.GetMessagesAsync().FlattenAsync();
+                    var recentMessages = messages.Where(m => (DateTimeOffset.UtcNow - m.CreatedAt).TotalDays < 14).ToList();
+                    if (recentMessages.Count > 0)
+                    {
+                        await wvwChannel.DeleteMessagesAsync(recentMessages);
+                    }
+
+                    var embeds = await weeklyLeaderboardService.GenerateWvW(guildConfiguration);
+                    if (embeds != null)
+                    {
+                        foreach (var embed in embeds)
+                        {
+                            await wvwChannel.SendMessageAsync(embeds: [embed]);
+                        }
+                    }
                 }
-                var playerReportMessage = await messageGenerationService.GenerateWvWPlayerReport(guildConfiguration);
-                    
-                await playerActivityReportChannel.SendMessageAsync(embeds: [playerReportMessage]);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to post WvW weekly leaderboard for guild {GuildId}.", guildConfiguration.GuildId);
             }
         }
-        catch (Exception ex)
+
+        if (guildConfiguration.PveLeaderboardEnabled && guildConfiguration.PveLeaderboardChannelId.HasValue)
         {
-            logger.LogError(ex.Message, "Failed to generate WvW player report.");
+            try
+            {
+                if (clientGuild.GetChannel((ulong)guildConfiguration.PveLeaderboardChannelId) is SocketTextChannel pveChannel)
+                {
+                    var messages = await pveChannel.GetMessagesAsync().FlattenAsync();
+                    var recentMessages = messages.Where(m => (DateTimeOffset.UtcNow - m.CreatedAt).TotalDays < 14).ToList();
+                    if (recentMessages.Count > 0)
+                    {
+                        await pveChannel.DeleteMessagesAsync(recentMessages);
+                    }
+
+                    var embed = await weeklyLeaderboardService.GeneratePvE(guildConfiguration);
+                    if (embed != null)
+                    {
+                        await pveChannel.SendMessageAsync(embeds: [embed]);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to post PvE weekly leaderboard for guild {GuildId}.", guildConfiguration.GuildId);
+            }
         }
     }
 

@@ -125,6 +125,11 @@ public class DiscordCommandRegistrar(ILogger<DiscordCommandRegistrar> logger)
                 .WithDescription("See your current rank on the weekly leaderboards."),
 
             new SlashCommandBuilder()
+                .WithName("gw2_add_quote")
+                .WithDescription("Add a quote to the guild quote pool used in leaderboard footers.")
+                .AddOption("quote", ApplicationCommandOptionType.String, "The quote to add.", isRequired: true),
+
+            new SlashCommandBuilder()
                 .WithName("gw2_server_config")
                 .WithDescription("Configure DonBot settings for this server.")
                 .WithDefaultMemberPermissions(GuildPermission.Administrator)
@@ -233,6 +238,21 @@ public class DiscordCommandRegistrar(ILogger<DiscordCommandRegistrar> logger)
                     .WithDescription("Set the channel for the weekly PvE leaderboard.")
                     .WithType(ApplicationCommandOptionType.SubCommand)
                     .AddOption("channel", ApplicationCommandOptionType.Channel, "The channel", isRequired: true))
+                .AddOption(new SlashCommandOptionBuilder()
+                    .WithName("wordle_channel")
+                    .WithDescription("Set the channel for the daily Wordle message.")
+                    .WithType(ApplicationCommandOptionType.SubCommand)
+                    .AddOption("channel", ApplicationCommandOptionType.Channel, "The channel", isRequired: true))
+                .AddOption(new SlashCommandOptionBuilder()
+                    .WithName("wordle_role")
+                    .WithDescription("Set the role to mention in the daily Wordle message.")
+                    .WithType(ApplicationCommandOptionType.SubCommand)
+                    .AddOption("role", ApplicationCommandOptionType.Role, "The role", isRequired: true))
+                .AddOption(new SlashCommandOptionBuilder()
+                    .WithName("wordle_hour")
+                    .WithDescription("Set the UTC hour (0-23) to post the daily Wordle message.")
+                    .WithType(ApplicationCommandOptionType.SubCommand)
+                    .AddOption("value", ApplicationCommandOptionType.Integer, "UTC hour (0-23)", isRequired: true))
         ];
 
         return commandsToRegister.Select(c => (ApplicationCommandProperties)c.Build()).ToArray();

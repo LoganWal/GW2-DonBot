@@ -53,6 +53,10 @@ public class DiscordButtonHandler(
             {
                 await HandleEventButton(buttonComponent, "🛠️ Fillers");
             }
+            else if (customId.StartsWith("willlate_"))
+            {
+                await HandleEventButton(buttonComponent, "⏰ Will Be Late");
+            }
             else
             {
                 switch (customId)
@@ -253,6 +257,7 @@ public class DiscordButtonHandler(
         "✅ Roster" => "No one has joined yet.",
         "❌ Can't Join" => "No one has declined yet.",
         "🛠️ Fillers" => "No fillers yet.",
+        "⏰ Will Be Late" => "No one will be late.",
         _ => string.Empty
     };
 }

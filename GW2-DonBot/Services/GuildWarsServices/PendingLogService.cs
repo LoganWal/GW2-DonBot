@@ -13,6 +13,12 @@ public class PendingLogService : IPendingLogService
         return key;
     }
 
+    public PendingLogState? TryPeek(string key)
+    {
+        _pending.TryGetValue(key, out var state);
+        return state;
+    }
+
     public PendingLogState? TryConsume(string key)
     {
         _pending.TryRemove(key, out var state);

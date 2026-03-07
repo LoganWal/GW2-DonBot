@@ -26,6 +26,18 @@ public class DiscordButtonHandler(
         // Log post/dismiss are fire-and-forget so ButtonExecutedAsync returns immediately,
         // freeing Discord.Net's event dispatch thread. DeferAsync is called on the thread pool
         // within milliseconds, well inside Discord's 3-second acknowledgement window.
+        if (customId.StartsWith(ButtonId.PostLogsWingmanYesPrefix))
+        {
+            _ = HandlePostLogsWingmanChoice(buttonComponent, customId, true);
+            return;
+        }
+
+        if (customId.StartsWith(ButtonId.PostLogsWingmanNoPrefix))
+        {
+            _ = HandlePostLogsWingmanChoice(buttonComponent, customId, false);
+            return;
+        }
+
         if (customId.StartsWith(ButtonId.PostLogsPrefix))
         {
             _ = HandlePostLogs(buttonComponent, customId);
@@ -121,6 +133,50 @@ public class DiscordButtonHandler(
         try
         {
             var key = customId[ButtonId.PostLogsPrefix.Length..];
+            var state = pendingLogService.TryPeek(key);
+            if (state == null)
+            {
+                await buttonComponent.RespondAsync("This log request has expired or was already handled.", ephemeral: true);
+                return;
+            }
+
+            if (buttonComponent.User.Id != state.UploaderId)
+            {
+                await buttonComponent.RespondAsync("Only the log uploader can post this summary.", ephemeral: true);
+                return;
+            }
+
+            var yesButton = new ButtonBuilder()
+                .WithLabel("Yes")
+                .WithCustomId($"{ButtonId.PostLogsWingmanYesPrefix}{key}")
+                .WithStyle(ButtonStyle.Success);
+            var noButton = new ButtonBuilder()
+                .WithLabel("No")
+                .WithCustomId($"{ButtonId.PostLogsWingmanNoPrefix}{key}")
+                .WithStyle(ButtonStyle.Secondary);
+            var components = new ComponentBuilder()
+                .WithButton(yesButton)
+                .WithButton(noButton)
+                .Build();
+
+            await buttonComponent.UpdateAsync(msg =>
+            {
+                msg.Content = "Also submit to Wingman?";
+                msg.Components = components;
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error handling post logs button: {CustomId}", customId);
+        }
+    }
+
+    private async Task HandlePostLogsWingmanChoice(SocketMessageComponent buttonComponent, string customId, bool submitToWingman)
+    {
+        try
+        {
+            var prefix = submitToWingman ? ButtonId.PostLogsWingmanYesPrefix : ButtonId.PostLogsWingmanNoPrefix;
+            var key = customId[prefix.Length..];
             var state = pendingLogService.TryConsume(key);
             if (state == null)
             {
@@ -134,11 +190,11 @@ public class DiscordButtonHandler(
                 return;
             }
 
-            await discordMessageHandler.ProcessAndPostLogsAsync(buttonComponent, state);
+            await discordMessageHandler.ProcessAndPostLogsAsync(buttonComponent, state, submitToWingman);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error handling post logs button: {CustomId}", customId);
+            logger.LogError(ex, "Error handling post logs wingman choice button: {CustomId}", customId);
         }
     }
 

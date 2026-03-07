@@ -29,7 +29,7 @@ public class PlayerServiceTests
     [Fact]
     public void GetGw2Players_StabOnGroup_WhenStabilityAtNonStandardIndex_ReadsFromCorrectIndex()
     {
-        // Swap Stability to index 0 to prove dynamic lookup, not hardcoded index
+        // Swap Stability to index 0 to prove dynamic lookup
         var boons = new List<int> { Gw2BoonIds.Stability, 740, 725, Gw2BoonIds.Quickness, Gw2BoonIds.Alacrity, 717, 718, 726, 743, 719, 26980, 873 };
         var stabValue = 16.0;
         var data = BuildData(boons);

@@ -15,7 +15,7 @@ A Discord bot for Guild Wars 2 communities that processes [EliteInsights](https:
 Automatically detects and processes combat log URLs posted in Discord:
 
 - **Supported sources**: `dps.report`, `wvw.report`, `gw2wingman.nevermindcreations.de`
-- **WvW fights**: Generates fight summaries with participant stats, damage, deaths, and builds. Posts advanced reports to a configurable channel. Updates player rankings and points. Includes a "Know My Enemy" button to view enemy team composition.
+- **WvW fights**: Generates fight summaries with participant stats, damage, deaths, and builds. Updates player rankings and points. Includes a "Know My Enemy" button to view enemy team composition.
 - **PvE fights**: Generates fight summaries for strikes, fractals, and raids. Supports multi-log aggregation raid reports.
 - **Rotation analysis**: Automatically inspects player skill rotations in PvE logs to detect suspiciously consistent cast intervals that may indicate macro or bot usage. Detected anomalies are recorded in the database for review.
 - **Log auto-submit to Wingman**: PvE log URLs are automatically submitted to [gw2wingman](https://gw2wingman.nevermindcreations.de) in the background (WvW logs are excluded). Configurable per guild.
@@ -27,6 +27,15 @@ When logs are detected, the bot can optionally prompt the uploader (via an ephem
 - Players earn points by participating in tracked WvW fights
 - `/gw2_points`: View your points balance, spending points, and leaderboard rank
 - Background polling (every 30 min) syncs GW2 API data, updates guild membership, and applies/removes Discord roles
+
+### Weekly Leaderboards
+
+Weekly leaderboards are posted on a configurable schedule (default: every Monday at 00:00 UTC) to a dedicated channel, managed via `ScheduledEvent` entries.
+
+- **WvW leaderboard**: Top 20 players per metric over the past 7 days — Damage, Down Contribution, Cleanses, Strips, Stab (avg, 10+ logs), Healing, Barrier, Times Downed, Damage Taken, Kills, Distance From Tag (avg, 10+ logs). Split across two embeds to respect Discord's 6000-character limit.
+- **PvE leaderboard**: Top 20 players (6+ logs required) — DPS, Cleave DPS, Avg Res Time, Avg Damage Taken, Avg Times Downed.
+- `/gw2_my_rank`: View your personal rank across all enabled leaderboards (ephemeral).
+- `/gw2_add_quote`: Add a quote to the guild quote pool — quotes appear randomly in leaderboard embed footers.
 
 ### Raffle System
 
@@ -56,8 +65,17 @@ The aggregate raid summary includes a **Best Times** button that compares sessio
 
 ### Scheduled Events
 
-- Posts recurring event messages with **Join / Can't Join / Can Fill** roster buttons
-- Tracks attendance per event; updates the roster embed as players respond
+Recurring event posts are managed via the `ScheduledEvent` database table and the `SchedulerService` background service. Supported event types:
+
+| Type | Description |
+|---|---|
+| **PvE Raid Signup** | Weekly roster embed with Join / Can't Join / Can Fill buttons |
+| **WvW Raid Signup** | Weekly roster embed with Join / Can't Join / Will Be Late buttons |
+| **WvW Leaderboard** | Weekly WvW stats post (configured via `wvw_leaderboard_channel`) |
+| **PvE Leaderboard** | Weekly PvE stats post (configured via `pve_leaderboard_channel`) |
+| **Wordle** | Daily Wordle starting word hint (configured via `wordle_channel`) |
+
+Each event has a configurable day/hour (UTC) and repeat interval. Leaderboards default to Monday 00:00 UTC weekly. Wordle defaults to daily at a configured UTC hour.
 
 ### GW2 Account Verification
 
@@ -72,7 +90,8 @@ The aggregate raid summary includes a **Best Times** button that compares sessio
 
 ### Wordle Integration
 
-- Posts a daily NYT Wordle starting word hint (with word definition) to a configured channel at 15:01 UTC
+- Posts a daily NYT Wordle starting word hint (with word definition) to a configured channel
+- Channel, role mention, and UTC post hour are all configurable via `gw2_server_config`
 
 ### Steam / Deadlock Integration
 
@@ -91,8 +110,6 @@ All per-guild settings are configured via `/gw2_server_config` (Administrator on
 | `log_report_channel` | Channel | Channel where fight summaries are posted |
 | `advance_log_report_channel` | Channel | Channel for advanced WvW log reports |
 | `stream_log_channel` | Channel | Channel for stream log output |
-| `player_report_channel` | Channel | Channel for player ranking reports |
-| `wvw_activity_report_channel` | Channel | Channel for WvW activity reports |
 | `announcement_channel` | Channel | Channel for announcements |
 | `raid_alert_channel` | Channel | Channel for raid alerts |
 | `removed_message_channel` | Channel | Channel where removed spam messages are logged |
@@ -106,6 +123,13 @@ All per-guild settings are configured via `/gw2_server_config` (Administrator on
 | `auto_submit_to_wingman` | Boolean | Submit PvE dps.report logs to gw2wingman automatically (default: on) |
 | `auto_aggregate_logs` | Boolean | Post an aggregate summary when multiple logs are shared at once (default: on) |
 | `auto_reply_single_log` | Boolean | Reply with a fight summary when a single log is shared (default: off) |
+| `wvw_leaderboard_enabled` | Boolean | Enable or disable the weekly WvW leaderboard |
+| `wvw_leaderboard_channel` | Channel | Channel for the weekly WvW leaderboard (creates scheduled event) |
+| `pve_leaderboard_enabled` | Boolean | Enable or disable the weekly PvE leaderboard |
+| `pve_leaderboard_channel` | Channel | Channel for the weekly PvE leaderboard (creates scheduled event) |
+| `wordle_channel` | Channel | Channel for the daily Wordle message (creates scheduled event) |
+| `wordle_role` | Role | Role to mention in the daily Wordle message |
+| `wordle_hour` | Integer | UTC hour (0–23) to post the daily Wordle message |
 
 ---
 

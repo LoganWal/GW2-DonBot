@@ -204,7 +204,7 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
                 var fightIds = fights.Select(f => f.FightLogId).ToList();
                 var playerFights = await entityService.PlayerFightLog.GetWhereAsync(pf => fightIds.Contains(pf.FightLogId));
                 var fightDurations = fights.ToDictionary(f => f.FightLogId, f => f.FightDurationInMs);
-                var grouped = playerFights.GroupBy(pf => pf.GuildWarsAccountName).ToList();
+                var grouped = playerFights.GroupBy(pf => pf.GuildWarsAccountName).Where(g => g.Count() >= 6).ToList();
                 var total = grouped.Count;
 
                 var pveRanks = new System.Text.StringBuilder();
@@ -355,7 +355,7 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
     private static string BuildPvEDpsTable(List<IGrouping<string, PlayerFightLog>> grouped, Dictionary<long, long> fightDurations)
     {
         var table = "```#    Name                   Avg DPS\n";
-        var players = grouped.Select(g =>
+        var players = grouped.Where(g => g.Count() >= 6).Select(g =>
         {
             var totalSec = Math.Max(g.Sum(pf => fightDurations.GetValueOrDefault(pf.FightLogId, 1)) / 1000f, 1f);
             return (Name: $"({g.Count()}) {g.Key}".ClipAt(21), Dps: g.Sum(pf => pf.Damage) / totalSec);
@@ -373,7 +373,7 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
     private static string BuildPvECleaveDpsTable(List<IGrouping<string, PlayerFightLog>> grouped, Dictionary<long, long> fightDurations)
     {
         var table = "```#    Name                   Avg Cleave/s\n";
-        var players = grouped.Select(g =>
+        var players = grouped.Where(g => g.Count() >= 6).Select(g =>
         {
             var totalSec = Math.Max(g.Sum(pf => fightDurations.GetValueOrDefault(pf.FightLogId, 1)) / 1000f, 1f);
             return (Name: $"({g.Count()}) {g.Key}".ClipAt(21), Dps: g.Sum(pf => pf.Cleave) / totalSec);
@@ -391,9 +391,10 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
     private static string BuildPvESimpleTable(string columnHeader, List<IGrouping<string, PlayerFightLog>> grouped, Func<IGrouping<string, PlayerFightLog>, double> selector, Func<double, string> formatter, bool ascending = false)
     {
         var table = $"```#    Name                   {columnHeader}\n";
+        var eligible = grouped.Where(g => g.Count() >= 6);
         var ordered = ascending
-            ? grouped.OrderBy(selector)
-            : grouped.OrderByDescending(selector);
+            ? eligible.OrderBy(selector)
+            : eligible.OrderByDescending(selector);
         var index = 1;
         foreach (var g in ordered.Take(TopN))
         {

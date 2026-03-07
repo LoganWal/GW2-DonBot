@@ -12,7 +12,8 @@ public class DiscordCommandHandler(
     IDiscordCommandService discordCommandService,
     ISteamCommandService steamCommandService,
     IDeadlockCommandService deadlockCommandService,
-    ILeaderboardCommandsService leaderboardCommandsService)
+    ILeaderboardCommandsService leaderboardCommandsService,
+    IGenericCommandsService genericCommandsService)
 {
     public async Task SlashCommandExecutedAsync(SocketSlashCommand command, DiscordSocketClient client)
     {
@@ -35,6 +36,7 @@ public class DiscordCommandHandler(
                 case "gw2_close_raid": await Gw2CloseRaidCommandExecuted(command, client); break;
                 case "gw2_start_alliance_raid": await Gw2StartAllianceRaidCommandExecuted(command, client); break;
                 case "gw2_my_rank": await Gw2MyRank(command); break;
+                case "gw2_add_quote": await Gw2AddQuote(command); break;
                 case "gw2_server_config": await Gw2ServerConfig(command, client); break;
                 case "steam_verify": await SteamVerifyCommandExecuted(command, client); break;
                 case "deadlock_mmr": await DeadlockMmrCommandExecuted(command, client); break;
@@ -142,6 +144,12 @@ public class DiscordCommandHandler(
     {
         await command.DeferAsync(ephemeral: true);
         await leaderboardCommandsService.MyRankCommandExecuted(command);
+    }
+
+    private async Task Gw2AddQuote(SocketSlashCommand command)
+    {
+        await command.DeferAsync(ephemeral: true);
+        await genericCommandsService.AddQuoteCommandExecuted(command);
     }
 
     private async Task Gw2ServerConfig(SocketSlashCommand command, DiscordSocketClient client)

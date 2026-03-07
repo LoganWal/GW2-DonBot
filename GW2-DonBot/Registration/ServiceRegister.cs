@@ -62,8 +62,13 @@ public static class ServiceRegister
         services.AddTransient<IPollingTasksService, PollingTasksService>();
         services.AddTransient<IDiscordApiService, DiscordApiService>();
 
-        // Scheduling - Transient for scheduler instances
+        // Scheduling
         services.AddTransient<SchedulerService>();
+        services.AddTransient<IScheduledEventHandler, RaidSignupEventHandler>();
+        services.AddTransient<IScheduledEventHandler, WvwRaidSignupEventHandler>();
+        services.AddTransient<IScheduledEventHandler, WvwLeaderboardEventHandler>();
+        services.AddTransient<IScheduledEventHandler, PveLeaderboardEventHandler>();
+        services.AddTransient<IScheduledEventHandler, WordleEventHandler>();
 
         // Database Services
         services.AddScoped(typeof(IDatabaseUpdateService<>), typeof(DatabaseUpdateService<>));

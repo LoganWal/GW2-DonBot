@@ -20,7 +20,13 @@ Automatically detects and processes combat log URLs posted in Discord:
 - **Rotation analysis**: Automatically inspects player skill rotations in PvE logs to detect suspiciously consistent cast intervals that may indicate macro or bot usage. Detected anomalies are recorded in the database for review.
 - **Log auto-submit to Wingman**: PvE log URLs are automatically submitted to [gw2wingman](https://gw2wingman.nevermindcreations.de) in the background (WvW logs are excluded). Configurable per guild.
 
-When logs are detected, the bot can optionally prompt the uploader (via an ephemeral "Post Summary" / "Dismiss" button message) before posting the summary publicly. Behaviour is controlled by the `auto_aggregate_logs` and `auto_reply_single_log` guild toggles.
+When logs are detected, the bot can optionally prompt the uploader before posting publicly. The flow is controlled by the `auto_aggregate_logs` and `auto_reply_single_log` guild toggles:
+
+1. Bot sends an ephemeral prompt: **"Post Summary"** or **"Dismiss"**
+2. If the uploader clicks **Post Summary**, they are asked: **"Also submit to Wingman?"** (Yes / No)
+3. The summary is then posted publicly, with or without Wingman submission based on their choice
+
+For logs posted via webhook/embed (e.g. automatic drop-off channels), Wingman submission follows the `auto_submit_to_wingman` guild setting instead.
 
 ### Points & Rankings
 

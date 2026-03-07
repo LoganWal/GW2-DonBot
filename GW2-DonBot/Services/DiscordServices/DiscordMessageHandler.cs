@@ -283,7 +283,7 @@ public class DiscordMessageHandler(
         }
     }
 
-    public async Task ProcessAndPostLogsAsync(SocketMessageComponent interaction, PendingLogState state)
+    public async Task ProcessAndPostLogsAsync(SocketMessageComponent interaction, PendingLogState state, bool submitToWingman)
     {
         var urls = state.Urls;
         var guildId = state.GuildId;
@@ -306,7 +306,7 @@ public class DiscordMessageHandler(
         var guilds = await entityService.Guild.GetAllAsync();
         var guild = guilds.FirstOrDefault(g => g.GuildId == guildId) ?? guilds.Single(s => s.GuildId == -1);
 
-        if (guild.AutoSubmitToWingman)
+        if (submitToWingman)
         {
             var nonWvwUrls = urls.Where((url, i) => !dataList[i].FightEliteInsightDataModel.Wvw).ToList();
             if (nonWvwUrls.Count > 0)

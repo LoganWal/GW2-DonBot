@@ -105,7 +105,6 @@ public sealed class RaidCommandCommandService(IEntityService entityService, IMes
             return;
         }
 
-        // Send to target channel with components
         MessageComponent? bestTimesComponent = null;
         var bestTimesIndex = BestTimesTargetIndex(messages);
         if (bestTimesIndex.HasValue)

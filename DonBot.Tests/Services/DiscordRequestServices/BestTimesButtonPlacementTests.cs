@@ -8,8 +8,6 @@ public class BestTimesButtonPlacementTests
     private static Embed PvE(string suffix = "") => new EmbedBuilder().WithTitle($"PvE Overview{suffix}").Build();
     private static Embed Other(string title = "WvW Overview") => new EmbedBuilder().WithTitle(title).Build();
 
-    // --- No button cases ---
-
     [Fact]
     public void BestTimesTargetIndex_WhenListIsEmpty_ReturnsNull()
     {
@@ -31,8 +29,6 @@ public class BestTimesButtonPlacementTests
         Assert.Null(result);
     }
 
-    // --- Button always on last message ---
-
     [Fact]
     public void BestTimesTargetIndex_WhenSinglePveEmbed_ReturnsZero()
     {
@@ -43,7 +39,6 @@ public class BestTimesButtonPlacementTests
     [Fact]
     public void BestTimesTargetIndex_WhenPveIsFirstOfTwo_ReturnsLastIndex()
     {
-        // PvE at [0], Other at [1] — button must go to index 1, not 0
         var result = RaidCommandCommandService.BestTimesTargetIndex([PvE(), Other()]);
         Assert.Equal(1, result);
     }
@@ -58,7 +53,6 @@ public class BestTimesButtonPlacementTests
     [Fact]
     public void BestTimesTargetIndex_WhenPveIsMiddleOfThree_ReturnsLastIndex()
     {
-        // Typical raid output: WvW summary, PvE summary, player standings
         var result = RaidCommandCommandService.BestTimesTargetIndex([Other("WvW"), PvE(), Other("Standings")]);
         Assert.Equal(2, result);
     }
@@ -71,12 +65,10 @@ public class BestTimesButtonPlacementTests
         Assert.Equal(messages.Count - 1, result);
     }
 
-    // --- Correctness: NOT on first PvE message (regression for the old behaviour) ---
-
     [Fact]
     public void BestTimesTargetIndex_WhenPveIsNotLast_DoesNotReturnFirstPveIndex()
     {
-        // Old code returned 0 (first PvE). New code must return last index (2).
+        // Regression: old code returned 0 (first PvE); must return last index (2)
         var result = RaidCommandCommandService.BestTimesTargetIndex([PvE(), Other(), Other()]);
         Assert.NotEqual(0, result);
         Assert.Equal(2, result);

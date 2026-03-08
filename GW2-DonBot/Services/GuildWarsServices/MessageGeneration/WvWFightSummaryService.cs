@@ -19,13 +19,12 @@ public sealed class WvWFightSummaryService(
     {
         var playerCount = 5;
 
-        // Building the actual message to be sent
         var logLength = data.FightEliteInsightDataModel.Phases?.FirstOrDefault()?.EncounterDuration.TimeToSeconds() ?? 0;
 
         var friendlyCount = data.FightEliteInsightDataModel.Players?.Count ?? 0;
         var squadMemberCount = data.FightEliteInsightDataModel.Players?.Count(s => !s.NotInSquad) ?? 0;
 
-        // remove one from target dummy
+        // Subtract one for the dummy PvP agent that ArcDPS always includes
         var enemyCount = (data.FightEliteInsightDataModel.Targets?.Count - 1) ?? 0;
         var enemyDamage = data.FightEliteInsightDataModel.Targets?
             .Sum(player => player.Details?.DmgDistributions?.Any() ?? false
@@ -70,7 +69,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             }
         }
 
-        // Battleground parsing
+        // Extract battleground name from the log name (last 15+ chars)
         var range = (int)MathF.Min(15, data.FightEliteInsightDataModel.LogName?.Length - 1 ?? 0)..;
         var rangeStart = range.Start.GetOffset(data.FightEliteInsightDataModel.LogName?.Length ?? 0);
         var rangeEnd = range.End.GetOffset(data.FightEliteInsightDataModel.LogName?.Length ?? 0);
@@ -97,7 +96,6 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
         battleGroundColor = battleGround.Contains("Eternal", StringComparison.OrdinalIgnoreCase) ? System.Drawing.Color.FromArgb(230, 231, 232) : battleGroundColor;
         battleGroundColor = battleGround.Contains("Edge", StringComparison.OrdinalIgnoreCase) ? System.Drawing.Color.FromArgb(193, 105, 79) : battleGroundColor;
 
-        // Embed content building
         var friendlyOverview = "```Who   Count   DMG      DPS     Downs   Deaths         \n";
         friendlyOverview += $"Ally  {friendlyCountStr.Trim(),-7}{string.Empty,1}{friendlyDamageStr.Trim(),-7}{string.Empty,2}{friendlyDpsStr.Trim(),-6}{string.Empty,2}{friendlyDownsStr.Trim(),-3}{string.Empty,5}{friendlyDeathsStr.Trim(),-3}\n";
         friendlyOverview += $"Foe   {enemyCountStr.Trim(),-3}{string.Empty,5}{enemyDamageStr.Trim(),-7}{string.Empty,2}{enemyDpsStr.Trim(),-6}{string.Empty,2}{enemyDownsStr.Trim(),-3}{string.Empty,5}{enemyDeathsStr.Trim(),-3}```";
@@ -171,7 +169,6 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             }
         }
 
-        // Building the message via embeds
         var message = new EmbedBuilder
         {
             Title = $"{battleGroundEmoji} Report (WvW) - {battleGround}\n",
@@ -198,7 +195,6 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
     public async Task<Embed> GenerateMessage(bool advancedLog, int playerCount, List<Gw2Player> gw2Players, EmbedBuilder message, long guildId, StatTotals? statTotals = null)
     {
-        // Damage overview
         var damageOverview = "```#    Name                   Damage    Down C\n";
 
         var maxDamage = -1.0f;
@@ -227,7 +223,6 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
         damageOverview += "```";
 
-        // Cleanse overview
         var cleanseOverview = $"```#    Name                   Cleanses\n";
 
         var topCleanses = gw2Players.OrderByDescending(s => s.Cleanses).Take(playerCount).ToList();
@@ -244,7 +239,6 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
         cleanseOverview += "```";
 
-        // Strip overview
         var stripOverview = "```#    Name                   Strips\n";
 
         var topStrips = gw2Players.OrderByDescending(s => s.Strips).Take(playerCount).ToList();
@@ -261,7 +255,6 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
         stripOverview += "```";
 
-        // Stab overview
         var stabOverview = "```#    Name                   Sub  S(on)  S(off)                                                                 \n";
 
         var topStabs = gw2Players.OrderByDescending(s => s.StabOnGroup).Take(playerCount).ToList();
@@ -439,10 +432,8 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
         footerService.AddInviteLink(message);
 
-        // Timestamp
         message.Timestamp = DateTime.Now;
 
-        // Building the message for use
         return message.Build();
     }
 }

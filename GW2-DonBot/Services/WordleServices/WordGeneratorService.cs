@@ -29,7 +29,7 @@ public sealed class WordGeneratorService : IWordGeneratorService
             throw new ArgumentException("Invalid Wordle word.");
         }
 
-        // Find similar words that differ by just one character
+        // Words that differ from the target by exactly one character
         var similarWords = _wordList
             .Where(word =>
                 word != wordleWord &&
@@ -37,8 +37,7 @@ public sealed class WordGeneratorService : IWordGeneratorService
                 word.Where((c, i) => c != wordleWord[i]).Count() == 1)
             .ToList();
 
-        // Identify distinctive letters - these are the letters that make the wordle word 
-        // different from its similar variants
+        // Positions where the target word differs from its near-identical variants
         var distinctivePositions = new HashSet<int>();
         foreach (var similarWord in similarWords)
         {
@@ -51,7 +50,6 @@ public sealed class WordGeneratorService : IWordGeneratorService
             }
         }
 
-        // Get the distinctive letters
         var distinctiveLetters = distinctivePositions
             .Select(pos => wordleWord[pos])
             .ToHashSet();
@@ -59,10 +57,9 @@ public sealed class WordGeneratorService : IWordGeneratorService
         var random = new Random();
         var candidateWords = new List<string>();
 
-        // First priority: words with distinctive letters, plus green and yellow hints
+        // Priority 1: words sharing distinctive letters with at least one green and one yellow match
         foreach (var word in _wordList)
         {
-            // Skip the actual wordle word as starting word
             if (word == wordleWord)
                 continue;
 
@@ -70,7 +67,6 @@ public sealed class WordGeneratorService : IWordGeneratorService
             bool hasYellowLetter = false;
             bool hasDistinctiveLetter = false;
 
-            // Check for green letters (same position)
             for (int i = 0; i < Math.Min(wordleWord.Length, word.Length); i++)
             {
                 if (wordleWord[i] == word[i])
@@ -80,41 +76,30 @@ public sealed class WordGeneratorService : IWordGeneratorService
                 }
             }
 
-            // Check for yellow letters (different position) and distinctive letters
             foreach (var letter in wordleWord)
             {
                 if (word.Contains(letter))
                 {
-                    // If it's at a different position, it's yellow
                     if (!hasYellowLetter && word.IndexOf(letter) != wordleWord.IndexOf(letter))
-                    {
                         hasYellowLetter = true;
-                    }
 
-                    // If it's a distinctive letter, mark it
                     if (!hasDistinctiveLetter && distinctiveLetters.Contains(letter))
-                    {
                         hasDistinctiveLetter = true;
-                    }
                 }
             }
 
-            // If we found similar words, prioritize words with distinctive letters
             if (distinctiveLetters.Count > 0)
             {
                 if (hasGreenLetter && hasYellowLetter && hasDistinctiveLetter)
-                {
                     candidateWords.Add(word);
-                }
             }
-            // Otherwise use our standard criteria
             else if (hasGreenLetter && hasYellowLetter)
             {
                 candidateWords.Add(word);
             }
         }
 
-        // If we don't find words with all criteria, fall back to just including distinctive letters
+        // Priority 2: any word that shares a distinctive letter
         if (candidateWords.Count == 0 && distinctiveLetters.Count > 0)
         {
             candidateWords = _wordList
@@ -124,29 +109,23 @@ public sealed class WordGeneratorService : IWordGeneratorService
                 .ToList();
         }
 
-        // If we still don't have candidates, fall back to words with green and yellow
+        // Priority 3: words with at least one green and one yellow letter match
         if (candidateWords.Count == 0)
         {
             candidateWords = _wordList
                 .Where(word =>
                 {
                     if (word == wordleWord)
-                    {
                         return false;
-                    }
 
                     bool hasGreenLetter = false;
                     bool hasYellowLetter = false;
 
                     for (int i = 0; i < Math.Min(word.Length, wordleWord.Length); i++)
                     {
-                        // Green letter check
                         if (wordleWord[i] == word[i])
-                        {
                             hasGreenLetter = true;
-                        }
 
-                        // Yellow letter check - word contains the letter but not at this position
                         for (int j = 0; j < wordleWord.Length; j++)
                         {
                             if (j != i && word.Contains(wordleWord[j]) &&
@@ -162,7 +141,7 @@ public sealed class WordGeneratorService : IWordGeneratorService
                 .ToList();
         }
 
-        // Last resort fallback
+        // Priority 4: any word sharing at least one letter with the target
         if (candidateWords.Count == 0)
         {
             candidateWords = _wordList

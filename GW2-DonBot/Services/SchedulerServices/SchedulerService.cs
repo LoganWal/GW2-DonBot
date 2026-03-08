@@ -113,12 +113,14 @@ public sealed class SchedulerService(
     {
         var nextEventTime = new DateTime(now.Year, now.Month, now.Day, scheduledEvent.Hour, 0, 0, DateTimeKind.Utc);
 
+        // Daily: just advance to tomorrow if today's slot has passed.
         if (scheduledEvent.RepeatIntervalDays == 1)
         {
             if (nextEventTime <= now) nextEventTime = nextEventTime.AddDays(1);
             return nextEventTime;
         }
 
+        // Weekly: advance until we hit the configured day of week at the right hour.
         while ((int)nextEventTime.DayOfWeek != scheduledEvent.Day || nextEventTime <= now)
             nextEventTime = nextEventTime.AddDays(1);
 

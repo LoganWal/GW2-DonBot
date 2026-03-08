@@ -15,11 +15,11 @@ public sealed class SteamCommandService(IEntityService entityService) : ISteamCo
                 case 0:
                     await command.FollowupAsync("Please try again and enter a valid steamId account number.", ephemeral: true);
                     break;
-                // if steamId3
+                // SteamID3 range
                 case <= 76561197960265728:
                     await command.FollowupAsync("Please try again and enter a valid steamId64 account number.", ephemeral: true);
                     break;
-                // assume steamId64
+                // SteamID64
                 default:
                 {
                     var steamAccount = new SteamAccount

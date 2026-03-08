@@ -7,8 +7,6 @@ public class RaidReportServiceAggregationTests
 {
     private const string Name = "Alice.1234";
 
-    // --- Damage ---
-
     [Fact]
     public void AggregatePlayerFights_Damage_WhenAllFightsHaveValue_AveragesCorrectly()
     {
@@ -39,8 +37,6 @@ public class RaidReportServiceAggregationTests
         Assert.Equal(0, result.Damage);
     }
 
-    // --- StabOnGroup ---
-
     [Fact]
     public void AggregatePlayerFights_StabOnGroup_WhenAllFightsHaveValue_AveragesCorrectly()
     {
@@ -54,7 +50,7 @@ public class RaidReportServiceAggregationTests
     [Fact]
     public void AggregatePlayerFights_StabOnGroup_WhenSomeFightsAreZero_IncludesZerosInAverage()
     {
-        // Core scenario: one great stab fight, then player switches class → average must not be inflated
+        // One stab fight then class swap: average must not be inflated
         var result = Aggregate(
             new() { GuildWarsAccountName = Name, StabGenOnGroup = 16 },
             new() { GuildWarsAccountName = Name, StabGenOnGroup = 0 });
@@ -75,7 +71,7 @@ public class RaidReportServiceAggregationTests
     [Fact]
     public void AggregatePlayerFights_StabOnGroup_OneGoodFightAmongMany_DilutesOutlier()
     {
-        // 1 fight at 20, 19 fights at 0 → average = 1.0 (not 20)
+        // 1 fight at 20, 19 at 0 = average 1.0 (not 20)
         var logs = new List<PlayerFightLog>
         {
             new() { GuildWarsAccountName = Name, StabGenOnGroup = 20 }
@@ -87,8 +83,6 @@ public class RaidReportServiceAggregationTests
         Assert.Equal(1.0, result.StabOnGroup);
     }
 
-    // --- Cleanses ---
-
     [Fact]
     public void AggregatePlayerFights_Cleanses_WhenSomeFightsAreZero_IncludesZerosInAverage()
     {
@@ -99,8 +93,6 @@ public class RaidReportServiceAggregationTests
         Assert.Equal(50.0, result.Cleanses);
     }
 
-    // --- Healing ---
-
     [Fact]
     public void AggregatePlayerFights_Healing_WhenSomeFightsAreZero_IncludesZerosInAverage()
     {
@@ -110,8 +102,6 @@ public class RaidReportServiceAggregationTests
 
         Assert.Equal(25000, result.Healing);
     }
-
-    // --- TotalQuick / TotalAlac ---
 
     [Fact]
     public void AggregatePlayerFights_TotalQuick_WhenSomeFightsAreZero_IncludesZerosInAverage()
@@ -132,8 +122,6 @@ public class RaidReportServiceAggregationTests
 
         Assert.Equal(0.5, result.TotalAlac);
     }
-
-    // --- AccountName / SubGroup ---
 
     [Fact]
     public void AggregatePlayerFights_AccountName_IncludesFightCount()
@@ -158,8 +146,6 @@ public class RaidReportServiceAggregationTests
         Assert.Equal(2, result.SubGroup);
     }
 
-    // --- Sums (verify unchanged behaviour) ---
-
     [Fact]
     public void AggregatePlayerFights_Deaths_SumsAcrossAllFights()
     {
@@ -179,8 +165,6 @@ public class RaidReportServiceAggregationTests
 
         Assert.Equal(300_000, result.DamageTaken);
     }
-
-    // --- Helper ---
 
     private static DonBot.Models.GuildWars2.Gw2Player Aggregate(params PlayerFightLog[] logs) =>
         RaidReportService.AggregatePlayerFights(logs.GroupBy(l => l.GuildWarsAccountName).First());

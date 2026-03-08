@@ -80,8 +80,7 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
 
         var anomalies = new List<RotationAnomaly>();
 
-        // Flags skills where cast intervals are suspiciously consistent across all casts,
-        // regardless of whether the deviations are sequential or not.
+        // Tier 1: flag skills whose inter-cast intervals have suspiciously low variance (CV < threshold)
         foreach (var (skillId, castTimes) in skillCasts)
         {
             if (castTimes.Count < MinCastCount) continue;
@@ -118,13 +117,10 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
             });
         }
 
-        // Finds the best repeating N-skill sequence in the ordered cast list and checks whether
-        // the time each cycle takes is also suspiciously consistent (CV < threshold).
-        // This separates skilled human players (who repeat the same rotation but with natural
-        // timing variance from mechanics, movement, and reaction time) from bots/macros
-        // (who execute both the same sequence AND the same duration on a fixed timer).
-        // A human flagged by Tier 1 alone may just be practicing a good rotation — Tier 2
-        // requires the full cycle duration to also be inhuman before flagging.
+        // Tier 2: find the best repeating N-skill cycle and check whether its duration is also
+        // suspiciously consistent. A player can repeat the same rotation with natural timing
+        // variance (human) or with fixed timing (bot/macro). Tier 2 requires both sequence
+        // repetition AND low-variance cycle duration before flagging.
         var sortedSkills = orderedSkills.OrderBy(s => s.Time).ToList();
         var skillIdSequence = sortedSkills.Select(s => s.SkillId).ToList();
         var skillTimeSequence = sortedSkills.Select(s => s.Time).ToList();
@@ -150,10 +146,8 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
         return anomalies;
     }
 
-    // Finds the highest-scoring repeating skill sequence (score = repeats × cycleLength).
-    // Tries all cycle lengths from MinCycleLength to MaxCycleLength and all starting positions.
-    // Only considers a candidate valid if the cycle duration CV is also below CvThreshold,
-    // filtering out human players who follow the same rotation but with natural timing variance.
+    // Returns the highest-scoring repeating sequence (score = repeats x cycleLength) whose
+    // cycle duration CV is also below CvThreshold. Tries all lengths and starting positions.
     private static CycleDetection? DetectRotationCycle(
         List<long> skillIds,
         List<double> skillTimes,
@@ -180,8 +174,7 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
 
                 if (repeats < MinCycleRepeats) continue;
 
-                // Measure how consistent the cycle duration is across repeats.
-                // skillTimes are in seconds (from EliteInsights), converted to ms here.
+                // skillTimes are in seconds (EliteInsights format); convert to ms for consistency
                 var cycleTimes = Enumerable.Range(0, repeats - 1)
                     .Select(r => (skillTimes[start + (r + 1) * cycleLen] - skillTimes[start + r * cycleLen]) * 1000.0)
                     .ToList();
@@ -192,12 +185,9 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
                 var cycleStdDev = Math.Sqrt(cycleTimes.Average(x => Math.Pow(x - avgCycleTime, 2)));
                 var cycleCv = cycleStdDev / avgCycleTime;
 
-                // A human following a rotation will have natural variance in cycle timing
-                // (~150–300ms jitter from mechanics, movement, and reaction time).
-                // Only flag if the cycle duration itself is also suspiciously consistent.
                 if (cycleCv >= CvThreshold) continue;
 
-                // Prefer the candidate with the highest score (repeats × cycleLength).
+                // Keep the candidate with the highest score (repeats x cycleLength)
                 if (best != null && repeats * cycleLen <= best.Repeats * best.CycleLength)
                     continue;
 

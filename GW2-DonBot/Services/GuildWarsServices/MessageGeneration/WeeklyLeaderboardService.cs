@@ -32,7 +32,6 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
         var color = System.Drawing.Color.FromArgb(195, 0, 101);
         var description = $"**Week of {cutoff:MMM dd} – {DateTime.UtcNow:MMM dd, yyyy}**\n";
 
-        // Embed 1: offensive stats
         var embed1 = BuildBaseEmbed("WvW Weekly Leaderboard", description, color);
         embed1.AddField("Damage", BuildWvWDamageTable(grouped), false);
         embed1.AddField("Cleanses", BuildWvWSimpleTable("Cleanses", grouped,
@@ -48,7 +47,6 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
         embed1.Footer = new EmbedFooterBuilder { Text = footerText, IconUrl = AuthorIconUrl };
         embed1.Timestamp = DateTime.Now;
 
-        // Embed 2: defensive/advanced stats
         var embed2 = BuildBaseEmbed("WvW Weekly Leaderboard (Advanced)", description, color);
         embed2.AddField("Barrier", BuildWvWSimpleTable("Barrier Gen", grouped,
             g => (double)g.Sum(s => s.BarrierGenerated),
@@ -319,8 +317,7 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
     {
         var table = "```#    Name                   Avg Dist\n";
         var index = 1;
-        // Filter to players who were actually near the tag in at least some fights (same threshold as per-fight view)
-        // Order ascending — lower distance = closer to tag = better
+        // Ascending order: lower distance = closer to tag = better; same threshold as per-fight view
         var eligible = grouped
             .Where(g => g.Count() >= 10 && g.Any(s => s.DistanceFromTag > 0 && s.DistanceFromTag < 1100))
             .OrderBy(g => g.Where(s => s.DistanceFromTag > 0 && s.DistanceFromTag < 1100).Average(s => (double)s.DistanceFromTag))

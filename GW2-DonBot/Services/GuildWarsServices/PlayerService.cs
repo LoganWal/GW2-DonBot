@@ -330,7 +330,6 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
 
             var totalPoints = 0d;
 
-            // Calculate the total points based on player data
             totalPoints += Math.Min(Convert.ToDouble(player.Damage) / 50000d, 10);
             totalPoints += Math.Min(Convert.ToDouble(player.Cleanses) / 100d, 5);
             totalPoints += Math.Min(Convert.ToDouble(player.Strips) / 30d, 3);
@@ -340,16 +339,13 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
 
             totalPoints = Math.Max(4, Math.Min(12, totalPoints));
 
-            // Update the account's points
             account.Points += Convert.ToDecimal(totalPoints);
             account.AvailablePoints += Convert.ToDecimal(totalPoints);
             account.LastWvwLogDateTime = currentDateTimeUtc;
 
-            // Add the updated account to the list
             accountsToUpdate.Add(account);
         }
 
-        // Update all the accounts in bulk
         if (accountsToUpdate.Any())
         {
             await entityService.Account.UpdateRangeAsync(accountsToUpdate);

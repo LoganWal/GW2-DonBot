@@ -26,7 +26,6 @@ public sealed class PollingTasksService(
 
         var guildWars2Data = new ConcurrentDictionary<long, List<GuildWars2AccountDataModel>>();
 
-        // Limit to available logical processors
         var maxDegreeOfParallelism = Environment.ProcessorCount;
         var semaphore = new SemaphoreSlim(maxDegreeOfParallelism);
 
@@ -35,13 +34,8 @@ public sealed class PollingTasksService(
             await semaphore.WaitAsync();
             try
             {
-                // Get the guildWarsAccounts associated with the current account
                 var guildWars2Accounts = guildWarsAccounts.Where(s => s.DiscordId == account.DiscordId).ToList();
-
-                // Fetch account data (this is still done in parallel)
                 var accountData = await FetchAccountData(guildWars2Accounts);
-
-                // Store the result (not doing any database operations here)
                 guildWars2Data[account.DiscordId] = accountData;
             }
             finally
@@ -97,7 +91,7 @@ public sealed class PollingTasksService(
                         guildWarsAccount.GuildWarsGuilds = string.Join(",", accountData.Guilds);
 
                         success = true;
-                        break; // Exit the retry loop if successful
+                        break;
                     }
 
                     logger.LogWarning("Attempt {attempt} failed for {guildWarsAccountName}: {statusCode}",
@@ -180,7 +174,7 @@ public sealed class PollingTasksService(
             await HandleUserRoles(user, accountData, primaryRoleId.Value, secondaryRoleId.Value, verifiedRoleId.Value, guildId, secondaryGuildIds);
         }
 
-        // remove any remaining API keys on expired users (most likely have left the server)
+        // Clear API keys for accounts with 48+ failed pulls (likely left the server)
         var expiredAccounts = gwAccounts.Where(s => s.FailedApiPullCount >= 48).ToList();
         foreach (var invalidGuildWarsAccount in expiredAccounts)
         {

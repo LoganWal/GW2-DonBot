@@ -23,9 +23,8 @@ public class DiscordButtonHandler(
     {
         var customId = buttonComponent.Data.CustomId;
 
-        // Log post/dismiss are fire-and-forget so ButtonExecutedAsync returns immediately,
-        // freeing Discord.Net's event dispatch thread. DeferAsync is called on the thread pool
-        // within milliseconds, well inside Discord's 3-second acknowledgement window.
+        // Fire-and-forget: frees the event dispatch thread while DeferAsync runs on the thread pool,
+        // well inside Discord's 3-second acknowledgement window.
         if (customId.StartsWith(ButtonId.PostLogsWingmanYesPrefix))
         {
             _ = HandlePostLogsWingmanChoice(buttonComponent, customId, true);
@@ -216,9 +215,8 @@ public class DiscordButtonHandler(
                 return;
             }
 
-            // DeferAsync on message components uses type 6 (DeferredUpdateMessage) — silently
-            // ACKs the interaction without creating a response message, so no
-            // DeleteOriginalResponseAsync needed (there is no response to delete).
+            // Type 6 (DeferredUpdateMessage): silently ACKs the interaction without creating a response,
+            // so DeleteOriginalResponseAsync is not needed.
             await buttonComponent.DeferAsync(ephemeral: true);
             await buttonComponent.Message.DeleteAsync();
         }

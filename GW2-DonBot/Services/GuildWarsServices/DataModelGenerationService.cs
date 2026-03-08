@@ -20,7 +20,6 @@ public sealed class DataModelGenerationService(ILogger<DataModelGenerationServic
                 using var content = response.Content;
                 var result = await content.ReadAsStringAsync();
 
-                // Extract all <script> tags from the HTML
                 var scriptTags = new List<string>();
                 var scriptStartIndex = 0;
 
@@ -33,14 +32,12 @@ public sealed class DataModelGenerationService(ILogger<DataModelGenerationServic
                         throw new InvalidOperationException("Malformed HTML: Missing closing </script> tag.");
                     }
 
-                    // Extract the content of the script tag
                     var scriptContent = result.Substring(scriptStartIndex + "<script>".Length, scriptEndIndex - scriptStartIndex - "<script>".Length);
                     scriptTags.Add(scriptContent);
 
                     scriptStartIndex = scriptEndIndex + "</script>".Length;
                 }
 
-                // Find the script containing _logData
                 var logDataScript = scriptTags.FirstOrDefault(script => script.Contains("_logData = {"));
                 if (logDataScript == null)
                 {
@@ -48,7 +45,6 @@ public sealed class DataModelGenerationService(ILogger<DataModelGenerationServic
                     throw new InvalidOperationException("_logData JSON object not found in the HTML.");
                 }
 
-                // Extract and deserialize the data models
                 var fightData = ExtractAndDeserialize<FightEliteInsightDataModel>(logDataScript, "_logData");
                 var healingData = ExtractAndDeserialize<HealingEliteInsightDataModel>(logDataScript, "_healingStatsExtension");
                 var barrierData = ExtractAndDeserialize<BarrierEliteInsightDataModel>(logDataScript, "_barrierStatsExtension");

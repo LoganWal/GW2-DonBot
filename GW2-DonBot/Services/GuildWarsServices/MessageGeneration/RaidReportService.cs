@@ -37,7 +37,6 @@ public sealed class RaidReportService(
 
     public async Task<Embed> GenerateRaidAlert(long guildId)
     {
-        // Building the message via embeds
         var message = new EmbedBuilder
         {
             Title = "RAID STARTING!\n",
@@ -203,7 +202,6 @@ public sealed class RaidReportService(
 
     private async Task<Embed> GenerateWvWRaidReport(string durationString, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, bool advancedLog, long guildId)
     {
-        // Building the message via embeds
         var message = new EmbedBuilder
         {
             Title = "Report (WvW)\n",
@@ -227,7 +225,6 @@ public sealed class RaidReportService(
             IconUrl = "https://i.imgur.com/tQ4LD6H.png"
         };
 
-        // Timestamp
         message.Timestamp = DateTime.Now;
 
         var statTotals = new StatTotals
@@ -237,7 +234,6 @@ public sealed class RaidReportService(
 
         if (!advancedLog)
         {
-            // raid overview
             var raidOverview = "```Players   Downs   Kills   Times Downed   Deaths\n";
             raidOverview += $"{gw2Players.Count,-4}{string.Empty,-6}{gw2Players.Sum(s => s.Downs), -4}{string.Empty,-4}{gw2Players.Sum(s => s.Kills), -4}{string.Empty,-4}{gw2Players.Sum(s => s.TimesDowned), -4}{string.Empty,-11}{gw2Players.Sum(s => s.Deaths), -4}```";
 
@@ -263,7 +259,6 @@ public sealed class RaidReportService(
             });
         }
 
-        // Building the message for use
         return await wvWFightSummaryService.GenerateMessage(advancedLog, 10, gw2Players, message, guildId, statTotals);
     }
 

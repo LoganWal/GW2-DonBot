@@ -11,17 +11,14 @@ using Serilog;
 var builder = Host.CreateApplicationBuilder(args);
 builder.Configuration.AddJsonFile("appsettings.user.json", optional: true, reloadOnChange: true);
 
-// Configure Serilog
 builder.Services.AddSerilog((_, config) => config.ReadFrom.Configuration(builder.Configuration));
 
-// Configure service hosting (Windows Service, Linux systemd, or console)
 builder.Services.AddWindowsService();
 builder.Services.AddSystemd();
 
-// Register application services
 ServiceRegister.ConfigureServices(builder.Services);
 
-// Register Discord client
+// Discord client singleton with required gateway intents
 builder.Services.AddSingleton(_ =>
 {
     var config = new DiscordSocketConfig

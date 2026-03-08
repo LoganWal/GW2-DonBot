@@ -16,17 +16,14 @@ public sealed class PvEFightSummaryService(
 {
     public async Task<Embed> GenerateSimple(EliteInsightDataModel data, long guildId)
     {
-        // Analyze player rotations for potential cheating (fire and forget - don't wait)
+        // Fire-and-forget; exceptions are intentionally swallowed to avoid disrupting the summary flow
         _ = Task.Run(async () =>
         {
             try
             {
                 await rotationAnalysisService.AnalyzePlayerRotations(data);
             }
-            catch
-            {
-                // Swallow exceptions to prevent disrupting the main flow
-            }
+            catch { }
         });
 
         var fightPhase = data.FightEliteInsightDataModel.Phases?.Any() ?? false
@@ -251,7 +248,6 @@ public sealed class PvEFightSummaryService(
 
         if (existingFightLog != null)
         {
-            // Update the properties of the existing fight log
             existingFightLog.GuildId = guildId;
             existingFightLog.FightType = encounterType;
             existingFightLog.FightStart = dateTimeStart;
@@ -278,7 +274,6 @@ public sealed class PvEFightSummaryService(
         }
         else
         {
-            // Create a new fight log
             var fightLog = new FightLog
             {
                 GuildId = guildId,
@@ -307,7 +302,6 @@ public sealed class PvEFightSummaryService(
 
             await entityService.FightLog.AddAsync(fightLog);
 
-            // Add player fight logs
             var playerFights = gw2Players.Select(gw2Player => new PlayerFightLog
             {
                 FightLogId = fightLog.FightLogId,
@@ -350,7 +344,6 @@ public sealed class PvEFightSummaryService(
 
             await entityService.PlayerFightLog.AddRangeAsync(playerFights);
 
-            // Ensure existingFightLog is set to the newly created fightLog for downstream usage
             existingFightLog = fightLog;
         }
 
@@ -456,7 +449,6 @@ public sealed class PvEFightSummaryService(
 
         footerService.AddInviteLink(message);
 
-        // Building the message for use
         return message.Build();
     }
 }

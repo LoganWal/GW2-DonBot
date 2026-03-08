@@ -47,10 +47,7 @@ public class RaidReportServiceTests(ITestOutputHelper output)
         var table = RaidReportService.BuildSurvivabilityTable(Group(logs));
         var rawLines = table.Split('\n');
 
-        // The first raw line is "```Player   Res (s)   ..." - strip the opening fence
-        var header = rawLines[0].TrimStart('`');
-
-        // Data rows are everything after the header, excluding the closing ``` and empty lines
+        var header = rawLines[0].TrimStart('`'); // strip opening code fence
         var dataLines = rawLines.Skip(1).Where(l => l.Length > 0 && !l.StartsWith("```")).ToList();
 
         // Find where each column header starts
@@ -64,12 +61,10 @@ public class RaidReportServiceTests(ITestOutputHelper output)
         Assert.True(downsStart > 0, "Downed column header not found");
         Assert.True(firstStart > 0, "Died 1st column header not found");
 
-        // Columns must be in left-to-right order
         Assert.True(resStart < dmgStart,     "Res (s) must come before Dmg Taken");
         Assert.True(dmgStart < downsStart,   "Dmg Taken must come before Times Downed");
         Assert.True(downsStart < firstStart, "Times Downed must come before First");
 
-        // Every data row must reach at least as far as the First column start position
         foreach (var dataLine in dataLines)
         {
             Assert.True(dataLine.Length >= firstStart, $"Data row is shorter than First column position: '{dataLine}'");
@@ -168,7 +163,7 @@ public class RaidReportServiceTests(ITestOutputHelper output)
 
         var table = RaidReportService.BuildSurvivabilityTable(Group(logs));
         var dataLines = table.Split('\n')
-            .Skip(1) // header is line 0 (starts with ```)
+            .Skip(1)
             .Where(l => !l.StartsWith("```") && l.Length > 0)
             .ToList();
 
@@ -187,8 +182,7 @@ public class RaidReportServiceTests(ITestOutputHelper output)
         };
 
         var table = RaidReportService.BuildSurvivabilityTable(Group(logs));
-        // 7500 ms = 7.5 s
-        Assert.Contains("7.5", table);
+        Assert.Contains("7.5", table); // 7500ms = 7.5s
     }
 
     [Fact]
@@ -207,7 +201,7 @@ public class RaidReportServiceTests(ITestOutputHelper output)
         Assert.Contains("VeryLongAccou", dataLine);
     }
 
-    // Visual output (not a pass/fail assertion - prints to console for review)
+    // Visual output: not a pass/fail assertion; prints to console for review
     [Fact]
     public void BuildSurvivabilityTable_WithRealisticData_PrintsFormattedTable()
     {

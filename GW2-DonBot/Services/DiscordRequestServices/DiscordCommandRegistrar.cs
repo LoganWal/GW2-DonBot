@@ -262,6 +262,7 @@ public class DiscordCommandRegistrar(ILogger<DiscordCommandRegistrar> logger)
     {
         var existingCommands = await guild.GetApplicationCommandsAsync();
 
+        // Detect changes: command count, any removed/renamed commands, or subcommand count changes.
         var commandsChanged = existingCommands.Count != newCommands.Length ||
             existingCommands.Any(ec => newCommands.All(nc => nc.Name.Value != ec.Name)) ||
             existingCommands.Any(ec =>

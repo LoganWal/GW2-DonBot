@@ -22,9 +22,9 @@ public class ScheduledEvent
 
     public DateTime UtcEventTime { get; set; }
 
-    public short EventType { get; set; } = 0;
+    public short EventType { get; init; }
 
-    public long? RoleId { get; set; }
+    public long? RoleId { get; init; }
 
-    public short RepeatIntervalDays { get; set; } = 7;
+    public short RepeatIntervalDays { get; init; } = 7;
 }

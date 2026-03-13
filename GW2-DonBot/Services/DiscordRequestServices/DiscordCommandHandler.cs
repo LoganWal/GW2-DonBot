@@ -37,11 +37,11 @@ public class DiscordCommandHandler(
                 case "gw2_start_alliance_raid": await Gw2StartAllianceRaidCommandExecuted(command, client); break;
                 case "gw2_my_rank": await Gw2MyRank(command); break;
                 case "gw2_add_quote": await Gw2AddQuote(command); break;
-                case "gw2_server_config": await Gw2ServerConfig(command, client); break;
-                case "steam_verify": await SteamVerifyCommandExecuted(command, client); break;
-                case "deadlock_mmr": await DeadlockMmrCommandExecuted(command, client); break;
-                case "deadlock_mmr_history": await DeadlockMmrHistoryCommandExecuted(command, client); break;
-                case "deadlock_match_history": await DeadlockMatchHistoryCommandExecuted(command, client); break;
+                case "gw2_server_config": await Gw2ServerConfig(command); break;
+                case "steam_verify": await SteamVerifyCommandExecuted(command); break;
+                case "deadlock_mmr": await DeadlockMmrCommandExecuted(command); break;
+                case "deadlock_mmr_history": await DeadlockMmrHistoryCommandExecuted(command); break;
+                case "deadlock_match_history": await DeadlockMatchHistoryCommandExecuted(command); break;
                 default: await DefaultCommandExecuted(command); break;
             }
         }
@@ -152,34 +152,34 @@ public class DiscordCommandHandler(
         await genericCommandsService.AddQuoteCommandExecuted(command);
     }
 
-    private async Task Gw2ServerConfig(SocketSlashCommand command, DiscordSocketClient client)
+    private async Task Gw2ServerConfig(SocketSlashCommand command)
     {
         await command.DeferAsync(ephemeral: true);
-        await discordCommandService.ConfigureServer(command, client);
+        await discordCommandService.ConfigureServer(command);
     }
 
-    private async Task SteamVerifyCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
+    private async Task SteamVerifyCommandExecuted(SocketSlashCommand command)
     {
         await command.DeferAsync(ephemeral: true);
-        await steamCommandService.VerifySteamAccount(command, client);
+        await steamCommandService.VerifySteamAccount(command);
     }
 
-    private async Task DeadlockMmrCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
+    private async Task DeadlockMmrCommandExecuted(SocketSlashCommand command)
     {
         await command.DeferAsync(ephemeral: true);
-        await deadlockCommandService.GetMmr(command, client);
+        await deadlockCommandService.GetMmr(command);
     }
 
-    private async Task DeadlockMmrHistoryCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
+    private async Task DeadlockMmrHistoryCommandExecuted(SocketSlashCommand command)
     {
         await command.DeferAsync(ephemeral: true);
-        await deadlockCommandService.GetMmrHistory(command, client);
+        await deadlockCommandService.GetMmrHistory(command);
     }
 
-    private async Task DeadlockMatchHistoryCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
+    private async Task DeadlockMatchHistoryCommandExecuted(SocketSlashCommand command)
     {
         await command.DeferAsync(ephemeral: true);
-        await deadlockCommandService.GetMatchHistory(command, client);
+        await deadlockCommandService.GetMatchHistory(command);
     }
 
     private static async Task DefaultCommandExecuted(SocketSlashCommand command)

@@ -1,5 +1,3 @@
-﻿namespace DonBot.Services.DiscordServices;
+namespace DonBot.Services.DiscordServices;
 
-public interface IDiscordApiService
-{
-}
+public interface IDiscordApiService;

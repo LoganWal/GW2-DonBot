@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace DonBot.Models.GuildWars2;
 
@@ -254,9 +255,31 @@ public struct Distribution
     public static implicit operator Distribution(double @double) => new() { Double = @double };
 }
 
+[JsonConverter(typeof(DefStatConverter))]
 public struct DefStat
 {
     public double? Double;
+    public string? String;
 
     public static implicit operator DefStat(double @double) => new() { Double = @double };
+    public static implicit operator DefStat(string @string) => new() { String = @string };
+}
+
+public class DefStatConverter : JsonConverter<DefStat>
+{
+    public override DefStat ReadJson(JsonReader reader, Type objectType, DefStat existingValue, bool hasExistingValue, JsonSerializer serializer)
+    {
+        var token = JToken.Load(reader);
+        return token.Type == JTokenType.String
+            ? new DefStat { String = token.Value<string>() }
+            : new DefStat { Double = token.Value<double?>() };
+    }
+
+    public override void WriteJson(JsonWriter writer, DefStat value, JsonSerializer serializer)
+    {
+        if (value.String != null)
+            writer.WriteValue(value.String);
+        else
+            writer.WriteValue(value.Double);
+    }
 }

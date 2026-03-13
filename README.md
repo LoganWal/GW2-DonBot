@@ -147,7 +147,7 @@ All per-guild settings are configured via `/gw2_server_config` (Administrator on
 
 - **.NET 10.0**, C#
 - **Discord.Net 3.18.0**
-- **Entity Framework Core 10.0.3** with SQL Server
+- **Entity Framework Core 10.0.3** with PostgreSQL (via Npgsql)
 - **Serilog**: structured logging to console and daily rolling files
 - **Microsoft.Extensions.Hosting**: supports Windows Service, Linux systemd, and Docker
 
@@ -171,6 +171,30 @@ dotnet publish -c Release -o ./publish
 | Variable                      | Description                    |
 |-------------------------------|--------------------------------|
 | `DonBotToken`                 | Discord bot token              |
-| `DonBotSqlConnectionString`   | SQL Server connection string   |
+| `DonBotSqlConnectionString`   | PostgreSQL connection string (e.g. `Host=localhost;Port=5432;Database=DonBot;Username=postgres;Password=yourpassword;`) |
+
+## Database Migrations
+
+Migrations are managed with EF Core. The app automatically applies pending migrations on startup.
+
+**First-time setup:**
+```bash
+dotnet ef database update --project GW2-DonBot/DonBot.csproj
+```
+
+**When you change an entity:**
+1. Edit the entity `.cs` file
+2. Generate a migration:
+   ```bash
+   dotnet ef migrations add DescriptiveName --project GW2-DonBot/DonBot.csproj
+   ```
+3. Commit the entity change and the generated migration file together
+
+The `dotnet-ef` tool must be installed:
+```bash
+dotnet tool install --global dotnet-ef
+```
+
+---
 
 `appsettings.json` is committed and contains base Serilog configuration. For local overrides, create `appsettings.user.json` in the project folder - it is loaded automatically and can override any setting from `appsettings.json`. Logs are written to `Logs/DonBot-*.txt` by default.

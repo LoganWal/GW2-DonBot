@@ -22,9 +22,9 @@
     <Content Include="appsettings.user.json" Condition="Exists('appsettings.user.json')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <EmbeddedResource Include="Resources\wordleWords.txt">
+    <Content Include="Resources\wordleWords.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </EmbeddedResource>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Discord.Net" Version="3.18.0" />

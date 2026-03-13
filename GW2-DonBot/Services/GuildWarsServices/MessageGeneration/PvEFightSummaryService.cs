@@ -31,7 +31,9 @@ public sealed class PvEFightSummaryService(
             : new ArcDpsPhase();
 
         var dateStartString = data.FightEliteInsightDataModel.Start;
-        var dateTimeStart = DateTime.ParseExact(dateStartString, "yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
+        var dateTimeStart = string.IsNullOrEmpty(dateStartString)
+            ? DateTime.UtcNow
+            : DateTime.ParseExact(dateStartString, "yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
 
         var duration = fightPhase.Duration;
         var sumAllTargets = true;

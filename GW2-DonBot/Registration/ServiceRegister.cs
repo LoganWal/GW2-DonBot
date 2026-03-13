@@ -79,7 +79,7 @@ public static class ServiceRegister
         {
             var secretService = serviceProvider.GetRequiredService<ISecretService>();
             var connectionString = secretService.FetchDonBotSqlConnectionString();
-            options.UseSqlServer(connectionString);
+            options.UseNpgsql(connectionString);
         });
 
         // HttpClient Factory for HTTP requests with default configuration

@@ -19,13 +19,12 @@ public sealed class WvWFightSummaryService(
     {
         var playerCount = 5;
 
-        // Building the actual message to be sent
         var logLength = data.FightEliteInsightDataModel.Phases?.FirstOrDefault()?.EncounterDuration.TimeToSeconds() ?? 0;
 
         var friendlyCount = data.FightEliteInsightDataModel.Players?.Count ?? 0;
         var squadMemberCount = data.FightEliteInsightDataModel.Players?.Count(s => !s.NotInSquad) ?? 0;
 
-        // remove one from target dummy
+        // Subtract one for the dummy PvP agent that ArcDPS always includes
         var enemyCount = (data.FightEliteInsightDataModel.Targets?.Count - 1) ?? 0;
         var enemyDamage = data.FightEliteInsightDataModel.Targets?
             .Sum(player => player.Details?.DmgDistributions?.Any() ?? false
@@ -70,7 +69,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             }
         }
 
-        // Battleground parsing
+        // Extract battleground name from the log name (last 15+ chars)
         var range = (int)MathF.Min(15, data.FightEliteInsightDataModel.LogName?.Length - 1 ?? 0)..;
         var rangeStart = range.Start.GetOffset(data.FightEliteInsightDataModel.LogName?.Length ?? 0);
         var rangeEnd = range.End.GetOffset(data.FightEliteInsightDataModel.LogName?.Length ?? 0);
@@ -97,7 +96,6 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
         battleGroundColor = battleGround.Contains("Eternal", StringComparison.OrdinalIgnoreCase) ? System.Drawing.Color.FromArgb(230, 231, 232) : battleGroundColor;
         battleGroundColor = battleGround.Contains("Edge", StringComparison.OrdinalIgnoreCase) ? System.Drawing.Color.FromArgb(193, 105, 79) : battleGroundColor;
 
-        // Embed content building
         var friendlyOverview = "```Who   Count   DMG      DPS     Downs   Deaths         \n";
         friendlyOverview += $"Ally  {friendlyCountStr.Trim(),-7}{string.Empty,1}{friendlyDamageStr.Trim(),-7}{string.Empty,2}{friendlyDpsStr.Trim(),-6}{string.Empty,2}{friendlyDownsStr.Trim(),-3}{string.Empty,5}{friendlyDeathsStr.Trim(),-3}\n";
         friendlyOverview += $"Foe   {enemyCountStr.Trim(),-3}{string.Empty,5}{enemyDamageStr.Trim(),-7}{string.Empty,2}{enemyDpsStr.Trim(),-6}{string.Empty,2}{enemyDownsStr.Trim(),-3}{string.Empty,5}{enemyDeathsStr.Trim(),-3}```";
@@ -171,7 +169,6 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             }
         }
 
-        // Building the message via embeds
         var message = new EmbedBuilder
         {
             Title = $"{battleGroundEmoji} Report (WvW) - {battleGround}\n",
@@ -198,7 +195,6 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
     public async Task<Embed> GenerateMessage(bool advancedLog, int playerCount, List<Gw2Player> gw2Players, EmbedBuilder message, long guildId, StatTotals? statTotals = null)
     {
-        // Damage overview
         var damageOverview = "```#    Name                   Damage    Down C\n";
 
         var maxDamage = -1.0f;
@@ -221,13 +217,12 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                 maxDownContribution = downContribution;
             }
 
-            damageOverview += $"{damageIndex.ToString().PadLeft(2, '0')}{string.Empty,3}{(name + EliteInsightExtensions.GetClassAppend(prof)).ClipAt(ArcDpsDataIndices.NameSizeLength),-ArcDpsDataIndices.NameSizeLength}{string.Empty,2}{damageFloat.FormatNumber(maxDamage),-8}{string.Empty,2}{downContribution.FormatNumber(maxDownContribution),-7}\n";
+            damageOverview += $"{damageIndex.ToString().PadLeft(2, '0')}{string.Empty,3}{(name + EliteInsightExtensions.GetClassAppend(prof)).ClipAt(DiscordDisplayConstants.PlayerNameWidth),-DiscordDisplayConstants.PlayerNameWidth}{string.Empty,2}{damageFloat.FormatNumber(maxDamage),-8}{string.Empty,2}{downContribution.FormatNumber(maxDownContribution),-7}\n";
             damageIndex++;
         }
 
         damageOverview += "```";
 
-        // Cleanse overview
         var cleanseOverview = $"```#    Name                   Cleanses\n";
 
         var topCleanses = gw2Players.OrderByDescending(s => s.Cleanses).Take(playerCount).ToList();
@@ -238,13 +233,12 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             var name = !string.IsNullOrEmpty(gw2Player.CharacterName) ? gw2Player.CharacterName : gw2Player.AccountName;
             var prof = gw2Player.Profession;
 
-            cleanseOverview += $"{cleanseIndex.ToString().PadLeft(2, '0')}{string.Empty,3}{(name + EliteInsightExtensions.GetClassAppend(prof)).ClipAt(ArcDpsDataIndices.NameSizeLength),-ArcDpsDataIndices.NameSizeLength}{string.Empty,2}{cleanses.ToString(CultureInfo.InvariantCulture),-5}\n";
+            cleanseOverview += $"{cleanseIndex.ToString().PadLeft(2, '0')}{string.Empty,3}{(name + EliteInsightExtensions.GetClassAppend(prof)).ClipAt(DiscordDisplayConstants.PlayerNameWidth),-DiscordDisplayConstants.PlayerNameWidth}{string.Empty,2}{cleanses.ToString(CultureInfo.InvariantCulture),-5}\n";
             cleanseIndex++;
         }
 
         cleanseOverview += "```";
 
-        // Strip overview
         var stripOverview = "```#    Name                   Strips\n";
 
         var topStrips = gw2Players.OrderByDescending(s => s.Strips).Take(playerCount).ToList();
@@ -255,13 +249,12 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             var name = !string.IsNullOrEmpty(gw2Player.CharacterName) ? gw2Player.CharacterName : gw2Player.AccountName;
             var prof = gw2Player.Profession;
 
-            stripOverview += $"{stripIndex.ToString().PadLeft(2, '0')}{string.Empty,3}{(name + EliteInsightExtensions.GetClassAppend(prof)).ClipAt(ArcDpsDataIndices.NameSizeLength),-ArcDpsDataIndices.NameSizeLength}{string.Empty,2}{strips.ToString(CultureInfo.InvariantCulture),-5}\n";
+            stripOverview += $"{stripIndex.ToString().PadLeft(2, '0')}{string.Empty,3}{(name + EliteInsightExtensions.GetClassAppend(prof)).ClipAt(DiscordDisplayConstants.PlayerNameWidth),-DiscordDisplayConstants.PlayerNameWidth}{string.Empty,2}{strips.ToString(CultureInfo.InvariantCulture),-5}\n";
             stripIndex++;
         }
 
         stripOverview += "```";
 
-        // Stab overview
         var stabOverview = "```#    Name                   Sub  S(on)  S(off)                                                                 \n";
 
         var topStabs = gw2Players.OrderByDescending(s => s.StabOnGroup).Take(playerCount).ToList();
@@ -275,7 +268,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             var name = !string.IsNullOrEmpty(gw2Player.CharacterName) ? gw2Player.CharacterName : gw2Player.AccountName;
             var prof = gw2Player.Profession;
 
-            stabOverview += $"{stabIndex.ToString().PadLeft(2, '0')}{string.Empty,3}{(name + EliteInsightExtensions.GetClassAppend(prof)).ClipAt(ArcDpsDataIndices.NameSizeLength),-ArcDpsDataIndices.NameSizeLength}{string.Empty,2}{sub,-3}{string.Empty,2}{(Math.Round(stabOnGroup, 2)),-5}{string.Empty,2}{(Math.Round(stabOffGroup, 2)),-5}\n";
+            stabOverview += $"{stabIndex.ToString().PadLeft(2, '0')}{string.Empty,3}{(name + EliteInsightExtensions.GetClassAppend(prof)).ClipAt(DiscordDisplayConstants.PlayerNameWidth),-DiscordDisplayConstants.PlayerNameWidth}{string.Empty,2}{sub,-3}{string.Empty,2}{(Math.Round(stabOnGroup, 2)),-5}{string.Empty,2}{(Math.Round(stabOffGroup, 2)),-5}\n";
             stabIndex++;
         }
 
@@ -291,7 +284,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             var name = !string.IsNullOrEmpty(gw2Player.CharacterName) ? gw2Player.CharacterName : gw2Player.AccountName;
             var prof = gw2Player.Profession;
 
-            healingOverview += $"{healingIndex.ToString().PadLeft(2, '0')}{string.Empty,3}{(name + EliteInsightExtensions.GetClassAppend(prof)).ClipAt(ArcDpsDataIndices.NameSizeLength),-ArcDpsDataIndices.NameSizeLength}{string.Empty,2}{healing.FormatNumber().ToString(CultureInfo.InvariantCulture),-16}\n";
+            healingOverview += $"{healingIndex.ToString().PadLeft(2, '0')}{string.Empty,3}{(name + EliteInsightExtensions.GetClassAppend(prof)).ClipAt(DiscordDisplayConstants.PlayerNameWidth),-DiscordDisplayConstants.PlayerNameWidth}{string.Empty,2}{healing.FormatNumber().ToString(CultureInfo.InvariantCulture),-16}\n";
             healingIndex++;
         }
 
@@ -312,7 +305,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                 var name = !string.IsNullOrEmpty(gw2Player.CharacterName) ? gw2Player.CharacterName : gw2Player.AccountName;
                 var prof = gw2Player.Profession;
 
-                barrierOverview += $"{barrierIndex.ToString().PadLeft(2, '0')}{string.Empty,3}{(name + EliteInsightExtensions.GetClassAppend(prof)).ClipAt(ArcDpsDataIndices.NameSizeLength),-ArcDpsDataIndices.NameSizeLength}{string.Empty,2}{barrier.FormatNumber().ToString(CultureInfo.InvariantCulture)}\n";
+                barrierOverview += $"{barrierIndex.ToString().PadLeft(2, '0')}{string.Empty,3}{(name + EliteInsightExtensions.GetClassAppend(prof)).ClipAt(DiscordDisplayConstants.PlayerNameWidth),-DiscordDisplayConstants.PlayerNameWidth}{string.Empty,2}{barrier.FormatNumber().ToString(CultureInfo.InvariantCulture)}\n";
                 barrierIndex++;
             }
             barrierOverview += "```";
@@ -325,7 +318,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                 var name = !string.IsNullOrEmpty(gw2Player.CharacterName) ? gw2Player.CharacterName : gw2Player.AccountName;
                 var prof = gw2Player.Profession;
 
-                distanceOverview += $"{distanceIndex.ToString().PadLeft(2, '0')}{string.Empty,3}{(name + EliteInsightExtensions.GetClassAppend(prof)).ClipAt(ArcDpsDataIndices.NameSizeLength),-ArcDpsDataIndices.NameSizeLength}{string.Empty,3}{distance.ToString(CultureInfo.InvariantCulture)}\n";
+                distanceOverview += $"{distanceIndex.ToString().PadLeft(2, '0')}{string.Empty,3}{(name + EliteInsightExtensions.GetClassAppend(prof)).ClipAt(DiscordDisplayConstants.PlayerNameWidth),-DiscordDisplayConstants.PlayerNameWidth}{string.Empty,3}{distance.ToString(CultureInfo.InvariantCulture)}\n";
                 distanceIndex++;
             }
             distanceOverview += "```";
@@ -338,7 +331,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                 var name = !string.IsNullOrEmpty(gw2Player.CharacterName) ? gw2Player.CharacterName : gw2Player.AccountName;
                 var prof = gw2Player.Profession;
 
-                timesDownedOverview += $"{timesDownedIndex.ToString().PadLeft(2, '0')}{string.Empty,3}{(name + EliteInsightExtensions.GetClassAppend(prof)).ClipAt(ArcDpsDataIndices.NameSizeLength),-ArcDpsDataIndices.NameSizeLength}{string.Empty,2}{timesDowned.ToString(CultureInfo.InvariantCulture)}\n";
+                timesDownedOverview += $"{timesDownedIndex.ToString().PadLeft(2, '0')}{string.Empty,3}{(name + EliteInsightExtensions.GetClassAppend(prof)).ClipAt(DiscordDisplayConstants.PlayerNameWidth),-DiscordDisplayConstants.PlayerNameWidth}{string.Empty,2}{timesDowned.ToString(CultureInfo.InvariantCulture)}\n";
                 timesDownedIndex++;
             }
 
@@ -437,10 +430,10 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             IconUrl = "https://i.imgur.com/tQ4LD6H.png"
         };
 
-        // Timestamp
+        footerService.AddInviteLink(message);
+
         message.Timestamp = DateTime.Now;
 
-        // Building the message for use
         return message.Build();
     }
 }

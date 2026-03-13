@@ -6,6 +6,9 @@ public class FightEliteInsightDataModel
 {
     [JsonProperty("url")]
     public string Url { get; set; } = string.Empty;
+    
+    [JsonProperty("boons")]
+    public List<int> Boons { get; set; } = new();
 
     [JsonProperty("targets")]
     public List<ArcDpsTarget>? Targets { get; set; }

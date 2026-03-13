@@ -9,13 +9,7 @@ public interface IMessageGenerationService
 {
     public Task<Embed> GenerateWvWFightSummary(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client);
 
-    public Task<Embed> GenerateWvWPlayerReport(Guild guildConfiguration);
-
     public Task<Embed> GeneratePvEFightSummary(EliteInsightDataModel data, long guildId);
-
-    public Task<Embed> GenerateWvWPlayerSummary(Guild gw2Guild);
-
-    public Task<Embed> GenerateWvWActivePlayerSummary(Guild gw2Guild, string fightLogUrl);
 
     public Task<List<Embed>?> GenerateRaidReport(FightsReport fightsReport, long guildId);
 

@@ -21,4 +21,10 @@ public class ScheduledEvent
     public long? MessageId { get; set; }
 
     public DateTime UtcEventTime { get; set; }
+
+    public short EventType { get; set; } = 0;
+
+    public long? RoleId { get; set; }
+
+    public short RepeatIntervalDays { get; set; } = 7;
 }

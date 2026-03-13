@@ -2,6 +2,7 @@ using Discord;
 using Discord.WebSocket;
 using DonBot.Models.Statics;
 using DonBot.Services.DatabaseServices;
+using DonBot.Services.DiscordServices;
 using DonBot.Services.GuildWarsServices;
 using Microsoft.Extensions.Logging;
 
@@ -12,17 +13,45 @@ public class DiscordButtonHandler(
     IEntityService entityService,
     IRaffleCommandsService raffleCommandsService,
     IPointsCommandsService pointsCommandsService,
-    IFightLogService fightLogService)
+    IFightLogService fightLogService,
+    DiscordMessageHandler discordMessageHandler,
+    IPendingLogService pendingLogService)
 {
     private static readonly SemaphoreSlim Semaphore = new(1, 1);
 
     public async Task ButtonExecutedAsync(SocketMessageComponent buttonComponent)
     {
+        var customId = buttonComponent.Data.CustomId;
+
+        // Fire-and-forget: frees the event dispatch thread while DeferAsync runs on the thread pool,
+        // well inside Discord's 3-second acknowledgement window.
+        if (customId.StartsWith(ButtonId.PostLogsWingmanYesPrefix))
+        {
+            _ = HandlePostLogsWingmanChoice(buttonComponent, customId, true);
+            return;
+        }
+
+        if (customId.StartsWith(ButtonId.PostLogsWingmanNoPrefix))
+        {
+            _ = HandlePostLogsWingmanChoice(buttonComponent, customId, false);
+            return;
+        }
+
+        if (customId.StartsWith(ButtonId.PostLogsPrefix))
+        {
+            _ = HandlePostLogs(buttonComponent, customId);
+            return;
+        }
+
+        if (customId.StartsWith(ButtonId.DismissLogsPrefix))
+        {
+            _ = HandleDismissLogs(buttonComponent, customId);
+            return;
+        }
+
         await Semaphore.WaitAsync();
         try
         {
-            var customId = buttonComponent.Data.CustomId;
-
             if (customId.StartsWith("join_"))
             {
                 await HandleEventButton(buttonComponent, "✅ Roster");
@@ -34,6 +63,10 @@ public class DiscordButtonHandler(
             else if (customId.StartsWith("canfill_"))
             {
                 await HandleEventButton(buttonComponent, "🛠️ Fillers");
+            }
+            else if (customId.StartsWith("willlate_"))
+            {
+                await HandleEventButton(buttonComponent, "⏰ Will Be Late");
             }
             else
             {
@@ -86,11 +119,110 @@ public class DiscordButtonHandler(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error handling button interaction with CustomId: {CustomId}", buttonComponent.Data.CustomId);
+            logger.LogError(ex, "Error handling button interaction with CustomId: {CustomId}", customId);
         }
         finally
         {
             Semaphore.Release();
+        }
+    }
+
+    private async Task HandlePostLogs(SocketMessageComponent buttonComponent, string customId)
+    {
+        try
+        {
+            var key = customId[ButtonId.PostLogsPrefix.Length..];
+            var state = pendingLogService.TryPeek(key);
+            if (state == null)
+            {
+                await buttonComponent.RespondAsync("This log request has expired or was already handled.", ephemeral: true);
+                return;
+            }
+
+            if (buttonComponent.User.Id != state.UploaderId)
+            {
+                await buttonComponent.RespondAsync("Only the log uploader can post this summary.", ephemeral: true);
+                return;
+            }
+
+            var yesButton = new ButtonBuilder()
+                .WithLabel("Yes")
+                .WithCustomId($"{ButtonId.PostLogsWingmanYesPrefix}{key}")
+                .WithStyle(ButtonStyle.Success);
+            var noButton = new ButtonBuilder()
+                .WithLabel("No")
+                .WithCustomId($"{ButtonId.PostLogsWingmanNoPrefix}{key}")
+                .WithStyle(ButtonStyle.Secondary);
+            var components = new ComponentBuilder()
+                .WithButton(yesButton)
+                .WithButton(noButton)
+                .Build();
+
+            await buttonComponent.UpdateAsync(msg =>
+            {
+                msg.Content = "Also submit to Wingman?";
+                msg.Components = components;
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error handling post logs button: {CustomId}", customId);
+        }
+    }
+
+    private async Task HandlePostLogsWingmanChoice(SocketMessageComponent buttonComponent, string customId, bool submitToWingman)
+    {
+        try
+        {
+            var prefix = submitToWingman ? ButtonId.PostLogsWingmanYesPrefix : ButtonId.PostLogsWingmanNoPrefix;
+            var key = customId[prefix.Length..];
+            var state = pendingLogService.TryConsume(key);
+            if (state == null)
+            {
+                await buttonComponent.RespondAsync("This log request has expired or was already handled.", ephemeral: true);
+                return;
+            }
+
+            if (buttonComponent.User.Id != state.UploaderId)
+            {
+                await buttonComponent.RespondAsync("Only the log uploader can post this summary.", ephemeral: true);
+                return;
+            }
+
+            await discordMessageHandler.ProcessAndPostLogsAsync(buttonComponent, state, submitToWingman);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error handling post logs wingman choice button: {CustomId}", customId);
+        }
+    }
+
+    private async Task HandleDismissLogs(SocketMessageComponent buttonComponent, string customId)
+    {
+        try
+        {
+            var key = customId[ButtonId.DismissLogsPrefix.Length..];
+            var state = pendingLogService.TryConsume(key);
+            if (state == null)
+            {
+                await buttonComponent.RespondAsync("This log request has expired or was already handled.", ephemeral: true);
+                return;
+            }
+
+            if (buttonComponent.User.Id != state.UploaderId)
+            {
+                await buttonComponent.RespondAsync("Only the log uploader can dismiss this.", ephemeral: true);
+                return;
+            }
+
+            // Type 6 (DeferredUpdateMessage): silently ACKs the interaction without creating a response,
+            // so DeleteOriginalResponseAsync is not needed.
+            await buttonComponent.DeferAsync(ephemeral: true);
+            await buttonComponent.Message.DeleteAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error handling dismiss logs button: {CustomId}", customId);
         }
     }
 
@@ -179,6 +311,7 @@ public class DiscordButtonHandler(
         "✅ Roster" => "No one has joined yet.",
         "❌ Can't Join" => "No one has declined yet.",
         "🛠️ Fillers" => "No fillers yet.",
+        "⏰ Will Be Late" => "No one will be late.",
         _ => string.Empty
     };
 }

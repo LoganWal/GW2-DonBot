@@ -18,7 +18,6 @@ public sealed class RaffleCommandsService(
 {
     public async Task CreateRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
     {
-        // Get the user who executed the command
         SocketGuildUser? guildUser = null;
         if (command.GuildId.HasValue)
         {
@@ -36,7 +35,6 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Fetch guild information from the database
         var guild = await entityService.Guild.GetFirstOrDefaultAsync(g => g.GuildId == (long)guildUser.Guild.Id);
 
         if (guild == null)
@@ -57,7 +55,6 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Check for existing active raffles
         var activeRaffleExists = await entityService.Raffle.IfAnyAsync(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId);
 
         if (activeRaffleExists)
@@ -66,7 +63,6 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Create and send the raffle message
         var message = new EmbedBuilder()
         {
             Title = "Raffle!",
@@ -171,7 +167,6 @@ public sealed class RaffleCommandsService(
 
     public async Task CreateEventRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
     {
-        // Get the user who executed the command
         SocketGuildUser? guildUser;
         try
         {
@@ -197,10 +192,9 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Get the guild from the database
         var guilds = await entityService.Guild.GetAllAsync();
         var guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
-            
+
         if (guild == null)
         {
             await command.FollowupAsync("Cannot find the discord this should apply to, try the command in the discord you want the raffle in!", ephemeral: true);
@@ -219,7 +213,6 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Check if there is already an active event raffle
         var raffles = await entityService.Raffle.GetAllAsync();
         if (raffles.Any(raf => raf is { IsActive: true, RaffleType: (int)RaffleTypeEnum.Event } && raf.GuildId == guild.GuildId))
         {
@@ -227,7 +220,6 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Build the message for the raffle
         var message = new EmbedBuilder
         {
             Title = "EVENT Raffle!\n",
@@ -244,7 +236,6 @@ public sealed class RaffleCommandsService(
                 Text = $"{await footerService.Generate(guild.GuildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             },
-            // Timestamp
             Timestamp = DateTime.Now
         };
 
@@ -257,7 +248,6 @@ public sealed class RaffleCommandsService(
             .WithButton("Random!", ButtonId.RaffleEventRandom, ButtonStyle.Success)
             .Build();
 
-        // Create the raffle in the database
         var raffle = new Raffle
         {
             Description = $"{command.Data.Options.First().Value}",
@@ -268,7 +258,6 @@ public sealed class RaffleCommandsService(
 
         await entityService.Raffle.AddAsync(raffle);
 
-        // Send to target channel with components
         await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: [message.Build()], components: buttonBuilder);
 
         await command.FollowupAsync("Created!", ephemeral: true);
@@ -276,27 +265,23 @@ public sealed class RaffleCommandsService(
 
     public async Task RaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
     {
-        // Parse the points to spend from the command options
         if (!int.TryParse(command.Data.Options.First().Value.ToString(), out var pointsToSpend))
         {
             await command.FollowupAsync("Please try again and enter a valid number.", ephemeral: true);
             return;
         }
 
-        // Check if the points to spend is greater than 0
         if (pointsToSpend <= 0)
         {
             await command.FollowupAsync("Need to spend at least 1 point.", ephemeral: true);
             return;
         }
 
-        // Check if the command was executed in a guild
         if (!command.GuildId.HasValue) {
             await command.FollowupAsync("Failed to create raffle, make sure to use this command within a discord server.", ephemeral: true);
             return;
         }
 
-        // Get the user who executed the command
         var guildUser = discordClient.GetGuild(command.GuildId.Value)?.GetUser(command.User.Id);
         if (guildUser == null)
         {
@@ -304,7 +289,6 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Get the guild from the database
         var guild = await entityService.Guild.GetFirstOrDefaultAsync(g => g.GuildId == (long)guildUser.Guild.Id);
         if (guild == null)
         {
@@ -312,7 +296,6 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Get the current active raffle from the database
         var currentRaffle = await entityService.Raffle.GetFirstOrDefaultAsync(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId);
         if (currentRaffle == null)
         {
@@ -320,7 +303,6 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Get the account of the user from the database
         var account = await entityService.Account.GetFirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
         if (account == null)
         {
@@ -335,24 +317,20 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Check if the account has enough points to spend
         if (account.AvailablePoints < pointsToSpend)
         {
             await command.FollowupAsync($"You do not have enough points for that, you currently have {account.AvailablePoints} points to spend.", ephemeral: true);
             return;
         }
 
-        // Get the current bid of the user from the database
         var currentBid = await entityService.PlayerRaffleBid.GetFirstOrDefaultAsync(bid => bid.RaffleId == currentRaffle.Id && bid.DiscordId == account.DiscordId);
         if (currentBid != null)
         {
-            // If the user has already bid, increase the points spent
             currentBid.PointsSpent += pointsToSpend;
             await entityService.PlayerRaffleBid.UpdateAsync(currentBid);
         }
         else
         {
-            // If the user has not bid yet, create a new bid
             currentBid = new PlayerRaffleBid
             {
                 RaffleId = currentRaffle.Id,
@@ -363,31 +341,26 @@ public sealed class RaffleCommandsService(
             await entityService.PlayerRaffleBid.AddAsync(currentBid);
         }
 
-        // Decrease the available points of the account
         account.AvailablePoints -= pointsToSpend;
         await entityService.Account.UpdateAsync(account);
 
-        // Respond to the command with the points added
         await command.FollowupAsync($"Added {pointsToSpend} points!{Environment.NewLine}Total points in current raffle is: {currentBid.PointsSpent}", ephemeral: true);
     }
 
     public async Task EventRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
     {
-        // Parse the points to spend from the command options
         if (!int.TryParse(command.Data.Options.First().Value.ToString(), out var pointsToSpend))
         {
             await command.FollowupAsync("Please try again and enter a valid number.", ephemeral: true);
             return;
         }
 
-        // Check if the points to spend is greater than zero
         if (pointsToSpend <= 0)
         {
             await command.FollowupAsync("Need to spend at least 1 point.", ephemeral: true);
             return;
         }
 
-        // Get the guild user who executed the command
         SocketGuildUser? guildUser;
         try
         {
@@ -400,30 +373,24 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Get the guild from the database
         var guilds = await entityService.Guild.GetAllAsync();
         var guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
 
-        // Check if the guild exists
         if (guild == null)
         {
             await command.FollowupAsync("This message does not appear to be apart of a server, are you messaging in a server where the bot is running?", ephemeral: true);
             return;
         }
 
-        // Get the current event raffle
         var raffles = await entityService.Raffle.GetAllAsync();
         var currentRaffle = raffles.FirstOrDefault(raf => raf is { IsActive: true, RaffleType: (int)RaffleTypeEnum.Event } && raf.GuildId == guild.GuildId);
 
-        // Check if there is an active event raffle
         if (currentRaffle == null)
         {
             await command.FollowupAsync("There are currently no raffles.", ephemeral: true);
             return;
         }
 
-        // Get the account of the user who executed the command
-        // Get the account of the user from the database
         var account = await entityService.Account.GetFirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
         if (account == null)
         {
@@ -438,18 +405,15 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Check if the user has enough points to spend
         if (account.AvailablePoints < pointsToSpend)
         {
             await command.FollowupAsync($"You do not have enough points for that, you currently have {account.AvailablePoints} points to spend.", ephemeral: true);
             return;
         }
 
-        // Get the current bid of the user for the current event raffle
         var bids = await entityService.PlayerRaffleBid.GetAllAsync();
         var currentBid = bids.FirstOrDefault(bid => bid.RaffleId == currentRaffle.Id && bid.DiscordId == account.DiscordId);
 
-        // Update the current bid or create a new one if it doesn't exist
         if (currentBid != null)
         {
             currentBid.PointsSpent += pointsToSpend;
@@ -467,17 +431,14 @@ public sealed class RaffleCommandsService(
             await entityService.PlayerRaffleBid.AddAsync(currentBid);
         }
 
-        // Update the available points of the user and save changes to the database
         account.AvailablePoints -= pointsToSpend;
         await entityService.Account.UpdateAsync(account);
 
-        // Send a response with the points spent and the total points in the current event raffle
         await command.FollowupAsync($"Added {pointsToSpend} points!{Environment.NewLine}Total points in current event raffle is: {currentBid.PointsSpent}", ephemeral: true);
     }
 
     public async Task CompleteRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
     {
-        // Get the guild user who executed the command
         SocketGuildUser? guildUser;
         try
         {
@@ -490,7 +451,6 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Get the guild from the database
         var guilds = await entityService.Guild.GetAllAsync();
         var guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
 
@@ -499,7 +459,6 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Get the active raffle for the guild
         var raffles = await entityService.Raffle.GetAllAsync();
         var currentRaffle = raffles.FirstOrDefault(raf => raf is { IsActive: true, RaffleType: (int)RaffleTypeEnum.Normal } && raf.GuildId == guild.GuildId);
 
@@ -509,7 +468,6 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Get all the bids for the current raffle
         var bids = await entityService.PlayerRaffleBid.GetAllAsync();
         var currentRaffleBids = bids.Where(bid => bid.RaffleId == currentRaffle.Id)
             .GroupBy(bid => bid.DiscordId)
@@ -517,24 +475,20 @@ public sealed class RaffleCommandsService(
             .OrderByDescending(bid => bid.PointsSpent)
             .ToList();
 
-        // Calculate the total number of points spent on the raffle
         var totalBids = Convert.ToInt32(currentRaffleBids.Sum(bid => bid.PointsSpent)) + 1;
 
-        // Pick a random number between 1 and the total number of points spent
         var random = new Random();
         var pickedBid = random.Next(1, totalBids);
 
         Account? account = null;
         var rollingTotal = 0m;
 
-        // Loop through the bids until the picked bid is reached
         foreach (var currentRaffleBid in currentRaffleBids)
         {
             rollingTotal += currentRaffleBid.PointsSpent;
 
             if (pickedBid < rollingTotal)
             {
-                // Get the account associated with the winning bid
                 account = await entityService.Account.GetFirstOrDefaultAsync(a => a.DiscordId == currentRaffleBid.DiscordId);
                 break;
             }
@@ -566,7 +520,6 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Create a string to hold the top 3 bidders' details
         var topBidders = new StringBuilder("Top 3 Bidders:\n");
 
         foreach (var bidder in currentRaffleBids.Take(3))
@@ -576,11 +529,9 @@ public sealed class RaffleCommandsService(
             topBidders.AppendLine($"<@{bidder.DiscordId}> ({accountNames}) - Bid: {bidder.PointsSpent} points");
         }
 
-        // Get account names for the winning bidder
         var winnerGw2Accounts = await entityService.GuildWarsAccount.GetWhereAsync(s => s.DiscordId == account.DiscordId);
         var winnerAccountNames = string.Join(", ", winnerGw2Accounts.Where(s => !string.IsNullOrEmpty(s.GuildWarsAccountName)).Select(s => s.GuildWarsAccountName).ToList());
 
-        // Build the message to announce the winner
         var message = new EmbedBuilder
         {
             Title = "Raffle!\n",
@@ -602,35 +553,27 @@ public sealed class RaffleCommandsService(
 
         var builtMessage = message.Build();
 
-        // Set the raffle to inactive
         currentRaffle.IsActive = false;
 
         await entityService.Raffle.UpdateAsync(currentRaffle);
-
-        // Send the message to the webhook
         await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: [builtMessage]);
-
-        // Modify the original response to indicate success
         await command.FollowupAsync("Selected!", ephemeral: true);
     }
 
     public async Task CompleteEventRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
     {
-        // Parse the number of winners from the command options
         if (!int.TryParse(command.Data.Options.First().Value.ToString(), out var winnersCount))
         {
             await command.FollowupAsync("Please try again and enter a valid number.", ephemeral: true);
             return;
         }
 
-        // Check that the number of winners is valid
         if (winnersCount <= 0)
         {
             await command.FollowupAsync("Must be at least 1 winner.", ephemeral: true);
             return;
         }
 
-        // Get the guild user who executed the command
         SocketGuildUser? guildUser;
         try
         {
@@ -645,7 +588,6 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Get the guild from the database
         var guilds = await entityService.Guild.GetAllAsync();
         var guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
 
@@ -657,12 +599,10 @@ public sealed class RaffleCommandsService(
         var accounts = await entityService.Account.GetAllAsync();
         var gw2Accounts = await entityService.GuildWarsAccount.GetAllAsync();
 
-        // Check if there is an active event raffle for the guild
         var raffles = await entityService.Raffle.GetAllAsync();
         var currentRaffle = raffles.FirstOrDefault(raf => raf is { IsActive: true, RaffleType: (int)RaffleTypeEnum.Event } && raf.GuildId == guild.GuildId);
         if (currentRaffle != null)
         {
-            // Get all the bids for the current raffle
             var bids = await entityService.PlayerRaffleBid.GetAllAsync();
             var currentRaffleBids = bids.Where(bid => bid.RaffleId == currentRaffle.Id)
                 .GroupBy(bid => bid.DiscordId)
@@ -672,7 +612,6 @@ public sealed class RaffleCommandsService(
 
             var totalBids = Convert.ToInt32(currentRaffleBids.Sum(bid => bid.PointsSpent)) + 1;
 
-            // Create a string to hold the top 3 bidders' details
             var topBidders = new StringBuilder("Top 3 Bidders:\n");
 
             foreach (var bidder in currentRaffleBids.Take(3))
@@ -682,7 +621,6 @@ public sealed class RaffleCommandsService(
                 topBidders.AppendLine($"<@{bidder.DiscordId}> ({accountNames}) - Bid: {bidder.PointsSpent} points");
             }
 
-            // Pick the winners
             var winners = new List<Tuple<long, string, decimal>>();
             for (var i = 0; i < winnersCount; i++)
             {
@@ -695,7 +633,6 @@ public sealed class RaffleCommandsService(
                     rollingTotal += currentRaffleBid.PointsSpent;
                     if (pickedBid < rollingTotal)
                     {
-                        // Get the account of the winner
                         var account = accounts.FirstOrDefault(a => a.DiscordId == currentRaffleBid.DiscordId);
 
                         if (account == null)
@@ -714,7 +651,6 @@ public sealed class RaffleCommandsService(
                 }
             }
 
-            // Build the message to announce the winners and the top 3 bidders
             if (guild.AnnouncementChannelId == null)
             {
                 await command.FollowupAsync("No Announcement Channel Set", ephemeral: true);
@@ -756,14 +692,9 @@ public sealed class RaffleCommandsService(
 
             var builtMessage = message.Build();
 
-            // Update the raffle to be inactive
             currentRaffle.IsActive = false;
             await entityService.Raffle.UpdateAsync(currentRaffle);
-
-            // Send the message announcing the winners and top 3 bidders to the webhook
             await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: [builtMessage]);
-
-            // Modify the original response to indicate that the command was successful
             await command.FollowupAsync("Raffle completed!", ephemeral: true);
         }
         else
@@ -774,7 +705,6 @@ public sealed class RaffleCommandsService(
 
     public async Task ReopenRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
     {
-        // Get the guild user
         SocketGuildUser? guildUser;
         try
         {
@@ -794,18 +724,15 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Get the guild
         var guilds = await entityService.Guild.GetAllAsync();
         var guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
 
-        // Check if the guild is null
         if (guild == null)
         {
             await command.FollowupAsync("This message does not belong to a discord server, please don't whisper me,", ephemeral: true);
             return;
         }
 
-        // Check if there is already an open raffle
         var raffles = await entityService.Raffle.GetAllAsync();
         if (raffles.FirstOrDefault(raf => raf is { IsActive: true, RaffleType: (int)RaffleTypeEnum.Normal } && raf.GuildId == guild.GuildId) != null)
         {
@@ -813,7 +740,6 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Get the latest raffle
         var latestRaffle = raffles.Where(raffle => raffle.RaffleType == (int)RaffleTypeEnum.Normal && raffle.GuildId == guild.GuildId).MaxBy(raffle => raffle.Id);
         if (latestRaffle != null)
         {
@@ -837,7 +763,6 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Build the message
         var message = new EmbedBuilder
         {
             Title = "Raffle!\n",
@@ -854,26 +779,18 @@ public sealed class RaffleCommandsService(
                 Text = $"{await footerService.Generate(guild.GuildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             },
-            // Timestamp
             Timestamp = DateTime.Now
         };
 
-        // Building the message for use
         var builtMessage = message.Build();
 
-        // Update the latest raffle
         await entityService.Raffle.UpdateAsync(latestRaffle);
-
-        // Send the message to the webhook
         await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: [builtMessage]);
-
-        // Modify the original response to indicate success
         await command.FollowupAsync("Reopened!", ephemeral: true);
     }
 
     public async Task ReopenEventRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
     {
-        // Get the guild user
         SocketGuildUser? guildUser;
         try
         {
@@ -893,18 +810,15 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Get the guild
         var guilds = await entityService.Guild.GetAllAsync();
         var guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
 
-        // If the guild is null, return an error message
         if (guild == null)
         {
             await command.FollowupAsync("This message does not belong to a discord server, please don't whisper me,", ephemeral: true);
             return;
         }
 
-        // Check if there is already an open event raffle
         var raffles = await entityService.Raffle.GetAllAsync();
         if (raffles.FirstOrDefault(raf => raf is { IsActive: true, RaffleType: (int)RaffleTypeEnum.Event } && raf.GuildId == guild.GuildId) != null)
         {
@@ -912,17 +826,14 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Get the latest event raffle
         var latestRaffle = raffles.Where(raffle => raffle.RaffleType == (int)RaffleTypeEnum.Event && raffle.GuildId == guild.GuildId).MaxBy(raffle => raffle.Id);
 
-        // If there is no latest event raffle, return an error message
         if (latestRaffle == null)
         {
             await command.FollowupAsync("There is currently no latest raffle, maybe create one!", ephemeral: true);
             return;
         }
 
-        // Set the latest event raffle to active
         latestRaffle.IsActive = true;
 
         if (guild.AnnouncementChannelId == null)
@@ -937,7 +848,6 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Build the message for the event raffle
         var message = new EmbedBuilder
         {
             Title = "EVENT Raffle!\n",
@@ -954,35 +864,24 @@ public sealed class RaffleCommandsService(
                 Text = $"{await footerService.Generate(guild.GuildId)}",
                 IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             },
-            // Timestamp
             Timestamp = DateTime.Now
         };
 
-        // Building the message for use
         var builtMessage = message.Build();
 
-        // Update the database with the latest event raffle
         await entityService.Raffle.UpdateAsync(latestRaffle);
-
-        // Send the message to the webhook
         await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: [builtMessage]);
-
-        // Modify the original response to show that the event raffle has been reopened
         await command.FollowupAsync("Reopened!", ephemeral: true);
     }
 
     private async Task HandleRaffleEnter(SocketMessageComponent command, int pointsToSpend)
     {
-        // Ensure it's a guild-based button interaction
         if (command.Channel is not SocketGuildChannel guildChannel)
         {
             return;
         }
 
-        // Get GuildUser
         var guildUser = guildChannel.GetUser(command.User.Id);
-
-        // Get the guild from the database
         var guild = await entityService.Guild.GetFirstOrDefaultAsync(g => g.GuildId == (long)guildUser.Guild.Id);
         if (guild == null)
         {
@@ -990,7 +889,6 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Get the current active raffle from the database
         var currentRaffle = await entityService.Raffle.GetFirstOrDefaultAsync(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId);
         if (currentRaffle == null)
         {
@@ -998,7 +896,6 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        // Get the account of the user from the database
         var account = await entityService.Account.GetFirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
         if (account == null)
         {
@@ -1025,24 +922,20 @@ public sealed class RaffleCommandsService(
             pointsToSpend = new Random().Next(1, Convert.ToInt32(Math.Floor(account.AvailablePoints)));
         }
 
-        // Check if the user has enough points to spend
         if (account.AvailablePoints < pointsToSpend)
         {
             await command.FollowupAsync(errorMessage, ephemeral: true);
             return;
         }
 
-        // Get the current bid of the user from the database
         var currentBid = await entityService.PlayerRaffleBid.GetFirstOrDefaultAsync(bid => bid.RaffleId == currentRaffle.Id && bid.DiscordId == account.DiscordId);
         if (currentBid != null)
         {
-            // If the user has already bid, increase the points spent
             currentBid.PointsSpent += pointsToSpend;
             await entityService.PlayerRaffleBid.UpdateAsync(currentBid);
         }
         else
         {
-            // If the user has not bid yet, create a new bid
             currentBid = new PlayerRaffleBid
             {
                 RaffleId = currentRaffle.Id,
@@ -1053,41 +946,33 @@ public sealed class RaffleCommandsService(
             await entityService.PlayerRaffleBid.AddAsync(currentBid);
         }
 
-        // Decrease the available points of the account
         account.AvailablePoints -= pointsToSpend;
         await entityService.Account.UpdateAsync(account);
 
-        // Respond to the command with the points added
         await command.FollowupAsync($"Added {pointsToSpend} points!{Environment.NewLine}Total points in current raffle is: {currentBid.PointsSpent}", ephemeral: true);
     }
 
     private async Task HandleEventRaffleEnter(SocketMessageComponent command, int pointsToSpend)
     {
-        // Ensure it's a guild-based button interaction
         if (command.Channel is not SocketGuildChannel guildChannel)
         {
             return;
         }
 
-        // Get GuildUser
         var guildUser = guildChannel.GetUser(command.User.Id);
 
-        // Get the guild from the database
         var guilds = await entityService.Guild.GetAllAsync();
         var guild = guilds.FirstOrDefault(g => g.GuildId == (long)guildUser.Guild.Id);
 
-        // Check if the guild exists
         if (guild == null)
         {
             await command.FollowupAsync("This message does not appear to be apart of a server, are you messaging in a server where the bot is running?", ephemeral: true);
             return;
         }
 
-        // Get the current event raffle
         var raffles = await entityService.Raffle.GetAllAsync();
         var currentRaffle = raffles.FirstOrDefault(raf => raf is { IsActive: true, RaffleType: (int)RaffleTypeEnum.Event } && raf.GuildId == guild.GuildId);
 
-        // Check if there is an active event raffle
         if (currentRaffle == null)
         {
             await command.FollowupAsync("There are currently no raffles.", ephemeral: true);
@@ -1120,18 +1005,15 @@ public sealed class RaffleCommandsService(
             pointsToSpend = new Random().Next(1, Convert.ToInt32(Math.Floor(account.AvailablePoints)));
         }
 
-        // Check if the user has enough points to spend
         if (account.AvailablePoints < pointsToSpend)
         {
             await command.FollowupAsync(errorMessage, ephemeral: true);
             return;
         }
 
-        // Get the current bid of the user for the current event raffle
         var bids = await entityService.PlayerRaffleBid.GetAllAsync();
         var currentBid = bids.FirstOrDefault(bid => bid.RaffleId == currentRaffle.Id && bid.DiscordId == account.DiscordId);
 
-        // Update the current bid or create a new one if it doesn't exist
         if (currentBid != null)
         {
             currentBid.PointsSpent += pointsToSpend;
@@ -1149,11 +1031,9 @@ public sealed class RaffleCommandsService(
             await entityService.PlayerRaffleBid.AddAsync(currentBid);
         }
 
-        // Update the available points of the user and save changes to the database
         account.AvailablePoints -= pointsToSpend;
         await entityService.Account.UpdateAsync(account);
 
-        // Send a response with the points spent and the total points in the current event raffle
         await command.FollowupAsync($"Added {pointsToSpend} points!{Environment.NewLine}Total points in current raffle is: {currentBid.PointsSpent}", ephemeral: true);
     }
 }

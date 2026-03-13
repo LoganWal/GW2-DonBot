@@ -21,10 +21,6 @@ public class Guild
     [MaxLength(1000)]
     public string? Gw2SecondaryMemberRoleIds { get; set; }
 
-    public long? PlayerReportChannelId { get; set; }
-
-    public long? WvwPlayerActivityReportChannelId { get; set; }
-
     public long? AnnouncementChannelId { get; set; }
 
     public long? LogReportChannelId { get; set; }
@@ -46,4 +42,12 @@ public class Guild
     public bool AutoAggregateLogs { get; set; } = true;
 
     public bool AutoReplySingleLog { get; set; }
+
+    public bool WvwLeaderboardEnabled { get; set; }
+
+    public long? WvwLeaderboardChannelId { get; set; }
+
+    public bool PveLeaderboardEnabled { get; set; }
+
+    public long? PveLeaderboardChannelId { get; set; }
 }

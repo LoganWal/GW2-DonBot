@@ -13,7 +13,6 @@ namespace DonBot.Services.DiscordRequestServices;
 public sealed class PollingTasksService(
     IEntityService entityService,
     ILogger<PollingTasksService> logger,
-    IMessageGenerationService messageGenerationService,
     IHttpClientFactory httpClientFactory)
     : IPollingTasksService
 {
@@ -27,7 +26,6 @@ public sealed class PollingTasksService(
 
         var guildWars2Data = new ConcurrentDictionary<long, List<GuildWars2AccountDataModel>>();
 
-        // Limit to available logical processors
         var maxDegreeOfParallelism = Environment.ProcessorCount;
         var semaphore = new SemaphoreSlim(maxDegreeOfParallelism);
 
@@ -36,13 +34,8 @@ public sealed class PollingTasksService(
             await semaphore.WaitAsync();
             try
             {
-                // Get the guildWarsAccounts associated with the current account
                 var guildWars2Accounts = guildWarsAccounts.Where(s => s.DiscordId == account.DiscordId).ToList();
-
-                // Fetch account data (this is still done in parallel)
                 var accountData = await FetchAccountData(guildWars2Accounts);
-
-                // Store the result (not doing any database operations here)
                 guildWars2Data[account.DiscordId] = accountData;
             }
             finally
@@ -65,7 +58,6 @@ public sealed class PollingTasksService(
 
             await clientGuild.DownloadUsersAsync();
             await HandleGuildUsers(clientGuild, guildConfiguration, guildWars2Data, accounts, guildWarsAccounts);
-            await GenerateWvWPlayerReport(guildConfiguration, clientGuild);
         }
     }
 
@@ -99,7 +91,7 @@ public sealed class PollingTasksService(
                         guildWarsAccount.GuildWarsGuilds = string.Join(",", accountData.Guilds);
 
                         success = true;
-                        break; // Exit the retry loop if successful
+                        break;
                     }
 
                     logger.LogWarning("Attempt {attempt} failed for {guildWarsAccountName}: {statusCode}",
@@ -182,7 +174,7 @@ public sealed class PollingTasksService(
             await HandleUserRoles(user, accountData, primaryRoleId.Value, secondaryRoleId.Value, verifiedRoleId.Value, guildId, secondaryGuildIds);
         }
 
-        // remove any remaining API keys on expired users (most likely have left the server)
+        // Clear API keys for accounts with 48+ failed pulls (likely left the server)
         var expiredAccounts = gwAccounts.Where(s => s.FailedApiPullCount >= 48).ToList();
         foreach (var invalidGuildWarsAccount in expiredAccounts)
         {
@@ -193,34 +185,6 @@ public sealed class PollingTasksService(
         if (expiredAccounts.Any())
         {
             await entityService.GuildWarsAccount.UpdateRangeAsync(expiredAccounts);
-        }
-    }
-
-    private async Task GenerateWvWPlayerReport(Guild guildConfiguration, SocketGuild clientGuild)
-    {
-        try
-        {
-            if (!guildConfiguration.WvwPlayerActivityReportChannelId.HasValue) {
-                logger.LogInformation("WvW Player Activity Report Channel not configured for guild {clientGuildName}, skipping", clientGuild.Name);
-                return;
-            }
-
-            if (clientGuild.GetChannel((ulong)guildConfiguration.WvwPlayerActivityReportChannelId) is SocketTextChannel playerActivityReportChannel)
-            {
-                var messages = await playerActivityReportChannel.GetMessagesAsync().FlattenAsync();
-                var recentMessages = messages.Where(m => (DateTimeOffset.UtcNow - m.CreatedAt).TotalDays < 14).ToList();
-                if (recentMessages.Count > 0)
-                {
-                    await playerActivityReportChannel.DeleteMessagesAsync(recentMessages);
-                }
-                var playerReportMessage = await messageGenerationService.GenerateWvWPlayerReport(guildConfiguration);
-                    
-                await playerActivityReportChannel.SendMessageAsync(embeds: [playerReportMessage]);
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex.Message, "Failed to generate WvW player report.");
         }
     }
 

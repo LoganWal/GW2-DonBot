@@ -13,6 +13,8 @@ public sealed class RaidReportService(
     IFooterService footerService,
     IWvWFightSummaryService wvWFightSummaryService) : IRaidReportService
 {
+    const string SurvivabilityHeader = "Player         Res (s)    Dmg Taken   Downed   Died 1st\n";
+
     public async Task<List<Embed>?> Generate(FightsReport fightsReport, long guildId)
     {
         var messages = new List<Embed>();
@@ -35,7 +37,6 @@ public sealed class RaidReportService(
 
     public async Task<Embed> GenerateRaidAlert(long guildId)
     {
-        // Building the message via embeds
         var message = new EmbedBuilder
         {
             Title = "RAID STARTING!\n",
@@ -55,10 +56,55 @@ public sealed class RaidReportService(
             Timestamp = DateTime.Now
         };
 
+        footerService.AddInviteLink(message);
+
         return message.Build();
     }
     
+    internal static Gw2Player AggregatePlayerFights(IGrouping<string, PlayerFightLog> groupedPlayerFight)
+    {
+        var playersFights = groupedPlayerFight.ToList();
+        var player = playersFights.First();
+        return new Gw2Player
+        {
+            AccountName = $"({playersFights.Count}) {player.GuildWarsAccountName}",
+            SubGroup = playersFights.GroupBy(s => s.SubGroup).MaxBy(s => s.Count())?.Key ?? player.SubGroup,
+            Kills = playersFights.Sum(s => s.Kills),
+            Downs = playersFights.Sum(s => s.Downs),
+            TimesDowned = playersFights.Sum(s => s.TimesDowned),
+            Deaths = playersFights.Sum(s => s.Deaths),
+            Interrupts = playersFights.Sum(s => s.Interrupts),
+            NumberOfHitsWhileBlinded = playersFights.Sum(s => s.NumberOfHitsWhileBlinded),
+            NumberOfMissesAgainst = playersFights.Sum(s => s.NumberOfMissesAgainst),
+            NumberOfTimesBlockedAttack = playersFights.Sum(s => s.NumberOfTimesBlockedAttack),
+            NumberOfTimesEnemyBlockedAttack = playersFights.Sum(s => s.NumberOfTimesEnemyBlockedAttack),
+            NumberOfBoonsRipped = playersFights.Sum(s => s.NumberOfBoonsRipped),
+            DamageTaken = playersFights.Sum(s => s.DamageTaken),
+            BarrierMitigation = playersFights.Sum(s => s.BarrierMitigation),
+            TimesInterrupted = playersFights.Sum(s => s.TimesInterrupted),
+            Damage = (long)Math.Round(playersFights.Average(s => (double)s.Damage), 0),
+            DamageDownContribution = (long)Math.Round(playersFights.Average(s => (double)s.DamageDownContribution), 0),
+            Cleanses = Math.Round(playersFights.Average(s => (double)s.Cleanses), 0),
+            Strips = Math.Round(playersFights.Average(s => (double)s.Strips), 0),
+            StabOnGroup = Math.Round(Convert.ToDouble(playersFights.Average(s => (float)s.StabGenOnGroup)), 2),
+            StabOffGroup = Math.Round(Convert.ToDouble(playersFights.Average(s => (float)s.StabGenOffGroup)), 2),
+            Healing = (long)Math.Round(playersFights.Average(s => (double)s.Healing), 0),
+            BarrierGenerated = (long)Math.Round(playersFights.Average(s => (double)s.BarrierGenerated), 0),
+            DistanceFromTag = Math.Round(Convert.ToDouble(playersFights.Any(s => s.DistanceFromTag < 1100)
+                ? playersFights.Where(s => s.DistanceFromTag < 1100).Average(s => s.DistanceFromTag)
+                : 0), 2),
+            TotalQuick = Math.Round(Convert.ToDouble(playersFights.Average(s => s.QuicknessDuration)), 2),
+            TotalAlac = Math.Round(Convert.ToDouble(playersFights.Average(s => s.AlacDuration)), 2)
+        };
+    }
+
     internal static string BuildSurvivabilityTable(List<IGrouping<string, PlayerFightLog>> groupedPlayerFights)
+    {
+        var rows = BuildSurvivabilityRows(groupedPlayerFights);
+        return $"```{SurvivabilityHeader}{string.Concat(rows)}```";
+    }
+    
+    private static IReadOnlyList<string> BuildSurvivabilityRows(List<IGrouping<string, PlayerFightLog>> groupedPlayerFights)
     {
         var allLogs = groupedPlayerFights.SelectMany(g => g).ToList();
 
@@ -71,13 +117,31 @@ public sealed class RaidReportService(
             .GroupBy(name => name)
             .ToDictionary(g => g.Key, g => g.Count());
 
-        var table = "```Player         Res (s)    Dmg Taken   Downed   Died 1st\n";
-        foreach (var gw2Player in groupedPlayerFights.OrderBy(s => s.Sum(d => d.DamageTaken)))
+        return groupedPlayerFights
+            .OrderBy(s => s.Sum(d => d.DamageTaken))
+            .Select(gw2Player => $"{gw2Player.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,2}{Math.Round((double)gw2Player.Sum(s => s.ResurrectionTime) / 1000, 3),-9}{string.Empty,2}{gw2Player.Sum(s => s.DamageTaken),-10}{string.Empty,2}{gw2Player.Sum(s => s.TimesDowned),-7}{string.Empty,2}{firstToDieCounts.GetValueOrDefault(gw2Player.Key, 0)}\n")
+            .ToList();
+    }
+
+    private static void AddChunkedCodeFenceFields(EmbedBuilder message, string fieldName, string header, IEnumerable<string> rows, int chunkSize = 12)
+    {
+        var buffer = new List<string>();
+        foreach (var row in rows)
         {
-            table += $"{gw2Player.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,2}{Math.Round((double)gw2Player.Sum(s => s.ResurrectionTime) / 1000, 3),-9}{string.Empty,2}{gw2Player.Sum(s => s.DamageTaken),-10}{string.Empty,2}{gw2Player.Sum(s => s.TimesDowned),-7}{string.Empty,2}{firstToDieCounts.GetValueOrDefault(gw2Player.Key, 0)}\n";
+            buffer.Add(row);
+            if (buffer.Count == chunkSize)
+            {
+                var value = $"```{header}{string.Concat(buffer)}```";
+                message.AddField(x => { x.Name = fieldName; x.Value = value; x.IsInline = false; });
+                buffer.Clear();
+            }
         }
 
-        return table + "```";
+        if (buffer.Count > 0)
+        {
+            var value = $"```{header}{string.Concat(buffer)}```";
+            message.AddField(x => { x.Name = fieldName; x.Value = value; x.IsInline = false; });
+        }
     }
 
     private async Task<List<Embed>?> GetRaidReport(long guildId, List<FightLog> fights, List<Embed> messages)
@@ -111,7 +175,7 @@ public sealed class RaidReportService(
         }
         else
         {
-            messages.Add(await GeneratePvERaidReport(durationString, groupedFights, groupedPlayerFights, fights, guildId));
+            messages.AddRange(await GeneratePvERaidReport(durationString, groupedFights, groupedPlayerFights, fights, guildId));
             var successLogs = await GeneratePvERaidLogReport(durationString, fights, true, guildId);
             if (successLogs != null)
             {
@@ -126,12 +190,18 @@ public sealed class RaidReportService(
             }
         }
 
+        if (messages.Count > 0)
+        {
+            var lastBuilder = messages[^1].ToEmbedBuilder();
+            footerService.AddInviteLink(lastBuilder);
+            messages[^1] = lastBuilder.Build();
+        }
+
         return messages;
     }
 
     private async Task<Embed> GenerateWvWRaidReport(string durationString, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, bool advancedLog, long guildId)
     {
-        // Building the message via embeds
         var message = new EmbedBuilder
         {
             Title = "Report (WvW)\n",
@@ -145,63 +215,7 @@ public sealed class RaidReportService(
             }
         };
 
-        var gw2Players = new List<Gw2Player>();
-        foreach (var groupedPlayerFight in groupedPlayerFights)
-        {
-            var playersFights = groupedPlayerFight.ToList();
-            var player = playersFights.First();
-            gw2Players.Add(new Gw2Player
-            {
-                AccountName = $"({playersFights.Count}) {player.GuildWarsAccountName}",
-                SubGroup = playersFights.GroupBy(s => s.SubGroup).MaxBy(s => s.Count())?.Key ?? player.SubGroup,
-                Kills = playersFights.Sum(s => s.Kills),
-                Downs = playersFights.Sum(s => s.Downs),
-                TimesDowned = playersFights.Sum(s => s.TimesDowned),
-                Deaths = playersFights.Sum(s => s.Deaths),
-                Interrupts = playersFights.Sum(s => s.Interrupts),
-                NumberOfHitsWhileBlinded = playersFights.Sum(s => s.NumberOfHitsWhileBlinded),
-                NumberOfMissesAgainst = playersFights.Sum(s => s.NumberOfMissesAgainst),
-                NumberOfTimesBlockedAttack = playersFights.Sum(s => s.NumberOfTimesBlockedAttack),
-                NumberOfTimesEnemyBlockedAttack = playersFights.Sum(s => s.NumberOfTimesEnemyBlockedAttack),
-                NumberOfBoonsRipped = playersFights.Sum(s => s.NumberOfBoonsRipped),
-                DamageTaken = playersFights.Sum(s => s.DamageTaken),
-                BarrierMitigation = playersFights.Sum(s => s.BarrierMitigation),
-                TimesInterrupted = playersFights.Sum(s => s.TimesInterrupted),
-                Damage = (long)Math.Round(playersFights.Any(s => s.Damage > 0)
-                    ? playersFights.Where(s => s.Damage > 0).Average(s => s.Damage)
-                    : 0, 0),
-                DamageDownContribution = (long)Math.Round(playersFights.Any(s => s.DamageDownContribution > 0)
-                    ? playersFights.Where(s => s.DamageDownContribution > 0).Average(s => s.DamageDownContribution)
-                    : 0, 0),
-                Cleanses = Math.Round(playersFights.Any(s => s.Cleanses > 0)
-                    ? playersFights.Where(s => s.Cleanses > 0).Average(s => s.Cleanses)
-                    : 0, 0),
-                Strips = Math.Round(playersFights.Any(s => s.Strips > 0)
-                    ? playersFights.Where(s => s.Strips > 0).Average(s => s.Strips)
-                    : 0, 0),
-                StabOnGroup = Math.Round(Convert.ToDouble(playersFights.Any(s => s.StabGenOnGroup > 0)
-                    ? playersFights.Where(s => s.StabGenOnGroup > 0).Average(s => (float)s.StabGenOnGroup)
-                    : 0), 2),
-                StabOffGroup = Math.Round(Convert.ToDouble(playersFights.Any(s => s.StabGenOffGroup > 0)
-                    ? playersFights.Where(s => s.StabGenOffGroup > 0).Average(s => (float)s.StabGenOffGroup)
-                    : 0), 2),
-                Healing = (long)Math.Round(playersFights.Any(s => s.Healing > 0)
-                    ? playersFights.Where(s => s.Healing > 0).Average(s => s.Healing)
-                    : 0, 0),
-                BarrierGenerated = (long)Math.Round(playersFights.Any(s => s.BarrierGenerated > 0)
-                    ? playersFights.Where(s => s.BarrierGenerated > 0).Average(s => s.BarrierGenerated)
-                    : 0, 0),
-                DistanceFromTag = Math.Round(Convert.ToDouble(playersFights.Any(s => s.DistanceFromTag < 1100)
-                    ? playersFights.Where(s => s.DistanceFromTag < 1100).Average(s => s.DistanceFromTag)
-                    : 0), 2),
-                TotalQuick = Math.Round(Convert.ToDouble(playersFights.Any(s => s.QuicknessDuration > 0)
-                    ? playersFights.Where(s => s.QuicknessDuration > 0).Average(s => s.QuicknessDuration)
-                    : 0), 2),
-                TotalAlac = Math.Round(Convert.ToDouble(playersFights.Any(s => s.AlacDuration > 0)
-                    ? playersFights.Where(s => s.AlacDuration > 0).Average(s => s.AlacDuration)
-                    : 0), 2)
-            });
-        }
+        var gw2Players = groupedPlayerFights.Select(AggregatePlayerFights).ToList();
 
         var dataBySub = gw2Players.GroupBy(s => s.SubGroup);
 
@@ -211,7 +225,6 @@ public sealed class RaidReportService(
             IconUrl = "https://i.imgur.com/tQ4LD6H.png"
         };
 
-        // Timestamp
         message.Timestamp = DateTime.Now;
 
         var statTotals = new StatTotals
@@ -221,7 +234,6 @@ public sealed class RaidReportService(
 
         if (!advancedLog)
         {
-            // raid overview
             var raidOverview = "```Players   Downs   Kills   Times Downed   Deaths\n";
             raidOverview += $"{gw2Players.Count,-4}{string.Empty,-6}{gw2Players.Sum(s => s.Downs), -4}{string.Empty,-4}{gw2Players.Sum(s => s.Kills), -4}{string.Empty,-4}{gw2Players.Sum(s => s.TimesDowned), -4}{string.Empty,-11}{gw2Players.Sum(s => s.Deaths), -4}```";
 
@@ -247,41 +259,44 @@ public sealed class RaidReportService(
             });
         }
 
-        // Building the message for use
         return await wvWFightSummaryService.GenerateMessage(advancedLog, 10, gw2Players, message, guildId, statTotals);
     }
 
-    private async Task<Embed> GeneratePvERaidReport(string durationString, List<IGrouping<short, FightLog>> groupedFights, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights, long guildId)
+    private async Task<List<Embed>> GeneratePvERaidReport(string durationString, List<IGrouping<short, FightLog>> groupedFights, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights, long guildId)
     {
-        // Building the message via embeds
-        var message = new EmbedBuilder
+        var color = (Color)System.Drawing.Color.FromArgb(195, 0, 101);
+        var author = new EmbedAuthorBuilder
+        {
+            Name = "GW2-DonBot",
+            Url = "https://github.com/LoganWal/GW2-DonBot",
+            IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+        };
+        var footerText = await footerService.Generate(guildId);
+
+        EmbedFooterBuilder Footer() => new() { Text = footerText, IconUrl = "https://i.imgur.com/tQ4LD6H.png" };
+
+        // --- Fights Overview embed ---
+        var fightsEmbed = new EmbedBuilder
         {
             Title = "Report (PvE)\n",
             Description = $"**Length:** {durationString}\n",
-            Color = (Color)System.Drawing.Color.FromArgb(195, 0, 101),
-            Author = new EmbedAuthorBuilder()
-            {
-                Name = "GW2-DonBot",
-                Url = "https://github.com/LoganWal/GW2-DonBot",
-                IconUrl = "https://i.imgur.com/tQ4LD6H.png"
-            }
+            Color = color,
+            Author = author,
+            Footer = Footer(),
+            Timestamp = DateTime.Now
         };
 
-
-        var fightsOverviewBuffer = "Fight           Best  (t)    Success (t)     Count\n";
         var allFightLogs = guildId != -1
             ? await entityService.FightLog.GetWhereAsync(s => s.GuildId == guildId)
             : [];
 
         allFightLogs.RemoveAll(s => fights.Select(d => d.FightLogId).Contains(s.FightLogId));
-        var lineCount = 1; // Start with 1 to account for the header line
 
+        var fightRows = new List<string>();
         foreach (var groupedFight in groupedFights)
         {
             var fightsListForType = groupedFight.ToList();
-            var groupedByMode = fightsListForType.GroupBy(s => s.FightMode).ToList();
-
-            foreach (var fightTypeFightMode in groupedByMode)
+            foreach (var fightTypeFightMode in fightsListForType.GroupBy(s => s.FightMode))
             {
                 var bestFight = allFightLogs
                     .Where(s => s.IsSuccess && s.FightType == groupedFight.Key && s.FightMode == fightTypeFightMode.Key)
@@ -302,37 +317,20 @@ public sealed class RaidReportService(
                     successFightTimeString += " (!)";
                 }
 
-                // Add the current line to the buffer
-                fightsOverviewBuffer += $"({Enum.GetName(typeof(FightModesEnum), fightTypeFightMode.Key) ?? nameof(FightModesEnum.Nm)}){(Enum.GetName(typeof(FightTypesEnum), groupedFight.Key) ?? nameof(FightTypesEnum.Unkn)),-10}{string.Empty,2}{bestFightTimeString,-6}{string.Empty,6}{successFightTimeString,-11}{string.Empty,5}{fightTypeFightModeList.Count}\n";
-                lineCount++;
-
-                // Add a new field every 12 lines
-                if (lineCount % 12 == 0)
-                {
-                    var buffer = fightsOverviewBuffer;
-                    message.AddField(x =>
-                    {
-                        x.Name = "Fights Overview";
-                        x.Value = $"```{buffer}```";
-                        x.IsInline = false;
-                    });
-
-                    // Clear the buffer for the next batch
-                    fightsOverviewBuffer = string.Empty;
-                }
+                fightRows.Add($"({Enum.GetName(typeof(FightModesEnum), fightTypeFightMode.Key) ?? nameof(FightModesEnum.Nm)}){(Enum.GetName(typeof(FightTypesEnum), groupedFight.Key) ?? nameof(FightTypesEnum.Unkn)),-10}{string.Empty,2}{bestFightTimeString,-6}{string.Empty,6}{successFightTimeString,-11}{string.Empty,5}{fightTypeFightModeList.Count}\n");
             }
         }
 
-        // Add any remaining lines in the buffer as a final field
-        if (!string.IsNullOrEmpty(fightsOverviewBuffer))
+        AddChunkedCodeFenceFields(fightsEmbed, "Fights Overview", "Fight           Best  (t)    Success (t)     Count\n", fightRows);
+
+        // --- Player Overview embed ---
+        var playerEmbed = new EmbedBuilder
         {
-            message.AddField(x =>
-            {
-                x.Name = "Fights Overview";
-                x.Value = $"```{fightsOverviewBuffer}```";
-                x.IsInline = false;
-            });
-        }
+            Color = color,
+            Author = author,
+            Footer = Footer(),
+            Timestamp = DateTime.Now
+        };
 
         var playerLineByDmg = new List<Tuple<float, string>>();
         foreach (var groupedPlayerFight in groupedPlayerFights)
@@ -346,90 +344,54 @@ public sealed class RaidReportService(
             playerLineByDmg.Add(new Tuple<float, string>(dps, playerLine));
         }
 
-        var playerHeader = "```Player         Dmg       Cleave    Alac    Quick\n";
-        var playerChunks = new List<string>();
-        var currentChunk = playerHeader;
-        var playerCount = 0;
+        AddChunkedCodeFenceFields(playerEmbed, "Player Overview", "Player         Dmg       Cleave    Alac    Quick\n", playerLineByDmg.OrderByDescending(s => s.Item1).Select(t => t.Item2));
 
-        foreach (var playerLine in playerLineByDmg.OrderByDescending(s => s.Item1))
+        // --- Survivability + Mechanics embed ---
+        var survEmbed = new EmbedBuilder
         {
-            currentChunk += playerLine.Item2;
-            playerCount++;
+            Color = color,
+            Author = author,
+            Footer = Footer(),
+            Timestamp = DateTime.Now
+        };
 
-            if (playerCount % 12 == 0)
-            {
-                currentChunk += "```";
-                playerChunks.Add(currentChunk);
-                currentChunk = playerHeader;
-            }
-        }
-
-        if (currentChunk != playerHeader)
-        {
-            currentChunk += "```";
-            playerChunks.Add(currentChunk);
-        }
-
-        foreach (var chunk in playerChunks)
-        {
-            message.AddField(x =>
-            {
-                x.Name = "Player Overview";
-                x.Value = chunk;
-                x.IsInline = false;
-            });
-        }
-
-        var survivabilityOverview = BuildSurvivabilityTable(groupedPlayerFights);
-
-        message.AddField(x =>
-        {
-            x.Name = "Survivability Overview";
-            x.Value = $"{survivabilityOverview}";
-            x.IsInline = false;
-        });
+        AddChunkedCodeFenceFields(survEmbed, "Survivability Overview", SurvivabilityHeader, BuildSurvivabilityRows(groupedPlayerFights));
 
         foreach (var groupedFight in groupedFights)
         {
             var mechanicsOverview = string.Empty;
+            var mechanicsHeading = string.Empty;
 
             if (groupedFight.Key == (short)FightTypesEnum.ToF)
             {
+                mechanicsHeading = "Cerus Mechanics";
                 mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.ToF, "```Player         P1 Dmg    Orbs\n", pf => pf.CerusPhaseOneDamage, groupedPlayerFights, fights, true);
             }
 
             if (groupedFight.Key == (short)FightTypesEnum.Deimos)
             {
+                mechanicsHeading = "Deimos Mechanics";
                 mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.Deimos, "```Player         Oils\n", pf => pf.DeimosOilsTriggered, groupedPlayerFights, fights);
             }
 
             if (groupedFight.Key == (short)FightTypesEnum.Ura)
             {
+                mechanicsHeading = "Ura Mechanics";
                 mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.Ura, "```Player         Shard P    Shard U\n", pf => pf.ShardPickUp, groupedPlayerFights, fights);
             }
 
             if (!string.IsNullOrEmpty(mechanicsOverview))
             {
-                message.AddField(x =>
+                survEmbed.AddField(x =>
                 {
-                    x.Name = "Mechanics Overview";
-                    x.Value = $"{mechanicsOverview}";
+                    x.Name = mechanicsHeading;
+                    x.Value = mechanicsOverview;
                     x.IsInline = false;
                 });
             }
         }
 
-        message.Footer = new EmbedFooterBuilder()
-        {
-            Text = $"{await footerService.Generate(guildId)}",
-            IconUrl = "https://i.imgur.com/tQ4LD6H.png"
-        };
-
-        // Timestamp
-        message.Timestamp = DateTime.Now;
-
-        // Building the message for use
-        return message.Build();
+        return [fightsEmbed.Build(), playerEmbed.Build(), survEmbed.Build()];
     }
 
     private string GenerateMechanicsOverview(short fightType, string header, Func<PlayerFightLog, decimal> orderBySelector, IEnumerable<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights, bool byMax = false)

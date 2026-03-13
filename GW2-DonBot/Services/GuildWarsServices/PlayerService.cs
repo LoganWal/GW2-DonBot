@@ -19,7 +19,11 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
 
         var gw2Players = new List<Gw2Player>();
         var characterCountPerAccount = new Dictionary<string, int>();
-        
+
+        var stabBoonIndex = data.FightEliteInsightDataModel.Boons.IndexOf(Gw2BoonIds.Stability);
+        var quickBoonIndex = data.FightEliteInsightDataModel.Boons.IndexOf(Gw2BoonIds.Quickness);
+        var alacBoonIndex = data.FightEliteInsightDataModel.Boons.IndexOf(Gw2BoonIds.Alacrity);
+
         foreach (var arcDpsPlayer in data.FightEliteInsightDataModel.Players)
         {
             if (arcDpsPlayer.Acc == null || arcDpsPlayer.Profession == null || arcDpsPlayer.Name == null || data == null || arcDpsPlayer.NotInSquad)
@@ -75,7 +79,7 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
             }
             var resurrectionTime = Convert.ToInt32(playerDetails?.Rotation?
                 .FirstOrDefault()
-                ?.Where(s => s.Count > ArcDpsDataIndices.RotationSkillIndex && Convert.ToInt32(s[ArcDpsDataIndices.RotationSkillIndex]) == ArcDpsDataIndices.RotationResurrectionSkill)
+                ?.Where(s => s.Count > ArcDpsDataIndices.RotationSkillIndex && Convert.ToInt32(s[ArcDpsDataIndices.RotationSkillIndex]) == Gw2SkillIds.Resurrection)
                 .Sum(s => s[ArcDpsDataIndices.RotationSkillDurationIndex]) ?? 0);
 
             try
@@ -89,8 +93,8 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
                 var cleanses = supportStats?.FirstOrDefault() ?? 0;
                 cleanses += supportStats?.Count >= ArcDpsDataIndices.PlayerCleansesIndex + 1 ? supportStats[ArcDpsDataIndices.PlayerCleansesIndex] : 0;
                 var strips = supportStats?.Count >= ArcDpsDataIndices.PlayerStripsIndex + 1 ? supportStats[ArcDpsDataIndices.PlayerStripsIndex] : 0;
-                var stabOnGroup = boonGenGroupStats?.Data?.Count >= ArcDpsDataIndices.BoonStabDimension1Index - 1 ? boonGenGroupStats.Data?[ArcDpsDataIndices.BoonStabDimension1Index][0] ?? 0 : 0;
-                var stabOffGroup = boonGenOffGroupStats?.Data?[ArcDpsDataIndices.BoonStabDimension1Index][0] ?? 0;
+                var stabOnGroup = stabBoonIndex >= 0 && boonGenGroupStats?.Data?.Count > stabBoonIndex ? boonGenGroupStats.Data[stabBoonIndex][0] : 0;
+                var stabOffGroup = stabBoonIndex >= 0 ? boonGenOffGroupStats?.Data?[stabBoonIndex][0] ?? 0 : 0;
                 var healing = healingStatsTargets?.Sum(s => s.FirstOrDefault()) ?? 0;
                 var barrierGenerated = barrierStats?.FirstOrDefault() ?? 0;
                 var distanceFromTag = gameplayStats?[ArcDpsDataIndices.DistanceFromTagIndex] ?? 0;
@@ -104,8 +108,8 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
                 var numberOfBoonsRipped = defStats?[ArcDpsDataIndices.NumberOfBoonsRippedIndex].Double ?? 0;
                 var damageTaken = defStats?[ArcDpsDataIndices.DamageTakenIndex].Double ?? 0;
                 var barrierMitigation = defStats?[ArcDpsDataIndices.BarrierMitigationIndex].Double ?? 0;
-                var totalQuick = boons?.CheckIndexIsValid(ArcDpsDataIndices.TotalQuick, 0) ?? false ? boons[ArcDpsDataIndices.TotalQuick][0] : 0;
-                var totalAlac = boons?.CheckIndexIsValid(ArcDpsDataIndices.TotalAlac, 0) ?? false ? boons[ArcDpsDataIndices.TotalAlac][0] : 0;
+                var totalQuick = quickBoonIndex >= 0 && (boons?.CheckIndexIsValid(quickBoonIndex, 0) ?? false) ? boons[quickBoonIndex][0] : 0;
+                var totalAlac = alacBoonIndex >= 0 && (boons?.CheckIndexIsValid(alacBoonIndex, 0) ?? false) ? boons[alacBoonIndex][0] : 0;
 
                 if (isNewPlayer)
                 {
@@ -326,7 +330,6 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
 
             var totalPoints = 0d;
 
-            // Calculate the total points based on player data
             totalPoints += Math.Min(Convert.ToDouble(player.Damage) / 50000d, 10);
             totalPoints += Math.Min(Convert.ToDouble(player.Cleanses) / 100d, 5);
             totalPoints += Math.Min(Convert.ToDouble(player.Strips) / 30d, 3);
@@ -336,16 +339,13 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
 
             totalPoints = Math.Max(4, Math.Min(12, totalPoints));
 
-            // Update the account's points
             account.Points += Convert.ToDecimal(totalPoints);
             account.AvailablePoints += Convert.ToDecimal(totalPoints);
             account.LastWvwLogDateTime = currentDateTimeUtc;
 
-            // Add the updated account to the list
             accountsToUpdate.Add(account);
         }
 
-        // Update all the accounts in bulk
         if (accountsToUpdate.Any())
         {
             await entityService.Account.UpdateRangeAsync(accountsToUpdate);

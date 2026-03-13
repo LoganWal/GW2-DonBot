@@ -23,9 +23,8 @@ public static class ServiceRegister
         services.AddTransient<IFooterService, FooterService>();
         services.AddTransient<IPvEFightSummaryService, PvEFightSummaryService>();
         services.AddTransient<IWvWFightSummaryService, WvWFightSummaryService>();
-        services.AddTransient<IWvWPlayerReportService, WvWPlayerReportService>();
-        services.AddTransient<IWvWPlayerSummaryService, WvWPlayerSummaryService>();
         services.AddTransient<IRaidReportService, RaidReportService>();
+        services.AddTransient<IWeeklyLeaderboardService, WeeklyLeaderboardService>();
         services.AddTransient<IMessageGenerationService, MessageGenerationService>();
 
         // Core Services - Scoped for per-request/operation services
@@ -47,6 +46,7 @@ public static class ServiceRegister
         services.AddSingleton<IWordleService, WordleService>();
         services.AddSingleton<IWordGeneratorService, WordGeneratorService>();
         services.AddSingleton<DictionaryService>();
+        services.AddSingleton<IPendingLogService, PendingLogService>();
 
         // Command Services - Transient for command handlers
         services.AddTransient<IGenericCommandsService, GenericCommandsService>();
@@ -56,13 +56,19 @@ public static class ServiceRegister
         services.AddTransient<IDiscordCommandService, DiscordCommandService>();
         services.AddTransient<ISteamCommandService, SteamCommandService>();
         services.AddTransient<IDeadlockCommandService, DeadlockCommandService>();
+        services.AddTransient<ILeaderboardCommandsService, LeaderboardCommandsService>();
 
         // Polling and API Services - Transient for operational services
         services.AddTransient<IPollingTasksService, PollingTasksService>();
         services.AddTransient<IDiscordApiService, DiscordApiService>();
 
-        // Scheduling - Transient for scheduler instances
+        // Scheduling
         services.AddTransient<SchedulerService>();
+        services.AddTransient<IScheduledEventHandler, RaidSignupEventHandler>();
+        services.AddTransient<IScheduledEventHandler, WvwRaidSignupEventHandler>();
+        services.AddTransient<IScheduledEventHandler, WvwLeaderboardEventHandler>();
+        services.AddTransient<IScheduledEventHandler, PveLeaderboardEventHandler>();
+        services.AddTransient<IScheduledEventHandler, WordleEventHandler>();
 
         // Database Services
         services.AddScoped(typeof(IDatabaseUpdateService<>), typeof(DatabaseUpdateService<>));

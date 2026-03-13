@@ -44,7 +44,6 @@ internal sealed class DiscordCoreHostedService(IDiscordCore discordCore, ILogger
         }
         catch (OperationCanceledException)
         {
-            // Expected when cancellation is requested
             logger.LogDebug("Cancellation requested during StopAsync");
         }
         finally

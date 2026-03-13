@@ -121,6 +121,15 @@ public class DiscordCommandRegistrar(ILogger<DiscordCommandRegistrar> logger)
                 .WithDescription("Get your deadlock match history."),
 
             new SlashCommandBuilder()
+                .WithName("gw2_my_rank")
+                .WithDescription("See your current rank on the weekly leaderboards."),
+
+            new SlashCommandBuilder()
+                .WithName("gw2_add_quote")
+                .WithDescription("Add a quote to the guild quote pool used in leaderboard footers.")
+                .AddOption("quote", ApplicationCommandOptionType.String, "The quote to add.", isRequired: true),
+
+            new SlashCommandBuilder()
                 .WithName("gw2_server_config")
                 .WithDescription("Configure DonBot settings for this server.")
                 .WithDefaultMemberPermissions(GuildPermission.Administrator)
@@ -154,16 +163,6 @@ public class DiscordCommandRegistrar(ILogger<DiscordCommandRegistrar> logger)
                     .WithDescription("Set the GW2 guild IDs used to assign the secondary member role (comma-separated).")
                     .WithType(ApplicationCommandOptionType.SubCommand)
                     .AddOption("value", ApplicationCommandOptionType.String, "Comma-separated GW2 guild IDs", isRequired: true))
-                .AddOption(new SlashCommandOptionBuilder()
-                    .WithName("player_report_channel")
-                    .WithDescription("Set the channel for player reports.")
-                    .WithType(ApplicationCommandOptionType.SubCommand)
-                    .AddOption("channel", ApplicationCommandOptionType.Channel, "The channel", isRequired: true))
-                .AddOption(new SlashCommandOptionBuilder()
-                    .WithName("wvw_activity_report_channel")
-                    .WithDescription("Set the channel for WvW player activity reports.")
-                    .WithType(ApplicationCommandOptionType.SubCommand)
-                    .AddOption("channel", ApplicationCommandOptionType.Channel, "The channel", isRequired: true))
                 .AddOption(new SlashCommandOptionBuilder()
                     .WithName("announcement_channel")
                     .WithDescription("Set the channel for announcements.")
@@ -219,6 +218,41 @@ public class DiscordCommandRegistrar(ILogger<DiscordCommandRegistrar> logger)
                     .WithDescription("Automatically reply with a fight summary when a single log is shared. Default: disabled.")
                     .WithType(ApplicationCommandOptionType.SubCommand)
                     .AddOption("value", ApplicationCommandOptionType.Boolean, "Enable single log auto-reply?", isRequired: true))
+                .AddOption(new SlashCommandOptionBuilder()
+                    .WithName("wvw_leaderboard_enabled")
+                    .WithDescription("Enable or disable the weekly WvW leaderboard. Default: disabled.")
+                    .WithType(ApplicationCommandOptionType.SubCommand)
+                    .AddOption("value", ApplicationCommandOptionType.Boolean, "Enable WvW leaderboard?", isRequired: true))
+                .AddOption(new SlashCommandOptionBuilder()
+                    .WithName("wvw_leaderboard_channel")
+                    .WithDescription("Set the channel for the weekly WvW leaderboard.")
+                    .WithType(ApplicationCommandOptionType.SubCommand)
+                    .AddOption("channel", ApplicationCommandOptionType.Channel, "The channel", isRequired: true))
+                .AddOption(new SlashCommandOptionBuilder()
+                    .WithName("pve_leaderboard_enabled")
+                    .WithDescription("Enable or disable the weekly PvE leaderboard. Default: disabled.")
+                    .WithType(ApplicationCommandOptionType.SubCommand)
+                    .AddOption("value", ApplicationCommandOptionType.Boolean, "Enable PvE leaderboard?", isRequired: true))
+                .AddOption(new SlashCommandOptionBuilder()
+                    .WithName("pve_leaderboard_channel")
+                    .WithDescription("Set the channel for the weekly PvE leaderboard.")
+                    .WithType(ApplicationCommandOptionType.SubCommand)
+                    .AddOption("channel", ApplicationCommandOptionType.Channel, "The channel", isRequired: true))
+                .AddOption(new SlashCommandOptionBuilder()
+                    .WithName("wordle_channel")
+                    .WithDescription("Set the channel for the daily Wordle message.")
+                    .WithType(ApplicationCommandOptionType.SubCommand)
+                    .AddOption("channel", ApplicationCommandOptionType.Channel, "The channel", isRequired: true))
+                .AddOption(new SlashCommandOptionBuilder()
+                    .WithName("wordle_role")
+                    .WithDescription("Set the role to mention in the daily Wordle message.")
+                    .WithType(ApplicationCommandOptionType.SubCommand)
+                    .AddOption("role", ApplicationCommandOptionType.Role, "The role", isRequired: true))
+                .AddOption(new SlashCommandOptionBuilder()
+                    .WithName("wordle_hour")
+                    .WithDescription("Set the UTC hour (0-23) to post the daily Wordle message.")
+                    .WithType(ApplicationCommandOptionType.SubCommand)
+                    .AddOption("value", ApplicationCommandOptionType.Integer, "UTC hour (0-23)", isRequired: true))
         ];
 
         return commandsToRegister.Select(c => (ApplicationCommandProperties)c.Build()).ToArray();
@@ -228,6 +262,7 @@ public class DiscordCommandRegistrar(ILogger<DiscordCommandRegistrar> logger)
     {
         var existingCommands = await guild.GetApplicationCommandsAsync();
 
+        // Detect changes: command count, any removed/renamed commands, or subcommand count changes.
         var commandsChanged = existingCommands.Count != newCommands.Length ||
             existingCommands.Any(ec => newCommands.All(nc => nc.Name.Value != ec.Name)) ||
             existingCommands.Any(ec =>

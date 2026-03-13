@@ -99,6 +99,10 @@ Each event has a configurable day/hour (UTC) and repeat interval. Leaderboards d
 - Posts a daily NYT Wordle starting word hint (with word definition) to a configured channel
 - Channel, role mention, and UTC post hour are all configurable via `gw2_server_config`
 
+### Pinata Tracker
+
+- `/digut`: Find out the status of the current GW2 Pinata event cycle
+
 ### Steam / Deadlock Integration
 
 - `/steam_verify`: Link your Steam account ID

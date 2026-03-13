@@ -6,7 +6,7 @@ namespace DonBot.Services.DiscordRequestServices;
 
 public sealed class DeadlockCommandService(IEntityService entityService, IDeadlockApiService deadlockApiService) : IDeadlockCommandService
 {
-    public async Task GetMmr(SocketSlashCommand command, DiscordSocketClient discordClient)
+    public async Task GetMmr(SocketSlashCommand command)
     {
         var steamAccounts = await entityService.SteamAccount.GetWhereAsync(g => g.DiscordId == (long)command.User.Id);
         if (steamAccounts.Any())
@@ -36,7 +36,7 @@ public sealed class DeadlockCommandService(IEntityService entityService, IDeadlo
         }
     }
 
-    public async Task GetMmrHistory(SocketSlashCommand command, DiscordSocketClient discordClient)
+    public async Task GetMmrHistory(SocketSlashCommand command)
     {
         var steamAccounts = await entityService.SteamAccount.GetWhereAsync(g => g.DiscordId == (long)command.User.Id);
         if (steamAccounts.Any())
@@ -72,7 +72,7 @@ public sealed class DeadlockCommandService(IEntityService entityService, IDeadlo
         }
     }
 
-    public async Task GetMatchHistory(SocketSlashCommand command, DiscordSocketClient discordClient)
+    public async Task GetMatchHistory(SocketSlashCommand command)
     {
         await command.FollowupAsync("Work in progress", ephemeral: true);
     }

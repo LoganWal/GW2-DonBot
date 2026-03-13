@@ -33,34 +33,34 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
         var description = $"**Week of {cutoff:MMM dd} – {DateTime.UtcNow:MMM dd, yyyy}**\n";
 
         var embed1 = BuildBaseEmbed("WvW Weekly Leaderboard", description, color);
-        embed1.AddField("Damage", BuildWvWDamageTable(grouped), false);
+        embed1.AddField("Damage", BuildWvWDamageTable(grouped));
         embed1.AddField("Cleanses", BuildWvWSimpleTable("Cleanses", grouped,
-            g => (double)g.Sum(s => s.Cleanses),
-            v => ((long)v).ToString(CultureInfo.InvariantCulture)), false);
+            g => g.Sum(s => s.Cleanses),
+            v => ((long)v).ToString(CultureInfo.InvariantCulture)));
         embed1.AddField("Strips", BuildWvWSimpleTable("Strips", grouped,
-            g => (double)g.Sum(s => s.Strips),
-            v => ((long)v).ToString(CultureInfo.InvariantCulture)), false);
-        embed1.AddField("Stab", BuildWvWStabTable(grouped), false);
+            g => g.Sum(s => s.Strips),
+            v => ((long)v).ToString(CultureInfo.InvariantCulture)));
+        embed1.AddField("Stab", BuildWvWStabTable(grouped));
         embed1.AddField("Healing", BuildWvWSimpleTable("Healing", grouped,
-            g => (double)g.Sum(s => s.Healing),
-            v => ((long)v).FormatNumber()), false);
+            g => g.Sum(s => s.Healing),
+            v => ((long)v).FormatNumber()));
         embed1.Footer = new EmbedFooterBuilder { Text = footerText, IconUrl = AuthorIconUrl };
         embed1.Timestamp = DateTime.Now;
 
         var embed2 = BuildBaseEmbed("WvW Weekly Leaderboard (Advanced)", description, color);
         embed2.AddField("Barrier", BuildWvWSimpleTable("Barrier Gen", grouped,
-            g => (double)g.Sum(s => s.BarrierGenerated),
-            v => ((long)v).FormatNumber()), false);
+            g => g.Sum(s => s.BarrierGenerated),
+            v => ((long)v).FormatNumber()));
         embed2.AddField("Times Downed", BuildWvWSimpleTable("Times Downed", grouped,
-            g => (double)g.Sum(s => s.TimesDowned),
-            v => ((long)v).ToString(CultureInfo.InvariantCulture)), false);
+            g => g.Sum(s => s.TimesDowned),
+            v => ((long)v).ToString(CultureInfo.InvariantCulture)));
         embed2.AddField("Damage Taken", BuildWvWSimpleTable("Dmg Taken", grouped,
-            g => (double)g.Sum(s => s.DamageTaken),
-            v => ((long)v).FormatNumber()), false);
+            g => g.Sum(s => s.DamageTaken),
+            v => ((long)v).FormatNumber()));
         embed2.AddField("Kills", BuildWvWSimpleTable("Total Kills", grouped,
-            g => (double)g.Sum(s => s.Kills),
-            v => ((long)v).ToString(CultureInfo.InvariantCulture)), false);
-        embed2.AddField("Distance From Tag", BuildWvWDistanceTable(grouped), false);
+            g => g.Sum(s => s.Kills),
+            v => ((long)v).ToString(CultureInfo.InvariantCulture)));
+        embed2.AddField("Distance From Tag", BuildWvWDistanceTable(grouped));
         footerService.AddInviteLink(embed2);
         embed2.Footer = new EmbedFooterBuilder { Text = footerText, IconUrl = AuthorIconUrl };
         embed2.Timestamp = DateTime.Now;
@@ -92,17 +92,17 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
             $"**Week of {cutoff:MMM dd} – {DateTime.UtcNow:MMM dd, yyyy}**\n",
             System.Drawing.Color.FromArgb(101, 149, 195));
 
-        message.AddField("DPS", BuildPvEDpsTable(grouped, fightDurations), false);
-        message.AddField("Cleave DPS", BuildPvECleaveDpsTable(grouped, fightDurations), false);
+        message.AddField("DPS", BuildPvEDpsTable(grouped, fightDurations));
+        message.AddField("Cleave DPS", BuildPvECleaveDpsTable(grouped, fightDurations));
         message.AddField("Res Time", BuildPvESimpleTable("Avg Res (s)", grouped,
             g => Math.Round(g.Average(s => s.ResurrectionTime) / 1000.0, 3),
-            v => v.ToString("F3", CultureInfo.InvariantCulture)), false);
+            v => v.ToString("F3", CultureInfo.InvariantCulture)));
         message.AddField("Damage Taken", BuildPvESimpleTable("Avg Dmg Taken", grouped,
-            g => (double)(long)Math.Round(g.Average(s => (double)s.DamageTaken), 0),
-            v => ((long)v).FormatNumber()), false);
+            g => (long)Math.Round(g.Average(s => (double)s.DamageTaken), 0),
+            v => ((long)v).FormatNumber()));
         message.AddField("Times Downed", BuildPvESimpleTable("Avg Downed", grouped,
             g => Math.Round(g.Average(s => (double)s.TimesDowned), 2),
-            v => v.ToString("F2", CultureInfo.InvariantCulture)), false);
+            v => v.ToString("F2", CultureInfo.InvariantCulture)));
 
         message.Footer = new EmbedFooterBuilder
         {
@@ -144,32 +144,32 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
                 wvwRanks.AppendLine($"{"Metric",-16} {"Rank",-8} Value");
 
                 AppendRank(wvwRanks, accountNames,"Damage", grouped, total,
-                    g => (double)g.Sum(s => s.Damage),
+                    g => g.Sum(s => s.Damage),
                     v => ((long)v).FormatNumber());
                 AppendRank(wvwRanks, accountNames,"Down Contrib", grouped, total,
-                    g => (double)g.Sum(s => s.DamageDownContribution),
+                    g => g.Sum(s => s.DamageDownContribution),
                     v => ((long)v).FormatNumber());
                 AppendRank(wvwRanks, accountNames,"Cleanses", grouped, total,
-                    g => (double)g.Sum(s => s.Cleanses),
+                    g => g.Sum(s => s.Cleanses),
                     v => ((long)v).ToString(CultureInfo.InvariantCulture));
                 AppendRank(wvwRanks, accountNames,"Strips", grouped, total,
-                    g => (double)g.Sum(s => s.Strips),
+                    g => g.Sum(s => s.Strips),
                     v => ((long)v).ToString(CultureInfo.InvariantCulture));
                 AppendRank(wvwRanks, accountNames,"Healing", grouped, total,
-                    g => (double)g.Sum(s => s.Healing),
+                    g => g.Sum(s => s.Healing),
                     v => ((long)v).FormatNumber());
                 AppendRank(wvwRanks, accountNames,"Barrier", grouped, total,
-                    g => (double)g.Sum(s => s.BarrierGenerated),
+                    g => g.Sum(s => s.BarrierGenerated),
                     v => ((long)v).FormatNumber());
                 AppendRank(wvwRanks, accountNames,"Times Downed", grouped, total,
-                    g => (double)g.Sum(s => s.TimesDowned),
+                    g => g.Sum(s => s.TimesDowned),
                     v => ((long)v).ToString(CultureInfo.InvariantCulture),
                     ascending: true);
                 AppendRank(wvwRanks, accountNames,"Dmg Taken", grouped, total,
-                    g => (double)g.Sum(s => s.DamageTaken),
+                    g => g.Sum(s => s.DamageTaken),
                     v => ((long)v).FormatNumber());
                 AppendRank(wvwRanks, accountNames,"Kills", grouped, total,
-                    g => (double)g.Sum(s => s.Kills),
+                    g => g.Sum(s => s.Kills),
                     v => ((long)v).ToString(CultureInfo.InvariantCulture));
 
                 var eligibleForStab = grouped.Where(g => g.Count() >= 10).ToList();
@@ -177,14 +177,14 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
                     g => g.Average(s => (double)s.StabGenOnGroup),
                     v => v.ToString("F2", CultureInfo.InvariantCulture));
 
-                var eligibleForDist = grouped.Where(g => g.Count() >= 10 && g.Any(s => s.DistanceFromTag > 0 && s.DistanceFromTag < 1100)).ToList();
+                var eligibleForDist = grouped.Where(g => g.Count() >= 10 && g.Any(s => s.DistanceFromTag is > 0 and < 1100)).ToList();
                 AppendRank(wvwRanks, accountNames, "Dist From Tag", eligibleForDist, eligibleForDist.Count,
-                    g => g.Where(s => s.DistanceFromTag > 0 && s.DistanceFromTag < 1100).Average(s => (double)s.DistanceFromTag),
+                    g => g.Where(s => s.DistanceFromTag is > 0 and < 1100).Average(s => (double)s.DistanceFromTag),
                     v => v.ToString("F1", CultureInfo.InvariantCulture),
                     ascending: true);
 
                 wvwRanks.Append("```");
-                message.AddField("WvW", wvwRanks.ToString(), false);
+                message.AddField("WvW", wvwRanks.ToString());
                 hasAnyData = true;
             }
         }
@@ -227,7 +227,7 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
                     g => Math.Round(g.Average(s => s.ResurrectionTime) / 1000.0, 3),
                     v => v.ToString("F3", CultureInfo.InvariantCulture));
                 AppendRank(pveRanks, accountNames,"Dmg Taken", grouped, total,
-                    g => (double)(long)Math.Round(g.Average(s => (double)s.DamageTaken), 0),
+                    g => (long)Math.Round(g.Average(s => (double)s.DamageTaken), 0),
                     v => ((long)v).FormatNumber());
                 AppendRank(pveRanks, accountNames,"Times Downed", grouped, total,
                     g => Math.Round(g.Average(s => (double)s.TimesDowned), 2),
@@ -235,7 +235,7 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
                     ascending: true);
 
                 pveRanks.Append("```");
-                message.AddField("PvE", pveRanks.ToString(), false);
+                message.AddField("PvE", pveRanks.ToString());
                 hasAnyData = true;
             }
         }
@@ -319,14 +319,14 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
         var index = 1;
         // Ascending order: lower distance = closer to tag = better; same threshold as per-fight view
         var eligible = grouped
-            .Where(g => g.Count() >= 10 && g.Any(s => s.DistanceFromTag > 0 && s.DistanceFromTag < 1100))
-            .OrderBy(g => g.Where(s => s.DistanceFromTag > 0 && s.DistanceFromTag < 1100).Average(s => (double)s.DistanceFromTag))
+            .Where(g => g.Count() >= 10 && g.Any(s => s.DistanceFromTag is > 0 and < 1100))
+            .OrderBy(g => g.Where(s => s.DistanceFromTag is > 0 and < 1100).Average(s => (double)s.DistanceFromTag))
             .Take(TopN);
 
         foreach (var g in eligible)
         {
             var name = $"({g.Count()}) {g.Key}".ClipAt(21);
-            var avgDist = Math.Round(g.Where(s => s.DistanceFromTag > 0 && s.DistanceFromTag < 1100).Average(s => (double)s.DistanceFromTag), 1);
+            var avgDist = Math.Round(g.Where(s => s.DistanceFromTag is > 0 and < 1100).Average(s => (double)s.DistanceFromTag), 1);
             table += $"{index.ToString().PadLeft(2, '0')}{string.Empty,3}{name,-21}{string.Empty,2}{avgDist.ToString("F1", CultureInfo.InvariantCulture)}\n";
             index++;
         }

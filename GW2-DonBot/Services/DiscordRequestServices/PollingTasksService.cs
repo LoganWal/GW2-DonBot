@@ -1,4 +1,3 @@
-using Discord;
 using Discord.WebSocket;
 using DonBot.Models.Apis.GuildWars2Api;
 using DonBot.Models.Entities;
@@ -6,7 +5,6 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using DonBot.Services.DatabaseServices;
-using DonBot.Services.GuildWarsServices;
 
 namespace DonBot.Services.DiscordRequestServices;
 

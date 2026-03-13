@@ -6,7 +6,7 @@ namespace DonBot.Services.DiscordRequestServices;
 
 public sealed class SteamCommandService(IEntityService entityService) : ISteamCommandService
 {
-    public async Task VerifySteamAccount(SocketSlashCommand command, DiscordSocketClient discordClient)
+    public async Task VerifySteamAccount(SocketSlashCommand command)
     {
         if (long.TryParse(command.Data.Options.First().Value.ToString(), out var steamId))
         {

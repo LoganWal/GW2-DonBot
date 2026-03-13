@@ -73,13 +73,13 @@ The aggregate raid summary includes a **Best Times** button that compares sessio
 
 Recurring event posts are managed via the `ScheduledEvent` database table and the `SchedulerService` background service. Supported event types:
 
-| Type | Description |
-|---|---|
-| **PvE Raid Signup** | Weekly roster embed with Join / Can't Join / Can Fill buttons |
-| **WvW Raid Signup** | Weekly roster embed with Join / Can't Join / Will Be Late buttons |
-| **WvW Leaderboard** | Weekly WvW stats post (configured via `wvw_leaderboard_channel`) |
-| **PvE Leaderboard** | Weekly PvE stats post (configured via `pve_leaderboard_channel`) |
-| **Wordle** | Daily Wordle starting word hint (configured via `wordle_channel`) |
+| Type                | Description                                                           |
+|---------------------|-----------------------------------------------------------------------|
+| **PvE Raid Signup** | Weekly roster embed with Join / Can't Join / Can Fill buttons         |
+| **WvW Raid Signup** | Weekly roster embed with Join / Can't Join / Will Be Late buttons     |
+| **WvW Leaderboard** | Weekly WvW stats post (configured via `wvw_leaderboard_channel`)      |
+| **PvE Leaderboard** | Weekly PvE stats post (configured via `pve_leaderboard_channel`)      |
+| **Wordle**          | Daily Wordle starting word hint (configured via `wordle_channel`)     |
 
 Each event has a configurable day/hour (UTC) and repeat interval. Leaderboards default to Monday 00:00 UTC weekly. Wordle defaults to daily at a configured UTC hour.
 
@@ -110,32 +110,32 @@ Each event has a configurable day/hour (UTC) and repeat interval. Leaderboards d
 
 All per-guild settings are configured via `/gw2_server_config` (Administrator only). Each setting is a subcommand:
 
-| Subcommand | Type | Description |
-|---|---|---|
-| `log_drop_off_channel` | Channel | Channel where fight logs are dropped off via webhook |
-| `log_report_channel` | Channel | Channel where fight summaries are posted |
-| `advance_log_report_channel` | Channel | Channel for advanced WvW log reports |
-| `stream_log_channel` | Channel | Channel for stream log output |
-| `announcement_channel` | Channel | Channel for announcements |
-| `raid_alert_channel` | Channel | Channel for raid alerts |
-| `removed_message_channel` | Channel | Channel where removed spam messages are logged |
-| `guild_member_role` | Role | Discord role assigned to primary GW2 guild members |
-| `secondary_member_role` | Role | Discord role assigned to alliance guild members |
-| `verified_role` | Role | Discord role assigned to verified members |
-| `gw2_guild_member_role_id` | String | GW2 guild UUID for primary membership |
-| `gw2_secondary_member_role_ids` | String | Comma-separated GW2 guild UUIDs for alliance membership |
-| `raid_alert_enabled` | Boolean | Enable or disable raid alerts |
-| `remove_spam_enabled` | Boolean | Auto-remove links posted by unverified users |
-| `auto_submit_to_wingman` | Boolean | Submit PvE dps.report logs to gw2wingman automatically (default: on) |
-| `auto_aggregate_logs` | Boolean | Post an aggregate summary when multiple logs are shared at once (default: on) |
-| `auto_reply_single_log` | Boolean | Reply with a fight summary when a single log is shared (default: off) |
-| `wvw_leaderboard_enabled` | Boolean | Enable or disable the weekly WvW leaderboard |
-| `wvw_leaderboard_channel` | Channel | Channel for the weekly WvW leaderboard (creates scheduled event) |
-| `pve_leaderboard_enabled` | Boolean | Enable or disable the weekly PvE leaderboard |
-| `pve_leaderboard_channel` | Channel | Channel for the weekly PvE leaderboard (creates scheduled event) |
-| `wordle_channel` | Channel | Channel for the daily Wordle message (creates scheduled event) |
-| `wordle_role` | Role | Role to mention in the daily Wordle message |
-| `wordle_hour` | Integer | UTC hour (0–23) to post the daily Wordle message |
+| Subcommand                      | Type    | Description                                                                    |
+|---------------------------------|---------|--------------------------------------------------------------------------------|
+| `log_drop_off_channel`          | Channel | Channel where fight logs are dropped off via webhook                           |
+| `log_report_channel`            | Channel | Channel where fight summaries are posted                                       |
+| `advance_log_report_channel`    | Channel | Channel for advanced WvW log reports                                           |
+| `stream_log_channel`            | Channel | Channel for stream log output                                                  |
+| `announcement_channel`          | Channel | Channel for announcements                                                      |
+| `raid_alert_channel`            | Channel | Channel for raid alerts                                                        |
+| `removed_message_channel`       | Channel | Channel where removed spam messages are logged                                 |
+| `guild_member_role`             | Role    | Discord role assigned to primary GW2 guild members                             |
+| `secondary_member_role`         | Role    | Discord role assigned to alliance guild members                                |
+| `verified_role`                 | Role    | Discord role assigned to verified members                                      |
+| `gw2_guild_member_role_id`      | String  | GW2 guild UUID for primary membership                                          |
+| `gw2_secondary_member_role_ids` | String  | Comma-separated GW2 guild UUIDs for alliance membership                        |
+| `raid_alert_enabled`            | Boolean | Enable or disable raid alerts                                                  |
+| `remove_spam_enabled`           | Boolean | Auto-remove links posted by unverified users                                   |
+| `auto_submit_to_wingman`        | Boolean | Submit PvE dps.report logs to gw2wingman automatically (default: on)           |
+| `auto_aggregate_logs`           | Boolean | Post an aggregate summary when multiple logs are shared at once (default: on)  |
+| `auto_reply_single_log`         | Boolean | Reply with a fight summary when a single log is shared (default: off)          |
+| `wvw_leaderboard_enabled`       | Boolean | Enable or disable the weekly WvW leaderboard                                   |
+| `wvw_leaderboard_channel`       | Channel | Channel for the weekly WvW leaderboard (creates scheduled event)               |
+| `pve_leaderboard_enabled`       | Boolean | Enable or disable the weekly PvE leaderboard                                   |
+| `pve_leaderboard_channel`       | Channel | Channel for the weekly PvE leaderboard (creates scheduled event)               |
+| `wordle_channel`                | Channel | Channel for the daily Wordle message (creates scheduled event)                 |
+| `wordle_role`                   | Role    | Role to mention in the daily Wordle message                                    |
+| `wordle_hour`                   | Integer | UTC hour (0–23) to post the daily Wordle message                               |
 
 ---
 
@@ -164,9 +164,9 @@ dotnet publish -c Release -o ./publish
 
 **Configuration** is via environment variables (see `.env.example`):
 
-| Variable | Description |
-|---|---|
-| `DonBotToken` | Discord bot token |
-| `DonBotSqlConnectionString` | SQL Server connection string |
+| Variable                      | Description                    |
+|-------------------------------|--------------------------------|
+| `DonBotToken`                 | Discord bot token              |
+| `DonBotSqlConnectionString`   | SQL Server connection string   |
 
 `appsettings.json` is committed and contains base Serilog configuration. For local overrides, create `appsettings.user.json` in the project folder - it is loaded automatically and can override any setting from `appsettings.json`. Logs are written to `Logs/DonBot-*.txt` by default.

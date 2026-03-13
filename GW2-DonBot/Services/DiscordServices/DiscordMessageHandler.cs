@@ -217,7 +217,7 @@ public class DiscordMessageHandler(
 
         if (guild.AutoSubmitToWingman)
         {
-            var nonWvwUrls = urls.Where((url, i) => !dataList[i].FightEliteInsightDataModel.Wvw).ToList();
+            var nonWvwUrls = urls.Where((_, i) => !dataList[i].FightEliteInsightDataModel.Wvw).ToList();
             if (nonWvwUrls.Count > 0)
             {
                 await SubmitToWingmanAsync(nonWvwUrls);
@@ -295,8 +295,7 @@ public class DiscordMessageHandler(
 
         var progressMessage = (IUserMessage)await interaction.Channel.SendMessageAsync($"Fetching log 1 of {urls.Count}...");
 
-        var dataList = new List<EliteInsightDataModel>();
-        dataList.Add(await dataModelGenerator.GenerateEliteInsightDataModelFromUrl(urls[0]));
+        var dataList = new List<EliteInsightDataModel> { await dataModelGenerator.GenerateEliteInsightDataModelFromUrl(urls[0]) };
         for (var i = 1; i < urls.Count; i++)
         {
             await progressMessage.ModifyAsync(m => m.Content = $"Fetching log {i + 1} of {urls.Count}...");
@@ -308,7 +307,7 @@ public class DiscordMessageHandler(
 
         if (submitToWingman)
         {
-            var nonWvwUrls = urls.Where((url, i) => !dataList[i].FightEliteInsightDataModel.Wvw).ToList();
+            var nonWvwUrls = urls.Where((_, i) => !dataList[i].FightEliteInsightDataModel.Wvw).ToList();
             if (nonWvwUrls.Count > 0)
             {
                 await progressMessage.ModifyAsync(m => m.Content = $"Submitting log 1 of {nonWvwUrls.Count} to Wingman...");

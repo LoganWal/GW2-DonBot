@@ -23,7 +23,7 @@ public sealed class PvEFightSummaryService(
             {
                 await rotationAnalysisService.AnalyzePlayerRotations(data);
             }
-            catch { }
+            catch (Exception ex) { _ = ex; }
         });
 
         var fightPhase = data.FightEliteInsightDataModel.Phases?.Any() ?? false

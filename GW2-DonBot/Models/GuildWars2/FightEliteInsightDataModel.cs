@@ -109,8 +109,6 @@ public class ArcDpsPhase
     [JsonProperty("duration")]
     public long Duration { get; set; }
 
-    public double DurationS => Duration / 1000.0;
-
     [JsonProperty("end")]
     public double End { get; set; }
 
@@ -252,15 +250,13 @@ public struct Distribution
     public bool? Bool;
     public double? Double;
 
-    public static implicit operator Distribution(bool @bool) => new Distribution { Bool = @bool };
-    public static implicit operator Distribution(double @double) => new Distribution { Double = @double };
+    public static implicit operator Distribution(bool @bool) => new() { Bool = @bool };
+    public static implicit operator Distribution(double @double) => new() { Double = @double };
 }
 
 public struct DefStat
 {
     public double? Double;
-    public string String;
 
-    public static implicit operator DefStat(double @double) => new DefStat { Double = @double };
-    public static implicit operator DefStat(string @string) => new DefStat { String = @string };
+    public static implicit operator DefStat(double @double) => new() { Double = @double };
 }

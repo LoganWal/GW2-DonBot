@@ -130,6 +130,10 @@ public class DiscordCommandRegistrar(ILogger<DiscordCommandRegistrar> logger)
                 .AddOption("quote", ApplicationCommandOptionType.String, "The quote to add.", isRequired: true),
 
             new SlashCommandBuilder()
+                .WithName("digut")
+                .WithDescription("Find out when the next GW2 Pinata starts."),
+
+            new SlashCommandBuilder()
                 .WithName("gw2_server_config")
                 .WithDescription("Configure DonBot settings for this server.")
                 .WithDefaultMemberPermissions(GuildPermission.Administrator)

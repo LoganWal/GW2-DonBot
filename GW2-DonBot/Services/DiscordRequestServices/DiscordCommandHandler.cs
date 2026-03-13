@@ -38,6 +38,7 @@ public class DiscordCommandHandler(
                 case "gw2_my_rank": await Gw2MyRank(command); break;
                 case "gw2_add_quote": await Gw2AddQuote(command); break;
                 case "gw2_server_config": await Gw2ServerConfig(command); break;
+                case "digut": await Digut(command); break;
                 case "steam_verify": await SteamVerifyCommandExecuted(command); break;
                 case "deadlock_mmr": await DeadlockMmrCommandExecuted(command); break;
                 case "deadlock_mmr_history": await DeadlockMmrHistoryCommandExecuted(command); break;
@@ -150,6 +151,12 @@ public class DiscordCommandHandler(
     {
         await command.DeferAsync(ephemeral: true);
         await genericCommandsService.AddQuoteCommandExecuted(command);
+    }
+
+    private async Task Digut(SocketSlashCommand command)
+    {
+        await command.DeferAsync();
+        await genericCommandsService.DigutCommandExecuted(command);
     }
 
     private async Task Gw2ServerConfig(SocketSlashCommand command)

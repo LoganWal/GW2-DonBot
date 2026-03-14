@@ -220,7 +220,7 @@ public class DiscordMessageHandler(
             var nonWvwUrls = urls.Where((_, i) => !dataList[i].FightEliteInsightDataModel.Wvw).ToList();
             if (nonWvwUrls.Count > 0)
             {
-                await SubmitToWingmanAsync(nonWvwUrls);
+                _ = SubmitToWingmanAsync(nonWvwUrls);
             }
         }
 
@@ -310,9 +310,9 @@ public class DiscordMessageHandler(
             var nonWvwUrls = urls.Where((_, i) => !dataList[i].FightEliteInsightDataModel.Wvw).ToList();
             if (nonWvwUrls.Count > 0)
             {
-                await progressMessage.ModifyAsync(m => m.Content = $"Submitting log 1 of {nonWvwUrls.Count} to Wingman...");
-                await SubmitToWingmanAsync(nonWvwUrls, async (current, total) =>
-                    await progressMessage.ModifyAsync(m => m.Content = $"Submitting log {current} of {total} to Wingman..."));
+                _ = SubmitToWingmanAsync(nonWvwUrls);
+                await progressMessage.ModifyAsync(m => m.Content = $"Uploading {nonWvwUrls.Count} log{(nonWvwUrls.Count > 1 ? "s" : "")} to Wingman in the background...");
+                await Task.Delay(2000);
             }
         }
 
@@ -398,7 +398,7 @@ public class DiscordMessageHandler(
         }
     }
 
-    private async Task SubmitToWingmanAsync(List<string> urls, Func<int, int, Task>? onProgress = null)
+    private async Task SubmitToWingmanAsync(List<string> urls)
     {
         const string dpsReportPattern = @"https://(?:b\.dps|wvw|dps)\.report/\S+";
         var dpsReportUrls = urls.Where(u => IsMatch(u, dpsReportPattern)).ToList();
@@ -408,22 +408,17 @@ public class DiscordMessageHandler(
         }
 
         var httpClient = httpClientFactory.CreateClient();
-        for (var i = 0; i < dpsReportUrls.Count; i++)
+        foreach (var url in dpsReportUrls)
         {
-            if (i > 0 && onProgress != null)
-            {
-                await onProgress(i + 1, dpsReportUrls.Count);
-            }
-
             try
             {
-                var wingmanUrl = $"https://gw2wingman.nevermindcreations.de/api/importLogQueued?link={Uri.EscapeDataString(dpsReportUrls[i])}";
+                var wingmanUrl = $"https://gw2wingman.nevermindcreations.de/api/importLogQueued?link={Uri.EscapeDataString(url)}";
                 var response = await httpClient.GetAsync(wingmanUrl);
-                logger.LogInformation("Submitted {Url} to wingman, status: {Status}", dpsReportUrls[i], response.StatusCode);
+                logger.LogInformation("Submitted {Url} to wingman, status: {Status}", url, response.StatusCode);
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to submit {Url} to wingman", dpsReportUrls[i]);
+                logger.LogWarning(ex, "Failed to submit {Url} to wingman", url);
             }
         }
     }

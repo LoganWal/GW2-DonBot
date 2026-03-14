@@ -5,6 +5,9 @@ on:
     - cron: '0 10 * * 1' # Every Monday at 10:00 UTC
   workflow_dispatch: # Allow manual trigger
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   merge:
     runs-on: ubuntu-latest
@@ -13,7 +16,7 @@ jobs:
       pull-requests: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
 

@@ -155,7 +155,7 @@ public class DiscordCommandHandler(
 
     private async Task Digut(SocketSlashCommand command)
     {
-        await command.DeferAsync();
+        await command.DeferAsync(ephemeral: true);
         await genericCommandsService.DigutCommandExecuted(command);
     }
 

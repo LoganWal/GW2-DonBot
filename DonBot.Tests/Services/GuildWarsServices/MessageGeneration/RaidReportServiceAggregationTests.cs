@@ -1,4 +1,5 @@
 using DonBot.Models.Entities;
+using DonBot.Models.GuildWars2;
 using DonBot.Services.GuildWarsServices.MessageGeneration;
 
 namespace DonBot.Tests.Services.GuildWarsServices.MessageGeneration;
@@ -166,6 +167,6 @@ public class RaidReportServiceAggregationTests
         Assert.Equal(300_000, result.DamageTaken);
     }
 
-    private static DonBot.Models.GuildWars2.Gw2Player Aggregate(params PlayerFightLog[] logs) =>
+    private static Gw2Player Aggregate(params PlayerFightLog[] logs) =>
         RaidReportService.AggregatePlayerFights(logs.GroupBy(l => l.GuildWarsAccountName).First());
 }

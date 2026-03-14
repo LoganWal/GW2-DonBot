@@ -223,7 +223,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
         damageOverview += "```";
 
-        var cleanseOverview = $"```#    Name                   Cleanses\n";
+        var cleanseOverview = "```#    Name                   Cleanses\n";
 
         var topCleanses = gw2Players.OrderByDescending(s => s.Cleanses).Take(playerCount).ToList();
         var cleanseIndex = 1;

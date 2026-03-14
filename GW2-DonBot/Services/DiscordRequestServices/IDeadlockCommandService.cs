@@ -1,12 +1,10 @@
-﻿using Discord.WebSocket;
-
 namespace DonBot.Services.DiscordRequestServices;
 
 public interface IDeadlockCommandService
 {
-    public Task GetMmr(SocketSlashCommand command, DiscordSocketClient discordClient);
+    public Task GetMmr(Discord.WebSocket.SocketSlashCommand command);
 
-    public Task GetMmrHistory(SocketSlashCommand command, DiscordSocketClient discordClient);
+    public Task GetMmrHistory(Discord.WebSocket.SocketSlashCommand command);
 
-    public Task GetMatchHistory(SocketSlashCommand command, DiscordSocketClient discordClient);
+    public Task GetMatchHistory(Discord.WebSocket.SocketSlashCommand command);
 }

@@ -14,9 +14,9 @@ public class EliteInsightDataModel()
         BarrierEliteInsightDataModel = barrierData;
     }
 
-    public FightEliteInsightDataModel FightEliteInsightDataModel { get; set; } = new FightEliteInsightDataModel();
+    public FightEliteInsightDataModel FightEliteInsightDataModel { get; } = new();
 
-    public HealingEliteInsightDataModel HealingEliteInsightDataModel { get; set; } = new HealingEliteInsightDataModel();
+    public HealingEliteInsightDataModel HealingEliteInsightDataModel { get; } = new();
 
-    public BarrierEliteInsightDataModel BarrierEliteInsightDataModel { get; set; } = new BarrierEliteInsightDataModel();
+    public BarrierEliteInsightDataModel BarrierEliteInsightDataModel { get; } = new();
 }

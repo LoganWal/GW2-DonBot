@@ -23,7 +23,7 @@ public sealed class LeaderboardCommandsService(
             return;
         }
 
-        if (!guild.WvwLeaderboardEnabled && !guild.PveLeaderboardEnabled)
+        if (guild is { WvwLeaderboardEnabled: false, PveLeaderboardEnabled: false })
         {
             await command.FollowupAsync("No leaderboards are currently enabled for this server.", ephemeral: true);
             return;

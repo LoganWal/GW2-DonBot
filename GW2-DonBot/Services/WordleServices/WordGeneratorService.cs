@@ -2,7 +2,7 @@
 
 public sealed class WordGeneratorService : IWordGeneratorService
 {
-    private readonly HashSet<string> _wordList = LoadWordList(@"Resources\wordleWords.txt");
+    private readonly HashSet<string> _wordList = LoadWordList(Path.Combine("Resources", "wordleWords.txt"));
 
     private static HashSet<string> LoadWordList(string relativePath)
     {

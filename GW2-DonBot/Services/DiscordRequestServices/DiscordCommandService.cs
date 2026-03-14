@@ -7,7 +7,7 @@ namespace DonBot.Services.DiscordRequestServices;
 
 public sealed class DiscordCommandService(IEntityService entityService) : IDiscordCommandService
 {
-    public async Task ConfigureServer(SocketSlashCommand command, DiscordSocketClient discordClient)
+    public async Task ConfigureServer(SocketSlashCommand command)
     {
         if (command.GuildId == null)
         {

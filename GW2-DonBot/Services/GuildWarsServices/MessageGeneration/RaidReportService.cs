@@ -103,7 +103,7 @@ public sealed class RaidReportService(
         var rows = BuildSurvivabilityRows(groupedPlayerFights);
         return $"```{SurvivabilityHeader}{string.Concat(rows)}```";
     }
-    
+
     private static IReadOnlyList<string> BuildSurvivabilityRows(List<IGrouping<string, PlayerFightLog>> groupedPlayerFights)
     {
         var allLogs = groupedPlayerFights.SelectMany(g => g).ToList();
@@ -317,7 +317,7 @@ public sealed class RaidReportService(
                     successFightTimeString += " (!)";
                 }
 
-                fightRows.Add($"({Enum.GetName(typeof(FightModesEnum), fightTypeFightMode.Key) ?? nameof(FightModesEnum.Nm)}){(Enum.GetName(typeof(FightTypesEnum), groupedFight.Key) ?? nameof(FightTypesEnum.Unkn)),-10}{string.Empty,2}{bestFightTimeString,-6}{string.Empty,6}{successFightTimeString,-11}{string.Empty,5}{fightTypeFightModeList.Count}\n");
+                fightRows.Add($"({fightTypeFightMode.Key.GetFightModeName()}){(Enum.GetName(typeof(FightTypesEnum), groupedFight.Key) ?? nameof(FightTypesEnum.Unkn)),-10}{string.Empty,2}{bestFightTimeString,-6}{string.Empty,6}{successFightTimeString,-11}{string.Empty,5}{fightTypeFightModeList.Count}\n");
             }
         }
 
@@ -347,7 +347,7 @@ public sealed class RaidReportService(
         AddChunkedCodeFenceFields(playerEmbed, "Player Overview", "Player         Dmg       Cleave    Alac    Quick\n", playerLineByDmg.OrderByDescending(s => s.Item1).Select(t => t.Item2));
 
         // --- Survivability + Mechanics embed ---
-        var survEmbed = new EmbedBuilder
+        var surviveEmbed = new EmbedBuilder
         {
             Color = color,
             Author = author,
@@ -355,7 +355,7 @@ public sealed class RaidReportService(
             Timestamp = DateTime.Now
         };
 
-        AddChunkedCodeFenceFields(survEmbed, "Survivability Overview", SurvivabilityHeader, BuildSurvivabilityRows(groupedPlayerFights));
+        AddChunkedCodeFenceFields(surviveEmbed, "Survivability Overview", SurvivabilityHeader, BuildSurvivabilityRows(groupedPlayerFights));
 
         foreach (var groupedFight in groupedFights)
         {
@@ -382,7 +382,7 @@ public sealed class RaidReportService(
 
             if (!string.IsNullOrEmpty(mechanicsOverview))
             {
-                survEmbed.AddField(x =>
+                surviveEmbed.AddField(x =>
                 {
                     x.Name = mechanicsHeading;
                     x.Value = mechanicsOverview;
@@ -391,7 +391,7 @@ public sealed class RaidReportService(
             }
         }
 
-        return [fightsEmbed.Build(), playerEmbed.Build(), survEmbed.Build()];
+        return [fightsEmbed.Build(), playerEmbed.Build(), surviveEmbed.Build()];
     }
 
     private string GenerateMechanicsOverview(short fightType, string header, Func<PlayerFightLog, decimal> orderBySelector, IEnumerable<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights, bool byMax = false)

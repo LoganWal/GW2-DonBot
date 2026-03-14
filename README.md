@@ -162,9 +162,29 @@ dotnet publish -c Release -o ./publish
 ```
 
 **Deployment options:**
-- **Docker**: copy `.env.example` to `.env`, fill in your values, then `docker-compose up`
+- **Docker**: copy `.env.example` to `.env`, fill in your values, then `docker-compose up -d`
 - **Linux systemd**: use `deploy/donbot.service` — copy to `/etc/systemd/system/`, place the published output at `/opt/donbot/`
 - **Windows Service**: register the published executable with `sc.exe`
+
+### Auto-deploy with Watchtower
+
+The Docker setup includes [Watchtower](https://containrrr.dev/watchtower/), which polls GitHub Container Registry every 5 minutes and automatically restarts the bot when a new image is published.
+
+A new image is pushed to `ghcr.io/loganwal/gw2-donbot:latest` automatically by GitHub Actions whenever a commit is merged to `main`.
+
+To enable auto-deploy on your server, add the following to your `.env` (in addition to the bot config vars):
+
+| Variable      | Description                                                                 |
+|---------------|-----------------------------------------------------------------------------|
+| `GHCR_USER`   | Your GitHub username                                                        |
+| `GHCR_TOKEN`  | A GitHub Personal Access Token with `read:packages` scope                  |
+
+**Generating a GitHub PAT:**
+1. Go to [GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)](https://github.com/settings/tokens/new)
+2. Give it a descriptive name (e.g. `donbot-watchtower`)
+3. Under **Select scopes**, tick **`read:packages`** only — no other permissions are needed
+4. Click **Generate token** and copy the value immediately (it won't be shown again)
+5. Paste it as `GHCR_TOKEN` in your `.env`
 
 **Configuration** is via environment variables (see `.env.example`):
 
@@ -172,6 +192,8 @@ dotnet publish -c Release -o ./publish
 |-------------------------------|--------------------------------|
 | `DonBotToken`                 | Discord bot token              |
 | `DonBotSqlConnectionString`   | PostgreSQL connection string (e.g. `Host=localhost;Port=5432;Database=DonBot;Username=postgres;Password=yourpassword;`) |
+| `GHCR_USER`                   | GitHub username (for Watchtower) |
+| `GHCR_TOKEN`                  | GitHub PAT with `read:packages` (for Watchtower) |
 
 ## Database Migrations
 

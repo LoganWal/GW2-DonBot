@@ -1,7 +1,17 @@
 services:
   donbot:
-    build: .
+    image: ghcr.io/loganwal/gw2-donbot:latest
     restart: unless-stopped
     env_file: .env
     volumes:
       - ./logs:/app/Logs
+
+  watchtower:
+    image: containrrr/watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_POLL_INTERVAL=300
+      - REPO_USER=${GHCR_USER}
+      - REPO_PASS=${GHCR_TOKEN}

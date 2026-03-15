@@ -44,6 +44,12 @@ public sealed class PollingTasksService(
 
         await Task.WhenAll(tasks);
 
+        if (accounts.Count > 0 && (double)guildWars2Data.Count / accounts.Count < 0.5)
+        {
+            logger.LogWarning("GW2 API appears to be down ({SuccessfulFetches}/{TotalAccounts} accounts fetched). Skipping role changes.", guildWars2Data.Count, accounts.Count);
+            return;
+        }
+
         await entityService.GuildWarsAccount.UpdateRangeAsync(guildWarsAccounts);
         foreach (var clientGuild in discordClient.Guilds)
         {
@@ -137,19 +143,6 @@ public sealed class PollingTasksService(
 
             var playerAccount = accounts.FirstOrDefault(f => f.DiscordId == (long)user.Id);
             var playerGwAccounts = gwAccounts.Where(s => s.DiscordId == (long)user.Id).ToList();
-            var invalidAccounts = playerGwAccounts.Where(s => s.FailedApiPullCount >= 48).ToList();
-
-            foreach (var invalidGuildWarsAccount in invalidAccounts)
-            {
-                logger.LogWarning("Guild Wars 2 account {invalidGuildWarsAccountGuildWarsAccountName} is no longer valid .", invalidGuildWarsAccount.GuildWarsAccountName);
-
-                invalidGuildWarsAccount.GuildWarsApiKey = null;
-            }
-
-            if (invalidAccounts.Any())
-            {
-                await entityService.GuildWarsAccount.UpdateRangeAsync(invalidAccounts);
-            }
 
             if (playerAccount == null || !playerGwAccounts.Any() || playerGwAccounts.All(s => string.IsNullOrEmpty(s.GuildWarsApiKey)))
             {
@@ -206,12 +199,11 @@ public sealed class PollingTasksService(
             removedRoles = true;
         }
 
-        // TODO this isn't safe, need to check api is up before nuking
         if (roles.Contains((ulong)verifiedRoleId))
         {
-            //await user.RemoveRoleAsync((ulong)verifiedRoleId);
-            //logger.LogInformation("Removing Verified Role");
-            //removedRoles = true;
+            await user.RemoveRoleAsync((ulong)verifiedRoleId);
+            logger.LogInformation("Removing Verified Role");
+            removedRoles = true;
         }
 
         if (removedRoles)

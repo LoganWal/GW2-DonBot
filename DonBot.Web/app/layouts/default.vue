@@ -1,0 +1,176 @@
+<template>
+  <div :class="['layout-wrapper', { 'sidebar-collapsed': collapsed }]">
+    <Teleport to="body">
+      <div v-if="mobileOpen" class="sidebar-backdrop" @click="closeMobile" />
+    </Teleport>
+
+    <AppSidebar />
+
+    <div class="layout-body">
+      <AppHeader />
+      <main class="layout-content">
+        <slot />
+      </main>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+const { collapsed, mobileOpen, closeMobile } = useSidebar()
+</script>
+
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--p-surface-ground);
+  color: var(--p-text-color);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Layout shell */
+.layout-wrapper {
+  display: flex;
+  min-height: 100vh;
+}
+
+.layout-body {
+  margin-left: 240px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  transition: margin-left 0.2s ease;
+}
+
+.layout-wrapper.sidebar-collapsed .layout-body {
+  margin-left: 64px;
+}
+
+.layout-content {
+  flex: 1;
+  padding: 2rem;
+}
+
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 99;
+  backdrop-filter: blur(2px);
+}
+
+@media (max-width: 768px) {
+  .layout-body {
+    margin-left: 0 !important;
+  }
+
+  .layout-content {
+    padding: 1.25rem;
+  }
+}
+
+/* Page utilities */
+.page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--p-text-color);
+  margin-bottom: 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+/* Stat grid */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card .p-card-body {
+  padding: 1.25rem !important;
+}
+
+.stat-label {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--p-text-muted-color);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.4rem;
+}
+
+.stat-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--p-text-color);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+/* Card polish */
+.p-card {
+  border: 1px solid var(--p-surface-border) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08) !important;
+  border-radius: 12px !important;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.p-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+.p-card .p-card-title {
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em;
+}
+
+/* DataTable polish */
+.p-datatable .p-datatable-thead > tr > th {
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: var(--p-text-muted-color) !important;
+}
+
+.p-datatable {
+  border: 1px solid var(--p-surface-border) !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+
+/* Button polish */
+.p-button {
+  font-family: 'Inter', system-ui, sans-serif !important;
+  font-weight: 500 !important;
+  border-radius: 8px !important;
+}
+
+/* Input polish */
+.p-inputtext {
+  font-family: 'Inter', system-ui, sans-serif !important;
+  border-radius: 8px !important;
+}
+
+/* Tag polish */
+.p-tag {
+  border-radius: 6px !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+}
+
+/* Toolbar base reset */
+.p-toolbar {
+  border-radius: 0 !important;
+}
+</style>

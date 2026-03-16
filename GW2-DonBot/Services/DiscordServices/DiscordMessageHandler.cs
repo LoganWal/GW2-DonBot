@@ -43,7 +43,7 @@ public class DiscordMessageHandler(
     {
         try
         {
-            if (seenMessage.Author.IsBot)
+            if (seenMessage.Author.IsBot && seenMessage.Source != MessageSource.Webhook)
             {
                 return;
             }

@@ -22,7 +22,6 @@ public class DiscordMessageHandler(
     DiscordSocketClient client,
     IPendingLogService pendingLogService)
 {
-    private const long DonBotId = 1021682849797111838;
     private readonly HashSet<string> _seenUrls = [];
 
     public async Task LoadExistingFightLogs()
@@ -44,15 +43,7 @@ public class DiscordMessageHandler(
     {
         try
         {
-            // TODO update this to be config driven
-            ulong[] knownBots =
-            [
-                DonBotId,
-                1172050606005964820, // gw2Mists.com
-                1408608200424554507  // gw2SoxBot
-            ];
-
-            if (knownBots.Contains(seenMessage.Author.Id))
+            if (seenMessage.Author.IsBot)
             {
                 return;
             }

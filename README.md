@@ -38,10 +38,10 @@ For logs posted via webhook/embed (e.g. automatic drop-off channels), Wingman su
 
 Weekly leaderboards are posted on a configurable schedule (default: every Monday at 00:00 UTC) to a dedicated channel, managed via `ScheduledEvent` entries.
 
-- **WvW leaderboard**: Top 20 players per metric over the past 7 days — Damage, Down Contribution, Cleanses, Strips, Stab (avg, 10+ logs), Healing, Barrier, Times Downed, Damage Taken, Kills, Distance From Tag (avg, 10+ logs). Split across two embeds to respect Discord's 6000-character limit.
-- **PvE leaderboard**: Top 20 players (6+ logs required) — DPS, Cleave DPS, Avg Res Time, Avg Damage Taken, Avg Times Downed.
+- **WvW leaderboard**: Top 20 players per metric over the past 7 days: Damage, Down Contribution, Cleanses, Strips, Stab (avg, 10+ logs), Healing, Barrier, Times Downed, Damage Taken, Kills, Distance From Tag (avg, 10+ logs). Split across two embeds to respect Discord's 6000-character limit.
+- **PvE leaderboard**: Top 20 players (6+ logs required): DPS, Cleave DPS, Avg Res Time, Avg Damage Taken, Avg Times Downed.
 - `/gw2_my_rank`: View your personal rank across all enabled leaderboards (ephemeral).
-- `/gw2_add_quote`: Add a quote to the guild quote pool — quotes appear randomly in leaderboard embed footers.
+- `/gw2_add_quote`: Add a quote to the guild quote pool. Quotes appear randomly in leaderboard embed footers.
 
 ### Raffle System
 
@@ -94,22 +94,6 @@ Each event has a configurable day/hour (UTC) and repeat interval. Leaderboards d
 - Automatically removes Discord invite links posted by unverified users
 - Logs removed messages to a configurable moderation channel
 
-### Wordle Integration
-
-- Posts a daily NYT Wordle starting word hint (with word definition) to a configured channel
-- Channel, role mention, and UTC post hour are all configurable via `gw2_server_config`
-
-### Pinata Tracker
-
-- `/digut`: Find out the status of the current GW2 Pinata event cycle
-
-### Steam / Deadlock Integration
-
-- `/steam_verify`: Link your Steam account ID
-- `/deadlock_mmr`: View your current Deadlock MMR and rank
-- `/deadlock_mmr_history`: View your last 5 MMR records
-- `/deadlock_match_history`: View recent match history
-
 ### Server Configuration
 
 All per-guild settings are configured via `/gw2_server_config` (Administrator only). Each setting is a subcommand:
@@ -139,7 +123,13 @@ All per-guild settings are configured via `/gw2_server_config` (Administrator on
 | `pve_leaderboard_channel`       | Channel | Channel for the weekly PvE leaderboard (creates scheduled event)               |
 | `wordle_channel`                | Channel | Channel for the daily Wordle message (creates scheduled event)                 |
 | `wordle_role`                   | Role    | Role to mention in the daily Wordle message                                    |
-| `wordle_hour`                   | Integer | UTC hour (0–23) to post the daily Wordle message                               |
+| `wordle_hour`                   | Integer | UTC hour (0-23) to post the daily Wordle message                               |
+
+### Other Features
+
+- **Wordle**: Posts a daily NYT Wordle starting word hint (with word definition) to a configured channel. Channel, role mention, and UTC post hour are configurable via `gw2_server_config`.
+- **Pinata Tracker**: `/digut` - Find out the status of the current GW2 Pinata event cycle.
+- **Steam / Deadlock**: `/steam_verify` to link your Steam account. `/deadlock_mmr`, `/deadlock_mmr_history`, and `/deadlock_match_history` to view MMR and recent match history.
 
 ---
 
@@ -151,19 +141,32 @@ All per-guild settings are configured via `/gw2_server_config` (Administrator on
 - **Serilog**: structured logging to console and daily rolling files
 - **Microsoft.Extensions.Hosting**: supports Windows Service, Linux systemd, and Docker
 
-## Build & Deploy
+---
+
+## Setup & Deployment
+
+### Configuration
+
+All configuration is via environment variables. Copy `.env.example` to `.env` and fill in your values:
+
+| Variable                    | Description                                               |
+|-----------------------------|-----------------------------------------------------------|
+| `DonBotToken`               | Discord bot token                                         |
+| `DonBotSqlConnectionString` | PostgreSQL connection string (see `.env.example`)         |
+| `GHCR_USER`                 | GitHub username (required for Watchtower auto-deploy)     |
+| `GHCR_TOKEN`                | GitHub PAT with `read:packages` scope (for Watchtower)    |
+
+### Build
 
 ```bash
-# Build
 dotnet build --configuration Release
-
-# Publish
 dotnet publish -c Release -o ./publish
 ```
 
-**Deployment options:**
-- **Docker**: copy `.env.example` to `.env`, fill in your values, then `docker-compose up -d`
-- **Linux systemd**: use `deploy/donbot.service` — copy to `/etc/systemd/system/`, place the published output at `/opt/donbot/`
+### Deployment Options
+
+- **Docker**: `docker-compose up -d`
+- **Linux systemd**: copy `deploy/donbot.service` to `/etc/systemd/system/`, place the published output at `/opt/donbot/`
 - **Windows Service**: register the published executable with `sc.exe`
 
 ### Auto-deploy with Watchtower
@@ -172,30 +175,16 @@ The Docker setup includes [Watchtower](https://containrrr.dev/watchtower/), whic
 
 A new image is pushed to `ghcr.io/loganwal/gw2-donbot:latest` automatically by GitHub Actions whenever a commit is merged to `main`.
 
-To enable auto-deploy on your server, add the following to your `.env` (in addition to the bot config vars):
-
-| Variable      | Description                                                                 |
-|---------------|-----------------------------------------------------------------------------|
-| `GHCR_USER`   | Your GitHub username                                                        |
-| `GHCR_TOKEN`  | A GitHub Personal Access Token with `read:packages` scope                  |
+`GHCR_USER` and `GHCR_TOKEN` in your `.env` are required for Watchtower to pull from the registry.
 
 **Generating a GitHub PAT:**
-1. Go to [GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)](https://github.com/settings/tokens/new)
+1. Go to [GitHub -> Settings -> Developer settings -> Personal access tokens -> Tokens (classic)](https://github.com/settings/tokens/new)
 2. Give it a descriptive name (e.g. `donbot-watchtower`)
-3. Under **Select scopes**, tick **`read:packages`** only — no other permissions are needed
+3. Under **Select scopes**, tick **`read:packages`** only
 4. Click **Generate token** and copy the value immediately (it won't be shown again)
 5. Paste it as `GHCR_TOKEN` in your `.env`
 
-**Configuration** is via environment variables (see `.env.example`):
-
-| Variable                      | Description                    |
-|-------------------------------|--------------------------------|
-| `DonBotToken`                 | Discord bot token              |
-| `DonBotSqlConnectionString`   | PostgreSQL connection string (e.g. `Host=localhost;Port=5432;Database=DonBot;Username=postgres;Password=yourpassword;`) |
-| `GHCR_USER`                   | GitHub username (for Watchtower) |
-| `GHCR_TOKEN`                  | GitHub PAT with `read:packages` (for Watchtower) |
-
-## Database Migrations
+### Database Migrations
 
 Migrations are managed with EF Core. The app automatically applies pending migrations on startup.
 
@@ -217,6 +206,6 @@ The `dotnet-ef` tool must be installed:
 dotnet tool install --global dotnet-ef
 ```
 
----
+### Local Development
 
 `appsettings.json` is committed and contains base Serilog configuration. For local overrides, create `appsettings.user.json` in the project folder - it is loaded automatically and can override any setting from `appsettings.json`. Logs are written to `Logs/DonBot-*.txt` by default.

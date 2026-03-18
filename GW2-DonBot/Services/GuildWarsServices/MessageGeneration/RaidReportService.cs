@@ -118,7 +118,7 @@ public sealed class RaidReportService(
             .ToDictionary(g => g.Key, g => g.Count());
 
         return groupedPlayerFights
-            .OrderBy(s => s.Sum(d => d.DamageTaken))
+            .OrderBy(s => s.Sum(d => d.ResurrectionTime))
             .Select(gw2Player => $"{gw2Player.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,2}{Math.Round((double)gw2Player.Sum(s => s.ResurrectionTime) / 1000, 3),-9}{string.Empty,2}{gw2Player.Sum(s => s.DamageTaken),-10}{string.Empty,2}{gw2Player.Sum(s => s.TimesDowned),-7}{string.Empty,2}{firstToDieCounts.GetValueOrDefault(gw2Player.Key, 0)}\n")
             .ToList();
     }

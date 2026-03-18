@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Discord.WebSocket;
 using DonBot.Models.Entities;
 using DonBot.Models.Enums;
@@ -16,7 +17,7 @@ public sealed class SchedulerService(
 {
     private Timer? _eventCheckTimer;
     private readonly List<Timer> _eventTimers = [];
-    private readonly Dictionary<long, bool> _scheduledEventIds = [];
+    private readonly ConcurrentDictionary<long, bool> _scheduledEventIds = new();
 
     public override async Task StopAsync(CancellationToken stoppingToken)
     {
@@ -130,32 +131,39 @@ public sealed class SchedulerService(
     private async Task FireEvent(ScheduledEvent scheduledEvent)
     {
         var eventType = (ScheduledEventTypeEnum)scheduledEvent.EventType;
-        var handler = eventHandlers.FirstOrDefault(h => h.EventType == eventType);
-
-        if (handler == null)
-        {
-            logger.LogWarning("No handler registered for event type {EventType}.", eventType);
-            return;
-        }
-
-        var socketGuild = client.GetGuild((ulong)scheduledEvent.GuildId);
-        if (socketGuild == null)
-        {
-            logger.LogWarning("Guild {GuildId} not found for event {ScheduledEventId}.", scheduledEvent.GuildId, scheduledEvent.ScheduledEventId);
-            return;
-        }
 
         try
         {
+            var handler = eventHandlers.FirstOrDefault(h => h.EventType == eventType);
+            if (handler == null)
+            {
+                logger.LogWarning("No handler registered for event type {EventType}.", eventType);
+                return;
+            }
+
+            var socketGuild = client.GetGuild((ulong)scheduledEvent.GuildId);
+            if (socketGuild == null)
+            {
+                logger.LogWarning("Guild {GuildId} not found for event {ScheduledEventId}.", scheduledEvent.GuildId, scheduledEvent.ScheduledEventId);
+                return;
+            }
+
             await handler.HandleAsync(scheduledEvent, socketGuild);
 
             scheduledEvent.UtcEventTime = scheduledEvent.UtcEventTime.AddDays(scheduledEvent.RepeatIntervalDays);
             await entityService.ScheduledEvent.UpdateAsync(scheduledEvent);
-            _scheduledEventIds.Remove(scheduledEvent.ScheduledEventId);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Handler for {EventType} failed on event {ScheduledEventId}.", eventType, scheduledEvent.ScheduledEventId);
+        }
+        finally
+        {
+            _scheduledEventIds.TryRemove(scheduledEvent.ScheduledEventId, out _);
+
+            var now = DateTime.UtcNow;
+            var nextEventTime = GetNextEventTime(scheduledEvent, now);
+            await ScheduleSingleEvent(scheduledEvent, nextEventTime, now);
         }
     }
 }

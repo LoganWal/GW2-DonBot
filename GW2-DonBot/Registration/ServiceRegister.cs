@@ -63,7 +63,7 @@ public static class ServiceRegister
         services.AddTransient<IDiscordApiService, DiscordApiService>();
 
         // Scheduling
-        services.AddTransient<SchedulerService>();
+        services.AddSingleton<SchedulerService>();
         services.AddTransient<IScheduledEventHandler, RaidSignupEventHandler>();
         services.AddTransient<IScheduledEventHandler, WvwRaidSignupEventHandler>();
         services.AddTransient<IScheduledEventHandler, WvwLeaderboardEventHandler>();

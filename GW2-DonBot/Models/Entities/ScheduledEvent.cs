@@ -14,7 +14,7 @@ public class ScheduledEvent
 
     public long ChannelId { get; init; }
 
-    public short Day { get; init; }
+    public short Day { get; set; }
 
     public short Hour { get; init; }
 

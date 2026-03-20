@@ -22,7 +22,14 @@ public sealed class SchedulerService(
     {
         logger.LogInformation("SchedulerService is starting.");
 
-        await LoadScheduledEvents();
+        try
+        {
+            await LoadScheduledEvents();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to load scheduled events on startup.");
+        }
 
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
         while (await timer.WaitForNextTickAsync(stoppingToken))
@@ -52,6 +59,7 @@ public sealed class SchedulerService(
         var now = DateTime.UtcNow;
         foreach (var scheduledEvent in scheduledEvents)
         {
+            await FastForwardEventIfBehind(scheduledEvent, now);
             var nextFireTime = GetNextEventTime(scheduledEvent, now);
             _scheduledEvents[scheduledEvent.ScheduledEventId] = (scheduledEvent, nextFireTime);
             logger.LogInformation("Scheduled event {ScheduledEventId} (type={EventType}) for {NextFireTime}.",
@@ -76,6 +84,7 @@ public sealed class SchedulerService(
                     continue;
                 }
 
+                await FastForwardEventIfBehind(scheduledEvent, now);
                 var nextFireTime = GetNextEventTime(scheduledEvent, now);
                 _scheduledEvents[scheduledEvent.ScheduledEventId] = (scheduledEvent, nextFireTime);
                 newCount++;
@@ -110,14 +119,7 @@ public sealed class SchedulerService(
             // Mark as in-flight to prevent double-firing
             _scheduledEvents[id] = (scheduledEvent, DateTime.MaxValue);
 
-            Task.Run(() => FireEvent(scheduledEvent))
-                .ContinueWith(task =>
-                {
-                    if (task.Exception != null)
-                    {
-                        logger.LogError(task.Exception, "Error posting scheduled event {ScheduledEventId}.", scheduledEvent.ScheduledEventId);
-                    }
-                });
+            _ = Task.Run(() => FireEvent(scheduledEvent));
         }
     }
 
@@ -144,6 +146,7 @@ public sealed class SchedulerService(
             await handler.HandleAsync(scheduledEvent, socketGuild);
 
             scheduledEvent.UtcEventTime = scheduledEvent.UtcEventTime.AddDays(scheduledEvent.RepeatIntervalDays);
+            scheduledEvent.Day = (short)((scheduledEvent.Day + scheduledEvent.RepeatIntervalDays) % 7);
             await entityService.ScheduledEvent.UpdateAsync(scheduledEvent);
         }
         catch (Exception ex)
@@ -160,13 +163,45 @@ public sealed class SchedulerService(
         }
     }
 
-    private static DateTime GetNextEventTime(ScheduledEvent scheduledEvent, DateTime now)
+    internal async Task FastForwardEventIfBehind(ScheduledEvent scheduledEvent, DateTime now)
     {
-        var nextEventTime = scheduledEvent.UtcEventTime;
-        while (nextEventTime <= now)
+        if (scheduledEvent.RepeatIntervalDays <= 0 || scheduledEvent.UtcEventTime > now)
         {
-            nextEventTime = nextEventTime.AddDays(scheduledEvent.RepeatIntervalDays);
+            return;
         }
+
+        while (scheduledEvent.UtcEventTime <= now)
+        {
+            scheduledEvent.UtcEventTime = scheduledEvent.UtcEventTime.AddDays(scheduledEvent.RepeatIntervalDays);
+            scheduledEvent.Day = (short)((scheduledEvent.Day + scheduledEvent.RepeatIntervalDays) % 7);
+        }
+
+        try
+        {
+            await entityService.ScheduledEvent.UpdateAsync(scheduledEvent);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to persist fast-forward for event {ScheduledEventId} — in-memory state is correct but DB may be stale.", scheduledEvent.ScheduledEventId);
+        }
+
+        logger.LogInformation("Fast-forwarded event {ScheduledEventId} to UtcEventTime={UtcEventTime} Day={Day}.",
+            scheduledEvent.ScheduledEventId, scheduledEvent.UtcEventTime, scheduledEvent.Day);
+    }
+
+    internal static DateTime GetNextEventTime(ScheduledEvent scheduledEvent, DateTime now)
+    {
+        if (scheduledEvent.RepeatIntervalDays <= 0)
+        {
+            return DateTime.MaxValue;
+        }
+
+        var nextEventTime = new DateTime(now.Year, now.Month, now.Day, scheduledEvent.Hour, 0, 0, DateTimeKind.Utc);
+        while ((int)nextEventTime.DayOfWeek != scheduledEvent.Day || nextEventTime <= now)
+        {
+            nextEventTime = nextEventTime.AddDays(1);
+        }
+
         return nextEventTime;
     }
 }

@@ -43,6 +43,7 @@ public class DiscordMessageHandler(
     {
         try
         {
+            // Skip non-webhook bot messages immediately (cheap fast-path).
             if (seenMessage.Author.IsBot && seenMessage.Source != MessageSource.Webhook)
             {
                 return;
@@ -57,6 +58,15 @@ public class DiscordMessageHandler(
             else
             {
                 guild = await entityService.Guild.GetFirstOrDefaultAsync(g => g.GuildId == (long)channel.Guild.Id);
+            }
+
+            // Webhook messages are only processed when they arrive in the configured LogDropOff
+            // channel. Webhooks posting in other channels (e.g. an external auto-uploader bot)
+            // are ignored so the bot does not ping webhook users as if they were real people.
+            if (seenMessage.Source == MessageSource.Webhook &&
+                seenMessage.Channel.Id != (ulong)(guild?.LogDropOffChannelId ?? 0))
+            {
+                return;
             }
 
             if ((guild?.RemoveSpamEnabled ?? false) && IsMatch(seenMessage.Content, @"\b((https?|ftp)://|www\.|(\w+\.)+\w{2,})(\S*)\b"))
@@ -118,8 +128,14 @@ public class DiscordMessageHandler(
 
             if (trimmedUrls.Count != 0)
             {
+                var authorId = seenMessage.Author.Id;
+                if (authorId == client.CurrentUser.Id)
+                {
+                    return;
+                }
+
                 logger.LogInformation("Assessing: {Url}", string.Join(",", trimmedUrls));
-                await AnalyseAndReportOnUrl(trimmedUrls, guild?.GuildId ?? -1, embedMessage, seenMessage.Channel, seenMessage.Author.Id);
+                await AnalyseAndReportOnUrl(trimmedUrls, guild?.GuildId ?? -1, embedMessage, seenMessage.Channel, authorId);
             }
         }
         catch (Exception e)

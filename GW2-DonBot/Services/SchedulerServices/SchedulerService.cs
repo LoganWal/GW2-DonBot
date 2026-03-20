@@ -112,15 +112,22 @@ public sealed class SchedulerService(
     {
         var dueEvents = _scheduledEvents
             .Where(kvp => kvp.Value.NextFireTime <= now && kvp.Value.NextFireTime != DateTime.MaxValue)
+            .OrderBy(kvp => kvp.Value.Event.UtcEventTime)
             .ToList();
 
         foreach (var (id, (scheduledEvent, _)) in dueEvents)
         {
             // Mark as in-flight to prevent double-firing
             _scheduledEvents[id] = (scheduledEvent, DateTime.MaxValue);
-
-            _ = Task.Run(() => FireEvent(scheduledEvent));
         }
+
+        _ = Task.Run(async () =>
+        {
+            foreach (var (_, (scheduledEvent, _)) in dueEvents)
+            {
+                await FireEvent(scheduledEvent);
+            }
+        });
     }
 
     private async Task FireEvent(ScheduledEvent scheduledEvent)
@@ -129,6 +136,16 @@ public sealed class SchedulerService(
 
         try
         {
+            // UtcEventTime is the time shown in the message. Guard against it being stale
+            // (e.g. bot delayed between scheduling and firing, or DB out of sync).
+            var fireNow = DateTime.UtcNow;
+            if (scheduledEvent.UtcEventTime <= fireNow)
+            {
+                logger.LogWarning("Event {ScheduledEventId} has stale UtcEventTime {UtcEventTime} at fire time — fast-forwarding before sending.",
+                    scheduledEvent.ScheduledEventId, scheduledEvent.UtcEventTime);
+                await FastForwardEventIfBehind(scheduledEvent, fireNow);
+            }
+
             var handler = eventHandlers.FirstOrDefault(h => h.EventType == eventType);
             if (handler == null)
             {

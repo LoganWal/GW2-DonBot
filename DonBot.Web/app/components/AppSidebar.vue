@@ -42,11 +42,13 @@ const { collapsed, mobileOpen, toggle, closeMobile } = useSidebar()
 const route = useRoute()
 
 const navItems = [
-  { label: 'Dashboard',   to: '/dashboard',   icon: 'pi-home' },
-  { label: 'Fight Logs',  to: '/logs',        icon: 'pi-list' },
-  { label: 'My Stats',    to: '/stats',       icon: 'pi-chart-bar' },
-  { label: 'Leaderboard', to: '/leaderboard', icon: 'pi-trophy' },
-  { label: 'Points',      to: '/points',      icon: 'pi-star' },
+  { label: 'Dashboard',      to: '/dashboard',   icon: 'pi-home' },
+  { label: 'Fight Logs',    to: '/logs',        icon: 'pi-list' },
+  { label: 'My Stats',      to: '/stats',       icon: 'pi-chart-bar' },
+  { label: 'Personal Bests', to: '/bests',       icon: 'pi-crown' },
+  { label: 'Progression',   to: '/progression', icon: 'pi-chart-line' },
+  { label: 'Leaderboard',   to: '/leaderboard', icon: 'pi-trophy' },
+  { label: 'Points',        to: '/points',      icon: 'pi-star' },
 ]
 
 const isActive = (to: string) =>

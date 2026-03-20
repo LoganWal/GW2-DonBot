@@ -76,7 +76,8 @@ public static class LeaderboardEndpoints
             {
                 guildWarsAccountName = g.Key,
                 totalDamage = g.Sum(x => x.pfl.Damage),
-                totalFights = g.Count()
+                totalFights = g.Count(),
+                totalDurationMs = g.Sum(x => (long)x.fl.FightDurationInMs)
             })
             .OrderByDescending(x => x.totalDamage)
             .Take(top)

@@ -22,6 +22,9 @@
       <Column field="totalDamage" header="Total Damage">
         <template #body="{ data }">{{ data.totalDamage.toLocaleString() }}</template>
       </Column>
+      <Column header="Avg DPS">
+        <template #body="{ data }">{{ data.totalDurationMs > 0 ? Math.round(data.totalDamage / (data.totalDurationMs / 1000)).toLocaleString() : '—' }}</template>
+      </Column>
       <Column field="totalFights" header="Fights" />
     </DataTable>
     <Message v-else-if="!loading && selectedGuildId !== null" severity="secondary" :closable="false">

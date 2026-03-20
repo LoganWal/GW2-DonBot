@@ -17,7 +17,7 @@ public static class LogsEndpoints
         ClaimsPrincipal user,
         IDbContextFactory<DatabaseContext> dbContextFactory,
         long? guildId = null,
-        short? fightType = null,
+        string? fightTypes = null,
         int page = 1,
         int pageSize = 20)
     {
@@ -48,9 +48,18 @@ public static class LogsEndpoints
             query = query.Where(fl => fl.GuildId == guildId.Value);
         }
 
-        if (fightType.HasValue)
+        if (!string.IsNullOrEmpty(fightTypes))
         {
-            query = query.Where(fl => fl.FightType == fightType.Value);
+            var types = fightTypes.Split(',')
+                .Select(s => short.TryParse(s.Trim(), out var v) ? (short?)v : null)
+                .Where(v => v.HasValue)
+                .Select(v => v!.Value)
+                .ToList();
+
+            if (types.Count > 0)
+            {
+                query = query.Where(fl => types.Contains(fl.FightType));
+            }
         }
 
         var total = await query.CountAsync();

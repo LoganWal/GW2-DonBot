@@ -15,117 +15,119 @@ public sealed class SchedulerService(
     IEnumerable<IScheduledEventHandler> eventHandlers)
     : BackgroundService
 {
-    private Timer? _eventCheckTimer;
-    private readonly List<Timer> _eventTimers = [];
-    private readonly ConcurrentDictionary<long, bool> _scheduledEventIds = new();
-
-    public override async Task StopAsync(CancellationToken stoppingToken)
-    {
-        foreach (var timer in _eventTimers)
-            await timer.DisposeAsync();
-
-        _eventTimers.Clear();
-        await (_eventCheckTimer?.DisposeAsync() ?? ValueTask.CompletedTask);
-
-        await base.StopAsync(stoppingToken);
-    }
+    private readonly ConcurrentDictionary<long, (ScheduledEvent Event, DateTime NextFireTime)> _scheduledEvents = new();
+    private DateTime _lastNewEventCheck = DateTime.MinValue;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         logger.LogInformation("SchedulerService is starting.");
 
-        await ScheduleEventMessages();
+        try
+        {
+            await LoadScheduledEvents();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to load scheduled events on startup.");
+        }
 
-        _eventCheckTimer = new Timer(_ => Task.Run(CheckForNewEvents, stoppingToken),
-            null,
-            TimeSpan.FromMinutes(15),
-            TimeSpan.FromHours(1));
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
+        while (await timer.WaitForNextTickAsync(stoppingToken))
+        {
+            try
+            {
+                var now = DateTime.UtcNow;
+                FireDueEvents(now);
+
+                if (now - _lastNewEventCheck > TimeSpan.FromMinutes(15))
+                {
+                    await CheckForNewEvents(now);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error in scheduler loop.");
+            }
+        }
     }
 
-    private async Task CheckForNewEvents()
+    private async Task LoadScheduledEvents()
+    {
+        var scheduledEvents = await entityService.ScheduledEvent.GetAllAsync();
+        _scheduledEvents.Clear();
+
+        var now = DateTime.UtcNow;
+        foreach (var scheduledEvent in scheduledEvents)
+        {
+            await FastForwardEventIfBehind(scheduledEvent, now);
+            var nextFireTime = GetNextEventTime(scheduledEvent, now);
+            _scheduledEvents[scheduledEvent.ScheduledEventId] = (scheduledEvent, nextFireTime);
+            logger.LogInformation("Scheduled event {ScheduledEventId} (type={EventType}) for {NextFireTime}.",
+                scheduledEvent.ScheduledEventId, (ScheduledEventTypeEnum)scheduledEvent.EventType, nextFireTime);
+        }
+
+        _lastNewEventCheck = now;
+    }
+
+    private async Task CheckForNewEvents(DateTime now)
     {
         try
         {
             logger.LogInformation("Checking for new scheduled events...");
             var scheduledEvents = await entityService.ScheduledEvent.GetAllAsync();
-            var newEventsScheduled = 0;
+            var newCount = 0;
 
             foreach (var scheduledEvent in scheduledEvents)
             {
-                if (_scheduledEventIds.ContainsKey(scheduledEvent.ScheduledEventId))
-                    continue;
-
-                var now = DateTime.UtcNow;
-                var nextEventTime = GetNextEventTime(scheduledEvent, now);
-                if (nextEventTime > now)
+                if (_scheduledEvents.ContainsKey(scheduledEvent.ScheduledEventId))
                 {
-                    await ScheduleSingleEvent(scheduledEvent, nextEventTime, now);
-                    newEventsScheduled++;
+                    continue;
                 }
+
+                await FastForwardEventIfBehind(scheduledEvent, now);
+                var nextFireTime = GetNextEventTime(scheduledEvent, now);
+                _scheduledEvents[scheduledEvent.ScheduledEventId] = (scheduledEvent, nextFireTime);
+                newCount++;
+
+                logger.LogInformation("New event detected: Scheduled event {ScheduledEventId} (type={EventType}) for {NextFireTime}.",
+                    scheduledEvent.ScheduledEventId, (ScheduledEventTypeEnum)scheduledEvent.EventType, nextFireTime);
             }
 
-            if (newEventsScheduled > 0)
-                logger.LogInformation("Scheduled {Count} new events found in database.", newEventsScheduled);
+            if (newCount > 0)
+            {
+                logger.LogInformation("Scheduled {Count} new events found in database.", newCount);
+            }
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error occurred while checking for new events.");
         }
-    }
-
-    private async Task ScheduleEventMessages()
-    {
-        var scheduledEvents = await entityService.ScheduledEvent.GetAllAsync();
-        _scheduledEventIds.Clear();
-
-        foreach (var scheduledEvent in scheduledEvents)
+        finally
         {
-            var now = DateTime.UtcNow;
-            var nextEventTime = GetNextEventTime(scheduledEvent, now);
-            if (nextEventTime > now)
-                await ScheduleSingleEvent(scheduledEvent, nextEventTime, now);
+            _lastNewEventCheck = now;
         }
     }
 
-    private Task ScheduleSingleEvent(ScheduledEvent scheduledEvent, DateTime nextEventTime, DateTime now)
+    private void FireDueEvents(DateTime now)
     {
-        var timeUntilEvent = (nextEventTime - now).TotalMilliseconds;
+        var dueEvents = _scheduledEvents
+            .Where(kvp => kvp.Value.NextFireTime <= now && kvp.Value.NextFireTime != DateTime.MaxValue)
+            .OrderBy(kvp => kvp.Value.Event.UtcEventTime)
+            .ToList();
 
-        var timer = new Timer(_ =>
+        foreach (var (id, (scheduledEvent, _)) in dueEvents)
         {
-            Task.Run(() => FireEvent(scheduledEvent))
-                .ContinueWith(task =>
-                {
-                    if (task.Exception != null)
-                        logger.LogError(task.Exception, "Error posting scheduled event {ScheduledEventId}.", scheduledEvent.ScheduledEventId);
-                });
-        }, null, (long)timeUntilEvent, Timeout.Infinite);
-
-        _eventTimers.Add(timer);
-        _scheduledEventIds[scheduledEvent.ScheduledEventId] = true;
-
-        logger.LogInformation("Scheduled event {ScheduledEventId} (type={EventType}) for {NextEventTime} in {TimeUntilEvent:F0} ms.",
-            scheduledEvent.ScheduledEventId, (ScheduledEventTypeEnum)scheduledEvent.EventType, nextEventTime, timeUntilEvent);
-
-        return Task.CompletedTask;
-    }
-
-    private DateTime GetNextEventTime(ScheduledEvent scheduledEvent, DateTime now)
-    {
-        var nextEventTime = new DateTime(now.Year, now.Month, now.Day, scheduledEvent.Hour, 0, 0, DateTimeKind.Utc);
-
-        // Daily: just advance to tomorrow if today's slot has passed.
-        if (scheduledEvent.RepeatIntervalDays == 1)
-        {
-            if (nextEventTime <= now) nextEventTime = nextEventTime.AddDays(1);
-            return nextEventTime;
+            // Mark as in-flight to prevent double-firing
+            _scheduledEvents[id] = (scheduledEvent, DateTime.MaxValue);
         }
 
-        // Weekly: advance until we hit the configured day of week at the right hour.
-        while ((int)nextEventTime.DayOfWeek != scheduledEvent.Day || nextEventTime <= now)
-            nextEventTime = nextEventTime.AddDays(1);
-
-        return nextEventTime;
+        _ = Task.Run(async () =>
+        {
+            foreach (var (_, (scheduledEvent, _)) in dueEvents)
+            {
+                await FireEvent(scheduledEvent);
+            }
+        });
     }
 
     private async Task FireEvent(ScheduledEvent scheduledEvent)
@@ -134,6 +136,16 @@ public sealed class SchedulerService(
 
         try
         {
+            // UtcEventTime is the time shown in the message. Guard against it being stale
+            // (e.g. bot delayed between scheduling and firing, or DB out of sync).
+            var fireNow = DateTime.UtcNow;
+            if (scheduledEvent.UtcEventTime <= fireNow)
+            {
+                logger.LogWarning("Event {ScheduledEventId} has stale UtcEventTime {UtcEventTime} at fire time — fast-forwarding before sending.",
+                    scheduledEvent.ScheduledEventId, scheduledEvent.UtcEventTime);
+                await FastForwardEventIfBehind(scheduledEvent, fireNow);
+            }
+
             var handler = eventHandlers.FirstOrDefault(h => h.EventType == eventType);
             if (handler == null)
             {
@@ -151,6 +163,7 @@ public sealed class SchedulerService(
             await handler.HandleAsync(scheduledEvent, socketGuild);
 
             scheduledEvent.UtcEventTime = scheduledEvent.UtcEventTime.AddDays(scheduledEvent.RepeatIntervalDays);
+            scheduledEvent.Day = (short)((scheduledEvent.Day + scheduledEvent.RepeatIntervalDays) % 7);
             await entityService.ScheduledEvent.UpdateAsync(scheduledEvent);
         }
         catch (Exception ex)
@@ -159,11 +172,53 @@ public sealed class SchedulerService(
         }
         finally
         {
-            _scheduledEventIds.TryRemove(scheduledEvent.ScheduledEventId, out _);
-
             var now = DateTime.UtcNow;
-            var nextEventTime = GetNextEventTime(scheduledEvent, now);
-            await ScheduleSingleEvent(scheduledEvent, nextEventTime, now);
+            var nextFireTime = GetNextEventTime(scheduledEvent, now);
+            _scheduledEvents[scheduledEvent.ScheduledEventId] = (scheduledEvent, nextFireTime);
+            logger.LogInformation("Scheduled event {ScheduledEventId} (type={EventType}) for {NextFireTime}.",
+                scheduledEvent.ScheduledEventId, (ScheduledEventTypeEnum)scheduledEvent.EventType, nextFireTime);
         }
+    }
+
+    internal async Task FastForwardEventIfBehind(ScheduledEvent scheduledEvent, DateTime now)
+    {
+        if (scheduledEvent.RepeatIntervalDays <= 0 || scheduledEvent.UtcEventTime > now)
+        {
+            return;
+        }
+
+        while (scheduledEvent.UtcEventTime <= now)
+        {
+            scheduledEvent.UtcEventTime = scheduledEvent.UtcEventTime.AddDays(scheduledEvent.RepeatIntervalDays);
+            scheduledEvent.Day = (short)((scheduledEvent.Day + scheduledEvent.RepeatIntervalDays) % 7);
+        }
+
+        try
+        {
+            await entityService.ScheduledEvent.UpdateAsync(scheduledEvent);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to persist fast-forward for event {ScheduledEventId} — in-memory state is correct but DB may be stale.", scheduledEvent.ScheduledEventId);
+        }
+
+        logger.LogInformation("Fast-forwarded event {ScheduledEventId} to UtcEventTime={UtcEventTime} Day={Day}.",
+            scheduledEvent.ScheduledEventId, scheduledEvent.UtcEventTime, scheduledEvent.Day);
+    }
+
+    internal static DateTime GetNextEventTime(ScheduledEvent scheduledEvent, DateTime now)
+    {
+        if (scheduledEvent.RepeatIntervalDays <= 0)
+        {
+            return DateTime.MaxValue;
+        }
+
+        var nextEventTime = new DateTime(now.Year, now.Month, now.Day, scheduledEvent.Hour, 0, 0, DateTimeKind.Utc);
+        while ((int)nextEventTime.DayOfWeek != scheduledEvent.Day || nextEventTime <= now)
+        {
+            nextEventTime = nextEventTime.AddDays(1);
+        }
+
+        return nextEventTime;
     }
 }

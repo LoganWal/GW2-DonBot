@@ -152,13 +152,13 @@ public class RaidReportServiceTests(ITestOutputHelper output)
     }
     
     [Fact]
-    public void BuildSurvivabilityTable_WithMultiplePlayers_OrderedAscendingByDamageTaken()
+    public void BuildSurvivabilityTable_WithMultiplePlayers_OrderedAscendingByResurrectionTime()
     {
         var logs = new List<PlayerFightLog>
         {
-            new() { FightLogId = 1, GuildWarsAccountName = "HighDmg.1111", DamageTaken = 500_000 },
-            new() { FightLogId = 1, GuildWarsAccountName = "LowDmg.2222",  DamageTaken = 50_000  },
-            new() { FightLogId = 1, GuildWarsAccountName = "MidDmg.3333",  DamageTaken = 200_000 },
+            new() { FightLogId = 1, GuildWarsAccountName = "HighRes.1111", ResurrectionTime = 30_000 },
+            new() { FightLogId = 1, GuildWarsAccountName = "LowRes.2222",  ResurrectionTime = 5_000  },
+            new() { FightLogId = 1, GuildWarsAccountName = "MidRes.3333",  ResurrectionTime = 15_000 },
         };
 
         var table = RaidReportService.BuildSurvivabilityTable(Group(logs));
@@ -168,9 +168,9 @@ public class RaidReportServiceTests(ITestOutputHelper output)
             .ToList();
 
         Assert.Equal(3, dataLines.Count);
-        Assert.Contains("LowDmg",  dataLines[0]);
-        Assert.Contains("MidDmg",  dataLines[1]);
-        Assert.Contains("HighDmg", dataLines[2]);
+        Assert.Contains("LowRes",  dataLines[0]);
+        Assert.Contains("MidRes",  dataLines[1]);
+        Assert.Contains("HighRes", dataLines[2]);
     }
     
     [Fact]

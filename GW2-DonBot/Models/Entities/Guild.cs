@@ -7,6 +7,9 @@ public class Guild
     [Key]
     public long GuildId { get; init; }
 
+    [MaxLength(200)]
+    public string? GuildName { get; set; }
+
     public long? LogDropOffChannelId { get; set; }
 
     public long? DiscordGuildMemberRoleId { get; set; }

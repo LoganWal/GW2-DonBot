@@ -3,7 +3,8 @@
     <div class="sidebar-logo">
       <NuxtLink to="/" class="logo-link" @click="closeMobile">
         <div class="logo-icon-wrap">
-          <i class="pi pi-bolt" />
+          <img v-if="!logoImgError" :src="logoImgSrc" alt="DonBot" class="logo-img" @error="logoImgError = true" />
+          <i v-else class="pi pi-bolt" style="color: #fff; font-size: 0.9rem;" />
         </div>
         <span class="logo-text">DonBot</span>
       </NuxtLink>
@@ -39,6 +40,9 @@
 
 <script setup lang="ts">
 const { collapsed, mobileOpen, toggle, closeMobile } = useSidebar()
+
+const logoImgSrc = '/donbot.png'
+const logoImgError = ref(false)
 const route = useRoute()
 
 const navItems = [
@@ -103,11 +107,14 @@ const isActive = (to: string) =>
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
-.logo-icon-wrap .pi {
-  color: #fff;
-  font-size: 0.9rem;
+.logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
 }
 
 .logo-text {

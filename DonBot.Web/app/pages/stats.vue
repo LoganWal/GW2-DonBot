@@ -180,6 +180,14 @@
           </div>
         </TabPanel>
       </Tabs>
+      <template v-if="stats.characters?.length">
+        <h2 class="section-title" style="margin-top: 1.5rem;">Characters</h2>
+        <DataTable :value="stats.characters" striped-rows style="max-width: 600px;">
+          <Column field="characterName" header="Character" />
+          <Column field="wvwLogs" header="WvW Logs" />
+          <Column field="pveLogs" header="PvE Logs" />
+        </DataTable>
+      </template>
     </div>
   </div>
 </template>

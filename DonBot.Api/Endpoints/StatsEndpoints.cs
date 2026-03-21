@@ -61,7 +61,19 @@ public static class StatsEndpoints
         var wvwStats = wvwLogs.Count == 0 ? null : BuildWvwStats(wvwLogs, durationById);
         var pveStats = pveLogs.Count == 0 ? null : BuildPveStats(pveLogs, durationById);
 
-        return Results.Ok(new { wvw = wvwStats, pve = pveStats });
+        var characters = playerLogs
+            .Where(p => !string.IsNullOrEmpty(p.CharacterName))
+            .GroupBy(p => p.CharacterName)
+            .Select(g => new
+            {
+                characterName = g.Key,
+                wvwLogs = g.Count(p => typeById.TryGetValue(p.FightLogId, out var t) && t == (short)FightTypesEnum.WvW),
+                pveLogs = g.Count(p => typeById.TryGetValue(p.FightLogId, out var t) && t != (short)FightTypesEnum.WvW),
+            })
+            .OrderByDescending(c => c.wvwLogs + c.pveLogs)
+            .ToList();
+
+        return Results.Ok(new { wvw = wvwStats, pve = pveStats, characters });
     }
 
     private static object BuildWvwStats(List<PlayerFightLog> logs, Dictionary<long, long> durationById)
@@ -356,6 +368,7 @@ public static class StatsEndpoints
                         fightLogId = f.FightLogId,
                         date = f.FightStart,
                         durationMs = f.FightDurationInMs,
+                        characterName = p.CharacterName,
                         dps,
                         kills = p.Kills,
                         downs = p.Downs,
@@ -375,6 +388,7 @@ public static class StatsEndpoints
                         fightLogId = f.FightLogId,
                         date = f.FightStart,
                         durationMs = f.FightDurationInMs,
+                        characterName = p.CharacterName,
                         isSuccess = f.IsSuccess,
                         dps,
                         cleaveDps,

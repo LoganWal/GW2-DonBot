@@ -146,6 +146,12 @@ public static class PointsEndpoints
             bestKillsFight
         };
 
-        return Results.Ok(new { account, gw2Accounts, lastFightDate, fights });
+        var characterCount = playerLogs
+            .Where(p => !string.IsNullOrEmpty(p.CharacterName))
+            .Select(p => p.CharacterName)
+            .Distinct()
+            .Count();
+
+        return Results.Ok(new { account, gw2Accounts, lastFightDate, fights, characterCount });
     }
 }

@@ -26,6 +26,12 @@
             </div>
           </template>
         </Card>
+        <Card v-if="dashboard.characterCount" class="stat-card">
+          <template #content>
+            <div class="stat-label">Characters</div>
+            <div class="stat-value">{{ dashboard.characterCount }}</div>
+          </template>
+        </Card>
         <Card v-if="dashboard.gw2Accounts?.length" class="stat-card" style="grid-column: span 2;">
           <template #content>
             <div class="stat-label" style="margin-bottom: 0.5rem;">GW2 Accounts</div>
@@ -83,26 +89,6 @@
           </Card>
           <Card class="stat-card">
             <template #content><div class="stat-label">Avg Quickness</div><div class="stat-value">{{ dashboard.fights.avgQuickness?.toFixed(1) }}%</div></template>
-          </Card>
-        </div>
-
-        <h2 class="section-title">Personal Bests</h2>
-        <div class="stat-grid">
-          <Card v-if="dashboard.fights.bestDamageFight" class="stat-card" style="cursor: pointer;" @click="navigateTo(`/logs/${dashboard.fights.bestDamageFight.fightLogId}`)">
-            <template #content>
-              <div class="stat-label">Best Damage in a Fight</div>
-              <div class="stat-value">{{ dashboard.fights.bestDamageFight.damage.toLocaleString() }}</div>
-              <div style="font-size: 0.75rem; color: var(--p-text-muted-color); margin-top: 0.25rem;">
-                {{ fightName(dashboard.fights.bestDamageFight.fightType) }} · View →
-              </div>
-            </template>
-          </Card>
-          <Card v-if="dashboard.fights.bestKillsFight" class="stat-card" style="cursor: pointer;" @click="navigateTo(`/logs/${dashboard.fights.bestKillsFight.fightLogId}`)">
-            <template #content>
-              <div class="stat-label">Most Kills in a WvW Fight</div>
-              <div class="stat-value">{{ dashboard.fights.bestKillsFight.kills.toLocaleString() }}</div>
-              <div style="font-size: 0.75rem; color: var(--p-text-muted-color); margin-top: 0.25rem;">WvW · View →</div>
-            </template>
           </Card>
         </div>
       </template>

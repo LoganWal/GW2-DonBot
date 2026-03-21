@@ -25,11 +25,23 @@
     </Message>
 
     <template v-else-if="points.length > 0">
+      <!-- Character filter -->
+      <div v-if="availableCharacters.length > 1" style="margin-bottom: 1rem; max-width: 360px;">
+        <MultiSelect
+          v-model="selectedCharacters"
+          :options="availableCharacters"
+          placeholder="All characters"
+          show-clear
+          display="chip"
+          style="width: 100%;"
+        />
+      </div>
+
       <!-- Zoom hint / reset bar -->
       <div class="zoom-bar">
         <template v-if="isZoomed">
           <span class="zoom-hint">
-            Showing {{ displayPoints.length }} of {{ points.length }} fights &mdash; click a point to open its log
+            Showing {{ displayPoints.length }} of {{ filteredPoints.length }} fights &mdash; click a point to open its log
           </span>
           <Button label="Reset Zoom" icon="pi pi-arrow-left" size="small" severity="secondary" @click="resetZoom" />
         </template>
@@ -179,6 +191,11 @@ const loading = ref(false)
 const isZoomed = ref(false)
 const zoomCenter = ref<number | null>(null)
 const ZOOM_WINDOW = 12
+const selectedCharacters = ref<string[]>([])
+
+const availableCharacters = computed(() =>
+  [...new Set(points.value.map(p => p.characterName).filter(Boolean))]
+)
 
 
 const load = async () => {
@@ -190,6 +207,7 @@ const load = async () => {
   loading.value = true
   isZoomed.value = false
   zoomCenter.value = null
+  selectedCharacters.value = []
   try
   {
     points.value = await api(`/api/stats/progression?fightType=${selectedFightType.value}`) as any[]
@@ -209,15 +227,21 @@ onMounted(() => {
 
 const isWvW = computed(() => selectedFightType.value === 0)
 
+const filteredPoints = computed(() =>
+  selectedCharacters.value.length > 0
+    ? points.value.filter(p => selectedCharacters.value.includes(p.characterName))
+    : points.value
+)
+
 const displayPoints = computed(() => {
   if (!isZoomed.value || zoomCenter.value === null)
   {
-    return points.value
+    return filteredPoints.value
   }
   const half = Math.floor(ZOOM_WINDOW / 2)
   const start = Math.max(0, zoomCenter.value - half)
-  const end = Math.min(points.value.length, start + ZOOM_WINDOW)
-  return points.value.slice(start, end)
+  const end = Math.min(filteredPoints.value.length, start + ZOOM_WINDOW)
+  return filteredPoints.value.slice(start, end)
 })
 
 const labels = computed(() =>

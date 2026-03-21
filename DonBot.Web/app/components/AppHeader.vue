@@ -44,6 +44,8 @@ const config = useRuntimeConfig()
 const { user, logout } = useAuth()
 const { toggleMobile } = useSidebar()
 const pageTitle = usePageTitle()
+
+useHead(() => ({ title: `${pageTitle.value} · DonBot` }))
 const { dark, toggle: toggleTheme } = useTheme()
 
 const navigateToDiscord = () => {
@@ -61,9 +63,10 @@ const navigateToDiscord = () => {
   justify-content: space-between;
   padding: 0 1.5rem;
   height: 60px;
-  background: var(--p-surface-card);
+  background: var(--p-surface-ground);
   border-bottom: 1px solid var(--p-surface-border);
   gap: 1rem;
+  isolation: isolate;
 }
 
 .topbar-start {

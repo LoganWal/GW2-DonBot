@@ -6,6 +6,29 @@ services:
     volumes:
       - ./logs:/app/Logs
 
+  donbot-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "5000:8080"
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+
+  donbot-web:
+    build:
+      context: ./DonBot.Web
+      dockerfile: Dockerfile
+      args:
+        - NUXT_PUBLIC_API_BASE=${NUXT_PUBLIC_API_BASE}
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - donbot-api
+
   watchtower:
     image: containrrr/watchtower
     restart: unless-stopped

@@ -12,6 +12,9 @@ public class PlayerFightLog
     [MaxLength(1000)]
     public string GuildWarsAccountName { get; init; } = string.Empty;
 
+    [MaxLength(100)]
+    public string CharacterName { get; init; } = string.Empty;
+
     public long Damage { get; init; }
 
     public long Cleave { get; init; }

@@ -308,6 +308,7 @@ public sealed class PvEFightSummaryService(
             {
                 FightLogId = fightLog.FightLogId,
                 GuildWarsAccountName = gw2Player.AccountName,
+                CharacterName = gw2Player.CharacterName,
                 Damage = gw2Player.Damage,
                 Cleave = gw2Player.Cleave,
                 Kills = gw2Player.Kills,

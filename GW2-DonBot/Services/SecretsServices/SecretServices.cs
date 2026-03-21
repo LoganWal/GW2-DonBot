@@ -25,4 +25,28 @@ public sealed class SecretServices : ISecretService
 
         return donBotToken;
     }
+
+    public string FetchDiscordClientId()
+    {
+        var clientId = Environment.GetEnvironmentVariable("DiscordClientId");
+
+        if (string.IsNullOrEmpty(clientId))
+        {
+            throw new Exception("DiscordClientId does not exist");
+        }
+
+        return clientId;
+    }
+
+    public string FetchDiscordClientSecret()
+    {
+        var clientSecret = Environment.GetEnvironmentVariable("DiscordClientSecret");
+
+        if (string.IsNullOrEmpty(clientSecret))
+        {
+            throw new Exception("DiscordClientSecret does not exist");
+        }
+
+        return clientSecret;
+    }
 }

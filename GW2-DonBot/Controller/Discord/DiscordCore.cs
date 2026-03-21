@@ -41,6 +41,8 @@ public sealed class DiscordCore(
 
         logger.LogInformation("GW2-DonBot connected.");
 
+        await SyncGuildNamesAsync();
+
         await messageHandler.LoadExistingFightLogs();
 
         RegisterEventHandlers();
@@ -86,15 +88,44 @@ public sealed class DiscordCore(
     private async Task OnJoinedGuildAsync(SocketGuild socketGuild)
     {
         var guildId = (long)socketGuild.Id;
-        var exists = await guildService.IfAnyAsync(g => g.GuildId == guildId);
-        if (!exists)
+        var guilds = await guildService.GetAllAsync();
+        var existing = guilds.FirstOrDefault(g => g.GuildId == guildId);
+        if (existing is null)
         {
-            await guildService.AddAsync(new Guild { GuildId = guildId });
+            await guildService.AddAsync(new Guild { GuildId = guildId, GuildName = socketGuild.Name });
             logger.LogInformation("Added new guild {GuildId} ({GuildName}) to database", guildId, socketGuild.Name);
+        }
+        else if (existing.GuildName != socketGuild.Name)
+        {
+            existing.GuildName = socketGuild.Name;
+            await guildService.UpdateAsync(existing);
+            logger.LogInformation("Updated guild name for {GuildId} to {GuildName}", guildId, socketGuild.Name);
         }
 
         await commandRegistrar.RegisterCommandsForGuild(socketGuild);
         logger.LogInformation("Registered commands for new guild {GuildId} ({GuildName})", guildId, socketGuild.Name);
+    }
+
+    private async Task SyncGuildNamesAsync()
+    {
+        var guilds = await guildService.GetAllAsync();
+        var guildById = guilds.ToDictionary(g => g.GuildId);
+
+        foreach (var socketGuild in client.Guilds)
+        {
+            var guildId = (long)socketGuild.Id;
+            if (!guildById.TryGetValue(guildId, out var guild))
+            {
+                continue;
+            }
+
+            if (guild.GuildName != socketGuild.Name)
+            {
+                guild.GuildName = socketGuild.Name;
+                await guildService.UpdateAsync(guild);
+                logger.LogInformation("Synced guild name for {GuildId} to {GuildName}", guildId, socketGuild.Name);
+            }
+        }
     }
 
     private async Task WaitForReadyAsync(CancellationToken cancellationToken = default)

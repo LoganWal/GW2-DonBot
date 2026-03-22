@@ -49,13 +49,37 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Set lowercase image tag
-        run: echo "IMAGE=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]'):latest" >> $GITHUB_ENV
+      - name: Set lowercase image tags
+        run: |
+          REPO=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
+          echo "IMAGE_BOT=ghcr.io/${REPO}:latest" >> $GITHUB_ENV
+          echo "IMAGE_API=ghcr.io/${REPO}-api:latest" >> $GITHUB_ENV
+          echo "IMAGE_WEB=ghcr.io/${REPO}-web:latest" >> $GITHUB_ENV
 
-      - name: Build and push image
+      - name: Build and push bot image
         uses: docker/build-push-action@v7.0.0
         with:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ${{ env.IMAGE }}
+          tags: ${{ env.IMAGE_BOT }}
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v7.0.0
+        with:
+          context: .
+          file: Dockerfile.api
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ env.IMAGE_API }}
+
+      - name: Build and push web image
+        uses: docker/build-push-action@v7.0.0
+        with:
+          context: ./DonBot.Web
+          file: ./DonBot.Web/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ env.IMAGE_WEB }}
+          build-args: |
+            NUXT_PUBLIC_API_BASE=${{ secrets.NUXT_PUBLIC_API_BASE }}

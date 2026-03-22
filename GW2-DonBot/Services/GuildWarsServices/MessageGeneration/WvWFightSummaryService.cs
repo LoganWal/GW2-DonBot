@@ -121,10 +121,18 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
                     FightType = (short)FightTypesEnum.WvW,
                     FightStart = dateTimeStart,
                     FightDurationInMs = (long)duration.TotalMilliseconds,
-                    IsSuccess = data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false
+                    IsSuccess = data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false,
+                    Source = FightLogHelpers.GetLogSource(data.FightEliteInsightDataModel.Url)
                 };
 
                 await entityService.FightLog.AddAsync(fightLog);
+                await entityService.FightLogRawData.AddAsync(new FightLogRawData
+                {
+                    FightLogId = fightLog.FightLogId,
+                    RawFightData = data.RawFightData,
+                    RawHealingData = data.RawHealingData,
+                    RawBarrierData = data.RawBarrierData
+                });
 
                 var playerFights = gw2Players.Select(gw2Player => new PlayerFightLog
                     {

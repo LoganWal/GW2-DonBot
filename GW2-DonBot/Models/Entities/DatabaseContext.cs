@@ -14,6 +14,7 @@ public sealed class DatabaseContext : DbContext
         PlayerRaffleBid = Set<PlayerRaffleBid>();
         GuildWarsAccount = Set<GuildWarsAccount>();
         FightLog = Set<FightLog>();
+        FightLogRawData = Set<FightLogRawData>();
         FightsReport = Set<FightsReport>();
         PlayerFightLog = Set<PlayerFightLog>();
         GuildQuote = Set<GuildQuote>();
@@ -34,6 +35,8 @@ public sealed class DatabaseContext : DbContext
 
     public DbSet<FightLog> FightLog { get; set; }
 
+    public DbSet<FightLogRawData> FightLogRawData { get; set; }
+
     public DbSet<FightsReport> FightsReport { get; set; }
 
     public DbSet<PlayerFightLog> PlayerFightLog { get; set; }
@@ -50,6 +53,12 @@ public sealed class DatabaseContext : DbContext
     {
         modelBuilder.Entity<PlayerRaffleBid>()
             .HasKey(prb => new { prb.RaffleId, prb.DiscordId });
+
+        modelBuilder.Entity<FightLogRawData>()
+            .HasOne<FightLog>()
+            .WithOne()
+            .HasForeignKey<FightLogRawData>(r => r.FightLogId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<Account>()
             .Property(a => a.AvailablePoints)

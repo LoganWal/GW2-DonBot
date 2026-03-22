@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DonBot.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    [Migration("20260322015315_AddFightLogSourceAndRawData")]
+    [Migration("20260322034454_AddFightLogSourceAndRawData")]
     partial class AddFightLogSourceAndRawData
     {
         /// <inheritdoc />
@@ -106,12 +106,15 @@ namespace DonBot.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<string>("RawBarrierData")
+                        .HasMaxLength(104857600)
                         .HasColumnType("text");
 
                     b.Property<string>("RawFightData")
+                        .HasMaxLength(104857600)
                         .HasColumnType("text");
 
                     b.Property<string>("RawHealingData")
+                        .HasMaxLength(104857600)
                         .HasColumnType("text");
 
                     b.HasKey("FightLogId");
@@ -571,6 +574,7 @@ namespace DonBot.Migrations
 
                     b.ToTable("SteamAccount");
                 });
+
             modelBuilder.Entity("DonBot.Models.Entities.FightLogRawData", b =>
                 {
                     b.HasOne("DonBot.Models.Entities.FightLog", null)

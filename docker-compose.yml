@@ -7,22 +7,16 @@ services:
       - ./logs:/app/Logs
 
   donbot-api:
-    build:
-      context: .
-      dockerfile: Dockerfile.api
+    image: ghcr.io/loganwal/gw2-donbot-api:latest
     restart: unless-stopped
     env_file: .env
     ports:
-      - "5000:8080"
+      - "5001:8080"
     environment:
       - ASPNETCORE_URLS=http://+:8080
 
   donbot-web:
-    build:
-      context: ./DonBot.Web
-      dockerfile: Dockerfile
-      args:
-        - NUXT_PUBLIC_API_BASE=${NUXT_PUBLIC_API_BASE}
+    image: ghcr.io/loganwal/gw2-donbot-web:latest
     restart: unless-stopped
     ports:
       - "3000:80"

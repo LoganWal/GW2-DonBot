@@ -1,0 +1,496 @@
+<template>
+  <div>
+    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+      <Button icon="pi pi-arrow-left" severity="secondary" text @click="navigateTo('/logs')" />
+      <h1 class="page-title" style="margin: 0;">Aggregated Results</h1>
+      <Button
+        v-if="result && result.type !== 'wvw'"
+        icon="pi pi-upload"
+        :label="wingmanQueued ? 'Queued!' : 'Upload to Wingman'"
+        severity="secondary"
+        :disabled="wingmanQueued"
+        style="margin-left: auto;"
+        @click="uploadToWingman"
+      />
+    </div>
+
+    <ProgressSpinner v-if="pending" />
+
+    <template v-else-if="result">
+      <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
+        <div class="stat-card">
+          <div class="stat-label">Logs</div>
+          <div class="stat-value">{{ result.totalLogs }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Fight Time</div>
+          <div class="stat-value">{{ formatDuration(result.totalDurationMs) }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Type</div>
+          <div class="stat-value">{{ result.type === 'wvw' ? 'WvW' : 'PvE' }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Players</div>
+          <div class="stat-value">{{ result.players.length }}</div>
+        </div>
+      </div>
+
+      <h2 class="section-title">Logs</h2>
+      <DataTable :value="result.logs" striped-rows class="mb-section" size="small">
+        <Column header="Fight">
+          <template #body="{ data }">{{ fightName(data.fightType) }}</template>
+        </Column>
+        <Column header="Date">
+          <template #body="{ data }">{{ new Date(data.fightStart).toLocaleString() }}</template>
+        </Column>
+        <Column header="Duration">
+          <template #body="{ data }">{{ formatDuration(data.fightDurationInMs) }}</template>
+        </Column>
+        <Column header="Result">
+          <template #body="{ data }">
+            <Tag v-if="data.fightType !== 0" :severity="data.isSuccess ? 'success' : 'danger'" :value="data.isSuccess ? 'Kill' : `${data.fightPercent}%`" />
+            <Tag v-else severity="secondary" value="WvW" />
+          </template>
+        </Column>
+        <Column header="Links" style="width: 6rem;">
+          <template #body="{ data }">
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <Button icon="pi pi-eye" severity="secondary" text size="small" v-tooltip="'View log'" @click="navigateTo(`/logs/${data.fightLogId}`)" />
+              <a v-if="data.url" :href="data.url" target="_blank" rel="noopener" v-tooltip="'DPS Report'" style="color: var(--p-text-muted-color); display: flex; align-items: center;">
+                <i class="pi pi-external-link" style="font-size: 0.875rem;" />
+              </a>
+            </div>
+          </template>
+        </Column>
+      </DataTable>
+
+      <!-- WvW Tables + Charts -->
+      <template v-if="result.type === 'wvw'">
+        <h2 class="section-title">Damage & Combat</h2>
+        <DataTable :value="result.players" striped-rows scrollable class="mb-section" sort-field="damage" :sort-order="-1">
+          <Column field="accountName" header="Account" frozen sortable style="min-width: 160px;" />
+          <Column field="fightCount" header="Fights" sortable style="min-width: 65px;" />
+          <Column header="Avg Damage" sortable sort-field="damage" style="min-width: 110px;">
+            <template #body="{ data }">{{ data.damage.toLocaleString() }}</template>
+          </Column>
+          <Column header="Avg DDC" sortable sort-field="damageDownContribution" style="min-width: 100px;">
+            <template #body="{ data }">{{ data.damageDownContribution.toLocaleString() }}</template>
+          </Column>
+          <Column field="kills" header="Kills" sortable style="min-width: 60px;" />
+          <Column field="downs" header="Downs" sortable style="min-width: 65px;" />
+          <Column field="interrupts" header="Interrupts" sortable style="min-width: 90px;" />
+          <Column field="numberOfBoonsRipped" header="Boons Ripped" sortable style="min-width: 110px;" />
+        </DataTable>
+        <div class="charts-row mb-section">
+          <div class="chart-container">
+            <div class="chart-label">Avg Damage per Fight</div>
+            <Chart type="line" :data="wvwDamageChartData" :options="shortChartOptions" />
+          </div>
+          <div class="chart-container">
+            <div class="chart-label">Avg DDC per Fight</div>
+            <Chart type="line" :data="wvwDdcChartData" :options="shortChartOptions" />
+          </div>
+          <div class="chart-container">
+            <div class="chart-label">Kills per Fight</div>
+            <Chart type="line" :data="killsChartData" :options="shortIntChartOptions" />
+          </div>
+          <div class="chart-container">
+            <div class="chart-label">Downs per Fight</div>
+            <Chart type="line" :data="downsChartData" :options="shortIntChartOptions" />
+          </div>
+          <div class="chart-container">
+            <div class="chart-label">Boons Ripped per Fight</div>
+            <Chart type="line" :data="wvwBoonsRippedChartData" :options="shortIntChartOptions" />
+          </div>
+        </div>
+
+        <h2 class="section-title">Support</h2>
+        <DataTable :value="result.players" striped-rows scrollable class="mb-section" sort-field="healing" :sort-order="-1">
+          <Column field="accountName" header="Account" frozen sortable style="min-width: 160px;" />
+          <Column header="Avg Healing" sortable sort-field="healing" style="min-width: 105px;">
+            <template #body="{ data }">{{ data.healing.toLocaleString() }}</template>
+          </Column>
+          <Column header="Avg Cleanses" sortable sort-field="cleanses" style="min-width: 105px;">
+            <template #body="{ data }">{{ data.cleanses }}</template>
+          </Column>
+          <Column header="Avg Strips" sortable sort-field="strips" style="min-width: 95px;">
+            <template #body="{ data }">{{ data.strips }}</template>
+          </Column>
+          <Column header="Avg Barrier Gen" sortable sort-field="barrierGenerated" style="min-width: 120px;">
+            <template #body="{ data }">{{ data.barrierGenerated.toLocaleString() }}</template>
+          </Column>
+          <Column header="Stab On" sortable sort-field="stabOnGroup" style="min-width: 80px;">
+            <template #body="{ data }">{{ data.stabOnGroup }}</template>
+          </Column>
+          <Column header="Stab Off" sortable sort-field="stabOffGroup" style="min-width: 80px;">
+            <template #body="{ data }">{{ data.stabOffGroup }}</template>
+          </Column>
+          <Column header="Quick %" sortable sort-field="quicknessDuration" style="min-width: 80px;">
+            <template #body="{ data }">{{ data.quicknessDuration }}%</template>
+          </Column>
+        </DataTable>
+        <div class="charts-row mb-section">
+          <div class="chart-container">
+            <div class="chart-label">Avg Healing per Fight</div>
+            <Chart type="line" :data="healingChartData" :options="shortChartOptions" />
+          </div>
+          <div class="chart-container">
+            <div class="chart-label">Quickness % per Fight</div>
+            <Chart type="line" :data="wvwQuickChartData" :options="shortChartOptions" />
+          </div>
+        </div>
+
+        <h2 class="section-title">Survivability</h2>
+        <DataTable :value="result.players" striped-rows scrollable class="mb-section" sort-field="deaths" :sort-order="-1">
+          <Column field="accountName" header="Account" frozen sortable style="min-width: 160px;" />
+          <Column field="deaths" header="Deaths" sortable style="min-width: 70px;" />
+          <Column field="timesDowned" header="Downed" sortable style="min-width: 70px;" />
+          <Column field="firstToDie" header="Died 1st" sortable style="min-width: 75px;" />
+          <Column header="Dmg Taken" sortable sort-field="damageTaken" style="min-width: 105px;">
+            <template #body="{ data }">{{ data.damageTaken.toLocaleString() }}</template>
+          </Column>
+          <Column header="Barrier Mit" sortable sort-field="barrierMitigation" style="min-width: 100px;">
+            <template #body="{ data }">{{ data.barrierMitigation.toLocaleString() }}</template>
+          </Column>
+          <Column header="Res Time (s)" sortable sort-field="resurrectionTime" style="min-width: 105px;">
+            <template #body="{ data }">{{ (data.resurrectionTime / 1000).toFixed(1) }}</template>
+          </Column>
+          <Column field="timesInterrupted" header="Interrupted" sortable style="min-width: 95px;" />
+          <Column header="Dist Tag" sortable sort-field="distanceFromTag" style="min-width: 80px;">
+            <template #body="{ data }">{{ data.distanceFromTag > 0 ? data.distanceFromTag : '—' }}</template>
+          </Column>
+        </DataTable>
+        <div class="charts-row mb-section">
+          <div class="chart-container">
+            <div class="chart-label">Deaths per Fight</div>
+            <Chart type="line" :data="deathsChartData" :options="shortIntChartOptions" />
+          </div>
+          <div class="chart-container">
+            <div class="chart-label">Downed per Fight</div>
+            <Chart type="line" :data="downedChartData" :options="shortIntChartOptions" />
+          </div>
+          <div class="chart-container">
+            <div class="chart-label">Damage Taken per Fight</div>
+            <Chart type="line" :data="damageTakenChartData" :options="shortChartOptions" />
+          </div>
+        </div>
+      </template>
+
+      <!-- PvE Tables + Charts -->
+      <template v-else>
+        <h2 class="section-title">Damage & Combat</h2>
+        <DataTable :value="result.players" striped-rows scrollable class="mb-section" sort-field="dps" :sort-order="-1">
+          <Column field="accountName" header="Account" frozen sortable style="min-width: 160px;" />
+          <Column field="fightCount" header="Fights" sortable style="min-width: 65px;" />
+          <Column header="DPS" sortable sort-field="dps" style="min-width: 90px;">
+            <template #body="{ data }">{{ data.dps.toLocaleString() }}</template>
+          </Column>
+          <Column header="Cleave DPS" sortable sort-field="cleaveDps" style="min-width: 105px;">
+            <template #body="{ data }">{{ data.cleaveDps.toLocaleString() }}</template>
+          </Column>
+          <Column header="Avg Barrier Gen" sortable sort-field="barrierGenerated" style="min-width: 120px;">
+            <template #body="{ data }">{{ data.barrierGenerated.toLocaleString() }}</template>
+          </Column>
+          <Column header="Quick %" sortable sort-field="quicknessDuration" style="min-width: 80px;">
+            <template #body="{ data }">{{ data.quicknessDuration }}%</template>
+          </Column>
+          <Column header="Alac %" sortable sort-field="alacDuration" style="min-width: 75px;">
+            <template #body="{ data }">{{ data.alacDuration }}%</template>
+          </Column>
+        </DataTable>
+        <div class="charts-row mb-section">
+          <div class="chart-container">
+            <div class="chart-label">DPS per Fight</div>
+            <Chart type="line" :data="pveDpsChartData" :options="shortChartOptions" />
+          </div>
+          <div class="chart-container">
+            <div class="chart-label">Cleave DPS per Fight</div>
+            <Chart type="line" :data="pveCleaveDpsChartData" :options="shortChartOptions" />
+          </div>
+          <div class="chart-container">
+            <div class="chart-label">Alacrity % per Fight</div>
+            <Chart type="line" :data="pveAlacChartData" :options="shortChartOptions" />
+          </div>
+          <div class="chart-container">
+            <div class="chart-label">Quickness % per Fight</div>
+            <Chart type="line" :data="pveQuickChartData" :options="shortChartOptions" />
+          </div>
+        </div>
+
+        <h2 class="section-title">Survivability</h2>
+        <DataTable :value="result.players" striped-rows scrollable class="mb-section" sort-field="deaths" :sort-order="-1">
+          <Column field="accountName" header="Account" frozen sortable style="min-width: 160px;" />
+          <Column field="deaths" header="Deaths" sortable style="min-width: 70px;" />
+          <Column field="timesDowned" header="Downed" sortable style="min-width: 70px;" />
+          <Column field="firstToDie" header="Died 1st" sortable style="min-width: 75px;" />
+          <Column header="Dmg Taken" sortable sort-field="damageTaken" style="min-width: 105px;">
+            <template #body="{ data }">{{ data.damageTaken.toLocaleString() }}</template>
+          </Column>
+          <Column header="Res Time (s)" sortable sort-field="resurrectionTime" style="min-width: 105px;">
+            <template #body="{ data }">{{ (data.resurrectionTime / 1000).toFixed(1) }}</template>
+          </Column>
+        </DataTable>
+        <div class="charts-row mb-section">
+          <div class="chart-container">
+            <div class="chart-label">Deaths per Fight</div>
+            <Chart type="line" :data="deathsChartData" :options="shortIntChartOptions" />
+          </div>
+          <div class="chart-container">
+            <div class="chart-label">Downed per Fight</div>
+            <Chart type="line" :data="downedChartData" :options="shortIntChartOptions" />
+          </div>
+          <div class="chart-container">
+            <div class="chart-label">Damage Taken per Fight</div>
+            <Chart type="line" :data="damageTakenChartData" :options="shortChartOptions" />
+          </div>
+        </div>
+      </template>
+    </template>
+
+    <Message v-else-if="!pending" severity="secondary" :closable="false">
+      No data found for the selected logs.
+    </Message>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { fightName } from '~/composables/useFightTypes'
+
+definePageMeta({ middleware: 'auth' })
+
+const route = useRoute()
+const api = useApi()
+
+const ids = computed(() => {
+  const raw = route.query.ids as string
+  return raw ? raw.split(',').map(Number).filter(Boolean) : []
+})
+
+const { data: result, pending } = await useAsyncData(
+  'aggregate-logs',
+  () => api('/api/logs/aggregate', {
+    method: 'POST',
+    body: { logIds: ids.value },
+  }) as Promise<any>
+)
+
+const wingmanQueued = ref(false)
+
+const uploadToWingman = () => {
+  if (wingmanQueued.value) return
+  wingmanQueued.value = true
+  api('/api/logs/wingman', {
+    method: 'POST',
+    body: { logIds: ids.value },
+  }).catch(() => {})
+}
+
+const formatDuration = (ms: number) => {
+  const s = Math.floor(ms / 1000)
+  const m = Math.floor(s / 60)
+  const h = Math.floor(m / 60)
+  if (h > 0) return `${h}h ${m % 60}m ${s % 60}s`
+  return `${m}m ${s % 60}s`
+}
+
+const PALETTE = [
+  '#6366f1', '#22d3ee', '#f59e0b', '#10b981', '#ef4444',
+  '#a855f7', '#f97316', '#14b8a6', '#ec4899', '#84cc16',
+  '#3b82f6', '#e11d48', '#8b5cf6', '#06b6d4', '#f43f5e',
+  '#0ea5e9', '#d946ef', '#65a30d', '#fb923c', '#2dd4bf',
+]
+const playerColor = (i: number) => PALETTE[i % PALETTE.length]
+
+const chartLabels = computed(() =>
+  (result.value?.timeline ?? []).map((t: any) => {
+    const time = new Date(t.fightStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    return `${fightName(t.fightType)} ${time}`
+  })
+)
+
+const allAccounts = computed(() => {
+  const seen = new Set<string>()
+  for (const fight of (result.value?.timeline ?? []))
+    for (const p of fight.players) seen.add(p.accountName)
+  return [...seen]
+})
+
+const makeDataset = (account: string, i: number, getValue: (p: any) => number | null, dashed = false) => ({
+  label: account,
+  data: (result.value?.timeline ?? []).map((fight: any) => {
+    const p = fight.players.find((pl: any) => pl.accountName === account)
+    return p ? getValue(p) : null
+  }),
+  borderColor: playerColor(i),
+  backgroundColor: dashed ? 'transparent' : playerColor(i) + '22',
+  tension: 0.3,
+  spanGaps: true,
+  pointRadius: 3,
+  pointHoverRadius: 5,
+  borderDash: dashed ? [5, 4] : [],
+  fill: !dashed,
+})
+
+// WvW charts
+const wvwDamageChartData = computed(() => ({
+  labels: chartLabels.value,
+  datasets: allAccounts.value.map((a, i) => makeDataset(a, i, p => p.damage)),
+}))
+
+const killsChartData = computed(() => ({
+  labels: chartLabels.value,
+  datasets: allAccounts.value.map((a, i) => makeDataset(a, i, p => p.kills)),
+}))
+
+const downsChartData = computed(() => ({
+  labels: chartLabels.value,
+  datasets: allAccounts.value.map((a, i) => makeDataset(a, i, p => p.downs)),
+}))
+
+const wvwDdcChartData = computed(() => ({
+  labels: chartLabels.value,
+  datasets: allAccounts.value.map((a, i) => makeDataset(a, i, p => p.damageDownContribution)),
+}))
+
+const wvwBoonsRippedChartData = computed(() => ({
+  labels: chartLabels.value,
+  datasets: allAccounts.value.map((a, i) => makeDataset(a, i, p => p.numberOfBoonsRipped)),
+}))
+
+const healingChartData = computed(() => ({
+  labels: chartLabels.value,
+  datasets: allAccounts.value.map((a, i) => makeDataset(a, i, p => p.healing)),
+}))
+
+const wvwAlacChartData = computed(() => ({
+  labels: chartLabels.value,
+  datasets: allAccounts.value.map((a, i) => ({ ...makeDataset(a, i, p => p.alacDuration, true), fill: false })),
+}))
+
+const wvwQuickChartData = computed(() => ({
+  labels: chartLabels.value,
+  datasets: allAccounts.value.map((a, i) => ({ ...makeDataset(a, i, p => p.quicknessDuration, true), fill: false })),
+}))
+
+// PvE charts
+const pveDpsChartData = computed(() => ({
+  labels: chartLabels.value,
+  datasets: allAccounts.value.map((a, i) => makeDataset(a, i, p => p.dps)),
+}))
+
+const pveCleaveDpsChartData = computed(() => ({
+  labels: chartLabels.value,
+  datasets: allAccounts.value.map((a, i) => makeDataset(a, i, p => p.cleaveDps)),
+}))
+
+const pveAlacChartData = computed(() => ({
+  labels: chartLabels.value,
+  datasets: allAccounts.value.map((a, i) => ({ ...makeDataset(a, i, p => p.alacDuration, true), fill: false })),
+}))
+
+const pveQuickChartData = computed(() => ({
+  labels: chartLabels.value,
+  datasets: allAccounts.value.map((a, i) => ({ ...makeDataset(a, i, p => p.quicknessDuration, true), fill: false })),
+}))
+
+// Shared charts
+const deathsChartData = computed(() => ({
+  labels: chartLabels.value,
+  datasets: allAccounts.value.map((a, i) => makeDataset(a, i, p => p.deaths)),
+}))
+
+const downedChartData = computed(() => ({
+  labels: chartLabels.value,
+  datasets: allAccounts.value.map((a, i) => makeDataset(a, i, p => p.timesDowned)),
+}))
+
+const damageTakenChartData = computed(() => ({
+  labels: chartLabels.value,
+  datasets: allAccounts.value.map((a, i) => makeDataset(a, i, p => p.damageTaken)),
+}))
+
+const baseOptions = (stepSize?: number) => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  interaction: { mode: 'index' as const, intersect: false },
+  plugins: {
+    legend: {
+      position: 'bottom' as const,
+      labels: { color: '#a1a1aa', boxWidth: 10, padding: 8, font: { size: 10 } },
+    },
+    tooltip: {
+      callbacks: {
+        label: (ctx: any) => `${ctx.dataset.label}: ${ctx.parsed.y?.toLocaleString() ?? '—'}`,
+      },
+    },
+  },
+  scales: {
+    x: { ticks: { color: '#a1a1aa', maxRotation: 25, font: { size: 10 } }, grid: { color: '#27272a' } },
+    y: { ticks: { color: '#a1a1aa', font: { size: 10 }, ...(stepSize ? { stepSize } : {}) }, grid: { color: '#27272a' }, beginAtZero: true },
+  },
+})
+
+const shortChartOptions = baseOptions()
+const shortIntChartOptions = baseOptions(1)
+</script>
+
+<style scoped>
+.stat-card {
+  background: var(--p-surface-card);
+  border: 1px solid var(--p-surface-border);
+  border-radius: 0.5rem;
+  padding: 1rem 1.5rem;
+  min-width: 120px;
+}
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--p-text-muted-color);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--p-text-muted-color);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 1.5rem 0 0.5rem;
+}
+.mb-section {
+  margin-bottom: 0.5rem;
+}
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+.chart-container {
+  background: var(--p-surface-card);
+  border: 1px solid var(--p-surface-border);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+}
+.chart-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--p-text-muted-color);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.5rem;
+}
+.chart-container :deep(.p-chart) {
+  width: 100%;
+  height: 300px;
+}
+.chart-container :deep(canvas) {
+  width: 100% !important;
+  height: 300px !important;
+}
+</style>

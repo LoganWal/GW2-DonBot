@@ -264,6 +264,7 @@ public sealed class PvEFightSummaryService(
                     "LCM" => 2,
                     _ => 0
                 };
+            existingFightLog.Source = FightLogHelpers.GetLogSource(data.FightEliteInsightDataModel.Url);
 
             if (encounterType == (short)FightTypesEnum.Ht)
             {
@@ -273,6 +274,7 @@ public sealed class PvEFightSummaryService(
             }
 
             await entityService.FightLog.UpdateAsync(existingFightLog);
+            await FightLogHelpers.UpsertRawDataAsync(entityService, existingFightLog.FightLogId, data);
         }
         else
         {
@@ -292,7 +294,8 @@ public sealed class PvEFightSummaryService(
                         "CM" => 1,
                         "LCM" => 2,
                         _ => 0
-                    }
+                    },
+                Source = FightLogHelpers.GetLogSource(data.FightEliteInsightDataModel.Url)
             };
 
             if (encounterType == (short)FightTypesEnum.Ht)
@@ -346,6 +349,7 @@ public sealed class PvEFightSummaryService(
             }).ToList();
 
             await entityService.PlayerFightLog.AddRangeAsync(playerFights);
+            await FightLogHelpers.UpsertRawDataAsync(entityService, fightLog.FightLogId, data);
 
             existingFightLog = fightLog;
         }

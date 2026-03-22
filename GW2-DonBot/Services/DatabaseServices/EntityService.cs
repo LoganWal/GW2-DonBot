@@ -5,6 +5,7 @@ namespace DonBot.Services.DatabaseServices;
 public sealed class EntityService(
     IDatabaseUpdateService<Account> account,
     IDatabaseUpdateService<FightLog> fightLog,
+    IDatabaseUpdateService<FightLogRawData> fightLogRawData,
     IDatabaseUpdateService<FightsReport> fightsReport,
     IDatabaseUpdateService<Guild> guild,
     IDatabaseUpdateService<GuildQuote> guildQuote,
@@ -20,6 +21,8 @@ public sealed class EntityService(
     public IDatabaseUpdateService<Account> Account { get; } = account;
 
     public IDatabaseUpdateService<FightLog> FightLog { get; } = fightLog;
+
+    public IDatabaseUpdateService<FightLogRawData> FightLogRawData { get; } = fightLogRawData;
 
     public IDatabaseUpdateService<FightsReport> FightsReport { get; } = fightsReport;
 

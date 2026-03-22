@@ -432,6 +432,7 @@ internal class FakeEntityService : IEntityService
 
     public IDatabaseUpdateService<Account> Account => throw new NotImplementedException();
     public IDatabaseUpdateService<FightLog> FightLog => throw new NotImplementedException();
+    public IDatabaseUpdateService<FightLogRawData> FightLogRawData => throw new NotImplementedException();
     public IDatabaseUpdateService<FightsReport> FightsReport => throw new NotImplementedException();
     public IDatabaseUpdateService<Guild> Guild => throw new NotImplementedException();
     public IDatabaseUpdateService<GuildQuote> GuildQuote => throw new NotImplementedException();

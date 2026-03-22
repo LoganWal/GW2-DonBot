@@ -8,6 +8,8 @@ public interface IEntityService
 
     IDatabaseUpdateService<FightLog> FightLog { get; }
 
+    IDatabaseUpdateService<FightLogRawData> FightLogRawData { get; }
+
     IDatabaseUpdateService<FightsReport> FightsReport { get; }
 
     IDatabaseUpdateService<Guild> Guild { get; }

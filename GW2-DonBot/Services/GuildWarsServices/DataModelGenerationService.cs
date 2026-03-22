@@ -49,9 +49,13 @@ public sealed class DataModelGenerationService(ILogger<DataModelGenerationServic
                 var healingData = ExtractAndDeserialize<HealingEliteInsightDataModel>(logDataScript, "_healingStatsExtension");
                 var barrierData = ExtractAndDeserialize<BarrierEliteInsightDataModel>(logDataScript, "_barrierStatsExtension");
 
+                var rawFightData = ExtractRaw(logDataScript, "_logData");
+                var rawHealingData = ExtractRaw(logDataScript, "_healingStatsExtension");
+                var rawBarrierData = ExtractRaw(logDataScript, "_barrierStatsExtension");
+
                 fightData.Url = url;
 
-                return new EliteInsightDataModel(fightData, healingData, barrierData);
+                return new EliteInsightDataModel(fightData, healingData, barrierData, rawFightData, rawHealingData, rawBarrierData);
             }
             catch (Exception ex)
             {
@@ -113,7 +117,7 @@ public sealed class DataModelGenerationService(ILogger<DataModelGenerationServic
         public bool Result { get; set; }
     }
 
-    private T ExtractAndDeserialize<T>(string script, string variableName) where T : new()
+    private string? ExtractRaw(string script, string variableName)
     {
         try
         {
@@ -121,8 +125,7 @@ public sealed class DataModelGenerationService(ILogger<DataModelGenerationServic
             var rawStartIndex = script.IndexOf(startMarker, StringComparison.Ordinal);
             if (rawStartIndex < 0)
             {
-                logger.LogInformation("{variableName} not present in log — stats extension likely not enabled.", variableName);
-                return new T();
+                return null;
             }
 
             var startIndex = rawStartIndex + startMarker.Length - 1;
@@ -130,12 +133,29 @@ public sealed class DataModelGenerationService(ILogger<DataModelGenerationServic
 
             if (endIndex <= 0)
             {
-                logger.LogWarning("Failed to locate end of {variableName} in script content.", variableName);
+                return null;
+            }
+
+            return script.Substring(startIndex, endIndex - startIndex);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private T ExtractAndDeserialize<T>(string script, string variableName) where T : new()
+    {
+        try
+        {
+            var json = ExtractRaw(script, variableName);
+            if (json == null)
+            {
+                logger.LogInformation("{variableName} not present in log — stats extension likely not enabled.", variableName);
                 return new T();
             }
 
-            var jsonData = script.Substring(startIndex, endIndex - startIndex);
-            return JsonConvert.DeserializeObject<T>(jsonData) ?? new T();
+            return JsonConvert.DeserializeObject<T>(json) ?? new T();
         }
         catch (Exception ex)
         {

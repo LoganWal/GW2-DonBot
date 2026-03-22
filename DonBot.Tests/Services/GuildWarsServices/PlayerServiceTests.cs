@@ -102,7 +102,7 @@ public class PlayerServiceTests
         {
             Boons = boons,
             Players = [new ArcDpsPlayer { Acc = "Test.1234", Profession = "Guardian", Name = "TestChar", NotInSquad = false, Group = 1 }]
-        }, new HealingEliteInsightDataModel(), new BarrierEliteInsightDataModel());
+        }, new HealingEliteInsightDataModel(), new BarrierEliteInsightDataModel(), null, null, null);
 
     // Builds boon gen data; all values 0 except at stabIndex
     private static List<List<double>> BoonData(int boonCount, int stabIndex, double stabValue) =>

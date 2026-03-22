@@ -25,4 +25,7 @@ public class FightLog
     public int? FightPhase { get; set; }
 
     public int FightMode { get; set; }
+
+    [MaxLength(200)]
+    public string? Source { get; set; }
 }

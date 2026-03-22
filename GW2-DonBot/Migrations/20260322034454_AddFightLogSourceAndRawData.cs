@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -22,9 +22,9 @@ namespace DonBot.Migrations
                 columns: table => new
                 {
                     FightLogId = table.Column<long>(type: "bigint", nullable: false),
-                    RawFightData = table.Column<string>(type: "text", nullable: true),
-                    RawHealingData = table.Column<string>(type: "text", nullable: true),
-                    RawBarrierData = table.Column<string>(type: "text", nullable: true)
+                    RawFightData = table.Column<string>(type: "text", maxLength: 104857600, nullable: true),
+                    RawHealingData = table.Column<string>(type: "text", maxLength: 104857600, nullable: true),
+                    RawBarrierData = table.Column<string>(type: "text", maxLength: 104857600, nullable: true)
                 },
                 constraints: table =>
                 {

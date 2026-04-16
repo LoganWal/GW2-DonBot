@@ -245,6 +245,8 @@ public static class LogsEndpoints
         string? fightTypes = null,
         string? characters = null,
         string? startDate = null,
+        string? startDateTime = null,
+        string? endDateTime = null,
         int page = 1,
         int pageSize = 20)
     {
@@ -304,11 +306,22 @@ public static class LogsEndpoints
             }
         }
 
-        if (!string.IsNullOrEmpty(startDate) && DateOnly.TryParse(startDate, out var date))
+        if (!string.IsNullOrEmpty(startDateTime) &&
+            DateTime.TryParse(startDateTime, null, System.Globalization.DateTimeStyles.RoundtripKind, out var startDt))
+        {
+            query = query.Where(fl => fl.FightStart >= startDt);
+        }
+        else if (!string.IsNullOrEmpty(startDate) && DateOnly.TryParse(startDate, out var date))
         {
             var start = date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
             var end = date.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc);
             query = query.Where(fl => fl.FightStart >= start && fl.FightStart <= end);
+        }
+
+        if (!string.IsNullOrEmpty(endDateTime) &&
+            DateTime.TryParse(endDateTime, null, System.Globalization.DateTimeStyles.RoundtripKind, out var endDt))
+        {
+            query = query.Where(fl => fl.FightStart <= endDt);
         }
 
         var total = await query.CountAsync();

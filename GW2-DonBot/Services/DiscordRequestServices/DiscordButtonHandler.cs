@@ -202,7 +202,9 @@ public class DiscordButtonHandler(
         try
         {
             var key = customId[ButtonId.DismissLogsPrefix.Length..];
-            var state = pendingLogService.TryConsume(key);
+
+            // Peek first so we don't consume the state if the wrong user clicked.
+            var state = pendingLogService.TryPeek(key);
             if (state == null)
             {
                 await buttonComponent.RespondAsync("This log request has expired or was already handled.", ephemeral: true);
@@ -215,9 +217,12 @@ public class DiscordButtonHandler(
                 return;
             }
 
-            // Type 6 (DeferredUpdateMessage): silently ACKs the interaction without creating a response,
-            // so DeleteOriginalResponseAsync is not needed.
-            await buttonComponent.DeferAsync(ephemeral: true);
+            // Consume after the user check so a wrong-user click doesn't burn the state.
+            pendingLogService.TryConsume(key);
+
+            // DeferAsync() with no ephemeral flag sends type 6 (DeferredUpdateMessage):
+            // silently ACKs the interaction without creating any visible response.
+            await buttonComponent.DeferAsync();
             await buttonComponent.Message.DeleteAsync();
         }
         catch (Exception ex)

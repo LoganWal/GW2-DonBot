@@ -23,7 +23,7 @@ public static class AuthEndpoints
         IConfiguration configuration)
     {
         var clientId = secretService.FetchDiscordClientId();
-        var redirectUri = configuration["Discord:RedirectUri"] ?? "http://localhost:5000/auth/discord/callback";
+        var redirectUri = configuration["Discord:RedirectUri"] ?? "http://localhost:5001/auth/discord/callback";
         var encodedRedirectUri = HttpUtility.UrlEncode(redirectUri);
         var url = $"https://discord.com/api/oauth2/authorize?client_id={clientId}&redirect_uri={encodedRedirectUri}&response_type=code&scope=identify";
         return Results.Redirect(url);
@@ -45,9 +45,9 @@ public static class AuthEndpoints
 
         var clientId = secretService.FetchDiscordClientId();
         var clientSecret = secretService.FetchDiscordClientSecret();
-        var redirectUri = configuration["Discord:RedirectUri"] ?? "http://localhost:5000/auth/discord/callback";
-        var jwtKey = Environment.GetEnvironmentVariable("DonBotJwtKey")
-            ?? throw new InvalidOperationException("DonBotJwtKey not set");
+        var redirectUri = configuration["Discord:RedirectUri"] ?? "http://localhost:5001/auth/discord/callback";
+        var jwtKey = configuration["DonBotJwtKey"] ?? Environment.GetEnvironmentVariable("DonBotJwtKey")
+            ?? throw new InvalidOperationException("'DonBotJwtKey' is not configured. Set it in appsettings.user.json or the .env file.");
 
         var client = httpClientFactory.CreateClient();
 

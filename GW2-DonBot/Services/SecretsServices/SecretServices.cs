@@ -1,52 +1,19 @@
-﻿namespace DonBot.Services.SecretsServices;
+using Microsoft.Extensions.Configuration;
 
-public sealed class SecretServices : ISecretService
+namespace DonBot.Services.SecretsServices;
+
+public sealed class SecretServices(IConfiguration configuration) : ISecretService
 {
-    public string FetchDonBotSqlConnectionString()
+    private string GetRequired(string key)
     {
-        var donBotSqlConnectionString = Environment.GetEnvironmentVariable("DonBotSqlConnectionString");
-
-        if (string.IsNullOrEmpty(donBotSqlConnectionString))
-        {
-            throw new Exception("DonBotSqlConnectionString does not exist");
-        }
-
-        return donBotSqlConnectionString;
+        var value = configuration[key] ?? Environment.GetEnvironmentVariable(key);
+        if (string.IsNullOrEmpty(value))
+            throw new InvalidOperationException($"'{key}' is not configured. Set it in appsettings.user.json or the .env file.");
+        return value;
     }
 
-    public string FetchDonBotToken()
-    {
-        var donBotToken = Environment.GetEnvironmentVariable("DonBotToken");
-
-        if (string.IsNullOrEmpty(donBotToken))
-        {
-            throw new Exception("DonBotToken does not exist");
-        }
-
-        return donBotToken;
-    }
-
-    public string FetchDiscordClientId()
-    {
-        var clientId = Environment.GetEnvironmentVariable("DiscordClientId");
-
-        if (string.IsNullOrEmpty(clientId))
-        {
-            throw new Exception("DiscordClientId does not exist");
-        }
-
-        return clientId;
-    }
-
-    public string FetchDiscordClientSecret()
-    {
-        var clientSecret = Environment.GetEnvironmentVariable("DiscordClientSecret");
-
-        if (string.IsNullOrEmpty(clientSecret))
-        {
-            throw new Exception("DiscordClientSecret does not exist");
-        }
-
-        return clientSecret;
-    }
+    public string FetchDonBotSqlConnectionString() => GetRequired("DonBotSqlConnectionString");
+    public string FetchDonBotToken() => GetRequired("DonBotToken");
+    public string FetchDiscordClientId() => GetRequired("DiscordClientId");
+    public string FetchDiscordClientSecret() => GetRequired("DiscordClientSecret");
 }

@@ -102,26 +102,33 @@ public sealed class VerifyCommandsService(IEntityService entityService, ILogger<
                 $"Verify succeeded! New GW2 account registered: `{accountData.Name}`\n" :
                 $"Verify succeeded! GW2 account updated: `{accountData.Name}`\n";
 
-            output += "Verified role has been assigned!\n";
-
+            var rolesConfigured = guild.DiscordVerifiedRoleId != null;
             var primaryGuildId = guild.Gw2GuildMemberRoleId;
             var secondaryGuildIds = guild.Gw2SecondaryMemberRoleIds?.Split(',', StringSplitOptions.RemoveEmptyEntries);
 
-            var inPrimaryGuild = primaryGuildId != null && accountData.Guilds.Contains(primaryGuildId);
-            var inSecondaryGuild = secondaryGuildIds?.Any(guildId => accountData.Guilds.Contains(guildId)) ?? false;
+            if (rolesConfigured)
+            {
+                var inPrimaryGuild = primaryGuildId != null && accountData.Guilds.Contains(primaryGuildId);
+                var inSecondaryGuild = secondaryGuildIds?.Any(guildId => accountData.Guilds.Contains(guildId)) ?? false;
 
-            var primaryGuildName = primaryGuildId != null
-                ? await GetGw2GuildNameAsync(primaryGuildId)
-                : null;
-            var primaryGuildLabel = primaryGuildName != null ? $"`{primaryGuildName}`" : "this server's guild";
+                var primaryGuildName = primaryGuildId != null
+                    ? await GetGw2GuildNameAsync(primaryGuildId)
+                    : null;
+                var primaryGuildLabel = primaryGuildName != null ? $"`{primaryGuildName}`" : "this server's guild";
 
-            output += inPrimaryGuild ?
-                $"You are in {primaryGuildLabel}, member roles have been assigned! :heart:" :
-                inSecondaryGuild ?
-                    $"You are in an allied guild, ally roles have been assigned! :heart:" :
-                    $"You are not in {primaryGuildLabel} or any allied guild, special roles not assigned. :broken_heart:\nIf you believe this is incorrect, please contact an officer.";
+                output += inPrimaryGuild ?
+                    $"You are in {primaryGuildLabel}, member roles have been assigned! :heart:" :
+                    inSecondaryGuild ?
+                        "You are in an allied guild, ally roles have been assigned! :heart:" :
+                        $"You are not in {primaryGuildLabel} or any allied guild, special roles not assigned. :broken_heart:\nIf you believe this is incorrect, please contact an officer.";
 
-            await AssignRoles(guildUser, guild, inPrimaryGuild, inSecondaryGuild);
+                await AssignRoles(guildUser, guild, inPrimaryGuild, inSecondaryGuild);
+            }
+            else
+            {
+                output += "Your account is verified and linked. You can now log in to DonBot.";
+            }
+
             await command.FollowupAsync(output, ephemeral: true);
         }
         else

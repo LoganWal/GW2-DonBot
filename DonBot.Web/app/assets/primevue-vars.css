@@ -1,0 +1,14 @@
+/* Stub declarations for PrimeVue CSS custom properties.
+   These are defined at runtime by the PrimeVue theme; this file
+   exists only so WebStorm can resolve them without false positives. */
+:root {
+  --p-border-radius-sm: ;
+  --p-content-border-color: ;
+  --p-primary-color: ;
+  --p-surface-border: ;
+  --p-surface-card: ;
+  --p-surface-ground: ;
+  --p-surface-hover: ;
+  --p-text-color: ;
+  --p-text-muted-color: ;
+}

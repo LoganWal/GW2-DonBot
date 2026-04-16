@@ -22,8 +22,8 @@ public static class ApiServiceRegister
 
         services.AddHttpClient();
 
-        var jwtKey = Environment.GetEnvironmentVariable("DonBotJwtKey")
-            ?? throw new InvalidOperationException("DonBotJwtKey env var is not set");
+        var jwtKey = configuration["DonBotJwtKey"] ?? Environment.GetEnvironmentVariable("DonBotJwtKey")
+            ?? throw new InvalidOperationException("'DonBotJwtKey' is not configured. Set it in appsettings.user.json or the .env file.");
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
@@ -47,15 +47,25 @@ public static class ApiServiceRegister
 
         services.AddAuthorization();
 
-        var allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-            ?? ["http://localhost:3000"];
+        var allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
 
         services.AddCors(options =>
         {
             options.AddPolicy("DonBotPolicy", policy =>
             {
-                policy.WithOrigins(allowedOrigins)
-                      .AllowAnyHeader()
+                if (allowedOrigins is { Length: > 0 })
+                {
+                    policy.WithOrigins(allowedOrigins);
+                }
+                else
+                {
+                    // No explicit origins configured: allow any localhost origin for local dev.
+                    policy.SetIsOriginAllowed(origin =>
+                        Uri.TryCreate(origin, UriKind.Absolute, out var uri) &&
+                        uri.Host == "localhost");
+                }
+
+                policy.AllowAnyHeader()
                       .AllowAnyMethod()
                       .AllowCredentials();
             });

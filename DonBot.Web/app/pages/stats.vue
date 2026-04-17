@@ -15,63 +15,63 @@
           <h2 class="section-title">Overview</h2>
           <div class="stat-grid">
             <Card class="stat-card">
-              <template #content><div class="stat-label">Total Fights</div><div class="stat-value">{{ stats.wvw.totalFights?.toLocaleString() }}</div></template>
+              <template #content><div class="stat-label">Total Fights</div><div v-fit-text class="stat-value">{{ stats.wvw.totalFights?.toLocaleString() }}</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Total Kills</div><div class="stat-value">{{ stats.wvw.totalKills?.toLocaleString() }}</div></template>
+              <template #content><div class="stat-label">Total Kills</div><div v-fit-text class="stat-value">{{ stats.wvw.totalKills?.toLocaleString() }}</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Total Downs</div><div class="stat-value">{{ stats.wvw.totalDowns?.toLocaleString() }}</div></template>
+              <template #content><div class="stat-label">Total Downs</div><div v-fit-text class="stat-value">{{ stats.wvw.totalDowns?.toLocaleString() }}</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Total Deaths</div><div class="stat-value">{{ stats.wvw.totalDeaths?.toLocaleString() }}</div></template>
+              <template #content><div class="stat-label">Total Deaths</div><div v-fit-text class="stat-value">{{ stats.wvw.totalDeaths?.toLocaleString() }}</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Times Downed</div><div class="stat-value">{{ stats.wvw.totalTimesDowned?.toLocaleString() }}</div></template>
+              <template #content><div class="stat-label">Times Downed</div><div v-fit-text class="stat-value">{{ stats.wvw.totalTimesDowned?.toLocaleString() }}</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Avg Distance from Tag</div><div class="stat-value">{{ stats.wvw.avgDistanceFromTag?.toFixed(0) }}</div></template>
+              <template #content><div class="stat-label">Avg Distance from Tag</div><div v-fit-text class="stat-value">{{ stats.wvw.avgDistanceFromTag?.toFixed(0) }}</div></template>
             </Card>
           </div>
 
           <h2 class="section-title">Damage</h2>
           <div class="stat-grid">
             <Card class="stat-card">
-              <template #content><div class="stat-label">Total Damage</div><div class="stat-value">{{ stats.wvw.totalDamage?.toLocaleString() }}</div><div class="stat-sub">{{ stats.wvw.avgDps?.toLocaleString() }}/s avg</div></template>
+              <template #content><div class="stat-label">Total Damage</div><div v-fit-text class="stat-value">{{ stats.wvw.totalDamage?.toLocaleString() }}</div><div class="stat-sub">{{ stats.wvw.avgDps?.toLocaleString() }}/s avg</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Total Cleave</div><div class="stat-value">{{ stats.wvw.totalCleave?.toLocaleString() }}</div><div class="stat-sub">{{ stats.wvw.avgCleaveDps?.toLocaleString() }}/s avg</div></template>
+              <template #content><div class="stat-label">Total Cleave</div><div v-fit-text class="stat-value">{{ stats.wvw.totalCleave?.toLocaleString() }}</div><div class="stat-sub">{{ stats.wvw.avgCleaveDps?.toLocaleString() }}/s avg</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Down Contribution</div><div class="stat-value">{{ stats.wvw.totalDamageDownContribution?.toLocaleString() }}</div></template>
+              <template #content><div class="stat-label">Down Contribution</div><div v-fit-text class="stat-value">{{ stats.wvw.totalDamageDownContribution?.toLocaleString() }}</div></template>
             </Card>
           </div>
 
           <h2 class="section-title">Support</h2>
           <div class="stat-grid">
             <Card class="stat-card">
-              <template #content><div class="stat-label">Total Healing</div><div class="stat-value">{{ stats.wvw.totalHealing?.toLocaleString() }}</div><div class="stat-sub">{{ stats.wvw.avgHealingPerSecond?.toLocaleString() }}/s avg</div></template>
+              <template #content><div class="stat-label">Total Healing</div><div v-fit-text class="stat-value">{{ stats.wvw.totalHealing?.toLocaleString() }}</div><div class="stat-sub">{{ stats.wvw.avgHealingPerSecond?.toLocaleString() }}/s avg</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Barrier Generated</div><div class="stat-value">{{ stats.wvw.totalBarrierGenerated?.toLocaleString() }}</div></template>
+              <template #content><div class="stat-label">Barrier Generated</div><div v-fit-text class="stat-value">{{ stats.wvw.totalBarrierGenerated?.toLocaleString() }}</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Total Cleanses</div><div class="stat-value">{{ stats.wvw.totalCleanses?.toLocaleString() }}</div><div class="stat-sub">{{ stats.wvw.avgCleansesPerSecond }}/s avg</div></template>
+              <template #content><div class="stat-label">Total Cleanses</div><div v-fit-text class="stat-value">{{ stats.wvw.totalCleanses?.toLocaleString() }}</div><div class="stat-sub">{{ stats.wvw.avgCleansesPerSecond }}/s avg</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Total Strips</div><div class="stat-value">{{ stats.wvw.totalStrips?.toLocaleString() }}</div><div class="stat-sub">{{ stats.wvw.avgStripsPerSecond }}/s avg</div></template>
+              <template #content><div class="stat-label">Total Strips</div><div v-fit-text class="stat-value">{{ stats.wvw.totalStrips?.toLocaleString() }}</div><div class="stat-sub">{{ stats.wvw.avgStripsPerSecond }}/s avg</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Avg Quickness</div><div class="stat-value">{{ stats.wvw.avgQuickness?.toFixed(1) }}%</div></template>
+              <template #content><div class="stat-label">Avg Quickness</div><div v-fit-text class="stat-value">{{ stats.wvw.avgQuickness?.toFixed(1) }}%</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Avg Alacrity</div><div class="stat-value">{{ stats.wvw.avgAlac?.toFixed(1) }}%</div></template>
+              <template #content><div class="stat-label">Avg Alacrity</div><div v-fit-text class="stat-value">{{ stats.wvw.avgAlac?.toFixed(1) }}%</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Avg Stab (On Group)</div><div class="stat-value">{{ stats.wvw.avgStabOnGroup?.toFixed(2) }}</div></template>
+              <template #content><div class="stat-label">Avg Stab (On Group)</div><div v-fit-text class="stat-value">{{ stats.wvw.avgStabOnGroup?.toFixed(2) }}</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Avg Stab (Off Group)</div><div class="stat-value">{{ stats.wvw.avgStabOffGroup?.toFixed(2) }}</div></template>
+              <template #content><div class="stat-label">Avg Stab (Off Group)</div><div v-fit-text class="stat-value">{{ stats.wvw.avgStabOffGroup?.toFixed(2) }}</div></template>
             </Card>
           </div>
 
@@ -114,68 +114,68 @@
           <h2 class="section-title">Player Overview</h2>
           <div class="stat-grid">
             <Card class="stat-card">
-              <template #content><div class="stat-label">Total Fights</div><div class="stat-value">{{ stats.pve.totalFights?.toLocaleString() }}</div></template>
+              <template #content><div class="stat-label">Total Fights</div><div v-fit-text class="stat-value">{{ stats.pve.totalFights?.toLocaleString() }}</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Total Damage</div><div class="stat-value">{{ stats.pve.totalDamage?.toLocaleString() }}</div><div class="stat-sub">{{ stats.pve.avgDps?.toLocaleString() }}/s avg</div></template>
+              <template #content><div class="stat-label">Total Damage</div><div v-fit-text class="stat-value">{{ stats.pve.totalDamage?.toLocaleString() }}</div><div class="stat-sub">{{ stats.pve.avgDps?.toLocaleString() }}/s avg</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Total Cleave</div><div class="stat-value">{{ stats.pve.totalCleave?.toLocaleString() }}</div><div class="stat-sub">{{ stats.pve.avgCleaveDps?.toLocaleString() }}/s avg</div></template>
+              <template #content><div class="stat-label">Total Cleave</div><div v-fit-text class="stat-value">{{ stats.pve.totalCleave?.toLocaleString() }}</div><div class="stat-sub">{{ stats.pve.avgCleaveDps?.toLocaleString() }}/s avg</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Avg Alacrity</div><div class="stat-value">{{ stats.pve.avgAlac?.toFixed(1) }}%</div></template>
+              <template #content><div class="stat-label">Avg Alacrity</div><div v-fit-text class="stat-value">{{ stats.pve.avgAlac?.toFixed(1) }}%</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Avg Quickness</div><div class="stat-value">{{ stats.pve.avgQuickness?.toFixed(1) }}%</div></template>
+              <template #content><div class="stat-label">Avg Quickness</div><div v-fit-text class="stat-value">{{ stats.pve.avgQuickness?.toFixed(1) }}%</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Total Healing</div><div class="stat-value">{{ stats.pve.totalHealing?.toLocaleString() }}</div><div class="stat-sub">{{ stats.pve.avgHealingPerSecond?.toLocaleString() }}/s avg</div></template>
+              <template #content><div class="stat-label">Total Healing</div><div v-fit-text class="stat-value">{{ stats.pve.totalHealing?.toLocaleString() }}</div><div class="stat-sub">{{ stats.pve.avgHealingPerSecond?.toLocaleString() }}/s avg</div></template>
             </Card>
           </div>
 
           <h2 class="section-title">Survivability</h2>
           <div class="stat-grid">
             <Card class="stat-card">
-              <template #content><div class="stat-label">Res Time (ms)</div><div class="stat-value">{{ stats.pve.totalResurrectionTime?.toLocaleString() }}</div></template>
+              <template #content><div class="stat-label">Res Time (ms)</div><div v-fit-text class="stat-value">{{ stats.pve.totalResurrectionTime?.toLocaleString() }}</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Damage Taken</div><div class="stat-value">{{ stats.pve.totalDamageTaken?.toLocaleString() }}</div></template>
+              <template #content><div class="stat-label">Damage Taken</div><div v-fit-text class="stat-value">{{ stats.pve.totalDamageTaken?.toLocaleString() }}</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Times Downed</div><div class="stat-value">{{ stats.pve.totalTimesDowned?.toLocaleString() }}</div></template>
+              <template #content><div class="stat-label">Times Downed</div><div v-fit-text class="stat-value">{{ stats.pve.totalTimesDowned?.toLocaleString() }}</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Total Deaths</div><div class="stat-value">{{ stats.pve.totalDeaths?.toLocaleString() }}</div></template>
+              <template #content><div class="stat-label">Total Deaths</div><div v-fit-text class="stat-value">{{ stats.pve.totalDeaths?.toLocaleString() }}</div></template>
             </Card>
           </div>
 
           <h2 class="section-title">Cerus Mechanics</h2>
           <div class="stat-grid">
             <Card class="stat-card">
-              <template #content><div class="stat-label">Phase 1 Damage</div><div class="stat-value">{{ stats.pve.totalCerusPhaseOneDamage?.toLocaleString() }}</div></template>
+              <template #content><div class="stat-label">Phase 1 Damage</div><div v-fit-text class="stat-value">{{ stats.pve.totalCerusPhaseOneDamage?.toLocaleString() }}</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Orbs Collected</div><div class="stat-value">{{ stats.pve.totalCerusOrbsCollected?.toLocaleString() }}</div></template>
+              <template #content><div class="stat-label">Orbs Collected</div><div v-fit-text class="stat-value">{{ stats.pve.totalCerusOrbsCollected?.toLocaleString() }}</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Spread Hits</div><div class="stat-value">{{ stats.pve.totalCerusSpreadHitCount?.toLocaleString() }}</div></template>
+              <template #content><div class="stat-label">Spread Hits</div><div v-fit-text class="stat-value">{{ stats.pve.totalCerusSpreadHitCount?.toLocaleString() }}</div></template>
             </Card>
           </div>
 
           <h2 class="section-title">Deimos Mechanics</h2>
           <div class="stat-grid">
             <Card class="stat-card">
-              <template #content><div class="stat-label">Oils Triggered</div><div class="stat-value">{{ stats.pve.totalDeimosOilsTriggered?.toLocaleString() }}</div></template>
+              <template #content><div class="stat-label">Oils Triggered</div><div v-fit-text class="stat-value">{{ stats.pve.totalDeimosOilsTriggered?.toLocaleString() }}</div></template>
             </Card>
           </div>
 
           <h2 class="section-title">Ura Mechanics</h2>
           <div class="stat-grid">
             <Card class="stat-card">
-              <template #content><div class="stat-label">Shards Picked Up</div><div class="stat-value">{{ stats.pve.totalShardPickUp?.toLocaleString() }}</div></template>
+              <template #content><div class="stat-label">Shards Picked Up</div><div v-fit-text class="stat-value">{{ stats.pve.totalShardPickUp?.toLocaleString() }}</div></template>
             </Card>
             <Card class="stat-card">
-              <template #content><div class="stat-label">Shards Used</div><div class="stat-value">{{ stats.pve.totalShardUsed?.toLocaleString() }}</div></template>
+              <template #content><div class="stat-label">Shards Used</div><div v-fit-text class="stat-value">{{ stats.pve.totalShardUsed?.toLocaleString() }}</div></template>
             </Card>
           </div>
         </TabPanel>
@@ -196,7 +196,7 @@
 definePageMeta({ middleware: 'auth' })
 
 const api = useApi()
-const { data: stats, pending } = await useAsyncData('stats', () => api('/api/stats/me'))
+const { data: stats, pending } = await useAsyncData('stats', () => api('/api/stats/me') as Promise<any>)
 
 const defaultTab = computed(() => stats.value?.pve ? 'pve' : 'wvw')
 </script>
@@ -217,7 +217,8 @@ const defaultTab = computed(() => stats.value?.pve ? 'pve' : 'wvw')
   margin-top: 0.1rem;
 }
 
-.agg-card .p-card-content {
+/* noinspection CssUnusedSymbol */
+.agg-card :deep(.p-card-content) {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;

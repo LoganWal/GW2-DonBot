@@ -218,6 +218,7 @@ public static class LogsEndpoints
             {
                 fl.FightLogId,
                 fl.FightType,
+                fl.FightMode,
                 fl.FightStart,
                 fl.FightDurationInMs,
                 fl.IsSuccess,
@@ -245,6 +246,10 @@ public static class LogsEndpoints
         string? fightTypes = null,
         string? characters = null,
         string? startDate = null,
+        string? startDateTime = null,
+        string? endDateTime = null,
+        bool? isSuccess = null,
+        int? fightMode = null,
         int page = 1,
         int pageSize = 20)
     {
@@ -304,12 +309,29 @@ public static class LogsEndpoints
             }
         }
 
-        if (!string.IsNullOrEmpty(startDate) && DateOnly.TryParse(startDate, out var date))
+        if (!string.IsNullOrEmpty(startDateTime) &&
+            DateTime.TryParse(startDateTime, null, System.Globalization.DateTimeStyles.RoundtripKind, out var startDt))
+        {
+            query = query.Where(fl => fl.FightStart >= startDt);
+        }
+        else if (!string.IsNullOrEmpty(startDate) && DateOnly.TryParse(startDate, out var date))
         {
             var start = date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
             var end = date.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc);
             query = query.Where(fl => fl.FightStart >= start && fl.FightStart <= end);
         }
+
+        if (!string.IsNullOrEmpty(endDateTime) &&
+            DateTime.TryParse(endDateTime, null, System.Globalization.DateTimeStyles.RoundtripKind, out var endDt))
+        {
+            query = query.Where(fl => fl.FightStart <= endDt);
+        }
+
+        if (isSuccess.HasValue)
+            query = query.Where(fl => fl.IsSuccess == isSuccess.Value);
+
+        if (fightMode.HasValue)
+            query = query.Where(fl => fl.FightMode == fightMode.Value);
 
         var total = await query.CountAsync();
         var logs = await query
@@ -322,6 +344,7 @@ public static class LogsEndpoints
         {
             fl.FightLogId,
             fl.FightType,
+            fl.FightMode,
             fl.FightStart,
             fl.FightDurationInMs,
             fl.IsSuccess,

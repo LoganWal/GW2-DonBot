@@ -7,7 +7,9 @@
       <div v-for="cat in quickCategories" :key="cat.label" class="quick-row">
         <span class="quick-label">{{ cat.label }}</span>
         <Button size="small" severity="secondary" label="View" @click="viewToday(cat.types)" />
-        <Button size="small" severity="secondary" label="Aggregate today" :loading="aggregating === cat.label" @click="aggregateToday(cat)" />
+        <Button size="small" severity="secondary" label="Agg 24h" :loading="aggregating === cat.label + '24h'" @click="aggregateRange(cat, 24 * 60 * 60 * 1000, '24h')" />
+        <Button size="small" severity="secondary" label="Agg Week" :loading="aggregating === cat.label + 'week'" @click="aggregateRange(cat, 7 * 24 * 60 * 60 * 1000, 'week')" />
+        <Button size="small" severity="secondary" label="Agg Month" :loading="aggregating === cat.label + 'month'" @click="aggregateRange(cat, 30 * 24 * 60 * 60 * 1000, 'month')" />
       </div>
     </div>
     <Message v-if="noLogsToday" severity="warn" :closable="true" style="margin-bottom: 1rem;" @close="noLogsToday = false">
@@ -42,6 +44,20 @@
         @change="onFilterChange"
       />
     </div>
+    <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center;">
+      <div style="display: flex; gap: 0.4rem;">
+        <Button size="small" label="All" :severity="successFilter === 'all' ? 'primary' : 'secondary'" @click="successFilter = 'all'; onFilterChange()" />
+        <Button size="small" label="Kills" :severity="successFilter === 'kills' ? 'success' : 'secondary'" @click="successFilter = 'kills'; onFilterChange()" />
+        <Button size="small" label="Wipes" :severity="successFilter === 'wipes' ? 'danger' : 'secondary'" @click="successFilter = 'wipes'; onFilterChange()" />
+
+      </div>
+      <div style="display: flex; gap: 0.4rem;">
+        <Button size="small" label="All modes" :severity="difficultyFilter === null ? 'primary' : 'secondary'" @click="difficultyFilter = null; onFilterChange()" />
+        <Button size="small" label="NM" :severity="difficultyFilter === 0 ? 'primary' : 'secondary'" @click="difficultyFilter = 0; onFilterChange()" />
+        <Button size="small" label="CM" :severity="difficultyFilter === 1 ? 'primary' : 'secondary'" @click="difficultyFilter = 1; onFilterChange()" />
+        <Button size="small" label="LCM" :severity="difficultyFilter === 2 ? 'primary' : 'secondary'" @click="difficultyFilter = 2; onFilterChange()" />
+      </div>
+    </div>
     <ProgressSpinner v-if="pending && !logs.length" />
     <DataTable
       v-else
@@ -49,23 +65,27 @@
       :loading="pending"
       striped-rows
       @row-click="onRowClick"
-      style="cursor: pointer;"
+      style="cursor: pointer; user-select: none;"
     >
-      <Column style="width: 3rem; padding-right: 0;">
+      <Column style="width: 3rem; padding: 0;">
         <template #header>
-          <Checkbox :model-value="allOnPageSelected" :indeterminate="someOnPageSelected" binary @change="togglePageSelection" />
+          <div class="checkbox-cell" @click.stop="togglePageSelection">
+            <Checkbox :model-value="allOnPageSelected" :indeterminate="someOnPageSelected" binary style="pointer-events: none;" />
+          </div>
         </template>
         <template #body="{ data }">
-          <input type="checkbox" :checked="isSelected(data)" @click.stop="onCheckboxClick($event, data)" style="cursor: pointer; width: 1rem; height: 1rem;" />
+          <div class="checkbox-cell" @click.stop="onCheckboxClick($event, data)">
+            <input type="checkbox" :checked="isSelected(data)" style="pointer-events: none; width: 1rem; height: 1rem;" />
+          </div>
         </template>
       </Column>
       <Column header="Fight">
         <template #body="{ data }">
-          <a :href="`/logs/${data.fightLogId}`" @click.prevent="navigateTo(`/logs/${data.fightLogId}`)" style="color: inherit; text-decoration: none;">{{ fightName(data.fightType) }}</a>
+          <a :href="`/logs/${data.fightLogId}`" @click.prevent.stop="navigateTo(`/logs/${data.fightLogId}`)" style="color: inherit; text-decoration: none;">{{ fightName(data.fightType) }}</a>
         </template>
       </Column>
       <Column header="Character">
-        <template #body="{ data }">{{ data.characterName || '—' }}</template>
+        <template #body="{ data }">{{ data.characterName || '-' }}</template>
       </Column>
       <Column header="Date">
         <template #body="{ data }">{{ new Date(data.fightStart).toLocaleString() }}</template>
@@ -89,7 +109,7 @@
       <span style="color: var(--p-text-muted-color); font-size: 0.875rem;">Page {{ page }}</span>
       <Button icon="pi pi-chevron-right" severity="secondary" text :disabled="logs.length < pageSize" @click="page++" />
     </div>
-    <div v-if="selectedLogs.length > 0" style="position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); background: var(--p-surface-ground); border: 1px solid var(--p-primary-color); border-radius: 0.75rem; padding: 0.75rem 1.25rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 4px 24px rgba(0,0,0,0.6); z-index: 100; white-space: nowrap;">
+    <div v-if="selectedLogs.length > 0" class="selection-bar">
       <span style="color: var(--p-text-muted-color); font-size: 0.875rem;">{{ selectedLogs.length }} log{{ selectedLogs.length !== 1 ? 's' : '' }} selected</span>
       <Button label="Aggregate" icon="pi pi-chart-bar" @click="goToAggregate" />
       <Button icon="pi pi-times" severity="secondary" text @click="selectedLogs = []" />
@@ -117,6 +137,8 @@ const selectedFightTypes = ref<number[]>(
 const selectedCharacters = ref<string[]>(
   route.query.characters ? String(route.query.characters).split(',') : []
 )
+const successFilter = ref<'all' | 'kills' | 'wipes'>('all')
+const difficultyFilter = ref<number | null>(null)
 
 const STRIKE_TYPES = [27, 28, 29, 30, 31, 32, 33, 47, 48, 49, 50, 51]
 const RAID_TYPES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 44, 45, 46, 53, 55]
@@ -134,11 +156,6 @@ const quickCategories = [
 const aggregating = ref<string | null>(null)
 const noLogsToday = ref(false)
 
-const todayDateStr = () => {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
 const viewToday = (types: number[]) => {
   selectedFightTypes.value = [...types]
   page.value = 1
@@ -146,15 +163,16 @@ const viewToday = (types: number[]) => {
   refresh()
 }
 
-const aggregateToday = async (cat: { label: string; types: number[] }) => {
-  aggregating.value = cat.label
+const aggregateRange = async (cat: { label: string; types: number[] }, windowMs: number, key: string) => {
+  aggregating.value = cat.label + key
   noLogsToday.value = false
   try {
-    const url = `/api/logs?page=1&pageSize=500&startDate=${todayDateStr()}&fightTypes=${cat.types.join(',')}`
+    const now = new Date()
+    const since = new Date(now.getTime() - windowMs)
+    const url = `/api/logs?page=1&pageSize=500&startDateTime=${since.toISOString()}&endDateTime=${now.toISOString()}&fightTypes=${cat.types.join(',')}`
     const res = await api(url) as { data: any[] }
     const ids = (res.data ?? []).map((l: any) => l.fightLogId)
-    if (ids.length === 0)
-    {
+    if (ids.length === 0) {
       noLogsToday.value = true
       return
     }
@@ -189,13 +207,12 @@ const syncUrl = () => {
 const buildUrl = () => {
   let url = `/api/logs?page=${page.value}&pageSize=${pageSize}`
   if (selectedFightTypes.value.length > 0)
-  {
     url += `&fightTypes=${selectedFightTypes.value.join(',')}`
-  }
   if (selectedCharacters.value.length > 0)
-  {
     url += `&characters=${encodeURIComponent(selectedCharacters.value.join(','))}`
-  }
+  if (successFilter.value === 'kills') url += '&isSuccess=true'
+  else if (successFilter.value === 'wipes') url += '&isSuccess=false'
+  if (difficultyFilter.value !== null) url += `&fightMode=${difficultyFilter.value}`
   return url
 }
 
@@ -265,12 +282,12 @@ const handleSelect = (shiftKey: boolean, row: any) => {
   }
 }
 
-const onCheckboxClick = (e: MouseEvent, row: any) => {
-  handleSelect(e.shiftKey, row)
+const onRowClick = (e: any) => {
+  navigateTo(`/logs/${e.data.fightLogId}`)
 }
 
-const onRowClick = (e: any) => {
-  handleSelect(e.originalEvent?.shiftKey ?? false, e.data)
+const onCheckboxClick = (e: MouseEvent, row: any) => {
+  handleSelect(e.shiftKey, row)
 }
 
 const formatDuration = (ms: number) => {
@@ -285,6 +302,16 @@ const goToAggregate = () => {
 </script>
 
 <style scoped>
+.checkbox-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 2.5rem;
+  cursor: pointer;
+}
+
 .quick-buttons {
   display: flex;
   flex-direction: column;
@@ -300,6 +327,24 @@ const goToAggregate = () => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.selection-bar {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem 1rem;
+  white-space: nowrap;
+  z-index: 100;
+  border-radius: 0.5rem;
+  border: 1px solid var(--p-primary-color);
+  background: rgba(15, 15, 20, 0.2);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.9);
 }
 
 .quick-label {

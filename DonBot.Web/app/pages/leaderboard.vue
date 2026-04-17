@@ -3,7 +3,7 @@
     <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
       <h1 class="page-title" style="margin: 0;">Leaderboard</h1>
       <span v-if="data" style="color: var(--p-text-muted-color); font-size: 0.875rem;">
-        {{ data.sinceDate }} — {{ data.untilDate }} (last 7 days)
+        {{ data.sinceDate }} - {{ data.untilDate }} (last 7 days)
       </span>
       <div style="margin-left: auto;">
         <Select
@@ -24,7 +24,7 @@
       <template v-if="data.pve.length">
         <button class="section-toggle" @click="expanded.pveDamage = !expanded.pveDamage">
           <i :class="expanded.pveDamage ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="toggle-icon" />
-          PvE — Damage & Combat
+          PvE - Damage & Combat
           <span class="section-count">{{ data.pve.length }} players</span>
         </button>
         <template v-if="expanded.pveDamage">
@@ -32,18 +32,18 @@
             <Column header="#" style="width: 3rem;" frozen>
               <template #body="{ index }">{{ index + 1 }}</template>
             </Column>
-            <Column field="accountName" header="Account" frozen sortable style="min-width: 160px;" />
-            <Column field="fights" header="Fights" sortable style="min-width: 70px;" />
-            <Column header="DPS" sortable sort-field="dps" style="min-width: 90px;">
+            <Column field="accountName" header="Account" frozen :sortable="true" style="min-width: 160px;" />
+            <Column field="fights" header="Fights" :sortable="true" style="min-width: 70px;" />
+            <Column header="DPS" :sortable="true" sort-field="dps" style="min-width: 90px;">
               <template #body="{ data: row }">{{ row.dps.toLocaleString() }}</template>
             </Column>
-            <Column header="Cleave DPS" sortable sort-field="cleaveDps" style="min-width: 105px;">
+            <Column header="Cleave DPS" :sortable="true" sort-field="cleaveDps" style="min-width: 105px;">
               <template #body="{ data: row }">{{ row.cleaveDps.toLocaleString() }}</template>
             </Column>
-            <Column header="Quick %" sortable sort-field="avgQuick" style="min-width: 85px;">
+            <Column header="Quick %" :sortable="true" sort-field="avgQuick" style="min-width: 85px;">
               <template #body="{ data: row }">{{ row.avgQuick }}%</template>
             </Column>
-            <Column header="Alac %" sortable sort-field="avgAlac" style="min-width: 80px;">
+            <Column header="Alac %" :sortable="true" sort-field="avgAlac" style="min-width: 80px;">
               <template #body="{ data: row }">{{ row.avgAlac }}%</template>
             </Column>
           </DataTable>
@@ -51,7 +51,7 @@
 
         <button class="section-toggle" @click="expanded.pveSupport = !expanded.pveSupport">
           <i :class="expanded.pveSupport ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="toggle-icon" />
-          PvE — Support
+          PvE - Support
           <span class="section-count">{{ data.pve.length }} players</span>
         </button>
         <template v-if="expanded.pveSupport">
@@ -59,12 +59,12 @@
             <Column header="#" style="width: 3rem;" frozen>
               <template #body="{ index }">{{ index + 1 }}</template>
             </Column>
-            <Column field="accountName" header="Account" frozen sortable style="min-width: 160px;" />
-            <Column field="fights" header="Fights" sortable style="min-width: 70px;" />
-            <Column header="Avg Res Time (s)" sortable sort-field="avgResTimeSec" style="min-width: 140px;">
+            <Column field="accountName" header="Account" frozen :sortable="true" style="min-width: 160px;" />
+            <Column field="fights" header="Fights" :sortable="true" style="min-width: 70px;" />
+            <Column header="Avg Res Time (s)" :sortable="true" sort-field="avgResTimeSec" style="min-width: 140px;">
               <template #body="{ data: row }">{{ row.avgResTimeSec.toFixed(2) }}</template>
             </Column>
-            <Column header="HPS" sortable sort-field="hps" style="min-width: 90px;">
+            <Column header="HPS" :sortable="true" sort-field="hps" style="min-width: 90px;">
               <template #body="{ data: row }">{{ row.hps.toLocaleString() }}</template>
             </Column>
           </DataTable>
@@ -72,7 +72,7 @@
 
         <button class="section-toggle" @click="expanded.pveSurvival = !expanded.pveSurvival">
           <i :class="expanded.pveSurvival ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="toggle-icon" />
-          PvE — Survivability
+          PvE - Survivability
           <span class="section-count">{{ data.pve.length }} players</span>
         </button>
         <template v-if="expanded.pveSurvival">
@@ -80,10 +80,10 @@
             <Column header="#" style="width: 3rem;" frozen>
               <template #body="{ index }">{{ index + 1 }}</template>
             </Column>
-            <Column field="accountName" header="Account" frozen sortable style="min-width: 160px;" />
-            <Column field="fights" header="Fights" sortable style="min-width: 70px;" />
-            <Column field="avgDeaths" header="Avg Deaths" sortable style="min-width: 105px;" />
-            <Column field="avgTimesDowned" header="Avg Downed" sortable style="min-width: 110px;" />
+            <Column field="accountName" header="Account" frozen :sortable="true" style="min-width: 160px;" />
+            <Column field="fights" header="Fights" :sortable="true" style="min-width: 70px;" />
+            <Column field="avgDeaths" header="Avg Deaths" :sortable="true" style="min-width: 105px;" />
+            <Column field="avgTimesDowned" header="Avg Downed" :sortable="true" style="min-width: 110px;" />
           </DataTable>
         </template>
       </template>
@@ -92,7 +92,7 @@
       <template v-if="data.wvw.length">
         <button class="section-toggle" @click="expanded.wvwDamage = !expanded.wvwDamage">
           <i :class="expanded.wvwDamage ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="toggle-icon" />
-          WvW — Damage & Combat
+          WvW - Damage & Combat
           <span class="section-count">{{ data.wvw.length }} players</span>
         </button>
         <template v-if="expanded.wvwDamage">
@@ -100,23 +100,23 @@
             <Column header="#" style="width: 3rem;" frozen>
               <template #body="{ index }">{{ index + 1 }}</template>
             </Column>
-            <Column field="accountName" header="Account" frozen sortable style="min-width: 160px;" />
-            <Column field="fights" header="Fights" sortable style="min-width: 70px;" />
-            <Column header="Avg Damage" sortable sort-field="avgDamage" style="min-width: 110px;">
+            <Column field="accountName" header="Account" frozen :sortable="true" style="min-width: 160px;" />
+            <Column field="fights" header="Fights" :sortable="true" style="min-width: 70px;" />
+            <Column header="Avg Damage" :sortable="true" sort-field="avgDamage" style="min-width: 110px;">
               <template #body="{ data: row }">{{ row.avgDamage.toLocaleString() }}</template>
             </Column>
-            <Column header="Avg DDC" sortable sort-field="avgDdc" style="min-width: 100px;">
+            <Column header="Avg DDC" :sortable="true" sort-field="avgDdc" style="min-width: 100px;">
               <template #body="{ data: row }">{{ row.avgDdc.toLocaleString() }}</template>
             </Column>
-            <Column field="avgKills" header="Avg Kills" sortable style="min-width: 85px;" />
-            <Column field="avgDowns" header="Avg Downs" sortable style="min-width: 90px;" />
-            <Column field="avgBoonsRipped" header="Avg Boons Ripped" sortable style="min-width: 130px;" />
+            <Column field="avgKills" header="Avg Kills" :sortable="true" style="min-width: 85px;" />
+            <Column field="avgDowns" header="Avg Downs" :sortable="true" style="min-width: 90px;" />
+            <Column field="avgBoonsRipped" header="Avg Boons Ripped" :sortable="true" style="min-width: 130px;" />
           </DataTable>
         </template>
 
         <button class="section-toggle" @click="expanded.wvwSupport = !expanded.wvwSupport">
           <i :class="expanded.wvwSupport ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="toggle-icon" />
-          WvW — Support
+          WvW - Support
           <span class="section-count">{{ data.wvw.length }} players</span>
         </button>
         <template v-if="expanded.wvwSupport">
@@ -124,14 +124,14 @@
             <Column header="#" style="width: 3rem;" frozen>
               <template #body="{ index }">{{ index + 1 }}</template>
             </Column>
-            <Column field="accountName" header="Account" frozen sortable style="min-width: 160px;" />
-            <Column field="fights" header="Fights" sortable style="min-width: 70px;" />
-            <Column header="Avg Healing" sortable sort-field="avgHealing" style="min-width: 110px;">
+            <Column field="accountName" header="Account" frozen :sortable="true" style="min-width: 160px;" />
+            <Column field="fights" header="Fights" :sortable="true" style="min-width: 70px;" />
+            <Column header="Avg Healing" :sortable="true" sort-field="avgHealing" style="min-width: 110px;">
               <template #body="{ data: row }">{{ row.avgHealing.toLocaleString() }}</template>
             </Column>
-            <Column field="avgCleanses" header="Avg Cleanses" sortable style="min-width: 115px;" />
-            <Column field="avgStrips" header="Avg Strips" sortable style="min-width: 100px;" />
-            <Column header="Avg Barrier" sortable sort-field="avgBarrier" style="min-width: 105px;">
+            <Column field="avgCleanses" header="Avg Cleanses" :sortable="true" style="min-width: 115px;" />
+            <Column field="avgStrips" header="Avg Strips" :sortable="true" style="min-width: 100px;" />
+            <Column header="Avg Barrier" :sortable="true" sort-field="avgBarrier" style="min-width: 105px;">
               <template #body="{ data: row }">{{ row.avgBarrier.toLocaleString() }}</template>
             </Column>
           </DataTable>
@@ -139,7 +139,7 @@
 
         <button class="section-toggle" @click="expanded.wvwSurvival = !expanded.wvwSurvival">
           <i :class="expanded.wvwSurvival ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="toggle-icon" />
-          WvW — Survivability
+          WvW - Survivability
           <span class="section-count">{{ data.wvw.length }} players</span>
         </button>
         <template v-if="expanded.wvwSurvival">
@@ -147,10 +147,10 @@
             <Column header="#" style="width: 3rem;" frozen>
               <template #body="{ index }">{{ index + 1 }}</template>
             </Column>
-            <Column field="accountName" header="Account" frozen sortable style="min-width: 160px;" />
-            <Column field="fights" header="Fights" sortable style="min-width: 70px;" />
-            <Column field="avgDeaths" header="Avg Deaths" sortable style="min-width: 100px;" />
-            <Column field="avgTimesDowned" header="Avg Downed" sortable style="min-width: 105px;" />
+            <Column field="accountName" header="Account" frozen :sortable="true" style="min-width: 160px;" />
+            <Column field="fights" header="Fights" :sortable="true" style="min-width: 70px;" />
+            <Column field="avgDeaths" header="Avg Deaths" :sortable="true" style="min-width: 100px;" />
+            <Column field="avgTimesDowned" header="Avg Downed" :sortable="true" style="min-width: 105px;" />
           </DataTable>
         </template>
       </template>

@@ -2,6 +2,10 @@ using DonBot.Api.Endpoints;
 using DonBot.Api.Registration;
 using Serilog;
 
+var envFile = Path.Combine(Directory.GetCurrentDirectory(), "..", ".env");
+if (File.Exists(envFile))
+    DotNetEnv.Env.Load(envFile);
+
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddJsonFile("appsettings.user.json", optional: true);
 
@@ -23,5 +27,6 @@ app.MapLogsEndpoints();
 app.MapStatsEndpoints();
 app.MapLeaderboardEndpoints();
 app.MapPointsEndpoints();
+app.MapAccountEndpoints();
 
 app.Run();

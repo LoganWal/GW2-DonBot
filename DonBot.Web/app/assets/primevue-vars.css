@@ -1,0 +1,16 @@
+/* Stub declarations for PrimeVue CSS custom properties.
+   These are defined at runtime by the PrimeVue theme; this file
+   exists only so WebStorm can resolve them without false positives.
+   Values are approximations of the Aura dark theme and are NOT loaded
+   at runtime (this file is intentionally excluded from nuxt.config.ts css). */
+:root {
+  --p-border-radius-sm: 4px;
+  --p-content-border-color: #3f3f46;
+  --p-primary-color: #3b82f6;
+  --p-surface-border: #3f3f46;
+  --p-surface-card: #18181b;
+  --p-surface-ground: #09090b;
+  --p-surface-hover: #27272a;
+  --p-text-color: #f4f4f5;
+  --p-text-muted-color: #a1a1aa;
+}

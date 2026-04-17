@@ -35,20 +35,20 @@
               <Card class="stat-card total-card">
                 <template #content>
                   <div class="stat-label">Total</div>
-                  <div class="stat-value">{{ formatDuration(group.items.filter(t => t.fightType !== 42).reduce((sum, t) => sum + t.durationMs, 0)) }}</div>
+                  <div v-fit-text class="stat-value">{{ formatDuration(group.items.filter(t => t.fightType !== 42).reduce((sum, t) => sum + t.durationMs, 0)) }}</div>
                 </template>
               </Card>
               <Card
                 v-for="t in group.items"
                 :key="t.fightType"
-                v-tooltip.top="t.fightType === 42 ? 'Not included in total' : null"
+                :title="t.fightType === 42 ? 'Not included in total' : undefined"
                 :class="['stat-card', t.fightType === 42 ? 'best-card excluded-card' : 'best-card']"
                 style="cursor: pointer;"
                 @click="navigateTo(`/logs/${t.fightLogId}`)"
               >
                 <template #content>
                   <div class="stat-label">{{ fightName(t.fightType) }}</div>
-                  <div class="stat-value">{{ formatDuration(t.durationMs) }}</div>
+                  <div v-fit-text class="stat-value">{{ formatDuration(t.durationMs) }}</div>
                   <div style="font-size: 0.8rem; color: var(--p-text-muted-color); margin-top: 0.2rem;">
                     {{ t.playerDps.toLocaleString() }} DPS
                   </div>
@@ -95,10 +95,10 @@
 definePageMeta({ middleware: 'auth' })
 
 const api = useApi()
-const { data: bests, pending } = await useAsyncData('bests', () => api('/api/stats/bests'))
+const { data: bests, pending } = await useAsyncData('bests', () => api('/api/stats/bests') as Promise<any>)
 
 const bestTimeGroups = computed(() =>
-  groupByFightType((bests.value as any)?.bestTimes ?? [])
+  groupByFightType<any>((bests.value as any)?.bestTimes ?? [])
 )
 
 const formatDuration = (ms: number) => {
@@ -123,11 +123,13 @@ const formatDuration = (ms: number) => {
   background: rgba(99, 179, 237, 0.06) !important;
 }
 
+/* noinspection CssUnusedSymbol */
 .excluded-card {
   border-color: rgba(250, 204, 21, 0.5) !important;
   background: rgba(250, 204, 21, 0.06) !important;
 }
 
+/* noinspection CssUnusedSymbol */
 .excluded-card:hover {
   border-color: rgba(250, 204, 21, 0.8) !important;
 }
@@ -138,6 +140,7 @@ const formatDuration = (ms: number) => {
   gap: 0.75rem;
 }
 
+/* noinspection CssUnusedSymbol */
 .best-card:hover {
   border-color: var(--p-primary-color);
 }

@@ -102,21 +102,33 @@ public sealed class VerifyCommandsService(IEntityService entityService, ILogger<
                 $"Verify succeeded! New GW2 account registered: `{accountData.Name}`\n" :
                 $"Verify succeeded! GW2 account updated: `{accountData.Name}`\n";
 
-            output += "Verify role has been assigned!\n";
-
+            var rolesConfigured = guild.DiscordVerifiedRoleId != null;
             var primaryGuildId = guild.Gw2GuildMemberRoleId;
-            var secondaryGuildIds = guild.Gw2SecondaryMemberRoleIds?.Split(',');
+            var secondaryGuildIds = guild.Gw2SecondaryMemberRoleIds?.Split(',', StringSplitOptions.RemoveEmptyEntries);
 
-            var inPrimaryGuild = accountData.Guilds.Contains(primaryGuildId);
-            var inSecondaryGuild = secondaryGuildIds?.Any(guildId => accountData.Guilds.Contains(guildId)) ?? false;
+            if (rolesConfigured)
+            {
+                var inPrimaryGuild = primaryGuildId != null && accountData.Guilds.Contains(primaryGuildId);
+                var inSecondaryGuild = secondaryGuildIds?.Any(guildId => accountData.Guilds.Contains(guildId)) ?? false;
 
-            output += inPrimaryGuild ?
-                "User is in `Standard of Heroes` - SoX roles have been assigned! :heart:" :
-                inSecondaryGuild ?
-                    "User is in an Alliance guild - Alliance roles have been assigned! :heart:" :
-                    "User is not in `Standard of Heroes` or a valid Alliance guild - special roles denied! :broken_heart:\nPlease contact Squirrel or an officer if this is incorrect!";
+                var primaryGuildName = primaryGuildId != null
+                    ? await GetGw2GuildNameAsync(primaryGuildId)
+                    : null;
+                var primaryGuildLabel = primaryGuildName != null ? $"`{primaryGuildName}`" : "this server's guild";
 
-            await AssignRoles(guildUser, guild, inPrimaryGuild, inSecondaryGuild);
+                output += inPrimaryGuild ?
+                    $"You are in {primaryGuildLabel}, member roles have been assigned! :heart:" :
+                    inSecondaryGuild ?
+                        "You are in an allied guild, ally roles have been assigned! :heart:" :
+                        $"You are not in {primaryGuildLabel} or any allied guild, special roles not assigned. :broken_heart:\nIf you believe this is incorrect, please contact an officer.";
+
+                await AssignRoles(guildUser, guild, inPrimaryGuild, inSecondaryGuild);
+            }
+            else
+            {
+                output += "Your account is verified and linked. You can now log in to DonBot.";
+            }
+
             await command.FollowupAsync(output, ephemeral: true);
         }
         else
@@ -168,6 +180,23 @@ public sealed class VerifyCommandsService(IEntityService entityService, ILogger<
 
         await RemoveRoles(guildUser, guild);
         await command.FollowupAsync(output, ephemeral: true);
+    }
+
+    private async Task<string?> GetGw2GuildNameAsync(string guildId)
+    {
+        try
+        {
+            var response = await httpClientFactory.CreateClient().GetAsync($"https://api.guildwars2.com/v2/guild/{guildId}");
+            if (!response.IsSuccessStatusCode) return null;
+            var json = await response.Content.ReadAsStringAsync();
+            var data = JsonConvert.DeserializeObject<GuildWars2GuildDataModel>(json);
+            return data?.Name;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to fetch GW2 guild name for {GuildId}", guildId);
+            return null;
+        }
     }
 
     private async Task AssignRoles(SocketGuildUser guildUser, Guild guild, bool inPrimaryGuild, bool inSecondaryGuild)

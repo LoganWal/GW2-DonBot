@@ -42,7 +42,7 @@ definePageMeta({ middleware: 'auth' })
 const api = useApi()
 
 const [{ data: pointsData }, { data: raffleData, pending }] = await Promise.all([
-  useAsyncData('points', () => api('/api/points/me').catch(() => null)),
-  useAsyncData('raffles', () => api('/api/raffles'))
+  useAsyncData('points', () => (api('/api/points/me') as Promise<any>).catch(() => null)),
+  useAsyncData('raffles', () => api('/api/raffles') as Promise<any>)
 ])
 </script>

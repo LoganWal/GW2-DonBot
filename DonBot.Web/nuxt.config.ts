@@ -19,6 +19,7 @@ const BlueAura = definePreset(Aura, {
   }
 })
 
+// noinspection JSUnusedGlobalSymbols
 export default defineNuxtConfig({
   compatibilityDate: '2026-03-15',
   ssr: false,
@@ -26,7 +27,7 @@ export default defineNuxtConfig({
     preset: 'static'
   },
   modules: ['@primevue/nuxt-module'],
-  css: ['primeicons/primeicons.css'],
+  css: ['primeicons/primeicons.css', '~/assets/global.css'],
   app: {
     head: {
       htmlAttrs: { class: 'dark' },

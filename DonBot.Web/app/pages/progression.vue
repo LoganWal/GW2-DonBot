@@ -66,7 +66,7 @@
       <div class="zoom-bar">
         <template v-if="isZoomed">
           <span class="zoom-hint">
-            Showing {{ displayPoints.length }} of {{ filteredPoints.length }} fights &mdash; click a point to open its log
+            Showing {{ displayPoints.length }} of {{ filteredPoints.length }} fights, click a point to open its log
           </span>
           <Button label="Reset Zoom" icon="pi pi-arrow-left" size="small" severity="secondary" @click="resetZoom" />
         </template>
@@ -78,55 +78,55 @@
         <Card class="stat-card">
           <template #content>
             <div class="stat-label">Fights</div>
-            <div class="stat-value">{{ displayPoints.length }}<span v-if="isZoomed" class="zoom-total"> / {{ points.length }}</span></div>
+            <div v-fit-text class="stat-value">{{ displayPoints.length }}<span v-if="isZoomed" class="zoom-total"> / {{ points.length }}</span></div>
           </template>
         </Card>
         <Card class="stat-card">
           <template #content>
             <div class="stat-label">Avg DPS</div>
-            <div class="stat-value">{{ avgOf('dps').toLocaleString() }}</div>
+            <div v-fit-text class="stat-value">{{ avgOf('dps').toLocaleString() }}</div>
           </template>
         </Card>
         <Card class="stat-card">
           <template #content>
             <div class="stat-label">Peak DPS</div>
-            <div class="stat-value">{{ maxOf('dps').toLocaleString() }}</div>
+            <div v-fit-text class="stat-value">{{ maxOf('dps').toLocaleString() }}</div>
           </template>
         </Card>
         <Card v-if="isWvW" class="stat-card">
           <template #content>
             <div class="stat-label">Avg Kills</div>
-            <div class="stat-value">{{ avgOf('kills').toFixed(1) }}</div>
+            <div v-fit-text class="stat-value">{{ avgOf('kills').toFixed(1) }}</div>
           </template>
         </Card>
         <Card v-if="isWvW" class="stat-card">
           <template #content>
             <div class="stat-label">Avg Cleanses</div>
-            <div class="stat-value">{{ avgOf('cleanses').toFixed(0) }}</div>
+            <div v-fit-text class="stat-value">{{ avgOf('cleanses').toFixed(0) }}</div>
           </template>
         </Card>
         <Card v-if="isWvW" class="stat-card">
           <template #content>
             <div class="stat-label">Avg Strips</div>
-            <div class="stat-value">{{ avgOf('strips').toFixed(0) }}</div>
+            <div v-fit-text class="stat-value">{{ avgOf('strips').toFixed(0) }}</div>
           </template>
         </Card>
         <Card v-if="!isWvW" class="stat-card">
           <template #content>
             <div class="stat-label">Avg Cleave DPS</div>
-            <div class="stat-value">{{ avgOf('cleaveDps').toLocaleString() }}</div>
+            <div v-fit-text class="stat-value">{{ avgOf('cleaveDps').toLocaleString() }}</div>
           </template>
         </Card>
         <Card v-if="!isWvW" class="stat-card">
           <template #content>
             <div class="stat-label">Avg Alacrity</div>
-            <div class="stat-value">{{ avgOf('alacrity').toFixed(1) }}%</div>
+            <div v-fit-text class="stat-value">{{ avgOf('alacrity').toFixed(1) }}%</div>
           </template>
         </Card>
         <Card v-if="!isWvW" class="stat-card">
           <template #content>
             <div class="stat-label">Avg Quickness</div>
-            <div class="stat-value">{{ avgOf('quickness').toFixed(1) }}%</div>
+            <div v-fit-text class="stat-value">{{ avgOf('quickness').toFixed(1) }}%</div>
           </template>
         </Card>
       </div>

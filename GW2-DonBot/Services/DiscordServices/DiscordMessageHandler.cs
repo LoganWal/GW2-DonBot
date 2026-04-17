@@ -295,7 +295,7 @@ public class DiscordMessageHandler(
         var urls = state.Urls;
         var guildId = state.GuildId;
 
-        // DeferAsync uses type 6 (DeferredUpdateMessage) — no visible response, lets us delete
+        // DeferAsync uses type 6 (DeferredUpdateMessage): no visible response, lets us delete
         // the button prompt and manage our own public progress message.
         await interaction.DeferAsync();
         await interaction.Message.DeleteAsync();

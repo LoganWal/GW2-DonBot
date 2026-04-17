@@ -8,7 +8,7 @@
         <span style="color: var(--p-text-muted-color); font-size: 0.875rem;">
           {{ new Date(fight.log.fightStart).toLocaleString() }} · {{ formatDuration(fight.log.fightDurationInMs) }}
         </span>
-        <Tag v-if="fight.log.fightType !== 0" :severity="fight.log.isSuccess ? 'success' : 'danger'" :value="fight.log.isSuccess ? 'Kill' : `${fight.log.fightPercent}% — Wipe`" />
+        <Tag v-if="fight.log.fightType !== 0" :severity="fight.log.isSuccess ? 'success' : 'danger'" :value="fight.log.isSuccess ? 'Kill' : `${fight.log.fightPercent}% - Wipe`" />
         <div class="header-actions">
           <NuxtLink :to="`/progression?fightType=${fight.log.fightType}`" class="header-btn">
             <i class="pi pi-chart-line" /> Progression
@@ -29,113 +29,114 @@
           <Card class="stat-card agg-card">
             <template #content>
               <div class="stat-label">Attacks Missed</div>
-              <div class="agg-row"><span class="agg-side">Ours (blinded)</span><span class="stat-value">{{ sum('numberOfHitsWhileBlinded').toLocaleString() }}</span></div>
-              <div class="agg-row"><span class="agg-side">Theirs (missed)</span><span class="stat-value">{{ sum('numberOfMissesAgainst').toLocaleString() }}</span></div>
+              <div class="agg-row"><span class="agg-side">Ours (blinded)</span><span v-fit-text class="stat-value">{{ sum('numberOfHitsWhileBlinded').toLocaleString() }}</span></div>
+              <div class="agg-row"><span class="agg-side">Theirs (missed)</span><span v-fit-text class="stat-value">{{ sum('numberOfMissesAgainst').toLocaleString() }}</span></div>
             </template>
           </Card>
           <Card class="stat-card agg-card">
             <template #content>
               <div class="stat-label">Attacks Blocked</div>
-              <div class="agg-row"><span class="agg-side">Ours</span><span class="stat-value">{{ sum('numberOfTimesBlockedAttack').toLocaleString() }}</span></div>
-              <div class="agg-row"><span class="agg-side">Theirs</span><span class="stat-value">{{ sum('numberOfTimesEnemyBlockedAttack').toLocaleString() }}</span></div>
+              <div class="agg-row"><span class="agg-side">Ours</span><span v-fit-text class="stat-value">{{ sum('numberOfTimesBlockedAttack').toLocaleString() }}</span></div>
+              <div class="agg-row"><span class="agg-side">Theirs</span><span v-fit-text class="stat-value">{{ sum('numberOfTimesEnemyBlockedAttack').toLocaleString() }}</span></div>
             </template>
           </Card>
           <Card class="stat-card agg-card">
             <template #content>
               <div class="stat-label">Boons Stripped</div>
-              <div class="agg-row"><span class="agg-side">Ours (strips)</span><span class="stat-value">{{ sum('strips').toLocaleString() }}</span></div>
-              <div class="agg-row"><span class="agg-side">Theirs (ripped)</span><span class="stat-value">{{ sum('numberOfBoonsRipped').toLocaleString() }}</span></div>
+              <div class="agg-row"><span class="agg-side">Ours (strips)</span><span v-fit-text class="stat-value">{{ sum('strips').toLocaleString() }}</span></div>
+              <div class="agg-row"><span class="agg-side">Theirs (ripped)</span><span v-fit-text class="stat-value">{{ sum('numberOfBoonsRipped').toLocaleString() }}</span></div>
             </template>
           </Card>
           <Card class="stat-card agg-card">
             <template #content>
               <div class="stat-label">Damage Taken vs Barrier</div>
-              <div class="agg-row"><span class="agg-side">Dmg Taken</span><span class="stat-value">{{ sum('damageTaken').toLocaleString() }}</span></div>
-              <div class="agg-row"><span class="agg-side">Barrier Mit.</span><span class="stat-value">{{ sum('barrierMitigation').toLocaleString() }}</span></div>
-              <div class="agg-row"><span class="agg-side">Mit. %</span><span class="stat-value">{{ sum('damageTaken') > 0 ? ((sum('barrierMitigation') / sum('damageTaken')) * 100).toFixed(1) : '0.0' }}%</span></div>
+              <div class="agg-row"><span class="agg-side">Dmg Taken</span><span v-fit-text class="stat-value">{{ sum('damageTaken').toLocaleString() }}</span></div>
+              <div class="agg-row"><span class="agg-side">Barrier Mit.</span><span v-fit-text class="stat-value">{{ sum('barrierMitigation').toLocaleString() }}</span></div>
+              <div class="agg-row"><span class="agg-side">Mit. %</span><span v-fit-text class="stat-value">{{ sum('damageTaken') > 0 ? ((sum('barrierMitigation') / sum('damageTaken')) * 100).toFixed(1) : '0.0' }}%</span></div>
             </template>
           </Card>
         </div>
         <div class="stat-grid" style="margin-bottom: 1.5rem;">
           <Card class="stat-card">
-            <template #content><div class="stat-label">Players</div><div class="stat-value">{{ fight.players.length }}</div></template>
+            <template #content><div class="stat-label">Players</div><div v-fit-text class="stat-value">{{ fight.players.length }}</div></template>
           </Card>
           <Card class="stat-card">
-            <template #content><div class="stat-label">Total Damage</div><div class="stat-value">{{ sum('damage').toLocaleString() }}</div></template>
+            <template #content><div class="stat-label">Total Damage</div><div v-fit-text class="stat-value">{{ sum('damage').toLocaleString() }}</div></template>
           </Card>
           <Card class="stat-card">
-            <template #content><div class="stat-label">Down Contribution</div><div class="stat-value">{{ sum('damageDownContribution').toLocaleString() }}</div></template>
+            <template #content><div class="stat-label">Down Contribution</div><div v-fit-text class="stat-value">{{ sum('damageDownContribution').toLocaleString() }}</div></template>
           </Card>
           <Card class="stat-card">
-            <template #content><div class="stat-label">Kills</div><div class="stat-value">{{ sum('kills').toLocaleString() }}</div></template>
+            <template #content><div class="stat-label">Kills</div><div v-fit-text class="stat-value">{{ sum('kills').toLocaleString() }}</div></template>
           </Card>
           <Card class="stat-card">
-            <template #content><div class="stat-label">Downs</div><div class="stat-value">{{ sum('downs').toLocaleString() }}</div></template>
+            <template #content><div class="stat-label">Downs</div><div v-fit-text class="stat-value">{{ sum('downs').toLocaleString() }}</div></template>
           </Card>
           <Card class="stat-card">
-            <template #content><div class="stat-label">Deaths</div><div class="stat-value">{{ sum('deaths').toLocaleString() }}</div></template>
+            <template #content><div class="stat-label">Deaths</div><div v-fit-text class="stat-value">{{ sum('deaths').toLocaleString() }}</div></template>
           </Card>
           <Card class="stat-card">
-            <template #content><div class="stat-label">Total Healing</div><div class="stat-value">{{ sum('healing').toLocaleString() }}</div></template>
+            <template #content><div class="stat-label">Total Healing</div><div v-fit-text class="stat-value">{{ sum('healing').toLocaleString() }}</div></template>
           </Card>
           <Card class="stat-card">
-            <template #content><div class="stat-label">Total Cleanses</div><div class="stat-value">{{ sum('cleanses').toLocaleString() }}</div></template>
+            <template #content><div class="stat-label">Total Cleanses</div><div v-fit-text class="stat-value">{{ sum('cleanses').toLocaleString() }}</div></template>
           </Card>
           <Card class="stat-card">
-            <template #content><div class="stat-label">Total Strips</div><div class="stat-value">{{ sum('strips').toLocaleString() }}</div></template>
+            <template #content><div class="stat-label">Total Strips</div><div v-fit-text class="stat-value">{{ sum('strips').toLocaleString() }}</div></template>
           </Card>
           <Card class="stat-card">
-            <template #content><div class="stat-label">Total Barrier</div><div class="stat-value">{{ sum('barrierGenerated').toLocaleString() }}</div></template>
+            <template #content><div class="stat-label">Total Barrier</div><div v-fit-text class="stat-value">{{ sum('barrierGenerated').toLocaleString() }}</div></template>
           </Card>
 
         </div>
-        <h2 class="section-title">Players</h2>
+        <CollapsibleSection title="Players">
         <DataTable :value="wvwPlayers" striped-rows scrollable>
           <Column field="guildWarsAccountName" header="Account" frozen style="min-width: 160px;" />
           <Column field="subGroup" header="Sub" style="width: 4rem;" />
-          <Column header="Damage" sortable sort-field="damage">
+          <Column header="Damage" :sortable="true" sort-field="damage">
             <template #body="{ data }">{{ data.damage.toLocaleString() }}</template>
           </Column>
-          <Column header="Down C." sortable sort-field="damageDownContribution">
+          <Column header="Down C." :sortable="true" sort-field="damageDownContribution">
             <template #body="{ data }">{{ data.damageDownContribution.toLocaleString() }}</template>
           </Column>
-          <Column header="Kills" sortable sort-field="kills">
+          <Column header="Kills" :sortable="true" sort-field="kills">
             <template #body="{ data }">{{ data.kills }}</template>
           </Column>
-          <Column header="Downs" sortable sort-field="downs">
+          <Column header="Downs" :sortable="true" sort-field="downs">
             <template #body="{ data }">{{ data.downs }}</template>
           </Column>
-          <Column header="Deaths" sortable sort-field="deaths">
+          <Column header="Deaths" :sortable="true" sort-field="deaths">
             <template #body="{ data }">{{ data.deaths }}</template>
           </Column>
-          <Column header="Healing" sortable sort-field="healing">
+          <Column header="Healing" :sortable="true" sort-field="healing">
             <template #body="{ data }">{{ data.healing.toLocaleString() }}</template>
           </Column>
-          <Column header="Cleanses" sortable sort-field="cleanses">
+          <Column header="Cleanses" :sortable="true" sort-field="cleanses">
             <template #body="{ data }">{{ data.cleanses.toLocaleString() }}</template>
           </Column>
-          <Column header="Strips" sortable sort-field="strips">
+          <Column header="Strips" :sortable="true" sort-field="strips">
             <template #body="{ data }">{{ data.strips.toLocaleString() }}</template>
           </Column>
-          <Column header="Barrier" sortable sort-field="barrierGenerated">
+          <Column header="Barrier" :sortable="true" sort-field="barrierGenerated">
             <template #body="{ data }">{{ data.barrierGenerated.toLocaleString() }}</template>
           </Column>
-          <Column header="Stab (On)" sortable sort-field="stabGenOnGroup">
+          <Column header="Stab (On)" :sortable="true" sort-field="stabGenOnGroup">
             <template #body="{ data }">{{ Number(data.stabGenOnGroup).toFixed(2) }}</template>
           </Column>
-          <Column header="Stab (Off)" sortable sort-field="stabGenOffGroup">
+          <Column header="Stab (Off)" :sortable="true" sort-field="stabGenOffGroup">
             <template #body="{ data }">{{ Number(data.stabGenOffGroup).toFixed(2) }}</template>
           </Column>
-          <Column header="Quick%" sortable sort-field="quicknessDuration">
+          <Column header="Quick%" :sortable="true" sort-field="quicknessDuration">
             <template #body="{ data }">{{ Number(data.quicknessDuration).toFixed(1) }}%</template>
           </Column>
-          <Column header="Downed" sortable sort-field="timesDowned">
+          <Column header="Downed" :sortable="true" sort-field="timesDowned">
             <template #body="{ data }">{{ data.timesDowned }}</template>
           </Column>
-          <Column header="Dist. Tag" sortable sort-field="distanceFromTag">
+          <Column header="Dist. Tag" :sortable="true" sort-field="distanceFromTag">
             <template #body="{ data }">{{ Number(data.distanceFromTag).toFixed(0) }}</template>
           </Column>
         </DataTable>
+        </CollapsibleSection>
 
       </template>
 
@@ -143,102 +144,101 @@
       <template v-else>
         <div class="stat-grid" style="margin-bottom: 1.5rem;">
           <Card class="stat-card">
-            <template #content><div class="stat-label">Players</div><div class="stat-value">{{ fight.players.length }}</div></template>
+            <template #content><div class="stat-label">Players</div><div v-fit-text class="stat-value">{{ fight.players.length }}</div></template>
           </Card>
           <Card class="stat-card">
-            <template #content><div class="stat-label">Total Damage</div><div class="stat-value">{{ sum('damage').toLocaleString() }}</div></template>
+            <template #content><div class="stat-label">Total Damage</div><div v-fit-text class="stat-value">{{ sum('damage').toLocaleString() }}</div></template>
           </Card>
           <Card class="stat-card">
-            <template #content><div class="stat-label">Total Cleave</div><div class="stat-value">{{ sum('cleave').toLocaleString() }}</div></template>
+            <template #content><div class="stat-label">Total Cleave</div><div v-fit-text class="stat-value">{{ sum('cleave').toLocaleString() }}</div></template>
           </Card>
           <Card class="stat-card">
-            <template #content><div class="stat-label">Avg Alac%</div><div class="stat-value">{{ avg('alacDuration').toFixed(1) }}%</div></template>
+            <template #content><div class="stat-label">Avg Alac%</div><div v-fit-text class="stat-value">{{ avg('alacDuration').toFixed(1) }}%</div></template>
           </Card>
           <Card class="stat-card">
-            <template #content><div class="stat-label">Avg Quick%</div><div class="stat-value">{{ avg('quicknessDuration').toFixed(1) }}%</div></template>
+            <template #content><div class="stat-label">Avg Quick%</div><div v-fit-text class="stat-value">{{ avg('quicknessDuration').toFixed(1) }}%</div></template>
           </Card>
           <Card class="stat-card">
-            <template #content><div class="stat-label">Deaths</div><div class="stat-value">{{ sum('deaths').toLocaleString() }}</div></template>
+            <template #content><div class="stat-label">Deaths</div><div v-fit-text class="stat-value">{{ sum('deaths').toLocaleString() }}</div></template>
           </Card>
           <Card class="stat-card">
-            <template #content><div class="stat-label">Times Downed</div><div class="stat-value">{{ sum('timesDowned').toLocaleString() }}</div></template>
+            <template #content><div class="stat-label">Times Downed</div><div v-fit-text class="stat-value">{{ sum('timesDowned').toLocaleString() }}</div></template>
           </Card>
           <Card class="stat-card">
-            <template #content><div class="stat-label">Total Dmg Taken</div><div class="stat-value">{{ sum('damageTaken').toLocaleString() }}</div></template>
+            <template #content><div class="stat-label">Total Dmg Taken</div><div v-fit-text class="stat-value">{{ sum('damageTaken').toLocaleString() }}</div></template>
           </Card>
         </div>
-        <h2 class="section-title">Player Overview</h2>
-        <DataTable :value="pvePlayersSortedByDamage" striped-rows scrollable>
-          <Column field="guildWarsAccountName" header="Account" frozen style="min-width: 160px;" />
-          <Column header="Damage" sortable sort-field="damage">
-            <template #body="{ data }">{{ data.damage.toLocaleString() }}</template>
-          </Column>
-          <Column header="Cleave" sortable sort-field="cleave">
-            <template #body="{ data }">{{ data.cleave.toLocaleString() }}</template>
-          </Column>
-          <Column header="Alac%" sortable sort-field="alacDuration">
-            <template #body="{ data }">{{ Number(data.alacDuration).toFixed(2) }}%</template>
-          </Column>
-          <Column header="Quick%" sortable sort-field="quicknessDuration">
-            <template #body="{ data }">{{ Number(data.quicknessDuration).toFixed(2) }}%</template>
-          </Column>
-        </DataTable>
+        <CollapsibleSection title="Player Overview">
+          <DataTable :value="pvePlayersSortedByDamage" striped-rows scrollable>
+            <Column field="guildWarsAccountName" header="Account" frozen style="min-width: 160px;" />
+            <Column header="Damage" :sortable="true" sort-field="damage">
+              <template #body="{ data }">{{ data.damage.toLocaleString() }}</template>
+            </Column>
+            <Column header="Cleave" :sortable="true" sort-field="cleave">
+              <template #body="{ data }">{{ data.cleave.toLocaleString() }}</template>
+            </Column>
+            <Column header="Alac%" :sortable="true" sort-field="alacDuration">
+              <template #body="{ data }">{{ Number(data.alacDuration).toFixed(2) }}%</template>
+            </Column>
+            <Column header="Quick%" :sortable="true" sort-field="quicknessDuration">
+              <template #body="{ data }">{{ Number(data.quicknessDuration).toFixed(2) }}%</template>
+            </Column>
+          </DataTable>
+        </CollapsibleSection>
 
-        <h2 class="section-title">Survivability</h2>
-        <DataTable :value="pvePlayersSortedByRes" striped-rows scrollable>
-          <Column field="guildWarsAccountName" header="Account" style="min-width: 160px;" />
-          <Column header="Res (s)" sortable sort-field="resurrectionTime">
-            <template #body="{ data }">{{ (data.resurrectionTime / 1000).toFixed(1) }}</template>
-          </Column>
-          <Column header="Dmg Taken" sortable sort-field="damageTaken">
-            <template #body="{ data }">{{ data.damageTaken.toLocaleString() }}</template>
-          </Column>
-          <Column header="Downed" sortable sort-field="timesDowned">
-            <template #body="{ data }">{{ data.timesDowned }}</template>
-          </Column>
-          <Column header="Deaths" sortable sort-field="deaths">
-            <template #body="{ data }">{{ data.deaths }}</template>
-          </Column>
-        </DataTable>
+        <CollapsibleSection title="Survivability">
+          <DataTable :value="pvePlayersSortedByRes" striped-rows scrollable>
+            <Column field="guildWarsAccountName" header="Account" style="min-width: 160px;" />
+            <Column header="Res (s)" :sortable="true" sort-field="resurrectionTime">
+              <template #body="{ data }">{{ (data.resurrectionTime / 1000).toFixed(1) }}</template>
+            </Column>
+            <Column header="Dmg Taken" :sortable="true" sort-field="damageTaken">
+              <template #body="{ data }">{{ data.damageTaken.toLocaleString() }}</template>
+            </Column>
+            <Column header="Downed" :sortable="true" sort-field="timesDowned">
+              <template #body="{ data }">{{ data.timesDowned }}</template>
+            </Column>
+            <Column header="Deaths" :sortable="true" sort-field="deaths">
+              <template #body="{ data }">{{ data.deaths }}</template>
+            </Column>
+          </DataTable>
+        </CollapsibleSection>
 
-        <template v-if="hasCerusMechanics">
-          <h2 class="section-title">Cerus Mechanics</h2>
+        <CollapsibleSection v-if="hasCerusMechanics" title="Cerus Mechanics">
           <DataTable :value="pvePlayersSortedByDamage" striped-rows scrollable>
             <Column field="guildWarsAccountName" header="Account" style="min-width: 160px;" />
-            <Column header="P1 Damage" sortable sort-field="cerusPhaseOneDamage">
+            <Column header="P1 Damage" :sortable="true" sort-field="cerusPhaseOneDamage">
               <template #body="{ data }">{{ Number(data.cerusPhaseOneDamage).toLocaleString() }}</template>
             </Column>
-            <Column header="Orbs" sortable sort-field="cerusOrbsCollected">
+            <Column header="Orbs" :sortable="true" sort-field="cerusOrbsCollected">
               <template #body="{ data }">{{ data.cerusOrbsCollected }}</template>
             </Column>
-            <Column header="Spread Hits" sortable sort-field="cerusSpreadHitCount">
+            <Column header="Spread Hits" :sortable="true" sort-field="cerusSpreadHitCount">
               <template #body="{ data }">{{ data.cerusSpreadHitCount }}</template>
             </Column>
           </DataTable>
-        </template>
+        </CollapsibleSection>
 
-        <template v-if="hasDeimoseMechanics">
-          <h2 class="section-title">Deimos Mechanics</h2>
+        <CollapsibleSection v-if="hasDeimoseMechanics" title="Deimos Mechanics">
           <DataTable :value="pvePlayersSortedByDamage" striped-rows scrollable>
             <Column field="guildWarsAccountName" header="Account" style="min-width: 160px;" />
-            <Column header="Oils Triggered" sortable sort-field="deimosOilsTriggered">
+            <Column header="Oils Triggered" :sortable="true" sort-field="deimosOilsTriggered">
               <template #body="{ data }">{{ data.deimosOilsTriggered }}</template>
             </Column>
           </DataTable>
-        </template>
+        </CollapsibleSection>
 
-        <template v-if="hasUraMechanics">
-          <h2 class="section-title">Ura Mechanics</h2>
+        <CollapsibleSection v-if="hasUraMechanics" title="Ura Mechanics">
           <DataTable :value="pvePlayersSortedByDamage" striped-rows scrollable>
             <Column field="guildWarsAccountName" header="Account" style="min-width: 160px;" />
-            <Column header="Shards Picked" sortable sort-field="shardPickUp">
+            <Column header="Shards Picked" :sortable="true" sort-field="shardPickUp">
               <template #body="{ data }">{{ data.shardPickUp }}</template>
             </Column>
-            <Column header="Shards Used" sortable sort-field="shardUsed">
+            <Column header="Shards Used" :sortable="true" sort-field="shardUsed">
               <template #body="{ data }">{{ data.shardUsed }}</template>
             </Column>
           </DataTable>
-        </template>
+        </CollapsibleSection>
       </template>
     </template>
     <p v-else-if="!pending">Log not found.</p>
@@ -246,6 +246,8 @@
 </template>
 
 <script setup lang="ts">
+import CollapsibleSection from '~/components/CollapsibleSection.vue'
+
 definePageMeta({ middleware: 'auth' })
 
 const api = useApi()
@@ -348,16 +350,8 @@ const uploadToWingman = () => {
   color: var(--p-primary-color);
 }
 
-.section-title {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--p-text-muted-color);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 1.5rem 0 0.75rem;
-}
-
-.agg-card .p-card-content {
+/* noinspection CssUnusedSymbol */
+.agg-card :deep(.p-card-content) {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;

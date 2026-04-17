@@ -14,7 +14,7 @@
       <NuxtLink
         v-for="item in navItems"
         :key="item.to"
-        v-tooltip.right="collapsed ? item.label : null"
+        :title="collapsed ? item.label : undefined"
         :to="item.to"
         :class="['nav-item', { active: isActive(item.to) }]"
         @click="closeMobile"
@@ -53,6 +53,7 @@ const navItems = [
   { label: 'Progression',   to: '/progression', icon: 'pi-chart-line' },
   { label: 'Leaderboard',   to: '/leaderboard', icon: 'pi-trophy' },
   { label: 'Points',        to: '/points',      icon: 'pi-star' },
+  { label: 'Accounts',     to: '/verify',      icon: 'pi-link' },
 ]
 
 const isActive = (to: string) =>
@@ -75,6 +76,7 @@ const isActive = (to: string) =>
   overflow: hidden;
 }
 
+/* noinspection CssUnusedSymbol */
 .app-sidebar.collapsed {
   width: 64px;
 }
@@ -124,6 +126,7 @@ const isActive = (to: string) =>
   letter-spacing: -0.01em;
 }
 
+/* noinspection CssUnusedSymbol */
 .app-sidebar.collapsed .logo-text {
   opacity: 0;
   width: 0;
@@ -168,6 +171,7 @@ const isActive = (to: string) =>
   transition: opacity 0.15s;
 }
 
+/* noinspection CssUnusedSymbol */
 .app-sidebar.collapsed .nav-label {
   opacity: 0;
   width: 0;
@@ -178,12 +182,14 @@ const isActive = (to: string) =>
   background: var(--p-surface-hover);
 }
 
+/* noinspection CssUnusedSymbol */
 .nav-item.active {
   color: var(--p-primary-color);
   background: color-mix(in srgb, var(--p-primary-color) 12%, transparent);
   font-weight: 600;
 }
 
+/* noinspection CssUnusedSymbol */
 .nav-item.active .nav-icon {
   color: var(--p-primary-color);
 }
@@ -207,6 +213,7 @@ const isActive = (to: string) =>
   justify-content: flex-end;
 }
 
+/* noinspection CssUnusedSymbol */
 .app-sidebar.collapsed .sidebar-footer {
   justify-content: center;
 }
@@ -220,6 +227,7 @@ const isActive = (to: string) =>
     box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
   }
 
+  /* noinspection CssUnusedSymbol */
   .app-sidebar.mobile-open {
     transform: translateX(0);
   }

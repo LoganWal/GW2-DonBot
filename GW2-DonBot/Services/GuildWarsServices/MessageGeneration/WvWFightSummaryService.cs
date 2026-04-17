@@ -7,13 +7,15 @@ using DonBot.Models.Enums;
 using DonBot.Models.GuildWars2;
 using DonBot.Models.Statics;
 using DonBot.Services.DatabaseServices;
+using Microsoft.Extensions.Configuration;
 
 namespace DonBot.Services.GuildWarsServices.MessageGeneration;
 
 public sealed class WvWFightSummaryService(
     IEntityService entityService,
     IPlayerService playerService,
-    IFooterService footerService) : IWvWFightSummaryService
+    IFooterService footerService,
+    IConfiguration configuration) : IWvWFightSummaryService
 {
     public async Task<Embed> Generate(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
     {
@@ -108,9 +110,10 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
 
         var duration = dateTimeEnd - dateTimeStart;
 
+        FightLog? fightLog = null;
         if (!advancedLog)
         {
-            var fightLog = await entityService.FightLog.GetFirstOrDefaultAsync(s => s.Url == data.FightEliteInsightDataModel.Url);
+            fightLog = await entityService.FightLog.GetFirstOrDefaultAsync(s => s.Url == data.FightEliteInsightDataModel.Url);
 
             if (fightLog == null)
             {
@@ -178,10 +181,15 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             }
         }
 
+        var webAppBaseUrl = configuration["WebApp:BaseUrl"];
+        var webAppLink = !advancedLog && !string.IsNullOrEmpty(webAppBaseUrl) && fightLog != null
+            ? $"[View on DonBot]({webAppBaseUrl}/logs/{fightLog.FightLogId})\n"
+            : string.Empty;
+
         var message = new EmbedBuilder
         {
             Title = $"{battleGroundEmoji} Report (WvW) - {battleGround}\n",
-            Description = $"**Fight Duration:** {data.FightEliteInsightDataModel.Phases?.FirstOrDefault()?.EncounterDuration}\n",
+            Description = $"{webAppLink}**Fight Duration:** {data.FightEliteInsightDataModel.Phases?.FirstOrDefault()?.EncounterDuration}\n",
             Color = (Color)battleGroundColor,
             Author = new EmbedAuthorBuilder()
             {

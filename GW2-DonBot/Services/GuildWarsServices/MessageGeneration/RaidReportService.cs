@@ -5,13 +5,15 @@ using DonBot.Models.Entities;
 using DonBot.Models.Enums;
 using DonBot.Models.GuildWars2;
 using DonBot.Services.DatabaseServices;
+using Microsoft.Extensions.Configuration;
 
 namespace DonBot.Services.GuildWarsServices.MessageGeneration;
 
 public sealed class RaidReportService(
     IEntityService entityService,
     IFooterService footerService,
-    IWvWFightSummaryService wvWFightSummaryService) : IRaidReportService
+    IWvWFightSummaryService wvWFightSummaryService,
+    IConfiguration configuration) : IRaidReportService
 {
     const string SurvivabilityHeader = "Player         Res (s)    Dmg Taken   Downed   Died 1st\n";
 
@@ -192,6 +194,15 @@ public sealed class RaidReportService(
 
         if (messages.Count > 0)
         {
+            var webAppBaseUrl = configuration["WebApp:BaseUrl"];
+            if (!string.IsNullOrEmpty(webAppBaseUrl))
+            {
+                var ids = string.Join(",", fightLogIds);
+                var firstBuilder = messages[0].ToEmbedBuilder();
+                firstBuilder.Description = $"[View on DonBot]({webAppBaseUrl}/logs/aggregate?ids={ids})\n" + (firstBuilder.Description ?? string.Empty);
+                messages[0] = firstBuilder.Build();
+            }
+
             var lastBuilder = messages[^1].ToEmbedBuilder();
             footerService.AddInviteLink(lastBuilder);
             messages[^1] = lastBuilder.Build();

@@ -63,7 +63,8 @@ const navigateToDiscord = () => {
   justify-content: space-between;
   padding: 0 1.5rem;
   height: 60px;
-  background: var(--p-surface-ground);
+  background: rgba(15, 15, 20, 0.2);
+  backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--p-surface-border);
   gap: 1rem;
   isolation: isolate;

@@ -2,7 +2,7 @@
   <div>
     <h1 class="page-title">Progression</h1>
 
-    <div style="margin-bottom: 1.5rem; max-width: 320px;">
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.5rem;">
       <Select
         v-model="selectedFightType"
         :options="fightTypeGroupedOptions"
@@ -14,18 +14,26 @@
         filter
         :filter-fields="['label', 'group']"
         scroll-height="400px"
-        style="width: 100%;"
+        style="min-width: 240px;"
         @change="load(true)"
       />
+      <template v-if="selectedFightType !== null && !isWvWFight">
+        <div style="display: flex; gap: 0.4rem;">
+          <Button size="small" label="All" :severity="successFilter === 'all' ? 'primary' : 'secondary'" @click="successFilter = 'all'; load(false)" />
+          <Button size="small" label="Kills" :severity="successFilter === 'kills' ? 'success' : 'secondary'" @click="successFilter = 'kills'; load(false)" />
+          <Button size="small" label="Wipes" :severity="successFilter === 'wipes' ? 'danger' : 'secondary'" @click="successFilter = 'wipes'; load(false)" />
+        </div>
+        <div style="display: flex; gap: 0.4rem;">
+          <Button size="small" label="All modes" :severity="difficultyFilter === null ? 'primary' : 'secondary'" @click="difficultyFilter = null; load(false)" />
+          <Button size="small" label="NM" :severity="difficultyFilter === 0 ? 'primary' : 'secondary'" @click="difficultyFilter = 0; load(false)" />
+          <Button size="small" label="CM" :severity="difficultyFilter === 1 ? 'primary' : 'secondary'" @click="difficultyFilter = 1; load(false)" />
+          <Button size="small" label="LCM" :severity="difficultyFilter === 2 ? 'primary' : 'secondary'" @click="difficultyFilter = 2; load(false)" />
+        </div>
+      </template>
     </div>
 
-    <ProgressSpinner v-if="loading" />
-    <Message v-else-if="selectedFightType !== null && points.length === 0" severity="info" :closable="false">
-      No data found for this fight type.
-    </Message>
-
-    <template v-else-if="points.length > 0">
-      <!-- Character filter -->
+    <!-- Filters: shown whenever a fight type is selected and not loading -->
+    <template v-if="selectedFightType !== null && !loading">
       <div v-if="allCharacters.length > 1" style="margin-bottom: 1rem; max-width: 360px;">
         <MultiSelect
           v-model="selectedCharacters"
@@ -36,8 +44,6 @@
           style="width: 100%;"
         />
       </div>
-
-      <!-- Time range buttons -->
       <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
         <Button
           v-for="opt in timeRangeOptions"
@@ -48,7 +54,14 @@
           @click="timeRange = opt.value; load(false)"
         />
       </div>
+    </template>
 
+    <ProgressSpinner v-if="loading" />
+    <Message v-else-if="selectedFightType !== null && points.length === 0" severity="info" :closable="false">
+      No data found for this fight type.
+    </Message>
+
+    <template v-else-if="points.length > 0">
       <!-- Zoom hint / reset bar -->
       <div class="zoom-bar">
         <template v-if="isZoomed">
@@ -206,6 +219,10 @@ const ZOOM_WINDOW = 12
 const selectedCharacters = ref<string[]>([])
 const timeRange = ref<'all' | 'year' | 'month' | 'week'>('all')
 const allCharacters = ref<string[]>([])
+const successFilter = ref<'kills' | 'wipes' | 'all'>('all')
+const difficultyFilter = ref<number | null>(null)
+
+const isWvWFight = computed(() => selectedFightType.value === 0)
 
 const timeRangeOptions = [
   { label: 'All time', value: 'all' },
@@ -223,7 +240,11 @@ const load = async (resetCharacters = false) => {
   loading.value = true
   isZoomed.value = false
   zoomCenter.value = null
-  if (resetCharacters) selectedCharacters.value = []
+  if (resetCharacters) {
+    selectedCharacters.value = []
+    successFilter.value = 'all'
+    difficultyFilter.value = null
+  }
   try
   {
     let url = `/api/stats/progression?fightType=${selectedFightType.value}`
@@ -231,6 +252,11 @@ const load = async (resetCharacters = false) => {
       const msMap = { week: 7, month: 30, year: 365 }
       const since = new Date(Date.now() - msMap[timeRange.value] * 24 * 60 * 60 * 1000)
       url += `&startDateTime=${since.toISOString()}`
+    }
+    if (!isWvWFight.value) {
+      if (successFilter.value === 'kills') url += '&isSuccess=true'
+      else if (successFilter.value === 'wipes') url += '&isSuccess=false'
+      if (difficultyFilter.value !== null) url += `&fightMode=${difficultyFilter.value}`
     }
     points.value = await api(url) as any[]
     if (resetCharacters)

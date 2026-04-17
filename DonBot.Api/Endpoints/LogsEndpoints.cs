@@ -218,6 +218,7 @@ public static class LogsEndpoints
             {
                 fl.FightLogId,
                 fl.FightType,
+                fl.FightMode,
                 fl.FightStart,
                 fl.FightDurationInMs,
                 fl.IsSuccess,
@@ -247,6 +248,8 @@ public static class LogsEndpoints
         string? startDate = null,
         string? startDateTime = null,
         string? endDateTime = null,
+        bool? isSuccess = null,
+        int? fightMode = null,
         int page = 1,
         int pageSize = 20)
     {
@@ -324,6 +327,12 @@ public static class LogsEndpoints
             query = query.Where(fl => fl.FightStart <= endDt);
         }
 
+        if (isSuccess.HasValue)
+            query = query.Where(fl => fl.IsSuccess == isSuccess.Value);
+
+        if (fightMode.HasValue)
+            query = query.Where(fl => fl.FightMode == fightMode.Value);
+
         var total = await query.CountAsync();
         var logs = await query
             .OrderByDescending(fl => fl.FightStart)
@@ -335,6 +344,7 @@ public static class LogsEndpoints
         {
             fl.FightLogId,
             fl.FightType,
+            fl.FightMode,
             fl.FightStart,
             fl.FightDurationInMs,
             fl.IsSuccess,

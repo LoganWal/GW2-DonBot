@@ -44,6 +44,20 @@
         @change="onFilterChange"
       />
     </div>
+    <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center;">
+      <div style="display: flex; gap: 0.4rem;">
+        <Button size="small" label="All" :severity="successFilter === 'all' ? 'primary' : 'secondary'" @click="successFilter = 'all'; onFilterChange()" />
+        <Button size="small" label="Kills" :severity="successFilter === 'kills' ? 'success' : 'secondary'" @click="successFilter = 'kills'; onFilterChange()" />
+        <Button size="small" label="Wipes" :severity="successFilter === 'wipes' ? 'danger' : 'secondary'" @click="successFilter = 'wipes'; onFilterChange()" />
+
+      </div>
+      <div style="display: flex; gap: 0.4rem;">
+        <Button size="small" label="All modes" :severity="difficultyFilter === null ? 'primary' : 'secondary'" @click="difficultyFilter = null; onFilterChange()" />
+        <Button size="small" label="NM" :severity="difficultyFilter === 0 ? 'primary' : 'secondary'" @click="difficultyFilter = 0; onFilterChange()" />
+        <Button size="small" label="CM" :severity="difficultyFilter === 1 ? 'primary' : 'secondary'" @click="difficultyFilter = 1; onFilterChange()" />
+        <Button size="small" label="LCM" :severity="difficultyFilter === 2 ? 'primary' : 'secondary'" @click="difficultyFilter = 2; onFilterChange()" />
+      </div>
+    </div>
     <ProgressSpinner v-if="pending && !logs.length" />
     <DataTable
       v-else
@@ -124,6 +138,8 @@ const selectedFightTypes = ref<number[]>(
 const selectedCharacters = ref<string[]>(
   route.query.characters ? String(route.query.characters).split(',') : []
 )
+const successFilter = ref<'all' | 'kills' | 'wipes'>('all')
+const difficultyFilter = ref<number | null>(null)
 
 const STRIKE_TYPES = [27, 28, 29, 30, 31, 32, 33, 47, 48, 49, 50, 51]
 const RAID_TYPES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 44, 45, 46, 53, 55]
@@ -192,13 +208,12 @@ const syncUrl = () => {
 const buildUrl = () => {
   let url = `/api/logs?page=${page.value}&pageSize=${pageSize}`
   if (selectedFightTypes.value.length > 0)
-  {
     url += `&fightTypes=${selectedFightTypes.value.join(',')}`
-  }
   if (selectedCharacters.value.length > 0)
-  {
     url += `&characters=${encodeURIComponent(selectedCharacters.value.join(','))}`
-  }
+  if (successFilter.value === 'kills') url += '&isSuccess=true'
+  else if (successFilter.value === 'wipes') url += '&isSuccess=false'
+  if (difficultyFilter.value !== null) url += `&fightMode=${difficultyFilter.value}`
   return url
 }
 
@@ -328,7 +343,7 @@ const goToAggregate = () => {
   z-index: 100;
   border-radius: 0.5rem;
   border: 1px solid var(--p-primary-color);
-  background: rgba(15, 15, 20, 0.97);
+  background: rgba(15, 15, 20, 0.2);
   backdrop-filter: blur(6px);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.9);
 }

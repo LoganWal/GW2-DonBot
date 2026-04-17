@@ -318,7 +318,9 @@ public static class StatsEndpoints
         IDbContextFactory<DatabaseContext> dbContextFactory,
         short fightType = 0,
         string? startDateTime = null,
-        string? endDateTime = null)
+        string? endDateTime = null,
+        bool? isSuccess = null,
+        int? fightMode = null)
     {
         var discordIdStr = user.FindFirst("discord_id")?.Value;
         if (!long.TryParse(discordIdStr, out var discordId))
@@ -354,8 +356,14 @@ public static class StatsEndpoints
             DateTime.TryParse(endDateTime, null, System.Globalization.DateTimeStyles.RoundtripKind, out var endDt))
             fightMetaQuery = fightMetaQuery.Where(fl => fl.FightStart <= endDt);
 
+        if (isSuccess.HasValue)
+            fightMetaQuery = fightMetaQuery.Where(fl => fl.IsSuccess == isSuccess.Value);
+
+        if (fightMode.HasValue)
+            fightMetaQuery = fightMetaQuery.Where(fl => fl.FightMode == fightMode.Value);
+
         var fightMeta = await fightMetaQuery
-            .Select(fl => new { fl.FightLogId, fl.FightStart, fl.FightDurationInMs, fl.IsSuccess })
+            .Select(fl => new { fl.FightLogId, fl.FightStart, fl.FightDurationInMs, fl.IsSuccess, fl.FightMode })
             .OrderBy(fl => fl.FightStart)
             .ToListAsync();
 
@@ -402,6 +410,7 @@ public static class StatsEndpoints
                         durationMs = f.FightDurationInMs,
                         characterName = p.CharacterName,
                         isSuccess = f.IsSuccess,
+                        fightMode = f.FightMode,
                         dps,
                         cleaveDps,
                         healing = p.Healing,

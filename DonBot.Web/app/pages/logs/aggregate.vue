@@ -17,27 +17,43 @@
     <ProgressSpinner v-if="pending" />
 
     <template v-else-if="result">
-      <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
+      <!-- Stat cards: only when displayResult has data -->
+      <div v-if="displayResult" style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; align-items: center;">
         <div class="stat-card">
           <div class="stat-label">Logs</div>
-          <div class="stat-value">{{ result.totalLogs }}</div>
+          <div class="stat-value">{{ displayResult.totalLogs }}</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Fight Time</div>
-          <div class="stat-value">{{ formatDuration(result.totalDurationMs) }}</div>
+          <div class="stat-value">{{ formatDuration(displayResult.totalDurationMs) }}</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Type</div>
-          <div class="stat-value">{{ result.type === 'wvw' ? 'WvW' : 'PvE' }}</div>
+          <div class="stat-value">{{ displayResult.type === 'wvw' ? 'WvW' : 'PvE' }}</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Players</div>
-          <div class="stat-value">{{ result.players.length }}</div>
+          <div class="stat-value">{{ displayResult.players.length }}</div>
         </div>
+        <ProgressSpinner v-if="filterPending" style="width: 2rem; height: 2rem;" />
       </div>
 
       <h2 class="section-title">Logs</h2>
-      <DataTable :value="result.logs" striped-rows class="mb-section" size="small">
+      <div v-if="result.type !== 'wvw'" style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.75rem; align-items: center;">
+        <div style="display: flex; gap: 0.4rem;">
+          <Button size="small" label="All" :severity="aggSuccessFilter === 'all' ? 'primary' : 'secondary'" @click="aggSuccessFilter = 'all'" />
+          <Button size="small" label="Kills" :severity="aggSuccessFilter === 'kills' ? 'success' : 'secondary'" @click="aggSuccessFilter = 'kills'" />
+          <Button size="small" label="Wipes" :severity="aggSuccessFilter === 'wipes' ? 'danger' : 'secondary'" @click="aggSuccessFilter = 'wipes'" />
+
+        </div>
+        <div style="display: flex; gap: 0.4rem;">
+          <Button size="small" label="All modes" :severity="aggDifficultyFilter === null ? 'primary' : 'secondary'" @click="aggDifficultyFilter = null" />
+          <Button size="small" label="NM" :severity="aggDifficultyFilter === 0 ? 'primary' : 'secondary'" @click="aggDifficultyFilter = 0" />
+          <Button size="small" label="CM" :severity="aggDifficultyFilter === 1 ? 'primary' : 'secondary'" @click="aggDifficultyFilter = 1" />
+          <Button size="small" label="LCM" :severity="aggDifficultyFilter === 2 ? 'primary' : 'secondary'" @click="aggDifficultyFilter = 2" />
+        </div>
+      </div>
+      <DataTable :value="filteredAggLogs" striped-rows class="mb-section" size="small">
         <Column header="Fight">
           <template #body="{ data }">{{ fightName(data.fightType) }}</template>
         </Column>
@@ -65,8 +81,12 @@
         </Column>
       </DataTable>
 
+      <Message v-if="filteredAggLogs.length === 0" severity="info" :closable="false">
+        No logs match the current filter.
+      </Message>
+
       <!-- WvW Charts + Tables -->
-      <template v-if="result.type === 'wvw'">
+      <template v-if="displayResult && filteredAggLogs.length > 0 && displayResult.type === 'wvw'">
         <h2 class="section-title">Damage & Combat</h2>
         <div class="charts-row mb-section">
           <div class="chart-container clickable-chart">
@@ -90,7 +110,7 @@
             <Chart type="line" :data="wvwBoonsRippedChartData" :options="clickableIntChartOptions" />
           </div>
         </div>
-        <DataTable :value="result.players" striped-rows scrollable class="mb-section" sort-field="damage" :sort-order="-1">
+        <DataTable :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="damage" :sort-order="-1">
           <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
           <Column field="fightCount" header="Fights" :sortable="true" style="min-width: 65px;" />
           <Column header="Avg Damage" :sortable="true" sort-field="damage" style="min-width: 110px;">
@@ -116,7 +136,7 @@
             <Chart type="line" :data="wvwQuickChartData" :options="clickableChartOptions" />
           </div>
         </div>
-        <DataTable :value="result.players" striped-rows scrollable class="mb-section" sort-field="healing" :sort-order="-1">
+        <DataTable :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="healing" :sort-order="-1">
           <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
           <Column header="Avg Healing" :sortable="true" sort-field="healing" style="min-width: 105px;">
             <template #body="{ data }">{{ data.healing.toLocaleString() }}</template>
@@ -156,7 +176,7 @@
             <Chart type="line" :data="damageTakenChartData" :options="clickableChartOptions" />
           </div>
         </div>
-        <DataTable :value="result.players" striped-rows scrollable class="mb-section" sort-field="deaths" :sort-order="-1">
+        <DataTable :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="deaths" :sort-order="-1">
           <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
           <Column field="deaths" header="Deaths" :sortable="true" style="min-width: 70px;" />
           <Column field="timesDowned" header="Downed" :sortable="true" style="min-width: 70px;" />
@@ -178,7 +198,7 @@
       </template>
 
       <!-- PvE Charts + Tables -->
-      <template v-else>
+      <template v-else-if="displayResult && filteredAggLogs.length > 0">
         <h2 class="section-title">Damage & Combat</h2>
         <div class="charts-row mb-section">
           <div class="chart-container clickable-chart">
@@ -198,7 +218,7 @@
             <Chart type="line" :data="pveQuickChartData" :options="clickableChartOptions" />
           </div>
         </div>
-        <DataTable :value="result.players" striped-rows scrollable class="mb-section" sort-field="dps" :sort-order="-1">
+        <DataTable :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="dps" :sort-order="-1">
           <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
           <Column field="fightCount" header="Fights" :sortable="true" style="min-width: 65px;" />
           <Column header="DPS" :sortable="true" sort-field="dps" style="min-width: 90px;">
@@ -233,7 +253,7 @@
             <Chart type="line" :data="damageTakenChartData" :options="clickableChartOptions" />
           </div>
         </div>
-        <DataTable :value="result.players" striped-rows scrollable class="mb-section" sort-field="deaths" :sort-order="-1">
+        <DataTable :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="deaths" :sort-order="-1">
           <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
           <Column field="deaths" header="Deaths" :sortable="true" style="min-width: 70px;" />
           <Column field="timesDowned" header="Downed" :sortable="true" style="min-width: 70px;" />
@@ -276,6 +296,43 @@ const { data: result, pending } = await useAsyncData(
 )
 
 const wingmanQueued = ref(false)
+const aggSuccessFilter = ref<'all' | 'kills' | 'wipes'>('all')
+const aggDifficultyFilter = ref<number | null>(null)
+const filterPending = ref(false)
+const displayResult = ref<any>(null)
+
+watch(result, (r) => { if (r) displayResult.value = r }, { immediate: true })
+
+const filteredAggLogs = computed(() => {
+  let logs = result.value?.logs ?? []
+  if (aggSuccessFilter.value === 'kills') logs = logs.filter((l: any) => l.isSuccess)
+  else if (aggSuccessFilter.value === 'wipes') logs = logs.filter((l: any) => !l.isSuccess)
+  if (aggDifficultyFilter.value !== null) logs = logs.filter((l: any) => l.fightMode === aggDifficultyFilter.value)
+  return logs
+})
+
+watch(filteredAggLogs, async (filtered) => {
+  if (!result.value) return
+  const allIds = (result.value.logs ?? []).map((l: any) => l.fightLogId)
+  const filteredIds = filtered.map((l: any) => l.fightLogId)
+  if (filteredIds.length === allIds.length) {
+    displayResult.value = result.value
+    return
+  }
+  if (filteredIds.length === 0) {
+    displayResult.value = null
+    return
+  }
+  filterPending.value = true
+  try {
+    displayResult.value = await api('/api/logs/aggregate', {
+      method: 'POST',
+      body: { logIds: filteredIds },
+    })
+  } finally {
+    filterPending.value = false
+  }
+})
 
 const uploadToWingman = () => {
   if (wingmanQueued.value) return
@@ -303,7 +360,7 @@ const PALETTE = [
 const playerColor = (i: number) => PALETTE[i % PALETTE.length]
 
 const chartLabels = computed(() =>
-  (result.value?.timeline ?? []).map((t: any) => {
+  (displayResult.value?.timeline ?? []).map((t: any) => {
     const time = new Date(t.fightStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     return `${fightName(t.fightType)} ${time}`
   })
@@ -311,14 +368,14 @@ const chartLabels = computed(() =>
 
 const allAccounts = computed(() => {
   const seen = new Set<string>()
-  for (const fight of (result.value?.timeline ?? []))
+  for (const fight of (displayResult.value?.timeline ?? []))
     for (const p of fight.players) seen.add(p.accountName)
   return [...seen]
 })
 
 const makeDataset = (account: string, i: number, getValue: (p: any) => number | null, dashed = false) => ({
   label: account,
-  data: (result.value?.timeline ?? []).map((fight: any) => {
+  data: (displayResult.value?.timeline ?? []).map((fight: any) => {
     const p = fight.players.find((pl: any) => pl.accountName === account)
     return p ? getValue(p) : null
   }),
@@ -362,7 +419,7 @@ tooltipOpts['itemSort'] = (a: any, b: any) => (b.parsed.y ?? 0) - (a.parsed.y ??
 
 const handleChartClick = (_event: any, elements: any[]) => {
   if (!elements.length) return
-  const timeline = result.value?.timeline ?? []
+  const timeline = displayResult.value?.timeline ?? []
   const fight = timeline[elements[0].index]
   if (fight?.fightLogId) navigateTo(`/logs/${fight.fightLogId}`)
 }

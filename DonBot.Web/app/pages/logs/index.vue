@@ -85,7 +85,7 @@
         </template>
       </Column>
       <Column header="Character">
-        <template #body="{ data }">{{ data.characterName || '—' }}</template>
+        <template #body="{ data }">{{ data.characterName || '-' }}</template>
       </Column>
       <Column header="Date">
         <template #body="{ data }">{{ new Date(data.fightStart).toLocaleString() }}</template>
@@ -119,7 +119,6 @@
 
 <script setup lang="ts">
 import { fightName, fightTypeGroupedOptions } from '~/composables/useFightTypes'
-import {useAsyncData} from "nuxt/app";
 
 definePageMeta({ middleware: 'auth' })
 

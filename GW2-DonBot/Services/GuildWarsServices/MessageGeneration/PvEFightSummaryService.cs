@@ -3,6 +3,7 @@ using DonBot.Extensions;
 using DonBot.Models.Entities;
 using DonBot.Models.Enums;
 using DonBot.Models.GuildWars2;
+using Microsoft.Extensions.Configuration;
 using DonBot.Services.DatabaseServices;
 using System.Globalization;
 
@@ -12,7 +13,8 @@ public sealed class PvEFightSummaryService(
     IEntityService entityService,
     IFooterService footerService,
     IPlayerService playerService,
-    IRotationAnalysisService rotationAnalysisService) : IPvEFightSummaryService
+    IRotationAnalysisService rotationAnalysisService,
+    IConfiguration configuration) : IPvEFightSummaryService
 {
     public async Task<Embed> GenerateSimple(EliteInsightDataModel data, long guildId)
     {
@@ -354,10 +356,15 @@ public sealed class PvEFightSummaryService(
             existingFightLog = fightLog;
         }
 
+        var webAppBaseUrl = configuration["WebApp:BaseUrl"];
+        var webAppLink = !string.IsNullOrEmpty(webAppBaseUrl)
+            ? $"[View on DonBot]({webAppBaseUrl}/logs/{existingFightLog.FightLogId})\n"
+            : string.Empty;
+
         var message = new EmbedBuilder
         {
             Title = $"{data.FightEliteInsightDataModel.LogName}\n",
-            Description = $"**Length:** {data.FightEliteInsightDataModel.Phases?.FirstOrDefault()?.EncounterDuration}{(data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false ? string.Empty : $" {(existingFightLog.FightPhase != null ? (existingFightLog.FightPhase) : string.Empty)} - {existingFightLog.FightPercent}%")}\n",
+            Description = $"{webAppLink}**Length:** {data.FightEliteInsightDataModel.Phases?.FirstOrDefault()?.EncounterDuration}{(data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false ? string.Empty : $" {(existingFightLog.FightPhase != null ? (existingFightLog.FightPhase) : string.Empty)} - {existingFightLog.FightPercent}%")}\n",
             Color = data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false ? Color.Green : Color.Red,
             Author = new EmbedAuthorBuilder()
             {

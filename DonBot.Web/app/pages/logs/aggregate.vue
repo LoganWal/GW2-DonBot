@@ -21,19 +21,19 @@
       <div v-if="displayResult" style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; align-items: center;">
         <div class="stat-card">
           <div class="stat-label">Logs</div>
-          <div class="stat-value">{{ displayResult.totalLogs }}</div>
+          <div v-fit-text class="stat-value">{{ displayResult.totalLogs }}</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Fight Time</div>
-          <div class="stat-value">{{ formatDuration(displayResult.totalDurationMs) }}</div>
+          <div v-fit-text class="stat-value">{{ formatDuration(displayResult.totalDurationMs) }}</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Type</div>
-          <div class="stat-value">{{ displayResult.type === 'wvw' ? 'WvW' : 'PvE' }}</div>
+          <div v-fit-text class="stat-value">{{ displayResult.type === 'wvw' ? 'WvW' : 'PvE' }}</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Players</div>
-          <div class="stat-value">{{ displayResult.players.length }}</div>
+          <div v-fit-text class="stat-value">{{ displayResult.players.length }}</div>
         </div>
         <ProgressSpinner v-if="filterPending" style="width: 2rem; height: 2rem;" />
       </div>
@@ -87,7 +87,7 @@
 
       <!-- WvW Charts + Tables -->
       <template v-if="displayResult && filteredAggLogs.length > 0 && displayResult.type === 'wvw'">
-        <h2 class="section-title">Damage & Combat</h2>
+        <CollapsibleSection title="Damage & Combat">
         <div class="charts-row mb-section">
           <div class="chart-container clickable-chart">
             <div class="chart-label">Avg Damage per Fight</div>
@@ -124,147 +124,152 @@
           <Column field="interrupts" header="Interrupts" :sortable="true" style="min-width: 90px;" />
           <Column field="numberOfBoonsRipped" header="Boons Ripped" :sortable="true" style="min-width: 110px;" />
         </DataTable>
+        </CollapsibleSection>
 
-        <h2 class="section-title">Support</h2>
-        <div class="charts-row mb-section">
-          <div class="chart-container clickable-chart">
-            <div class="chart-label">Avg Healing per Fight</div>
-            <Chart type="line" :data="healingChartData" :options="clickableChartOptions" />
+        <CollapsibleSection title="Support">
+          <div class="charts-row mb-section">
+            <div class="chart-container clickable-chart">
+              <div class="chart-label">Avg Healing per Fight</div>
+              <Chart type="line" :data="healingChartData" :options="clickableChartOptions" />
+            </div>
+            <div class="chart-container clickable-chart">
+              <div class="chart-label">Quickness % per Fight</div>
+              <Chart type="line" :data="wvwQuickChartData" :options="clickableChartOptions" />
+            </div>
           </div>
-          <div class="chart-container clickable-chart">
-            <div class="chart-label">Quickness % per Fight</div>
-            <Chart type="line" :data="wvwQuickChartData" :options="clickableChartOptions" />
-          </div>
-        </div>
-        <DataTable :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="healing" :sort-order="-1">
-          <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
-          <Column header="Avg Healing" :sortable="true" sort-field="healing" style="min-width: 105px;">
-            <template #body="{ data }">{{ data.healing.toLocaleString() }}</template>
-          </Column>
-          <Column header="Avg Cleanses" :sortable="true" sort-field="cleanses" style="min-width: 105px;">
-            <template #body="{ data }">{{ data.cleanses }}</template>
-          </Column>
-          <Column header="Avg Strips" :sortable="true" sort-field="strips" style="min-width: 95px;">
-            <template #body="{ data }">{{ data.strips }}</template>
-          </Column>
-          <Column header="Avg Barrier Gen" :sortable="true" sort-field="barrierGenerated" style="min-width: 120px;">
-            <template #body="{ data }">{{ data.barrierGenerated.toLocaleString() }}</template>
-          </Column>
-          <Column header="Stab On" :sortable="true" sort-field="stabOnGroup" style="min-width: 80px;">
-            <template #body="{ data }">{{ data.stabOnGroup }}</template>
-          </Column>
-          <Column header="Stab Off" :sortable="true" sort-field="stabOffGroup" style="min-width: 80px;">
-            <template #body="{ data }">{{ data.stabOffGroup }}</template>
-          </Column>
-          <Column header="Quick %" :sortable="true" sort-field="quicknessDuration" style="min-width: 80px;">
-            <template #body="{ data }">{{ data.quicknessDuration }}%</template>
-          </Column>
-        </DataTable>
+          <DataTable :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="healing" :sort-order="-1">
+            <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
+            <Column header="Avg Healing" :sortable="true" sort-field="healing" style="min-width: 105px;">
+              <template #body="{ data }">{{ data.healing.toLocaleString() }}</template>
+            </Column>
+            <Column header="Avg Cleanses" :sortable="true" sort-field="cleanses" style="min-width: 105px;">
+              <template #body="{ data }">{{ data.cleanses }}</template>
+            </Column>
+            <Column header="Avg Strips" :sortable="true" sort-field="strips" style="min-width: 95px;">
+              <template #body="{ data }">{{ data.strips }}</template>
+            </Column>
+            <Column header="Avg Barrier Gen" :sortable="true" sort-field="barrierGenerated" style="min-width: 120px;">
+              <template #body="{ data }">{{ data.barrierGenerated.toLocaleString() }}</template>
+            </Column>
+            <Column header="Stab On" :sortable="true" sort-field="stabOnGroup" style="min-width: 80px;">
+              <template #body="{ data }">{{ data.stabOnGroup }}</template>
+            </Column>
+            <Column header="Stab Off" :sortable="true" sort-field="stabOffGroup" style="min-width: 80px;">
+              <template #body="{ data }">{{ data.stabOffGroup }}</template>
+            </Column>
+            <Column header="Quick %" :sortable="true" sort-field="quicknessDuration" style="min-width: 80px;">
+              <template #body="{ data }">{{ data.quicknessDuration }}%</template>
+            </Column>
+          </DataTable>
+        </CollapsibleSection>
 
-        <h2 class="section-title">Survivability</h2>
-        <div class="charts-row mb-section">
-          <div class="chart-container clickable-chart">
-            <div class="chart-label">Deaths per Fight</div>
-            <Chart type="line" :data="deathsChartData" :options="clickableIntChartOptions" />
+        <CollapsibleSection title="Survivability">
+          <div class="charts-row mb-section">
+            <div class="chart-container clickable-chart">
+              <div class="chart-label">Deaths per Fight</div>
+              <Chart type="line" :data="deathsChartData" :options="clickableIntChartOptions" />
+            </div>
+            <div class="chart-container clickable-chart">
+              <div class="chart-label">Downed per Fight</div>
+              <Chart type="line" :data="downedChartData" :options="clickableIntChartOptions" />
+            </div>
+            <div class="chart-container clickable-chart">
+              <div class="chart-label">Damage Taken per Fight</div>
+              <Chart type="line" :data="damageTakenChartData" :options="clickableChartOptions" />
+            </div>
           </div>
-          <div class="chart-container clickable-chart">
-            <div class="chart-label">Downed per Fight</div>
-            <Chart type="line" :data="downedChartData" :options="clickableIntChartOptions" />
-          </div>
-          <div class="chart-container clickable-chart">
-            <div class="chart-label">Damage Taken per Fight</div>
-            <Chart type="line" :data="damageTakenChartData" :options="clickableChartOptions" />
-          </div>
-        </div>
-        <DataTable :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="deaths" :sort-order="-1">
-          <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
-          <Column field="deaths" header="Deaths" :sortable="true" style="min-width: 70px;" />
-          <Column field="timesDowned" header="Downed" :sortable="true" style="min-width: 70px;" />
-          <Column field="firstToDie" header="Died 1st" :sortable="true" style="min-width: 75px;" />
-          <Column header="Dmg Taken" :sortable="true" sort-field="damageTaken" style="min-width: 105px;">
-            <template #body="{ data }">{{ data.damageTaken.toLocaleString() }}</template>
-          </Column>
-          <Column header="Barrier Mit" :sortable="true" sort-field="barrierMitigation" style="min-width: 100px;">
-            <template #body="{ data }">{{ data.barrierMitigation.toLocaleString() }}</template>
-          </Column>
-          <Column header="Res Time (s)" :sortable="true" sort-field="resurrectionTime" style="min-width: 105px;">
-            <template #body="{ data }">{{ (data.resurrectionTime / 1000).toFixed(1) }}</template>
-          </Column>
-          <Column field="timesInterrupted" header="Interrupted" :sortable="true" style="min-width: 95px;" />
-          <Column header="Dist Tag" :sortable="true" sort-field="distanceFromTag" style="min-width: 80px;">
-            <template #body="{ data }">{{ data.distanceFromTag > 0 ? data.distanceFromTag : '-' }}</template>
-          </Column>
-        </DataTable>
+          <DataTable :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="deaths" :sort-order="-1">
+            <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
+            <Column field="deaths" header="Deaths" :sortable="true" style="min-width: 70px;" />
+            <Column field="timesDowned" header="Downed" :sortable="true" style="min-width: 70px;" />
+            <Column field="firstToDie" header="Died 1st" :sortable="true" style="min-width: 75px;" />
+            <Column header="Dmg Taken" :sortable="true" sort-field="damageTaken" style="min-width: 105px;">
+              <template #body="{ data }">{{ data.damageTaken.toLocaleString() }}</template>
+            </Column>
+            <Column header="Barrier Mit" :sortable="true" sort-field="barrierMitigation" style="min-width: 100px;">
+              <template #body="{ data }">{{ data.barrierMitigation.toLocaleString() }}</template>
+            </Column>
+            <Column header="Res Time (s)" :sortable="true" sort-field="resurrectionTime" style="min-width: 105px;">
+              <template #body="{ data }">{{ (data.resurrectionTime / 1000).toFixed(1) }}</template>
+            </Column>
+            <Column field="timesInterrupted" header="Interrupted" :sortable="true" style="min-width: 95px;" />
+            <Column header="Dist Tag" :sortable="true" sort-field="distanceFromTag" style="min-width: 80px;">
+              <template #body="{ data }">{{ data.distanceFromTag > 0 ? data.distanceFromTag : '-' }}</template>
+            </Column>
+          </DataTable>
+        </CollapsibleSection>
       </template>
 
       <!-- PvE Charts + Tables -->
       <template v-else-if="displayResult && filteredAggLogs.length > 0">
-        <h2 class="section-title">Damage & Combat</h2>
-        <div class="charts-row mb-section">
-          <div class="chart-container clickable-chart">
-            <div class="chart-label">DPS per Fight</div>
-            <Chart type="line" :data="pveDpsChartData" :options="clickableChartOptions" />
+        <CollapsibleSection title="Damage & Combat">
+          <div class="charts-row mb-section">
+            <div class="chart-container clickable-chart">
+              <div class="chart-label">DPS per Fight</div>
+              <Chart type="line" :data="pveDpsChartData" :options="clickableChartOptions" />
+            </div>
+            <div class="chart-container clickable-chart">
+              <div class="chart-label">Cleave DPS per Fight</div>
+              <Chart type="line" :data="pveCleaveDpsChartData" :options="clickableChartOptions" />
+            </div>
+            <div class="chart-container clickable-chart">
+              <div class="chart-label">Alacrity % per Fight</div>
+              <Chart type="line" :data="pveAlacChartData" :options="clickableChartOptions" />
+            </div>
+            <div class="chart-container clickable-chart">
+              <div class="chart-label">Quickness % per Fight</div>
+              <Chart type="line" :data="pveQuickChartData" :options="clickableChartOptions" />
+            </div>
           </div>
-          <div class="chart-container clickable-chart">
-            <div class="chart-label">Cleave DPS per Fight</div>
-            <Chart type="line" :data="pveCleaveDpsChartData" :options="clickableChartOptions" />
-          </div>
-          <div class="chart-container clickable-chart">
-            <div class="chart-label">Alacrity % per Fight</div>
-            <Chart type="line" :data="pveAlacChartData" :options="clickableChartOptions" />
-          </div>
-          <div class="chart-container clickable-chart">
-            <div class="chart-label">Quickness % per Fight</div>
-            <Chart type="line" :data="pveQuickChartData" :options="clickableChartOptions" />
-          </div>
-        </div>
-        <DataTable :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="dps" :sort-order="-1">
-          <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
-          <Column field="fightCount" header="Fights" :sortable="true" style="min-width: 65px;" />
-          <Column header="DPS" :sortable="true" sort-field="dps" style="min-width: 90px;">
-            <template #body="{ data }">{{ data.dps.toLocaleString() }}</template>
-          </Column>
-          <Column header="Cleave DPS" :sortable="true" sort-field="cleaveDps" style="min-width: 105px;">
-            <template #body="{ data }">{{ data.cleaveDps.toLocaleString() }}</template>
-          </Column>
-          <Column header="Avg Barrier Gen" :sortable="true" sort-field="barrierGenerated" style="min-width: 120px;">
-            <template #body="{ data }">{{ data.barrierGenerated.toLocaleString() }}</template>
-          </Column>
-          <Column header="Quick %" :sortable="true" sort-field="quicknessDuration" style="min-width: 80px;">
-            <template #body="{ data }">{{ data.quicknessDuration }}%</template>
-          </Column>
-          <Column header="Alac %" :sortable="true" sort-field="alacDuration" style="min-width: 75px;">
-            <template #body="{ data }">{{ data.alacDuration }}%</template>
-          </Column>
-        </DataTable>
+          <DataTable :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="dps" :sort-order="-1">
+            <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
+            <Column field="fightCount" header="Fights" :sortable="true" style="min-width: 65px;" />
+            <Column header="DPS" :sortable="true" sort-field="dps" style="min-width: 90px;">
+              <template #body="{ data }">{{ data.dps.toLocaleString() }}</template>
+            </Column>
+            <Column header="Cleave DPS" :sortable="true" sort-field="cleaveDps" style="min-width: 105px;">
+              <template #body="{ data }">{{ data.cleaveDps.toLocaleString() }}</template>
+            </Column>
+            <Column header="Avg Barrier Gen" :sortable="true" sort-field="barrierGenerated" style="min-width: 120px;">
+              <template #body="{ data }">{{ data.barrierGenerated.toLocaleString() }}</template>
+            </Column>
+            <Column header="Quick %" :sortable="true" sort-field="quicknessDuration" style="min-width: 80px;">
+              <template #body="{ data }">{{ data.quicknessDuration }}%</template>
+            </Column>
+            <Column header="Alac %" :sortable="true" sort-field="alacDuration" style="min-width: 75px;">
+              <template #body="{ data }">{{ data.alacDuration }}%</template>
+            </Column>
+          </DataTable>
+        </CollapsibleSection>
 
-        <h2 class="section-title">Survivability</h2>
-        <div class="charts-row mb-section">
-          <div class="chart-container clickable-chart">
-            <div class="chart-label">Deaths per Fight</div>
-            <Chart type="line" :data="deathsChartData" :options="clickableIntChartOptions" />
+        <CollapsibleSection title="Survivability">
+          <div class="charts-row mb-section">
+            <div class="chart-container clickable-chart">
+              <div class="chart-label">Deaths per Fight</div>
+              <Chart type="line" :data="deathsChartData" :options="clickableIntChartOptions" />
+            </div>
+            <div class="chart-container clickable-chart">
+              <div class="chart-label">Downed per Fight</div>
+              <Chart type="line" :data="downedChartData" :options="clickableIntChartOptions" />
+            </div>
+            <div class="chart-container clickable-chart">
+              <div class="chart-label">Damage Taken per Fight</div>
+              <Chart type="line" :data="damageTakenChartData" :options="clickableChartOptions" />
+            </div>
           </div>
-          <div class="chart-container clickable-chart">
-            <div class="chart-label">Downed per Fight</div>
-            <Chart type="line" :data="downedChartData" :options="clickableIntChartOptions" />
-          </div>
-          <div class="chart-container clickable-chart">
-            <div class="chart-label">Damage Taken per Fight</div>
-            <Chart type="line" :data="damageTakenChartData" :options="clickableChartOptions" />
-          </div>
-        </div>
-        <DataTable :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="deaths" :sort-order="-1">
-          <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
-          <Column field="deaths" header="Deaths" :sortable="true" style="min-width: 70px;" />
-          <Column field="timesDowned" header="Downed" :sortable="true" style="min-width: 70px;" />
-          <Column field="firstToDie" header="Died 1st" :sortable="true" style="min-width: 75px;" />
-          <Column header="Dmg Taken" :sortable="true" sort-field="damageTaken" style="min-width: 105px;">
-            <template #body="{ data }">{{ data.damageTaken.toLocaleString() }}</template>
-          </Column>
-          <Column header="Res Time (s)" :sortable="true" sort-field="resurrectionTime" style="min-width: 105px;">
-            <template #body="{ data }">{{ (data.resurrectionTime / 1000).toFixed(1) }}</template>
-          </Column>
-        </DataTable>
+          <DataTable :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="deaths" :sort-order="-1">
+            <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
+            <Column field="deaths" header="Deaths" :sortable="true" style="min-width: 70px;" />
+            <Column field="timesDowned" header="Downed" :sortable="true" style="min-width: 70px;" />
+            <Column field="firstToDie" header="Died 1st" :sortable="true" style="min-width: 75px;" />
+            <Column header="Dmg Taken" :sortable="true" sort-field="damageTaken" style="min-width: 105px;">
+              <template #body="{ data }">{{ data.damageTaken.toLocaleString() }}</template>
+            </Column>
+            <Column header="Res Time (s)" :sortable="true" sort-field="resurrectionTime" style="min-width: 105px;">
+              <template #body="{ data }">{{ (data.resurrectionTime / 1000).toFixed(1) }}</template>
+            </Column>
+          </DataTable>
+        </CollapsibleSection>
       </template>
     </template>
 
@@ -276,6 +281,7 @@
 
 <script setup lang="ts">
 import { fightName } from '~/composables/useFightTypes'
+import CollapsibleSection from '~/components/CollapsibleSection.vue'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -463,10 +469,8 @@ const clickableIntChartOptions = baseOptions(1)
   margin-bottom: 0.25rem;
 }
 .stat-value {
-  font-size: clamp(0.65rem, 12cqi, 1.5rem);
+  font-size: 1.5rem;
   font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
 }
 .section-title {
   font-size: 1rem;

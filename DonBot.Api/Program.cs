@@ -27,5 +27,6 @@ app.MapLogsEndpoints();
 app.MapStatsEndpoints();
 app.MapLeaderboardEndpoints();
 app.MapPointsEndpoints();
+app.MapAccountEndpoints();
 
 app.Run();

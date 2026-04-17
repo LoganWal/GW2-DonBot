@@ -16,7 +16,7 @@ public sealed class PvEFightSummaryService(
     IRotationAnalysisService rotationAnalysisService,
     IConfiguration configuration) : IPvEFightSummaryService
 {
-    public async Task<Embed> GenerateSimple(EliteInsightDataModel data, long guildId)
+    public async Task<(Embed Embed, string? WebAppUrl)> GenerateSimple(EliteInsightDataModel data, long guildId)
     {
         // Fire-and-forget; exceptions are intentionally swallowed to avoid disrupting the summary flow
         _ = Task.Run(async () =>
@@ -357,14 +357,14 @@ public sealed class PvEFightSummaryService(
         }
 
         var webAppBaseUrl = configuration["WebApp:BaseUrl"];
-        var webAppLink = !string.IsNullOrEmpty(webAppBaseUrl)
-            ? $"[View on DonBot]({webAppBaseUrl}/logs/{existingFightLog.FightLogId})\n"
-            : string.Empty;
+        var webAppUrl = !string.IsNullOrEmpty(webAppBaseUrl)
+            ? $"{webAppBaseUrl}/logs/{existingFightLog.FightLogId}"
+            : null;
 
         var message = new EmbedBuilder
         {
             Title = $"{data.FightEliteInsightDataModel.LogName}\n",
-            Description = $"{webAppLink}**Length:** {data.FightEliteInsightDataModel.Phases?.FirstOrDefault()?.EncounterDuration}{(data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false ? string.Empty : $" {(existingFightLog.FightPhase != null ? (existingFightLog.FightPhase) : string.Empty)} - {existingFightLog.FightPercent}%")}\n",
+            Description = $"**Length:** {data.FightEliteInsightDataModel.Phases?.FirstOrDefault()?.EncounterDuration}{(data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false ? string.Empty : $" {(existingFightLog.FightPhase != null ? (existingFightLog.FightPhase) : string.Empty)} - {existingFightLog.FightPercent}%")}\n",
             Color = data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false ? Color.Green : Color.Red,
             Author = new EmbedAuthorBuilder()
             {
@@ -463,6 +463,6 @@ public sealed class PvEFightSummaryService(
 
         footerService.AddInviteLink(message);
 
-        return message.Build();
+        return (message.Build(), webAppUrl);
     }
 }

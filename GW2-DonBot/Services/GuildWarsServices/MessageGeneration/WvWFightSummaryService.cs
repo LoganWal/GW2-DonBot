@@ -17,7 +17,7 @@ public sealed class WvWFightSummaryService(
     IFooterService footerService,
     IConfiguration configuration) : IWvWFightSummaryService
 {
-    public async Task<Embed> Generate(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
+    public async Task<(Embed Embed, string? WebAppUrl)> Generate(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
     {
         var playerCount = 5;
 
@@ -182,14 +182,14 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
         }
 
         var webAppBaseUrl = configuration["WebApp:BaseUrl"];
-        var webAppLink = !advancedLog && !string.IsNullOrEmpty(webAppBaseUrl) && fightLog != null
-            ? $"[View on DonBot]({webAppBaseUrl}/logs/{fightLog.FightLogId})\n"
-            : string.Empty;
+        var webAppUrl = !advancedLog && !string.IsNullOrEmpty(webAppBaseUrl) && fightLog != null
+            ? $"{webAppBaseUrl}/logs/{fightLog.FightLogId}"
+            : null;
 
         var message = new EmbedBuilder
         {
             Title = $"{battleGroundEmoji} Report (WvW) - {battleGround}\n",
-            Description = $"{webAppLink}**Fight Duration:** {data.FightEliteInsightDataModel.Phases?.FirstOrDefault()?.EncounterDuration}\n",
+            Description = $"**Fight Duration:** {data.FightEliteInsightDataModel.Phases?.FirstOrDefault()?.EncounterDuration}\n",
             Color = (Color)battleGroundColor,
             Author = new EmbedAuthorBuilder()
             {
@@ -207,7 +207,8 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             x.IsInline = false;
         });
 
-        return await GenerateMessage(advancedLog, playerCount, gw2Players, message, guild.GuildId);
+        var embed = await GenerateMessage(advancedLog, playerCount, gw2Players, message, guild.GuildId);
+        return (embed, webAppUrl);
     }
 
     public async Task<Embed> GenerateMessage(bool advancedLog, int playerCount, List<Gw2Player> gw2Players, EmbedBuilder message, long guildId, StatTotals? statTotals = null)

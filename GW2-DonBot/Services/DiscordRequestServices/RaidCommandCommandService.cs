@@ -78,7 +78,7 @@ public sealed class RaidCommandCommandService(IEntityService entityService, IMes
 
         existingOpenRaid.FightsEnd = DateTime.UtcNow;
 
-        var messages = await messageGenerationService.GenerateRaidReport(existingOpenRaid, (long)command.GuildId);
+        var (messages, raidWebAppUrl) = await messageGenerationService.GenerateRaidReport(existingOpenRaid, (long)command.GuildId);
         if (messages == null)
         {
             await command.FollowupAsync("No logs found, closing raid!", ephemeral: true);
@@ -105,19 +105,20 @@ public sealed class RaidCommandCommandService(IEntityService entityService, IMes
             return;
         }
 
-        MessageComponent? bestTimesComponent = null;
+        string? bestTimesButtonId = null;
         var bestTimesIndex = BestTimesTargetIndex(messages);
         if (bestTimesIndex.HasValue)
         {
-            bestTimesComponent = new ComponentBuilder()
-                .WithButton("Best Times", $"{ButtonId.BestTimesPvEPrefix}{existingOpenRaid.FightsReportId}")
-                .Build();
+            bestTimesButtonId = $"{ButtonId.BestTimesPvEPrefix}{existingOpenRaid.FightsReportId}";
         }
 
         for (var i = 0; i < messages.Count; i++)
         {
-            var components = i == bestTimesIndex ? bestTimesComponent : null;
-            await targetChannel.SendMessageAsync(embeds: [messages[i]], components: components);
+            var cb = new ComponentBuilder();
+            var hasButton = false;
+            if (i == 0 && raidWebAppUrl != null) { cb.WithButton("View on DonBot", style: ButtonStyle.Link, url: raidWebAppUrl); hasButton = true; }
+            if (i == bestTimesIndex && bestTimesButtonId != null) { cb.WithButton("Best Times", bestTimesButtonId); hasButton = true; }
+            await targetChannel.SendMessageAsync(embeds: [messages[i]], components: hasButton ? cb.Build() : null);
         }
 
         await entityService.FightsReport.UpdateAsync(existingOpenRaid);

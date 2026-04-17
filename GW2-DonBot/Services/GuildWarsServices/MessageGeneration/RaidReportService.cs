@@ -17,19 +17,19 @@ public sealed class RaidReportService(
 {
     const string SurvivabilityHeader = "Player         Res (s)    Dmg Taken   Downed   Died 1st\n";
 
-    public async Task<List<Embed>?> Generate(FightsReport fightsReport, long guildId)
+    public async Task<(List<Embed>? Embeds, string? WebAppUrl)> Generate(FightsReport fightsReport, long guildId)
     {
         var messages = new List<Embed>();
         if (fightsReport.FightsEnd == null)
         {
-            return null;
+            return (null, null);
         }
 
         var fights = (await entityService.FightLog.GetWhereAsync(s => s.GuildId == guildId && s.FightStart >= fightsReport.FightsStart && s.FightStart <= fightsReport.FightsEnd)).OrderBy(s => s.FightStart).ToList();
         return await GetRaidReport(guildId, fights, messages);
     }
 
-    public async Task<List<Embed>?> GenerateSimpleReply(List<string> urls, long guildId)
+    public async Task<(List<Embed>? Embeds, string? WebAppUrl)> GenerateSimpleReply(List<string> urls, long guildId)
     {
         var messages = new List<Embed>();
         var fights = (await entityService.FightLog.GetWhereAsync(s => urls.Contains(s.Url))).ToList();
@@ -146,7 +146,7 @@ public sealed class RaidReportService(
         }
     }
 
-    private async Task<List<Embed>?> GetRaidReport(long guildId, List<FightLog> fights, List<Embed> messages)
+    private async Task<(List<Embed>? Embeds, string? WebAppUrl)> GetRaidReport(long guildId, List<FightLog> fights, List<Embed> messages)
     {
         fights = fights.OrderBy(s => s.FightStart).ToList();
         var fightLogIds = fights.Select(f => f.FightLogId).ToList();
@@ -157,7 +157,7 @@ public sealed class RaidReportService(
 
         if (!fights.Any() || !playerFights.Any())
         {
-            return null;
+            return (null, null);
         }
 
         var firstFight = fights.First();
@@ -195,20 +195,21 @@ public sealed class RaidReportService(
         if (messages.Count > 0)
         {
             var webAppBaseUrl = configuration["WebApp:BaseUrl"];
+            string? webAppUrl = null;
             if (!string.IsNullOrEmpty(webAppBaseUrl))
             {
                 var ids = string.Join(",", fightLogIds);
-                var firstBuilder = messages[0].ToEmbedBuilder();
-                firstBuilder.Description = $"[View on DonBot]({webAppBaseUrl}/logs/aggregate?ids={ids})\n" + (firstBuilder.Description ?? string.Empty);
-                messages[0] = firstBuilder.Build();
+                webAppUrl = $"{webAppBaseUrl}/logs/aggregate?ids={ids}";
             }
 
             var lastBuilder = messages[^1].ToEmbedBuilder();
             footerService.AddInviteLink(lastBuilder);
             messages[^1] = lastBuilder.Build();
+
+            return (messages, webAppUrl);
         }
 
-        return messages;
+        return (messages, null);
     }
 
     private async Task<Embed> GenerateWvWRaidReport(string durationString, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, bool advancedLog, long guildId)

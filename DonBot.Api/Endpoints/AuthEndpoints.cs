@@ -117,10 +117,13 @@ public static class AuthEndpoints
         return Results.Ok();
     }
 
-    private static IResult HandleMe(ClaimsPrincipal user)
+    private static IResult HandleMe(ClaimsPrincipal user, IConfiguration configuration)
     {
         var discordId = user.FindFirst("discord_id")?.Value ?? "";
         var username = user.FindFirst("username")?.Value ?? "";
-        return Results.Ok(new { discordId, username });
+        var bannerIds = configuration["CookieBanner:UserIds"]?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            ?? [];
+        var showCookieBanner = bannerIds.Contains(discordId);
+        return Results.Ok(new { discordId, username, showCookieBanner });
     }
 }

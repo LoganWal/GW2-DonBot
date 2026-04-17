@@ -12,165 +12,83 @@
         <slot />
       </main>
     </div>
+
+    <Teleport to="body">
+      <Transition name="cookie-slide">
+        <div v-if="showCookieBanner" class="cookie-banner">
+          <span class="cookie-text">{{ cookieText }}</span>
+          <div style="display: flex; gap: 0.5rem; flex-shrink: 0;">
+            <Button size="small" label="I Accept (I have no choice)" severity="secondary" @click="showCookieBanner = false" />
+            <Button size="small" :label="declineLabel" severity="danger" :disabled="declined" @click="onDecline" />
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
 const { collapsed, mobileOpen, closeMobile } = useSidebar()
+const { user } = useAuth()
+
+const showCookieBanner = ref(false)
+const declined = ref(false)
+const declineLabel = ref('I Decline')
+const cookieText = ref('We use cookies. Actually, we use your soul. By continuing to use this site you agree to sell your soul, your GW2 account, and any future GW2 accounts to DonBot LLC (not a real company). You have no choice. GDPR does not apply here because we said so.')
+
+watch(user, (u) => {
+  if (u?.showCookieBanner) showCookieBanner.value = true
+}, { immediate: true })
+
+const onDecline = () => {
+  declined.value = true
+  declineLabel.value = 'Processing decline...'
+  setTimeout(() => {
+    cookieText.value = 'Decline registered. Consent revoked. Notifying EU authorities... just kidding. You already accepted. Enjoy your cookies.'
+    declineLabel.value = 'I Decline (too late)'
+    setTimeout(() => { showCookieBanner.value = false }, 3000)
+  }, 800)
+}
 </script>
 
-<style>
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-html, body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background: var(--p-surface-ground);
-  color: var(--p-text-color);
-  font-size: 15px;
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* Layout shell */
-.layout-wrapper {
-  display: flex;
-  min-height: 100vh;
-}
-
-.layout-body {
-  margin-left: 240px;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  transition: margin-left 0.2s ease;
-}
-
-.layout-wrapper.sidebar-collapsed .layout-body {
-  margin-left: 64px;
-}
-
-.layout-content {
-  flex: 1;
-  padding: 2rem;
-}
-
-.sidebar-backdrop {
+<style scoped>
+.cookie-banner {
   position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 99;
-  backdrop-filter: blur(2px);
-}
-
-@media (max-width: 768px) {
-  .layout-body {
-    margin-left: 0 !important;
-  }
-
-  .layout-content {
-    padding: 1.25rem;
-  }
-}
-
-/* Page utilities */
-.page-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--p-text-color);
-  margin-bottom: 1.5rem;
-  letter-spacing: -0.02em;
-}
-
-/* Stat grid */
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  align-items: center;
   gap: 1rem;
-  margin-bottom: 1.5rem;
+  max-width: 700px;
+  width: calc(100% - 3rem);
+  background: rgba(15, 15, 20, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--p-primary-color);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.8);
 }
 
-.stat-card .p-card-body {
-  padding: 1.25rem !important;
-}
-
-.stat-label {
-  font-size: 0.78rem;
-  font-weight: 500;
+.cookie-text {
+  font-size: 0.8rem;
   color: var(--p-text-muted-color);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: 0.4rem;
+  line-height: 1.4;
 }
 
-.stat-value {
-  font-size: 1.6rem;
-  font-weight: 700;
-  color: var(--p-text-color);
-  letter-spacing: -0.02em;
-  line-height: 1.2;
+/* noinspection CssUnusedSymbol */
+.cookie-slide-enter-active,
+/* noinspection CssUnusedSymbol */
+.cookie-slide-leave-active {
+  transition: opacity 0.3s, transform 0.3s;
 }
 
-/* Card polish */
-.p-card {
-  border: 1px solid var(--p-surface-border) !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08) !important;
-  border-radius: 12px !important;
-  transition: box-shadow 0.2s, transform 0.2s;
-}
-
-.p-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-}
-
-.p-card .p-card-title {
-  font-size: 1rem !important;
-  font-weight: 600 !important;
-  letter-spacing: -0.01em;
-}
-
-/* DataTable polish */
-.p-datatable .p-datatable-thead > tr > th {
-  font-size: 0.78rem !important;
-  font-weight: 600 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.06em !important;
-  color: var(--p-text-muted-color) !important;
-}
-
-.p-datatable {
-  border: 1px solid var(--p-surface-border) !important;
-  border-radius: 12px !important;
-  overflow: hidden !important;
-}
-
-/* Button polish */
-.p-button {
-  font-family: 'Inter', system-ui, sans-serif !important;
-  font-weight: 500 !important;
-  border-radius: 8px !important;
-}
-
-/* Input polish */
-.p-inputtext {
-  font-family: 'Inter', system-ui, sans-serif !important;
-  border-radius: 8px !important;
-}
-
-/* Tag polish */
-.p-tag {
-  border-radius: 6px !important;
-  font-size: 0.75rem !important;
-  font-weight: 600 !important;
-}
-
-/* Toolbar base reset */
-.p-toolbar {
-  border-radius: 0 !important;
+/* noinspection CssUnusedSymbol */
+.cookie-slide-enter-from,
+/* noinspection CssUnusedSymbol */
+.cookie-slide-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(1rem);
 }
 </style>

@@ -7,7 +7,9 @@
       <div v-for="cat in quickCategories" :key="cat.label" class="quick-row">
         <span class="quick-label">{{ cat.label }}</span>
         <Button size="small" severity="secondary" label="View" @click="viewToday(cat.types)" />
-        <Button size="small" severity="secondary" label="Aggregate (24h)" :loading="aggregating === cat.label" @click="aggregateToday(cat)" />
+        <Button size="small" severity="secondary" label="Agg 24h" :loading="aggregating === cat.label + '24h'" @click="aggregateRange(cat, 24 * 60 * 60 * 1000, '24h')" />
+        <Button size="small" severity="secondary" label="Agg Week" :loading="aggregating === cat.label + 'week'" @click="aggregateRange(cat, 7 * 24 * 60 * 60 * 1000, 'week')" />
+        <Button size="small" severity="secondary" label="Agg Month" :loading="aggregating === cat.label + 'month'" @click="aggregateRange(cat, 30 * 24 * 60 * 60 * 1000, 'month')" />
       </div>
     </div>
     <Message v-if="noLogsToday" severity="warn" :closable="true" style="margin-bottom: 1rem;" @close="noLogsToday = false">
@@ -142,17 +144,16 @@ const viewToday = (types: number[]) => {
   refresh()
 }
 
-const aggregateToday = async (cat: { label: string; types: number[] }) => {
-  aggregating.value = cat.label
+const aggregateRange = async (cat: { label: string; types: number[] }, windowMs: number, key: string) => {
+  aggregating.value = cat.label + key
   noLogsToday.value = false
   try {
     const now = new Date()
-    const since = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    const since = new Date(now.getTime() - windowMs)
     const url = `/api/logs?page=1&pageSize=500&startDateTime=${since.toISOString()}&endDateTime=${now.toISOString()}&fightTypes=${cat.types.join(',')}`
     const res = await api(url) as { data: any[] }
     const ids = (res.data ?? []).map((l: any) => l.fightLogId)
-    if (ids.length === 0)
-    {
+    if (ids.length === 0) {
       noLogsToday.value = true
       return
     }

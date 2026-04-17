@@ -15,7 +15,7 @@
         :filter-fields="['label', 'group']"
         scroll-height="400px"
         style="width: 100%;"
-        @change="load"
+        @change="load(true)"
       />
     </div>
 
@@ -26,14 +26,26 @@
 
     <template v-else-if="points.length > 0">
       <!-- Character filter -->
-      <div v-if="availableCharacters.length > 1" style="margin-bottom: 1rem; max-width: 360px;">
+      <div v-if="allCharacters.length > 1" style="margin-bottom: 1rem; max-width: 360px;">
         <MultiSelect
           v-model="selectedCharacters"
-          :options="availableCharacters"
+          :options="allCharacters"
           placeholder="All characters"
           show-clear
           display="chip"
           style="width: 100%;"
+        />
+      </div>
+
+      <!-- Time range buttons -->
+      <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+        <Button
+          v-for="opt in timeRangeOptions"
+          :key="opt.value"
+          :label="opt.label"
+          size="small"
+          :severity="timeRange === opt.value ? 'primary' : 'secondary'"
+          @click="timeRange = opt.value; load(false)"
         />
       </div>
 
@@ -192,25 +204,37 @@ const isZoomed = ref(false)
 const zoomCenter = ref<number | null>(null)
 const ZOOM_WINDOW = 12
 const selectedCharacters = ref<string[]>([])
+const timeRange = ref<'all' | 'year' | 'month' | 'week'>('all')
+const allCharacters = ref<string[]>([])
 
-const availableCharacters = computed(() =>
-  [...new Set(points.value.map(p => p.characterName).filter(Boolean))]
-)
+const timeRangeOptions = [
+  { label: 'All time', value: 'all' },
+  { label: 'Last year', value: 'year' },
+  { label: 'Last month', value: 'month' },
+  { label: 'Last week', value: 'week' },
+] as const
 
-
-const load = async () => {
+const load = async (resetCharacters = false) => {
   if (selectedFightType.value === null)
   {
     return
   }
-  router.replace({ query: { fightType: selectedFightType.value } })
+  await router.replace({ query: { fightType: selectedFightType.value } })
   loading.value = true
   isZoomed.value = false
   zoomCenter.value = null
-  selectedCharacters.value = []
+  if (resetCharacters) selectedCharacters.value = []
   try
   {
-    points.value = await api(`/api/stats/progression?fightType=${selectedFightType.value}`) as any[]
+    let url = `/api/stats/progression?fightType=${selectedFightType.value}`
+    if (timeRange.value !== 'all') {
+      const msMap = { week: 7, month: 30, year: 365 }
+      const since = new Date(Date.now() - msMap[timeRange.value] * 24 * 60 * 60 * 1000)
+      url += `&startDateTime=${since.toISOString()}`
+    }
+    points.value = await api(url) as any[]
+    if (resetCharacters)
+      allCharacters.value = [...new Set((points.value as any[]).map((p: any) => p.characterName).filter(Boolean))]
   }
   finally
   {
@@ -221,7 +245,7 @@ const load = async () => {
 onMounted(() => {
   if (selectedFightType.value !== null)
   {
-    load()
+    load(true)
   }
 })
 

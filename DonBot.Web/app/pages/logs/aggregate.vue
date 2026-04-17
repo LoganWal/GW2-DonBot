@@ -448,11 +448,12 @@ const clickableIntChartOptions = baseOptions(1)
 
 <style scoped>
 .stat-card {
+  container-type: inline-size;
   background: var(--p-surface-card);
   border: 1px solid var(--p-surface-border);
   border-radius: 0.5rem;
   padding: 1rem 1.5rem;
-  min-width: 120px;
+  min-width: 0;
 }
 .stat-label {
   font-size: 0.75rem;
@@ -462,8 +463,10 @@ const clickableIntChartOptions = baseOptions(1)
   margin-bottom: 0.25rem;
 }
 .stat-value {
-  font-size: 1.5rem;
+  font-size: clamp(0.65rem, 12cqi, 1.5rem);
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
 }
 .section-title {
   font-size: 1rem;

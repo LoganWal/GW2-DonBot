@@ -49,14 +49,18 @@
       :loading="pending"
       striped-rows
       @row-click="onRowClick"
-      style="cursor: pointer;"
+      style="cursor: pointer; user-select: none;"
     >
-      <Column style="width: 3rem; padding-right: 0;">
+      <Column style="width: 3rem; padding: 0;">
         <template #header>
-          <Checkbox :model-value="allOnPageSelected" :indeterminate="someOnPageSelected" binary @change="togglePageSelection" />
+          <div class="checkbox-cell" @click.stop="togglePageSelection">
+            <Checkbox :model-value="allOnPageSelected" :indeterminate="someOnPageSelected" binary style="pointer-events: none;" />
+          </div>
         </template>
         <template #body="{ data }">
-          <input type="checkbox" :checked="isSelected(data)" @click.stop="onCheckboxClick($event, data)" style="cursor: pointer; width: 1rem; height: 1rem;" />
+          <div class="checkbox-cell" @click.stop="onCheckboxClick($event, data)">
+            <input type="checkbox" :checked="isSelected(data)" style="pointer-events: none; width: 1rem; height: 1rem;" />
+          </div>
         </template>
       </Column>
       <Column header="Fight">
@@ -283,6 +287,16 @@ const goToAggregate = () => {
 </script>
 
 <style scoped>
+.checkbox-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 2.5rem;
+  cursor: pointer;
+}
+
 .quick-buttons {
   display: flex;
   flex-direction: column;

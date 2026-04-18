@@ -34,7 +34,8 @@ public static class AuthEndpoints
         HttpContext httpContext,
         ISecretService secretService,
         IConfiguration configuration,
-        IHttpClientFactory httpClientFactory)
+        IHttpClientFactory httpClientFactory,
+        IHostEnvironment env)
     {
         var nuxtBaseUrl = configuration["Nuxt:BaseUrl"] ?? "http://localhost:3000";
 
@@ -104,7 +105,7 @@ public static class AuthEndpoints
         {
             HttpOnly = true,
             SameSite = SameSiteMode.Lax,
-            Secure = false,
+            Secure = env.IsProduction(),
             Expires = DateTimeOffset.UtcNow.AddDays(7)
         });
 

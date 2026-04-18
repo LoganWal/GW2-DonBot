@@ -106,6 +106,7 @@ public static class AuthEndpoints
             HttpOnly = true,
             SameSite = SameSiteMode.Lax,
             Secure = env.IsProduction(),
+            Domain = configuration["CookieDomain"] is { Length: > 0 } d ? d : null,
             Expires = DateTimeOffset.UtcNow.AddDays(7)
         });
 

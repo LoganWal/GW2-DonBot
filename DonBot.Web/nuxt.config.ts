@@ -31,6 +31,7 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { class: 'dark' },
+      script: [{ src: '/config.js' }],
       link: [
         { rel: 'icon', type: 'image/png', href: '/donbot.png' },
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },

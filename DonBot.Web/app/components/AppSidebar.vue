@@ -40,21 +40,33 @@
 
 <script setup lang="ts">
 const { collapsed, mobileOpen, toggle, closeMobile } = useSidebar()
+const { user } = useAuth()
+const api = useApi()
 
 const logoImgSrc = '/donbot.png'
 const logoImgError = ref(false)
 const route = useRoute()
 
-const navItems = [
+const { data: pointsData } = await useAsyncData(
+  'sidebar-points',
+  () => user.value ? (api('/api/points/me') as Promise<any>).catch(() => null) : Promise.resolve(null),
+  { watch: [user] }
+)
+
+const hasPoints = computed(() => (pointsData.value?.points ?? 0) > 0)
+
+const allNavItems = [
   { label: 'Dashboard',      to: '/dashboard',   icon: 'pi-home' },
   { label: 'Fight Logs',    to: '/logs',        icon: 'pi-list' },
   { label: 'My Stats',      to: '/stats',       icon: 'pi-chart-bar' },
   { label: 'Personal Bests', to: '/bests',       icon: 'pi-crown' },
   { label: 'Progression',   to: '/progression', icon: 'pi-chart-line' },
   { label: 'Leaderboard',   to: '/leaderboard', icon: 'pi-trophy' },
-  { label: 'Points',        to: '/points',      icon: 'pi-star' },
+  { label: 'Points',        to: '/points',      icon: 'pi-star',  hidden: computed(() => !hasPoints.value) },
   { label: 'Accounts',     to: '/verify',      icon: 'pi-link' },
 ]
+
+const navItems = computed(() => allNavItems.filter(item => !item.hidden?.value))
 
 const isActive = (to: string) =>
   route.path === to || route.path.startsWith(to + '/')

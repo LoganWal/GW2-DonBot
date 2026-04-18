@@ -368,7 +368,9 @@ public static class StatsEndpoints
             .ToListAsync();
 
         var metaById = fightMeta.ToDictionary(f => f.FightLogId);
-        var playerLogById = playerLogs.ToDictionary(p => p.FightLogId);
+        var playerLogById = playerLogs
+            .GroupBy(p => p.FightLogId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.Damage).First());
 
         var isWvW = fightType == (short)FightTypesEnum.WvW;
 

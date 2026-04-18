@@ -18,23 +18,19 @@
 
     <template v-else-if="result">
       <!-- Stat cards: only when displayResult has data -->
-      <div v-if="displayResult" style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; align-items: center;">
-        <div class="stat-card">
-          <div class="stat-label">Logs</div>
-          <div v-fit-text class="stat-value">{{ displayResult.totalLogs }}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Fight Time</div>
-          <div v-fit-text class="stat-value">{{ formatDuration(displayResult.totalDurationMs) }}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Type</div>
-          <div v-fit-text class="stat-value">{{ displayResult.type === 'wvw' ? 'WvW' : 'PvE' }}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Players</div>
-          <div v-fit-text class="stat-value">{{ displayResult.players.length }}</div>
-        </div>
+      <div v-if="displayResult" style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; align-items: stretch;">
+        <Card class="stat-card">
+          <template #content><div class="stat-label">Logs</div><div v-fit-text class="stat-value">{{ displayResult.totalLogs }}</div></template>
+        </Card>
+        <Card class="stat-card">
+          <template #content><div class="stat-label">Fight Time</div><div v-fit-text class="stat-value">{{ formatDuration(displayResult.totalDurationMs) }}</div></template>
+        </Card>
+        <Card class="stat-card">
+          <template #content><div class="stat-label">Type</div><div v-fit-text class="stat-value">{{ displayResult.type === 'wvw' ? 'WvW' : 'PvE' }}</div></template>
+        </Card>
+        <Card class="stat-card">
+          <template #content><div class="stat-label">Players</div><div v-fit-text class="stat-value">{{ displayResult.players.length }}</div></template>
+        </Card>
         <ProgressSpinner v-if="filterPending" style="width: 2rem; height: 2rem;" />
       </div>
 
@@ -455,11 +451,7 @@ const clickableIntChartOptions = baseOptions(1)
 <style scoped>
 .stat-card {
   container-type: inline-size;
-  background: var(--p-surface-card);
-  border: 1px solid var(--p-surface-border);
-  border-radius: 0.5rem;
-  padding: 1rem 1.5rem;
-  min-width: 0;
+  min-width: 120px;
 }
 .stat-label {
   font-size: 0.75rem;

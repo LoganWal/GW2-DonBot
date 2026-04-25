@@ -423,35 +423,6 @@ public sealed class PvEFightSummaryService(
             x.IsInline = false;
         });
 
-        var allMechanicNames = gw2Players
-            .SelectMany(p => p.Mechanics.Keys)
-            .Distinct()
-            .OrderBy(k => gw2Players.Sum(p => p.Mechanics.GetValueOrDefault(k)))
-            .ToList();
-
-        foreach (var mechanicName in allMechanicNames)
-        {
-            var playersWithMechanic = gw2Players
-                .Where(p => p.Mechanics.GetValueOrDefault(mechanicName) > 0)
-                .OrderByDescending(p => p.Mechanics[mechanicName])
-                .ToList();
-            if (playersWithMechanic.Count == 0) continue;
-
-            var mechanicsOverview = "```Player         Count\n";
-            foreach (var gw2Player in playersWithMechanic)
-            {
-                mechanicsOverview += $"{gw2Player.AccountName.ClipAt(13),-13}{string.Empty,2}{gw2Player.Mechanics[mechanicName]}\n";
-            }
-            mechanicsOverview += "```";
-
-            message.AddField(x =>
-            {
-                x.Name = mechanicName.Length > 256 ? mechanicName[..256] : mechanicName;
-                x.Value = mechanicsOverview;
-                x.IsInline = false;
-            });
-        }
-
         footerService.AddInviteLink(message);
 
         return (message.Build(), webAppUrl);

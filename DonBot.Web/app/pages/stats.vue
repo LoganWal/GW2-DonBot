@@ -149,35 +149,6 @@
             </Card>
           </div>
 
-          <h2 class="section-title">Cerus Mechanics</h2>
-          <div class="stat-grid">
-            <Card class="stat-card">
-              <template #content><div class="stat-label">Phase 1 Damage</div><div v-fit-text class="stat-value">{{ stats.pve.totalCerusPhaseOneDamage?.toLocaleString() }}</div></template>
-            </Card>
-            <Card class="stat-card">
-              <template #content><div class="stat-label">Orbs Collected</div><div v-fit-text class="stat-value">{{ stats.pve.totalCerusOrbsCollected?.toLocaleString() }}</div></template>
-            </Card>
-            <Card class="stat-card">
-              <template #content><div class="stat-label">Spread Hits</div><div v-fit-text class="stat-value">{{ stats.pve.totalCerusSpreadHitCount?.toLocaleString() }}</div></template>
-            </Card>
-          </div>
-
-          <h2 class="section-title">Deimos Mechanics</h2>
-          <div class="stat-grid">
-            <Card class="stat-card">
-              <template #content><div class="stat-label">Oils Triggered</div><div v-fit-text class="stat-value">{{ stats.pve.totalDeimosOilsTriggered?.toLocaleString() }}</div></template>
-            </Card>
-          </div>
-
-          <h2 class="section-title">Ura Mechanics</h2>
-          <div class="stat-grid">
-            <Card class="stat-card">
-              <template #content><div class="stat-label">Shards Picked Up</div><div v-fit-text class="stat-value">{{ stats.pve.totalShardPickUp?.toLocaleString() }}</div></template>
-            </Card>
-            <Card class="stat-card">
-              <template #content><div class="stat-label">Shards Used</div><div v-fit-text class="stat-value">{{ stats.pve.totalShardUsed?.toLocaleString() }}</div></template>
-            </Card>
-          </div>
         </TabPanel>
       </Tabs>
       <template v-if="stats.characters?.length">

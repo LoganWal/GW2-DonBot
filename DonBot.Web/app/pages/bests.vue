@@ -22,10 +22,6 @@
           <BestCard label="Barrier Generated"   :entry="bests.pve.barrierGenerated"    :fmt="n => n.toLocaleString()" />
           <BestCard label="Quickness"           :entry="bests.pve.quickness"           :fmt="n => Number(n).toFixed(1) + '%'" />
           <BestCard label="Alacrity"            :entry="bests.pve.alacrity"            :fmt="n => Number(n).toFixed(1) + '%'" />
-          <BestCard label="Cerus P1 Damage"     :entry="bests.pve.cerusPhaseOneDamage" :fmt="n => Number(n).toLocaleString()" />
-          <BestCard label="Cerus Orbs"          :entry="bests.pve.cerusOrbsCollected"  :fmt="n => n.toLocaleString()" />
-          <BestCard label="Deimos Oils"         :entry="bests.pve.deimosOilsTriggered" :fmt="n => n.toLocaleString()" />
-          <BestCard label="Ura Shards Picked"   :entry="bests.pve.shardPickUp"         :fmt="n => n.toLocaleString()" />
         </div>
 
         <template v-if="bests.bestTimes?.length">

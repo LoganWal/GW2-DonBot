@@ -159,16 +159,7 @@ public static class StatsEndpoints
             totalResurrectionTime = logs.Sum(p => p.ResurrectionTime),
             totalDamageTaken = logs.Sum(p => p.DamageTaken),
             totalTimesDowned = logs.Sum(p => p.TimesDowned),
-            totalDeaths = logs.Sum(p => p.Deaths),
-            // Cerus (Temple of Febe)
-            totalCerusPhaseOneDamage = logs.Sum(p => (double)p.CerusPhaseOneDamage),
-            totalCerusOrbsCollected = logs.Sum(p => p.CerusOrbsCollected),
-            totalCerusSpreadHitCount = logs.Sum(p => p.CerusSpreadHitCount),
-            // Deimos
-            totalDeimosOilsTriggered = logs.Sum(p => p.DeimosOilsTriggered),
-            // Ura
-            totalShardPickUp = logs.Sum(p => p.ShardPickUp),
-            totalShardUsed = logs.Sum(p => p.ShardUsed)
+            totalDeaths = logs.Sum(p => p.Deaths)
         };
     }
 
@@ -443,9 +434,5 @@ public static class StatsEndpoints
         quickness = Best(logs, p => p.QuicknessDuration, meta),
         alacrity = Best(logs, p => p.AlacDuration, meta),
         barrierGenerated = Best(logs, p => p.BarrierGenerated, meta),
-        cerusPhaseOneDamage = Best(logs, p => p.CerusPhaseOneDamage, meta),
-        cerusOrbsCollected = Best(logs, p => p.CerusOrbsCollected, meta),
-        deimosOilsTriggered = Best(logs, p => p.DeimosOilsTriggered, meta),
-        shardPickUp = Best(logs, p => p.ShardPickUp, meta),
     };
 }

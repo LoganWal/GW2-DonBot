@@ -438,6 +438,7 @@ internal class FakeEntityService : IEntityService
     public IDatabaseUpdateService<GuildQuote> GuildQuote => throw new NotImplementedException();
     public IDatabaseUpdateService<GuildWarsAccount> GuildWarsAccount => throw new NotImplementedException();
     public IDatabaseUpdateService<PlayerFightLog> PlayerFightLog => throw new NotImplementedException();
+    public IDatabaseUpdateService<PlayerFightLogMechanic> PlayerFightLogMechanic => throw new NotImplementedException();
     public IDatabaseUpdateService<PlayerRaffleBid> PlayerRaffleBid => throw new NotImplementedException();
     public IDatabaseUpdateService<Raffle> Raffle => throw new NotImplementedException();
     public IDatabaseUpdateService<SteamAccount> SteamAccount => throw new NotImplementedException();

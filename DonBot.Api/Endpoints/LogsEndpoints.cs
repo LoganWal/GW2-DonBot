@@ -398,6 +398,11 @@ public static class LogsEndpoints
             .Where(pfl => pfl.FightLogId == id)
             .ToListAsync();
 
-        return Results.Ok(new { log, players = playerLogs });
+        var playerLogIds = playerLogs.Select(p => p.PlayerFightLogId).ToList();
+        var mechanicLogs = await context.PlayerFightLogMechanic
+            .Where(m => playerLogIds.Contains(m.PlayerFightLogId))
+            .ToListAsync();
+
+        return Results.Ok(new { log, players = playerLogs, mechanics = mechanicLogs });
     }
 }

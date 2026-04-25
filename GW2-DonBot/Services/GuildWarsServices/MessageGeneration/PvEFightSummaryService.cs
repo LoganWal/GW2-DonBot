@@ -241,7 +241,7 @@ public sealed class PvEFightSummaryService(
                 break;
         }
 
-        var gw2Players = playerService.GetGw2Players(data, fightPhase, encounterType, sumAllTargets);
+        var gw2Players = playerService.GetGw2Players(data, fightPhase, sumAllTargets);
         var mainTarget = data.FightEliteInsightDataModel.Targets?.FirstOrDefault() ?? new ArcDpsTarget
         {
             HpLeft = 1,
@@ -339,18 +339,29 @@ public sealed class PvEFightSummaryService(
                 NumberOfBoonsRipped = Convert.ToInt64(gw2Player.NumberOfBoonsRipped),
                 DamageTaken = Convert.ToInt64(gw2Player.DamageTaken),
                 BarrierMitigation = Convert.ToInt64(gw2Player.BarrierMitigation),
-                CerusOrbsCollected = gw2Player.CerusOrbsCollected,
-                CerusSpreadHitCount = gw2Player.CerusSpreadHitCount,
-                CerusPhaseOneDamage = Convert.ToDecimal(gw2Player.CerusPhaseOneDamage),
-                DeimosOilsTriggered = gw2Player.DeimosOilsTriggered,
                 TimesInterrupted = gw2Player.TimesInterrupted,
                 ResurrectionTime = gw2Player.ResurrectionTime,
-                ShardPickUp = gw2Player.ShardPickUp,
-                ShardUsed = gw2Player.ShardUsed,
                 TimeOfDeath = gw2Player.TimeOfDeath
             }).ToList();
 
             await entityService.PlayerFightLog.AddRangeAsync(playerFights);
+
+            var mechanicRecords = playerFights
+                .SelectMany(pfl =>
+                {
+                    var player = gw2Players.FirstOrDefault(p => p.AccountName == pfl.GuildWarsAccountName);
+                    return player?.Mechanics.Select(m => new PlayerFightLogMechanic
+                    {
+                        PlayerFightLogId = pfl.PlayerFightLogId,
+                        MechanicName = m.Key,
+                        MechanicCount = m.Value
+                    }) ?? [];
+                }).ToList();
+            if (mechanicRecords.Count > 0)
+            {
+                await entityService.PlayerFightLogMechanic.AddRangeAsync(mechanicRecords);
+            }
+
             await FightLogHelpers.UpsertRawDataAsync(entityService, fightLog.FightLogId, data);
 
             existingFightLog = fightLog;
@@ -412,51 +423,31 @@ public sealed class PvEFightSummaryService(
             x.IsInline = false;
         });
 
-        var mechanicsOverview = string.Empty;
-        var mechanicsHeading = string.Empty;
+        var allMechanicNames = gw2Players
+            .SelectMany(p => p.Mechanics.Keys)
+            .Distinct()
+            .OrderBy(k => gw2Players.Sum(p => p.Mechanics.GetValueOrDefault(k)))
+            .ToList();
 
-        if (encounterType == (short)FightTypesEnum.ToF)
+        foreach (var mechanicName in allMechanicNames)
         {
-            mechanicsHeading = "Cerus Mechanics";
-            mechanicsOverview = "```Player         P1 Dmg    Orbs\n";
-            foreach (var gw2Player in gw2Players.OrderByDescending(s => s.CerusPhaseOneDamage))
+            var playersWithMechanic = gw2Players
+                .Where(p => p.Mechanics.GetValueOrDefault(mechanicName) > 0)
+                .OrderByDescending(p => p.Mechanics[mechanicName])
+                .ToList();
+            if (playersWithMechanic.Count == 0) continue;
+
+            var mechanicsOverview = "```Player         Count\n";
+            foreach (var gw2Player in playersWithMechanic)
             {
-                mechanicsOverview += $"{gw2Player.AccountName.ClipAt(13),-13}{string.Empty,2}{((float)gw2Player.CerusPhaseOneDamage).FormatNumber(true),-8}{string.Empty,2}{gw2Player.CerusOrbsCollected,-3}\n";
+                mechanicsOverview += $"{gw2Player.AccountName.ClipAt(13),-13}{string.Empty,2}{gw2Player.Mechanics[mechanicName]}\n";
             }
-
             mechanicsOverview += "```";
-        }
 
-        if (encounterType == (short)FightTypesEnum.Deimos)
-        {
-            mechanicsHeading = "Deimos Mechanics";
-            mechanicsOverview = "```Player         Oils\n";
-            foreach (var gw2Player in gw2Players.OrderByDescending(s => s.DeimosOilsTriggered))
-            {
-                mechanicsOverview += $"{gw2Player.AccountName.ClipAt(13),-13}{string.Empty,2}{gw2Player.DeimosOilsTriggered}\n";
-            }
-
-            mechanicsOverview += "```";
-        }
-
-        if (encounterType == (short)FightTypesEnum.Ura)
-        {
-            mechanicsHeading = "Ura Mechanics";
-            mechanicsOverview = "```Player         Shard P    Shard U\n";
-            foreach (var gw2Player in gw2Players.OrderByDescending(s => s.ShardPickUp))
-            {
-                mechanicsOverview += $"{gw2Player.AccountName.ClipAt(13),-13}{string.Empty,2}{gw2Player.ShardPickUp,-3}{string.Empty,8}{gw2Player.ShardUsed,-3}\n";
-            }
-
-            mechanicsOverview += "```";
-        }
-
-        if (!string.IsNullOrEmpty(mechanicsOverview))
-        {
             message.AddField(x =>
             {
-                x.Name = mechanicsHeading;
-                x.Value = $"{mechanicsOverview}";
+                x.Name = mechanicName.Length > 256 ? mechanicName[..256] : mechanicName;
+                x.Value = mechanicsOverview;
                 x.IsInline = false;
             });
         }

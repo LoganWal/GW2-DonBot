@@ -371,33 +371,6 @@ public sealed class RaidReportService(
 
         AddChunkedCodeFenceFields(surviveEmbed, "Survivability Overview", SurvivabilityHeader, BuildSurvivabilityRows(groupedPlayerFights));
 
-        var playerFightLogIdToAccount = groupedPlayerFights
-            .SelectMany(g => g.Select(pfl => (pfl.PlayerFightLogId, pfl.GuildWarsAccountName)))
-            .ToDictionary(x => x.PlayerFightLogId, x => x.GuildWarsAccountName);
-
-        var allMechanicNames = OrderedMechanicNames(mechanics);
-
-        foreach (var mechanicName in allMechanicNames)
-        {
-            var byAccount = MechanicAccountTotals(mechanicName, mechanics, playerFightLogIdToAccount);
-
-            if (byAccount.Count == 0) continue;
-
-            var mechanicsOverview = "```Player         Count\n";
-            foreach (var (accountName, total) in byAccount)
-            {
-                mechanicsOverview += $"{accountName.ClipAt(13),-13}{string.Empty,2}{total}\n";
-            }
-            mechanicsOverview += "```";
-
-            surviveEmbed.AddField(x =>
-            {
-                x.Name = mechanicName.Length > 256 ? mechanicName[..256] : mechanicName;
-                x.Value = mechanicsOverview;
-                x.IsInline = false;
-            });
-        }
-
         return [fightsEmbed.Build(), playerEmbed.Build(), surviveEmbed.Build()];
     }
 

@@ -369,7 +369,7 @@ public class DiscordMessageHandler(
                 {
                     var cb = new ComponentBuilder();
                     var hasButton = false;
-                    if (i == 0 && replyWebAppUrl != null) { cb.WithButton("View on DonBot", style: ButtonStyle.Link, url: replyWebAppUrl); hasButton = true; }
+                    if (i == messages.Count - 1 && replyWebAppUrl != null) { cb.WithButton("View on DonBot", style: ButtonStyle.Link, url: replyWebAppUrl); hasButton = true; }
                     if (i == bestTimesIndex && bestTimesButtonId != null) { cb.WithButton("Best Times", bestTimesButtonId); hasButton = true; }
                     await interaction.Channel.SendMessageAsync(embeds: [messages[i]], components: hasButton ? cb.Build() : null);
                 }

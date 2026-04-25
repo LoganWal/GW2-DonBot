@@ -67,19 +67,7 @@ public class PlayerFightLog
 
     public long BarrierMitigation { get; init; }
 
-    public long CerusOrbsCollected { get; init; }
-
-    public long CerusSpreadHitCount { get; init; }
-
-    public decimal CerusPhaseOneDamage { get; init; }
-
-    public long DeimosOilsTriggered { get; init; }
-
     public int ResurrectionTime { get; init; }
 
-    public long ShardPickUp { get; init; }
-
-    public long ShardUsed { get; init; }
-    
     public long? TimeOfDeath { get; init; }
 }

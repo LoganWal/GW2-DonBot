@@ -151,6 +151,8 @@ public sealed class RaidReportService(
         fights = fights.OrderBy(s => s.FightStart).ToList();
         var fightLogIds = fights.Select(f => f.FightLogId).ToList();
         var playerFights = await entityService.PlayerFightLog.GetWhereAsync(s => fightLogIds.Contains(s.FightLogId));
+        var playerFightLogIds = playerFights.Select(p => p.PlayerFightLogId).ToList();
+        var mechanics = await entityService.PlayerFightLogMechanic.GetWhereAsync(m => playerFightLogIds.Contains(m.PlayerFightLogId));
 
         var groupedPlayerFights = playerFights.GroupBy(s => s.GuildWarsAccountName).OrderByDescending(s => s.Sum(d => d.Damage)).ToList();
         var groupedFights = fights.GroupBy(f => f.FightType).OrderBy(f => f.Key).ToList();
@@ -177,7 +179,7 @@ public sealed class RaidReportService(
         }
         else
         {
-            messages.AddRange(await GeneratePvERaidReport(durationString, groupedFights, groupedPlayerFights, fights, guildId));
+            messages.AddRange(await GeneratePvERaidReport(durationString, groupedFights, groupedPlayerFights, fights, mechanics.ToList(), guildId));
             var successLogs = await GeneratePvERaidLogReport(durationString, fights, true, guildId);
             if (successLogs != null)
             {
@@ -274,7 +276,7 @@ public sealed class RaidReportService(
         return await wvWFightSummaryService.GenerateMessage(advancedLog, 10, gw2Players, message, guildId, statTotals);
     }
 
-    private async Task<List<Embed>> GeneratePvERaidReport(string durationString, List<IGrouping<short, FightLog>> groupedFights, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights, long guildId)
+    private async Task<List<Embed>> GeneratePvERaidReport(string durationString, List<IGrouping<short, FightLog>> groupedFights, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights, List<PlayerFightLogMechanic> mechanics, long guildId)
     {
         var color = (Color)System.Drawing.Color.FromArgb(195, 0, 101);
         var author = new EmbedAuthorBuilder
@@ -369,77 +371,54 @@ public sealed class RaidReportService(
 
         AddChunkedCodeFenceFields(surviveEmbed, "Survivability Overview", SurvivabilityHeader, BuildSurvivabilityRows(groupedPlayerFights));
 
-        foreach (var groupedFight in groupedFights)
+        var playerFightLogIdToAccount = groupedPlayerFights
+            .SelectMany(g => g.Select(pfl => (pfl.PlayerFightLogId, pfl.GuildWarsAccountName)))
+            .ToDictionary(x => x.PlayerFightLogId, x => x.GuildWarsAccountName);
+
+        var allMechanicNames = OrderedMechanicNames(mechanics);
+
+        foreach (var mechanicName in allMechanicNames)
         {
-            var mechanicsOverview = string.Empty;
-            var mechanicsHeading = string.Empty;
+            var byAccount = MechanicAccountTotals(mechanicName, mechanics, playerFightLogIdToAccount);
 
-            if (groupedFight.Key == (short)FightTypesEnum.ToF)
-            {
-                mechanicsHeading = "Cerus Mechanics";
-                mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.ToF, "```Player         P1 Dmg    Orbs\n", pf => pf.CerusPhaseOneDamage, groupedPlayerFights, fights, true);
-            }
+            if (byAccount.Count == 0) continue;
 
-            if (groupedFight.Key == (short)FightTypesEnum.Deimos)
+            var mechanicsOverview = "```Player         Count\n";
+            foreach (var (accountName, total) in byAccount)
             {
-                mechanicsHeading = "Deimos Mechanics";
-                mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.Deimos, "```Player         Oils\n", pf => pf.DeimosOilsTriggered, groupedPlayerFights, fights);
+                mechanicsOverview += $"{accountName.ClipAt(13),-13}{string.Empty,2}{total}\n";
             }
+            mechanicsOverview += "```";
 
-            if (groupedFight.Key == (short)FightTypesEnum.Ura)
+            surviveEmbed.AddField(x =>
             {
-                mechanicsHeading = "Ura Mechanics";
-                mechanicsOverview = GenerateMechanicsOverview((short)FightTypesEnum.Ura, "```Player         Shard P    Shard U\n", pf => pf.ShardPickUp, groupedPlayerFights, fights);
-            }
-
-            if (!string.IsNullOrEmpty(mechanicsOverview))
-            {
-                surviveEmbed.AddField(x =>
-                {
-                    x.Name = mechanicsHeading;
-                    x.Value = mechanicsOverview;
-                    x.IsInline = false;
-                });
-            }
+                x.Name = mechanicName.Length > 256 ? mechanicName[..256] : mechanicName;
+                x.Value = mechanicsOverview;
+                x.IsInline = false;
+            });
         }
 
         return [fightsEmbed.Build(), playerEmbed.Build(), surviveEmbed.Build()];
     }
 
-    private string GenerateMechanicsOverview(short fightType, string header, Func<PlayerFightLog, decimal> orderBySelector, IEnumerable<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights, bool byMax = false)
-    {
-        var mechanicsOverview = header;
+    internal static List<string> OrderedMechanicNames(List<PlayerFightLogMechanic> mechanics) =>
+        mechanics
+            .Select(m => m.MechanicName)
+            .Distinct()
+            .OrderBy(n => mechanics.Where(m => m.MechanicName == n).Sum(m => m.MechanicCount))
+            .ToList();
 
-        var orderedGroupedFights = byMax
-            ? groupedPlayerFights.OrderByDescending(group => group.Max(orderBySelector))
-            : groupedPlayerFights.OrderByDescending(group => group.Sum(orderBySelector));
-
-        foreach (var groupedPlayerFight in orderedGroupedFights)
-        {
-            var playerFightsListForType = groupedPlayerFight.ToList();
-            var playerFights = fights.Where(f => playerFightsListForType.Select(s => s.FightLogId).Contains(f.FightLogId)).ToList();
-            playerFights = playerFights.Where(s => s.FightType == fightType).ToList();
-            playerFightsListForType = playerFightsListForType.Where(s => playerFights.Select(pf => pf.FightLogId).Contains(s.FightLogId)).ToList();
-
-            if (playerFightsListForType.Any())
-            {
-                if (fightType == (short)FightTypesEnum.ToF)
-                {
-                    mechanicsOverview += $"{playerFightsListForType.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,2}{((float)playerFightsListForType.Max(s => s.CerusPhaseOneDamage)).FormatNumber(true),-8}{string.Empty,2}{playerFightsListForType.Sum(s => s.CerusOrbsCollected),-3}\n";
-                }
-                else if (fightType == (short)FightTypesEnum.Deimos)
-                {
-                    mechanicsOverview += $"{playerFightsListForType.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,2}{playerFightsListForType.Sum(s => s.DeimosOilsTriggered),-3}\n";
-                }
-                else if (fightType == (short)FightTypesEnum.Ura)
-                {
-                    mechanicsOverview += $"{playerFightsListForType.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,2}{playerFightsListForType.Sum(s => s.ShardPickUp),-3}{string.Empty,8}{playerFightsListForType.Sum(s => s.ShardUsed),-3}\n";
-                }
-            }
-        }
-
-        return mechanicsOverview + "```";
-    }
+    internal static List<(string AccountName, long Total)> MechanicAccountTotals(
+        string mechanicName,
+        List<PlayerFightLogMechanic> mechanics,
+        Dictionary<long, string> playerFightLogIdToAccount) =>
+        mechanics
+            .Where(m => m.MechanicName == mechanicName && playerFightLogIdToAccount.ContainsKey(m.PlayerFightLogId))
+            .GroupBy(m => playerFightLogIdToAccount[m.PlayerFightLogId])
+            .Select(g => (AccountName: g.Key, Total: g.Sum(m => m.MechanicCount)))
+            .Where(x => x.Total > 0)
+            .OrderByDescending(x => x.Total)
+            .ToList();
 
     private async Task<Embed?> GeneratePvERaidLogReport(string durationString, List<FightLog> fights, bool isSuccessLogs, long guildId)
     {

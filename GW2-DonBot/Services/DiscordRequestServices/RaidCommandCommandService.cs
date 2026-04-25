@@ -116,7 +116,7 @@ public sealed class RaidCommandCommandService(IEntityService entityService, IMes
         {
             var cb = new ComponentBuilder();
             var hasButton = false;
-            if (i == 0 && raidWebAppUrl != null) { cb.WithButton("View on DonBot", style: ButtonStyle.Link, url: raidWebAppUrl); hasButton = true; }
+            if (i == messages.Count - 1 && raidWebAppUrl != null) { cb.WithButton("View on DonBot", style: ButtonStyle.Link, url: raidWebAppUrl); hasButton = true; }
             if (i == bestTimesIndex && bestTimesButtonId != null) { cb.WithButton("Best Times", bestTimesButtonId); hasButton = true; }
             await targetChannel.SendMessageAsync(embeds: [messages[i]], components: hasButton ? cb.Build() : null);
         }

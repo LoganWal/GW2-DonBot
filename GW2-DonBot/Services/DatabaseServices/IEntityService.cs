@@ -20,6 +20,8 @@ public interface IEntityService
 
     IDatabaseUpdateService<PlayerFightLog> PlayerFightLog { get; }
 
+    IDatabaseUpdateService<PlayerFightLogMechanic> PlayerFightLogMechanic { get; }
+
     IDatabaseUpdateService<PlayerRaffleBid> PlayerRaffleBid { get; }
 
     IDatabaseUpdateService<Raffle> Raffle { get; }

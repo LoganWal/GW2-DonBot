@@ -60,19 +60,9 @@ public class Gw2Player
 
     public double TotalAlac { get; set; }
 
-    public long CerusOrbsCollected { get; set; }
-
-    public long CerusSpreadHitCount { get; set; }
-
-    public double CerusPhaseOneDamage { get; set; }
-
-    public long DeimosOilsTriggered { get; set; }
-    
     public int ResurrectionTime { get; set; }
 
-    public long ShardPickUp { get; set; }
-
-    public long ShardUsed { get; set; }
-    
     public long? TimeOfDeath { get; set; }
+
+    public Dictionary<string, long> Mechanics { get; set; } = new();
 }

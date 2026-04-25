@@ -17,6 +17,7 @@ public sealed class DatabaseContext : DbContext
         FightLogRawData = Set<FightLogRawData>();
         FightsReport = Set<FightsReport>();
         PlayerFightLog = Set<PlayerFightLog>();
+        PlayerFightLogMechanic = Set<PlayerFightLogMechanic>();
         GuildQuote = Set<GuildQuote>();
         SteamAccount = Set<SteamAccount>();
         ScheduledEvent = Set<ScheduledEvent>();
@@ -40,6 +41,8 @@ public sealed class DatabaseContext : DbContext
     public DbSet<FightsReport> FightsReport { get; set; }
 
     public DbSet<PlayerFightLog> PlayerFightLog { get; set; }
+
+    public DbSet<PlayerFightLogMechanic> PlayerFightLogMechanic { get; set; }
 
     public DbSet<GuildQuote> GuildQuote { get; set; }
 
@@ -81,10 +84,6 @@ public sealed class DatabaseContext : DbContext
             .HasPrecision(6, 2);
 
         modelBuilder.Entity<PlayerFightLog>()
-            .Property(pfl => pfl.CerusPhaseOneDamage)
-            .HasPrecision(10, 3);
-
-        modelBuilder.Entity<PlayerFightLog>()
             .Property(pfl => pfl.DistanceFromTag)
             .HasPrecision(16, 2);
 
@@ -103,5 +102,11 @@ public sealed class DatabaseContext : DbContext
         modelBuilder.Entity<PlayerRaffleBid>()
             .Property(prb => prb.PointsSpent)
             .HasPrecision(16, 3);
+
+        modelBuilder.Entity<PlayerFightLogMechanic>()
+            .HasOne<PlayerFightLog>()
+            .WithMany()
+            .HasForeignKey(m => m.PlayerFightLogId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

@@ -11,6 +11,7 @@ public sealed class EntityService(
     IDatabaseUpdateService<GuildQuote> guildQuote,
     IDatabaseUpdateService<GuildWarsAccount> guildWarsAccount,
     IDatabaseUpdateService<PlayerFightLog> playerFightLog,
+    IDatabaseUpdateService<PlayerFightLogMechanic> playerFightLogMechanic,
     IDatabaseUpdateService<PlayerRaffleBid> playerRaffleBid,
     IDatabaseUpdateService<Raffle> raffle,
     IDatabaseUpdateService<SteamAccount> steamAccount,
@@ -33,6 +34,8 @@ public sealed class EntityService(
     public IDatabaseUpdateService<GuildWarsAccount> GuildWarsAccount { get; } = guildWarsAccount;
 
     public IDatabaseUpdateService<PlayerFightLog> PlayerFightLog { get; } = playerFightLog;
+
+    public IDatabaseUpdateService<PlayerFightLogMechanic> PlayerFightLogMechanic { get; } = playerFightLogMechanic;
 
     public IDatabaseUpdateService<PlayerRaffleBid> PlayerRaffleBid { get; } = playerRaffleBid;
 

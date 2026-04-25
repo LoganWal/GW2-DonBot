@@ -204,38 +204,11 @@
           </DataTable>
         </CollapsibleSection>
 
-        <CollapsibleSection v-if="hasCerusMechanics" title="Cerus Mechanics">
-          <DataTable :value="pvePlayersSortedByDamage" striped-rows scrollable>
-            <Column field="guildWarsAccountName" header="Account" style="min-width: 160px;" />
-            <Column header="P1 Damage" :sortable="true" sort-field="cerusPhaseOneDamage">
-              <template #body="{ data }">{{ Number(data.cerusPhaseOneDamage).toLocaleString() }}</template>
-            </Column>
-            <Column header="Orbs" :sortable="true" sort-field="cerusOrbsCollected">
-              <template #body="{ data }">{{ data.cerusOrbsCollected }}</template>
-            </Column>
-            <Column header="Spread Hits" :sortable="true" sort-field="cerusSpreadHitCount">
-              <template #body="{ data }">{{ data.cerusSpreadHitCount }}</template>
-            </Column>
-          </DataTable>
-        </CollapsibleSection>
-
-        <CollapsibleSection v-if="hasDeimoseMechanics" title="Deimos Mechanics">
-          <DataTable :value="pvePlayersSortedByDamage" striped-rows scrollable>
-            <Column field="guildWarsAccountName" header="Account" style="min-width: 160px;" />
-            <Column header="Oils Triggered" :sortable="true" sort-field="deimosOilsTriggered">
-              <template #body="{ data }">{{ data.deimosOilsTriggered }}</template>
-            </Column>
-          </DataTable>
-        </CollapsibleSection>
-
-        <CollapsibleSection v-if="hasUraMechanics" title="Ura Mechanics">
-          <DataTable :value="pvePlayersSortedByDamage" striped-rows scrollable>
-            <Column field="guildWarsAccountName" header="Account" style="min-width: 160px;" />
-            <Column header="Shards Picked" :sortable="true" sort-field="shardPickUp">
-              <template #body="{ data }">{{ data.shardPickUp }}</template>
-            </Column>
-            <Column header="Shards Used" :sortable="true" sort-field="shardUsed">
-              <template #body="{ data }">{{ data.shardUsed }}</template>
+        <CollapsibleSection v-if="mechanicNames.length > 0" title="Fight Mechanics">
+          <DataTable :value="mechanicTableRows" striped-rows scrollable>
+            <Column field="account" header="Account" style="min-width: 160px;" frozen />
+            <Column v-for="name in mechanicNames" :key="name" :field="name" :header="name" :sortable="true" header-style="white-space: nowrap">
+              <template #body="{ data }">{{ data[name] ?? 0 }}</template>
             </Column>
           </DataTable>
         </CollapsibleSection>
@@ -255,7 +228,7 @@ const route = useRoute()
 
 const { data: fight, pending } = await useAsyncData(
   `log-${route.params.id}`,
-  () => api(`/api/logs/${route.params.id}`) as Promise<{ log: any; players: any[] }>
+  () => api(`/api/logs/${route.params.id}`) as Promise<{ log: any; players: any[]; mechanics: any[] }>
 )
 
 const sum = (field: string) =>
@@ -278,17 +251,32 @@ const pvePlayersSortedByRes = computed(() =>
   [...(fight.value?.players ?? [])].sort((a, b) => a.resurrectionTime - b.resurrectionTime)
 )
 
-const hasCerusMechanics = computed(() =>
-  (fight.value?.players ?? []).some((p: any) => p.cerusOrbsCollected > 0 || p.cerusSpreadHitCount > 0 || p.cerusPhaseOneDamage > 0)
-)
+const mechanicNames = computed(() => {
+  const names = new Set<string>()
+  for (const m of (fight.value?.mechanics ?? [])) {
+    if (m.mechanicCount > 0) names.add(m.mechanicName)
+  }
+  return [...names].sort()
+})
 
-const hasDeimoseMechanics = computed(() =>
-  (fight.value?.players ?? []).some((p: any) => p.deimosOilsTriggered > 0)
-)
+const mechanicTableRows = computed(() => {
+  const playerLogIds: Record<number, string> = {}
+  for (const p of (fight.value?.players ?? [])) {
+    playerLogIds[p.playerFightLogId] = p.guildWarsAccountName
+  }
 
-const hasUraMechanics = computed(() =>
-  (fight.value?.players ?? []).some((p: any) => p.shardPickUp > 0 || p.shardUsed > 0)
-)
+  const byAccount: Record<string, Record<string, number>> = {}
+  for (const m of (fight.value?.mechanics ?? [])) {
+    if (m.mechanicCount <= 0) continue
+    const account = playerLogIds[m.playerFightLogId] ?? '?'
+    if (!byAccount[account]) byAccount[account] = {}
+    byAccount[account][m.mechanicName] = (byAccount[account][m.mechanicName] ?? 0) + m.mechanicCount
+  }
+
+  return Object.entries(byAccount)
+    .map(([account, counts]) => ({ account, ...counts }))
+    .sort((a, b) => a.account.localeCompare(b.account))
+})
 
 const FIGHT_NAMES: Record<number, string> = {
   0: 'WvW', 1: 'Vale Guardian', 2: 'Gorseval', 3: 'Sabetha', 4: 'Slothasor',

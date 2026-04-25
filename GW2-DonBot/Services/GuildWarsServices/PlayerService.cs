@@ -1,6 +1,5 @@
 ﻿using DonBot.Extensions;
 using DonBot.Models.Entities;
-using DonBot.Models.Enums;
 using DonBot.Models.GuildWars2;
 using DonBot.Models.Statics;
 using DonBot.Services.DatabaseServices;
@@ -10,7 +9,7 @@ namespace DonBot.Services.GuildWarsServices;
 
 public sealed class PlayerService(IEntityService entityService) : IPlayerService
 {
-    public List<Gw2Player> GetGw2Players(EliteInsightDataModel data, ArcDpsPhase fightPhase, short? encounterType = null, bool someAllFights = true)
+    public List<Gw2Player> GetGw2Players(EliteInsightDataModel data, ArcDpsPhase fightPhase, bool someAllFights = true)
     {
         if (data.FightEliteInsightDataModel.Players == null)
         {
@@ -57,7 +56,6 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
             var playerIndex = data.FightEliteInsightDataModel.Players.IndexOf(arcDpsPlayer);
             var fightPhaseStats = fightPhase.DpsStatsTargets?.Count >= playerIndex + 1 ? fightPhase.DpsStatsTargets[playerIndex] : null;
             var fightAllDps = fightPhase.DpsStats?.Count >= playerIndex + 1 ? fightPhase.DpsStats[playerIndex] : null;
-            var firstFightPhaseStats = (data.FightEliteInsightDataModel.Phases?.Count > 2 && fightPhase.DpsStatsTargets?.Count >= playerIndex + 1) ? data.FightEliteInsightDataModel.Phases[1].DpsStatsTargets?[playerIndex] : null;
             var supportStats = fightPhase.SupportStats?.Count >= playerIndex + 1 ? fightPhase.SupportStats[playerIndex] : null;
             var boonGenGroupStats = fightPhase.BuffsStatContainer.BoonGenGroupStats?.Count >= playerIndex + 1 ? fightPhase.BuffsStatContainer.BoonGenGroupStats[playerIndex] : null;
             var boonGenOffGroupStats = fightPhase.BuffsStatContainer.BoonGenOGroupStats?.Count >= playerIndex + 1 ? fightPhase.BuffsStatContainer.BoonGenOGroupStats[playerIndex] : null;
@@ -180,74 +178,15 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
                 Console.WriteLine($"Stack: {ex.StackTrace}");
             }
 
-            switch (encounterType)
+            var possibleMechanics = data.FightEliteInsightDataModel.MechanicMap?.Where(s => s.PlayerMech).ToList() ?? [];
+            for (var mechIndex = 0; mechIndex < possibleMechanics.Count; mechIndex++)
             {
-                case (short)FightTypesEnum.ToF:
-                {
-                    var possibleMechanics = data.FightEliteInsightDataModel.MechanicMap?.Where(s => s.PlayerMech).ToList() ?? [];
-                    var cerusOrbsCollected = GetMechanicValueForPlayer(possibleMechanics, "Insatiable Application", mechanics);
-                    var cerusSpreadHitCount = GetMechanicValueForPlayer(possibleMechanics, "Pool of Despair Hit", mechanics);
-                    cerusSpreadHitCount += GetMechanicValueForPlayer(possibleMechanics, "Empowered Pool of Despair Hit", mechanics);
-
-                    if (isNewPlayer)
-                    {
-                        existingPlayer.CerusOrbsCollected = cerusOrbsCollected;
-                        existingPlayer.CerusSpreadHitCount = cerusSpreadHitCount;
-                    }
-                    else
-                    {
-                        existingPlayer.CerusOrbsCollected += cerusOrbsCollected;
-                        existingPlayer.CerusSpreadHitCount += cerusSpreadHitCount;
-                    }
-
-                    if (firstFightPhaseStats != null)
-                    {
-                        var phaseOneDamage = ((double)firstFightPhaseStats[0][0] / data.FightEliteInsightDataModel.Phases?[1].Duration * 1000) ?? 0;
-                        if (isNewPlayer)
-                        {
-                            existingPlayer.CerusPhaseOneDamage = phaseOneDamage;
-                        }
-                        else
-                        {
-                            existingPlayer.CerusPhaseOneDamage += phaseOneDamage;
-                        }
-                    }
-
-                    break;
-                }
-                case (short)FightTypesEnum.Deimos:
-                {
-                    var possibleMechanics = data.FightEliteInsightDataModel.MechanicMap?.Where(s => s.PlayerMech).ToList() ?? [];
-                    var deimosOilsTriggered = GetMechanicValueForPlayer(possibleMechanics, "Black Oil Trigger", mechanics);
-                    
-                    if (isNewPlayer)
-                    {
-                        existingPlayer.DeimosOilsTriggered = deimosOilsTriggered;
-                    }
-                    else
-                    {
-                        existingPlayer.DeimosOilsTriggered += deimosOilsTriggered;
-                    }
-                    break;
-                }
-                case (short)FightTypesEnum.Ura:
-                {
-                    var possibleMechanics = data.FightEliteInsightDataModel.MechanicMap?.Where(s => s.PlayerMech).ToList() ?? [];
-                    var shardPickUp = GetMechanicValueForPlayer(possibleMechanics, "Bloodstone Shard Pick-up", mechanics);
-                    var shardUsed = GetMechanicValueForPlayer(possibleMechanics, "Used Dispel", mechanics);
-                    
-                    if (isNewPlayer)
-                    {
-                        existingPlayer.ShardPickUp = shardPickUp;
-                        existingPlayer.ShardUsed = shardUsed;
-                    }
-                    else
-                    {
-                        existingPlayer.ShardPickUp += shardPickUp;
-                        existingPlayer.ShardUsed += shardUsed;
-                    }
-                    break;
-                }
+                var mechanic = possibleMechanics[mechIndex];
+                if (string.IsNullOrEmpty(mechanic.Name) || mechanics == null || mechIndex >= mechanics.Count) continue;
+                var value = (mechanics[mechIndex] as JArray)?.Select(s => (long)s).FirstOrDefault() ?? 0;
+                if (value <= 0) continue;
+                existingPlayer.Mechanics.TryGetValue(mechanic.Name, out var existing);
+                existingPlayer.Mechanics[mechanic.Name] = existing + value;
             }
         }
 
@@ -266,17 +205,6 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
         }
 
         return gw2Players;
-    }
-
-    private static long GetMechanicValueForPlayer(List<MechanicMap> data, string mechanicName, List<object>? mechanics)
-    {
-        var oilMechanicIndex = data.FindIndex(s => string.Equals(s.Name, mechanicName, StringComparison.Ordinal));
-        if (oilMechanicIndex != -1)
-        {
-            return (mechanics?[oilMechanicIndex] as JArray)?.Select(s => (long)s).FirstOrDefault() ?? 0;
-        }
-
-        return 0;
     }
 
     public async Task SetPlayerPoints(EliteInsightDataModel fightEliteInsightDataModel)

@@ -13,6 +13,7 @@ public static class StatsEndpoints
         group.MapGet("/me", GetMyStats);
         group.MapGet("/bests", GetMyBests);
         group.MapGet("/progression", GetMyProgression);
+        group.MapGet("/mechanics", GetMechanicsOverview);
     }
 
     private static async Task<IResult> GetMyStats(
@@ -365,6 +366,21 @@ public static class StatsEndpoints
 
         var isWvW = fightType == (short)FightTypesEnum.WvW;
 
+        Dictionary<long, Dictionary<string, long>> mechanicsLookup = [];
+        if (!isWvW)
+        {
+            var matchedPlayerLogIds = playerLogById.Values.Select(p => p.PlayerFightLogId).ToList();
+            var mechanicsList = await context.PlayerFightLogMechanic
+                .Where(m => matchedPlayerLogIds.Contains(m.PlayerFightLogId) && m.MechanicCount > 0)
+                .ToListAsync();
+            mechanicsLookup = mechanicsList
+                .GroupBy(m => m.PlayerFightLogId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.GroupBy(m => m.MechanicName)
+                           .ToDictionary(mg => mg.Key, mg => mg.Sum(m => m.MechanicCount)));
+        }
+
         var points = fightMeta
             .Where(f => playerLogById.ContainsKey(f.FightLogId))
             .Select(f =>
@@ -396,6 +412,9 @@ public static class StatsEndpoints
                 }
                 else
                 {
+                    var mechanics = mechanicsLookup.TryGetValue(p.PlayerFightLogId, out var mDict)
+                        ? mDict
+                        : new Dictionary<string, long>();
                     return (object)new
                     {
                         fightLogId = f.FightLogId,
@@ -412,6 +431,7 @@ public static class StatsEndpoints
                         alacrity = (double)p.AlacDuration,
                         deaths = p.Deaths,
                         timesDowned = p.TimesDowned,
+                        mechanics,
                     };
                 }
             })
@@ -435,4 +455,87 @@ public static class StatsEndpoints
         alacrity = Best(logs, p => p.AlacDuration, meta),
         barrierGenerated = Best(logs, p => p.BarrierGenerated, meta),
     };
+
+    private static async Task<IResult> GetMechanicsOverview(
+    ClaimsPrincipal user,
+    IDbContextFactory<DatabaseContext> dbContextFactory)
+{
+    var discordIdStr = user.FindFirst("discord_id")?.Value;
+    if (!long.TryParse(discordIdStr, out var discordId))
+        return Results.Unauthorized();
+
+    await using var context = await dbContextFactory.CreateDbContextAsync();
+
+    var gw2Names = await context.GuildWarsAccount
+        .Where(a => a.DiscordId == discordId)
+        .Select(a => a.GuildWarsAccountName)
+        .ToListAsync();
+
+    var playerLogs = await context.PlayerFightLog
+        .Where(pfl => gw2Names.Contains(pfl.GuildWarsAccountName))
+        .Select(pfl => new { pfl.PlayerFightLogId, pfl.FightLogId })
+        .ToListAsync();
+
+    var fightLogIds = playerLogs.Select(p => p.FightLogId).Distinct().ToList();
+
+    var fightTypeById = await context.FightLog
+        .Where(fl => fightLogIds.Contains(fl.FightLogId) && fl.FightType != 0)
+        .Select(fl => new { fl.FightLogId, fl.FightType })
+        .ToDictionaryAsync(fl => fl.FightLogId, fl => (int)fl.FightType);
+
+    var pvePlayerLogIds = playerLogs
+        .Where(p => fightTypeById.ContainsKey(p.FightLogId))
+        .Select(p => p.PlayerFightLogId)
+        .ToList();
+
+    var playerLogIdToFightType = playerLogs
+        .Where(p => fightTypeById.ContainsKey(p.FightLogId))
+        .ToDictionary(p => p.PlayerFightLogId, p => fightTypeById[p.FightLogId]);
+
+    var mechanics = await context.PlayerFightLogMechanic
+        .Where(m => pvePlayerLogIds.Contains(m.PlayerFightLogId) && m.MechanicCount > 0)
+        .ToListAsync();
+
+    var perRunValues = mechanics
+        .GroupBy(m => (m.PlayerFightLogId, m.MechanicName))
+        .Select(g => new
+        {
+            fightType = playerLogIdToFightType[g.Key.PlayerFightLogId],
+            mechanicName = g.Key.MechanicName,
+            count = g.Sum(m => m.MechanicCount),
+        })
+        .ToList();
+
+    var result = perRunValues
+        .GroupBy(x => (x.fightType, x.mechanicName))
+        .Select(g =>
+        {
+            var values = g.Select(x => x.count).OrderBy(v => v).ToList();
+            var mid = values.Count / 2;
+            var median = values.Count % 2 == 0
+                ? (values[mid - 1] + values[mid]) / 2L
+                : values[mid];
+            return new
+            {
+                fightType = g.Key.fightType,
+                mechanicName = g.Key.mechanicName,
+                max = values.Max(),
+                avg = Math.Round(values.Average(v => (double)v), 1),
+                median,
+            };
+        })
+        .GroupBy(x => x.fightType)
+        .Select(g => new
+        {
+            fightType = g.Key,
+            mechanics = g.OrderByDescending(m => m.max)
+                .Select(m => new { m.mechanicName, m.max, m.avg, m.median })
+                .ToList(),
+        })
+        .Where(g => g.mechanics.Count > 0)
+        .OrderBy(g => g.fightType)
+        .ToList();
+
+    return Results.Ok(result);
+    }
 }

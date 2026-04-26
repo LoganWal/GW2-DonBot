@@ -61,6 +61,7 @@ const allNavItems = [
   { label: 'My Stats',      to: '/stats',       icon: 'pi-chart-bar' },
   { label: 'Personal Bests', to: '/bests',       icon: 'pi-crown' },
   { label: 'Progression',   to: '/progression', icon: 'pi-chart-line' },
+  { label: 'Mechanics',     to: '/mechanics',   icon: 'pi-shield' },
   { label: 'Leaderboard',   to: '/leaderboard', icon: 'pi-trophy' },
   { label: 'Points',        to: '/points',      icon: 'pi-star',  hidden: computed(() => !hasPoints.value) },
   { label: 'Accounts',     to: '/verify',      icon: 'pi-link' },

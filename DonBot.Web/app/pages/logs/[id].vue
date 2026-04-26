@@ -168,50 +168,77 @@
             <template #content><div class="stat-label">Total Dmg Taken</div><div v-fit-text class="stat-value">{{ sum('damageTaken').toLocaleString() }}</div></template>
           </Card>
         </div>
-        <CollapsibleSection title="Player Overview">
-          <DataTable :value="pvePlayersSortedByDamage" striped-rows scrollable>
-            <Column field="guildWarsAccountName" header="Account" frozen style="min-width: 160px;" />
-            <Column header="Damage" :sortable="true" sort-field="damage">
-              <template #body="{ data }">{{ data.damage.toLocaleString() }}</template>
-            </Column>
-            <Column header="Cleave" :sortable="true" sort-field="cleave">
-              <template #body="{ data }">{{ data.cleave.toLocaleString() }}</template>
-            </Column>
-            <Column header="Alac%" :sortable="true" sort-field="alacDuration">
-              <template #body="{ data }">{{ Number(data.alacDuration).toFixed(2) }}%</template>
-            </Column>
-            <Column header="Quick%" :sortable="true" sort-field="quicknessDuration">
-              <template #body="{ data }">{{ Number(data.quicknessDuration).toFixed(2) }}%</template>
-            </Column>
-          </DataTable>
-        </CollapsibleSection>
+        <Tabs value="overview">
+          <TabList>
+            <Tab value="overview">Overview</Tab>
+            <Tab value="survivability">Survivability</Tab>
+            <Tab v-if="mechanicNames.length > 0" value="mechanics">Mechanics</Tab>
+          </TabList>
+          <TabPanels>
+            <TabPanel value="overview">
+              <DataTable :value="pvePlayersSortedByDamage" striped-rows scrollable>
+                <Column field="guildWarsAccountName" header="Account" frozen style="min-width: 160px;" />
+                <Column header="Damage" :sortable="true" sort-field="damage">
+                  <template #body="{ data }">{{ data.damage.toLocaleString() }}</template>
+                </Column>
+                <Column header="Cleave" :sortable="true" sort-field="cleave">
+                  <template #body="{ data }">{{ data.cleave.toLocaleString() }}</template>
+                </Column>
+                <Column header="Alac%" :sortable="true" sort-field="alacDuration">
+                  <template #body="{ data }">{{ Number(data.alacDuration).toFixed(2) }}%</template>
+                </Column>
+                <Column header="Quick%" :sortable="true" sort-field="quicknessDuration">
+                  <template #body="{ data }">{{ Number(data.quicknessDuration).toFixed(2) }}%</template>
+                </Column>
+              </DataTable>
+            </TabPanel>
 
-        <CollapsibleSection title="Survivability">
-          <DataTable :value="pvePlayersSortedByRes" striped-rows scrollable>
-            <Column field="guildWarsAccountName" header="Account" style="min-width: 160px;" />
-            <Column header="Res (s)" :sortable="true" sort-field="resurrectionTime">
-              <template #body="{ data }">{{ (data.resurrectionTime / 1000).toFixed(1) }}</template>
-            </Column>
-            <Column header="Dmg Taken" :sortable="true" sort-field="damageTaken">
-              <template #body="{ data }">{{ data.damageTaken.toLocaleString() }}</template>
-            </Column>
-            <Column header="Downed" :sortable="true" sort-field="timesDowned">
-              <template #body="{ data }">{{ data.timesDowned }}</template>
-            </Column>
-            <Column header="Deaths" :sortable="true" sort-field="deaths">
-              <template #body="{ data }">{{ data.deaths }}</template>
-            </Column>
-          </DataTable>
-        </CollapsibleSection>
+            <TabPanel value="survivability">
+              <DataTable :value="pvePlayersSortedByRes" striped-rows scrollable>
+                <Column field="guildWarsAccountName" header="Account" style="min-width: 160px;" />
+                <Column header="Res (s)" :sortable="true" sort-field="resurrectionTime">
+                  <template #body="{ data }">{{ (data.resurrectionTime / 1000).toFixed(1) }}</template>
+                </Column>
+                <Column header="Dmg Taken" :sortable="true" sort-field="damageTaken">
+                  <template #body="{ data }">{{ data.damageTaken.toLocaleString() }}</template>
+                </Column>
+                <Column header="Downed" :sortable="true" sort-field="timesDowned">
+                  <template #body="{ data }">{{ data.timesDowned }}</template>
+                </Column>
+                <Column header="Deaths" :sortable="true" sort-field="deaths">
+                  <template #body="{ data }">{{ data.deaths }}</template>
+                </Column>
+              </DataTable>
+            </TabPanel>
 
-        <CollapsibleSection v-if="mechanicNames.length > 0" title="Fight Mechanics">
-          <DataTable :value="mechanicTableRows" striped-rows scrollable>
-            <Column field="account" header="Account" style="min-width: 160px;" frozen />
-            <Column v-for="name in mechanicNames" :key="name" :field="name" :header="name" :sortable="true" header-style="white-space: nowrap">
-              <template #body="{ data }">{{ data[name] ?? 0 }}</template>
-            </Column>
-          </DataTable>
-        </CollapsibleSection>
+            <TabPanel v-if="mechanicNames.length > 0" value="mechanics">
+              <div class="mechanic-summary-grid" style="margin-bottom: 1rem;">
+                <div v-for="name in mechanicNames" :key="'sum-'+name" class="mechanic-summary-card">
+                  <div class="mechanic-summary-name" :title="name">{{ name }}</div>
+                  <div class="mechanic-summary-row">
+                    <span class="mechanic-summary-label">Max</span>
+                    <a v-if="fight.log.url && (mechanicMax[name]?.value ?? 0) > 0" :href="fight.log.url" target="_blank" rel="noopener" class="mechanic-max-link" :title="`${mechanicMax[name]?.account}: ${mechanicMax[name]?.value}`">{{ mechanicMax[name]?.value ?? 0 }}</a>
+                    <span v-else>{{ mechanicMax[name]?.value ?? 0 }}</span>
+                  </div>
+                  <div class="mechanic-summary-row">
+                    <span class="mechanic-summary-label">Avg</span>
+                    <span>{{ mechanicAvg[name]?.toFixed(1) ?? '0.0' }}</span>
+                  </div>
+                  <div class="mechanic-summary-row">
+                    <span class="mechanic-summary-label">Median</span>
+                    <span>{{ mechanicMedian[name] ?? 0 }}</span>
+                  </div>
+                </div>
+              </div>
+              <DataTable :value="mechanicTableRows" striped-rows scrollable>
+                <Column field="account" header="Account" style="min-width: 160px;" frozen />
+                <Column v-for="name in mechanicNames" :key="name" :field="name" :header="name" :sortable="true" header-style="white-space: nowrap">
+                  <template #body="{ data }">{{ data[name] ?? 0 }}</template>
+                </Column>
+              </DataTable>
+            </TabPanel>
+          </TabPanels>
+        </Tabs>
       </template>
     </template>
     <p v-else-if="!pending">Log not found.</p>
@@ -257,6 +284,38 @@ const mechanicNames = computed(() => {
     if (m.mechanicCount > 0) names.add(m.mechanicName)
   }
   return [...names].sort()
+})
+
+const mechanicMax = computed(() => {
+  const result: Record<string, { value: number; account: string }> = {}
+  for (const name of mechanicNames.value) {
+    let maxVal = 0, maxAccount = ''
+    for (const row of mechanicTableRows.value as any[]) {
+      const v = Number(row[name] ?? 0)
+      if (v > maxVal) { maxVal = v; maxAccount = row.account }
+    }
+    result[name] = { value: maxVal, account: maxAccount }
+  }
+  return result
+})
+
+const mechanicAvg = computed(() => {
+  const result: Record<string, number> = {}
+  for (const name of mechanicNames.value) {
+    const vals = (mechanicTableRows.value as any[]).map(r => Number(r[name] ?? 0)).filter(v => v > 0)
+    result[name] = vals.length ? vals.reduce((a: number, b: number) => a + b, 0) / vals.length : 0
+  }
+  return result
+})
+
+const mechanicMedian = computed(() => {
+  const result: Record<string, number> = {}
+  for (const name of mechanicNames.value) {
+    const vals = (mechanicTableRows.value as any[]).map(r => Number(r[name] ?? 0)).sort((a, b) => a - b)
+    const mid = Math.floor(vals.length / 2)
+    result[name] = vals.length % 2 === 0 ? ((vals[mid - 1] ?? 0) + (vals[mid] ?? 0)) / 2 : (vals[mid] ?? 0)
+  }
+  return result
 })
 
 const mechanicTableRows = computed(() => {
@@ -336,6 +395,56 @@ const uploadToWingman = () => {
 .header-btn:hover {
   border-color: var(--p-primary-color);
   color: var(--p-primary-color);
+}
+
+.mechanic-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.mechanic-summary-card {
+  background: var(--p-surface-ground);
+  border: 1px solid var(--p-surface-border);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+}
+
+.mechanic-summary-name {
+  font-weight: 600;
+  color: var(--p-text-muted-color);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.35rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mechanic-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.25rem;
+  line-height: 1.6;
+}
+
+.mechanic-summary-label {
+  font-size: 0.7rem;
+  color: var(--p-text-muted-color);
+}
+
+.mechanic-max-link {
+  color: var(--p-primary-color);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.mechanic-max-link:hover {
+  text-decoration: underline;
 }
 
 /* noinspection CssUnusedSymbol */

@@ -36,7 +36,7 @@ const GROUPS: { label: string; values: number[] }[] = [
   { label: 'Golem', values: [32766] },
 ]
 
-const FIGHT_TYPE_TO_GROUP: Record<number, string> = {}
+const FIGHT_TYPE_TO_GROUP: Record<number, string> = { 0: 'WvW' }
 for (const g of GROUPS)
 {
   for (const v of g.values)
@@ -44,6 +44,14 @@ for (const g of GROUPS)
     FIGHT_TYPE_TO_GROUP[v] = g.label
   }
 }
+
+const SUPER_CATEGORIES: { label: string; groups: string[] }[] = [
+  { label: 'WvW', groups: ['WvW'] },
+  { label: 'Raids', groups: ['Wing 1', 'Wing 2', 'Wing 3', 'Wing 4', 'Wing 5', 'Wing 6', 'Wing 7', 'Wing 8', 'Wing 9'] },
+  { label: 'Strikes', groups: ['EoD Strikes', 'Core Strikes', 'SotO Strikes', 'Icebrood Strikes'] },
+  { label: 'Fractals', groups: ['Fractals'] },
+  { label: 'Other', groups: ['Golem', 'Other'] },
+]
 
 export const fightName = (type: number) => FIGHT_NAMES[type] ?? 'Unknown'
 export const fightGroup = (type: number) => FIGHT_TYPE_TO_GROUP[type] ?? 'Other'
@@ -59,7 +67,7 @@ export const fightTypeGroupedOptions = [
 
 /** Group an array of objects that have a fightType number field */
 export function groupByFightType<T extends { fightType: number }>(items: T[]): { label: string; items: T[] }[] {
-  const order = ['Wing 1', 'Wing 2', 'Wing 3', 'Wing 4', 'Wing 5', 'Wing 6', 'Wing 7', 'Wing 8', 'Wing 9',
+  const order = ['WvW', 'Wing 1', 'Wing 2', 'Wing 3', 'Wing 4', 'Wing 5', 'Wing 6', 'Wing 7', 'Wing 8', 'Wing 9',
     'EoD Strikes', 'Core Strikes', 'SotO Strikes', 'Icebrood Strikes', 'Fractals', 'Golem', 'Other']
   const map = new Map<string, T[]>()
   for (const item of items)
@@ -69,4 +77,18 @@ export function groupByFightType<T extends { fightType: number }>(items: T[]): {
     map.get(g)!.push(item)
   }
   return order.filter(g => map.has(g)).map(g => ({ label: g, items: map.get(g)! }))
+}
+
+/** Group fight-type groups into WvW / Raids / Strikes / Fractals / Other super-categories */
+export function groupBySuperCategory<T extends { fightType: number }>(
+  items: T[]
+): { label: string; groups: { label: string; items: T[] }[] }[] {
+  const fightGroups = groupByFightType(items)
+  const groupMap = new Map(fightGroups.map(g => [g.label, g]))
+  return SUPER_CATEGORIES
+    .map(sc => ({
+      label: sc.label,
+      groups: sc.groups.filter(g => groupMap.has(g)).map(g => groupMap.get(g)!),
+    }))
+    .filter(sc => sc.groups.length > 0)
 }

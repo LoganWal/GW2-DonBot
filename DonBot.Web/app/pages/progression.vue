@@ -62,23 +62,12 @@
     </Message>
 
     <template v-else-if="points.length > 0">
-      <!-- Zoom hint / reset bar -->
-      <div class="zoom-bar">
-        <template v-if="isZoomed">
-          <span class="zoom-hint">
-            Showing {{ displayPoints.length }} of {{ filteredPoints.length }} fights, click a point to open its log
-          </span>
-          <Button label="Reset Zoom" icon="pi pi-arrow-left" size="small" severity="secondary" @click="resetZoom" />
-        </template>
-        <span v-else class="zoom-hint">Click a data point to zoom in; click again to open the log</span>
-      </div>
-
       <!-- Summary cards -->
       <div class="stat-grid" style="margin-bottom: 1.5rem;">
         <Card class="stat-card">
           <template #content>
             <div class="stat-label">Fights</div>
-            <div v-fit-text class="stat-value">{{ displayPoints.length }}<span v-if="isZoomed" class="zoom-total"> / {{ points.length }}</span></div>
+            <div v-fit-text class="stat-value">{{ displayPoints.length }}</div>
           </template>
         </Card>
         <Card class="stat-card">
@@ -197,6 +186,36 @@
             </template>
           </Card>
         </div>
+
+        <template v-if="mechanicNames.length > 0">
+          <div style="margin: 1.5rem 0 1rem; font-size: 0.75rem; font-weight: 600; color: var(--p-text-muted-color); text-transform: uppercase; letter-spacing: 0.05em;">Mechanics</div>
+          <div class="mechanic-summary-grid" style="margin-bottom: 1.25rem;">
+            <div v-for="name in mechanicNames" :key="'sum-'+name" class="mechanic-summary-card">
+              <div class="mechanic-summary-name" :title="name">{{ name }}</div>
+              <div class="mechanic-summary-row">
+                <span class="mechanic-summary-label">Max</span>
+                <a v-if="mechanicMaxMap[name]?.logId && mechanicMaxMap[name].value > 0" :href="`/logs/${mechanicMaxMap[name].logId}`" class="mechanic-max-link">{{ mechanicMaxMap[name].value }}</a>
+                <span v-else>{{ mechanicMaxMap[name]?.value ?? 0 }}</span>
+              </div>
+              <div class="mechanic-summary-row">
+                <span class="mechanic-summary-label">Avg</span>
+                <span>{{ mechanicAvgMap[name]?.toFixed(1) ?? '0.0' }}</span>
+              </div>
+              <div class="mechanic-summary-row">
+                <span class="mechanic-summary-label">Median</span>
+                <span>{{ mechanicMedianMap[name] ?? 0 }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="chart-grid">
+            <Card v-for="name in mechanicNames" :key="name">
+              <template #title>{{ name }}</template>
+              <template #content>
+                <Chart type="line" :data="mechanicChartDataMap[name]" :options="chartOptions" style="height: 260px;" />
+              </template>
+            </Card>
+          </div>
+        </template>
       </template>
     </template>
   </div>
@@ -213,9 +232,6 @@ const selectedFightType = ref<number | null>(
 )
 const points = ref<any[]>([])
 const loading = ref(false)
-const isZoomed = ref(false)
-const zoomCenter = ref<number | null>(null)
-const ZOOM_WINDOW = 12
 const selectedCharacters = ref<string[]>([])
 const timeRange = ref<'all' | 'year' | 'month' | 'week'>('all')
 const allCharacters = ref<string[]>([])
@@ -238,8 +254,6 @@ const load = async (resetCharacters = false) => {
   }
   await router.replace({ query: { fightType: selectedFightType.value } })
   loading.value = true
-  isZoomed.value = false
-  zoomCenter.value = null
   if (resetCharacters) {
     selectedCharacters.value = []
     successFilter.value = 'all'
@@ -283,16 +297,7 @@ const filteredPoints = computed(() =>
     : points.value
 )
 
-const displayPoints = computed(() => {
-  if (!isZoomed.value || zoomCenter.value === null)
-  {
-    return filteredPoints.value
-  }
-  const half = Math.floor(ZOOM_WINDOW / 2)
-  const start = Math.max(0, zoomCenter.value - half)
-  const end = Math.min(filteredPoints.value.length, start + ZOOM_WINDOW)
-  return filteredPoints.value.slice(start, end)
-})
+const displayPoints = computed(() => filteredPoints.value)
 
 const labels = computed(() =>
   displayPoints.value.map(p => new Date(p.date).toLocaleDateString())
@@ -376,30 +381,79 @@ const pveSurvivabilityChartData = computed(() => ({
   ],
 }))
 
-const handleChartClick = (_event: any, elements: any[]) => {
-  if (!elements.length)
-  {
-    return
-  }
-  const clickedIndex = elements[0].index
-  if (!isZoomed.value)
-  {
-    zoomCenter.value = clickedIndex
-    isZoomed.value = true
-  }
-  else
-  {
-    const point = displayPoints.value[clickedIndex]
-    if (point?.fightLogId)
-    {
-      navigateTo(`/logs/${point.fightLogId}`)
+const mechanicNames = computed(() => {
+  if (isWvW.value) return []
+  const names = new Set<string>()
+  for (const p of filteredPoints.value) {
+    for (const k of Object.keys((p as any).mechanics ?? {})) {
+      names.add(k)
     }
   }
-}
+  return [...names].sort()
+})
 
-const resetZoom = () => {
-  isZoomed.value = false
-  zoomCenter.value = null
+const mechanicMaxMap = computed(() => {
+  const result: Record<string, { value: number; logId: number | null }> = {}
+  for (const name of mechanicNames.value) {
+    let maxVal = 0, maxLogId: number | null = null
+    for (const p of displayPoints.value) {
+      const v = Number(((p as any).mechanics ?? {})[name] ?? 0)
+      if (v > maxVal) { maxVal = v; maxLogId = (p as any).fightLogId }
+    }
+    result[name] = { value: maxVal, logId: maxLogId }
+  }
+  return result
+})
+
+const mechanicAvgMap = computed(() => {
+  const result: Record<string, number> = {}
+  for (const name of mechanicNames.value) {
+    const vals = displayPoints.value
+      .map(p => Number(((p as any).mechanics ?? {})[name] ?? 0))
+      .filter(v => v > 0)
+    result[name] = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0
+  }
+  return result
+})
+
+const mechanicMedianMap = computed(() => {
+  const result: Record<string, number> = {}
+  for (const name of mechanicNames.value) {
+    const vals = displayPoints.value
+      .map(p => Number(((p as any).mechanics ?? {})[name] ?? 0))
+      .sort((a, b) => a - b)
+    const mid = Math.floor(vals.length / 2)
+    result[name] = vals.length % 2 === 0
+      ? ((vals[mid - 1] ?? 0) + (vals[mid] ?? 0)) / 2
+      : (vals[mid] ?? 0)
+  }
+  return result
+})
+
+const mechanicChartDataMap = computed(() => {
+  const map: Record<string, any> = {}
+  for (const name of mechanicNames.value) {
+    map[name] = {
+      labels: labels.value,
+      datasets: [{
+        label: name,
+        data: displayPoints.value.map(p => Number(((p as any).mechanics ?? {})[name] ?? 0)),
+        borderColor: lineColor(168, 85, 247),
+        backgroundColor: lineColor(168, 85, 247, 0.15),
+        tension: 0.3,
+        pointRadius: 4,
+        pointHoverRadius: 7,
+        fill: false,
+      }],
+    }
+  }
+  return map
+})
+
+const handleChartClick = (_event: any, elements: any[]) => {
+  if (!elements.length) return
+  const point = displayPoints.value[elements[0].index]
+  if (point?.fightLogId) navigateTo(`/logs/${point.fightLogId}`)
 }
 
 const chartOptions = computed(() => ({
@@ -414,7 +468,7 @@ const chartOptions = computed(() => ({
       mode: 'index' as const,
       intersect: false,
       callbacks: {
-        footer: () => isZoomed.value ? ['Click to open log'] : ['Click to zoom in'],
+        footer: () => ['Click to open log'],
       },
     },
   },
@@ -438,22 +492,52 @@ const chartOptions = computed(() => ({
   gap: 1rem;
 }
 
-.zoom-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-  min-height: 2rem;
+@media (max-width: 480px) {
+  .chart-grid {
+    grid-template-columns: 1fr;
+  }
 }
-
-.zoom-hint {
+.mechanic-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.5rem;
+}
+.mechanic-summary-card {
+  background: var(--p-surface-ground);
+  border: 1px solid var(--p-surface-border);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
   font-size: 0.8rem;
+}
+.mechanic-summary-name {
+  font-weight: 600;
   color: var(--p-text-muted-color);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.35rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mechanic-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.25rem;
+  line-height: 1.6;
+}
+.mechanic-summary-label {
+  font-size: 0.7rem;
+  color: var(--p-text-muted-color);
+}
+.mechanic-max-link {
+  color: var(--p-primary-color);
+  text-decoration: none;
+  font-weight: 600;
+}
+.mechanic-max-link:hover {
+  text-decoration: underline;
 }
 
-.zoom-total {
-  font-size: 0.75rem;
-  color: var(--p-text-muted-color);
-  font-weight: 400;
-}
 </style>

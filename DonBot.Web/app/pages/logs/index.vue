@@ -49,7 +49,6 @@
         <Button size="small" label="All" :severity="successFilter === 'all' ? 'primary' : 'secondary'" @click="successFilter = 'all'; onFilterChange()" />
         <Button size="small" label="Kills" :severity="successFilter === 'kills' ? 'success' : 'secondary'" @click="successFilter = 'kills'; onFilterChange()" />
         <Button size="small" label="Wipes" :severity="successFilter === 'wipes' ? 'danger' : 'secondary'" @click="successFilter = 'wipes'; onFilterChange()" />
-
       </div>
       <div style="display: flex; gap: 0.4rem;">
         <Button size="small" label="All modes" :severity="difficultyFilter === null ? 'primary' : 'secondary'" @click="difficultyFilter = null; onFilterChange()" />
@@ -57,58 +56,113 @@
         <Button size="small" label="CM" :severity="difficultyFilter === 1 ? 'primary' : 'secondary'" @click="difficultyFilter = 1; onFilterChange()" />
         <Button size="small" label="LCM" :severity="difficultyFilter === 2 ? 'primary' : 'secondary'" @click="difficultyFilter = 2; onFilterChange()" />
       </div>
+      <Button size="small" :label="categoryMode ? 'Date Order' : 'By Category'" :icon="categoryMode ? 'pi pi-clock' : 'pi pi-th-large'" :severity="categoryMode ? 'primary' : 'secondary'" style="margin-left: auto;" @click="toggleCategoryMode" />
     </div>
-    <ProgressSpinner v-if="pending && !logs.length" />
-    <DataTable
-      v-else
-      :value="logs"
-      :loading="pending"
-      striped-rows
-      @row-click="onRowClick"
-      style="cursor: pointer; user-select: none;"
-    >
-      <Column style="width: 3rem; padding: 0;">
-        <template #header>
-          <div class="checkbox-cell" @click.stop="togglePageSelection">
-            <Checkbox :model-value="allOnPageSelected" :indeterminate="someOnPageSelected" binary style="pointer-events: none;" />
-          </div>
-        </template>
-        <template #body="{ data }">
-          <div class="checkbox-cell" @click.stop="onCheckboxClick($event, data)">
-            <input type="checkbox" :checked="isSelected(data)" style="pointer-events: none; width: 1rem; height: 1rem;" />
-          </div>
-        </template>
-      </Column>
-      <Column header="Fight">
-        <template #body="{ data }">
-          <a :href="`/logs/${data.fightLogId}`" @click.prevent.stop="navigateTo(`/logs/${data.fightLogId}`)" style="color: inherit; text-decoration: none;">{{ fightName(data.fightType) }}</a>
-        </template>
-      </Column>
-      <Column header="Character">
-        <template #body="{ data }">{{ data.characterName || '-' }}</template>
-      </Column>
-      <Column header="Date">
-        <template #body="{ data }">{{ new Date(data.fightStart).toLocaleString() }}</template>
-      </Column>
-      <Column header="Duration">
-        <template #body="{ data }">{{ formatDuration(data.fightDurationInMs) }}</template>
-      </Column>
-      <Column header="Result">
-        <template #body="{ data }">
-          <Tag
-            v-if="data.fightType !== 0"
-            :severity="data.isSuccess ? 'success' : 'danger'"
-            :value="data.isSuccess ? 'Kill' : `${data.fightPercent}%`"
-          />
-          <Tag v-else severity="secondary" value="WvW" />
-        </template>
-      </Column>
-    </DataTable>
-    <div style="display: flex; align-items: center; gap: 1rem; margin-top: 1rem; justify-content: center;">
-      <Button icon="pi pi-chevron-left" severity="secondary" text :disabled="page <= 1" @click="page--" />
-      <span style="color: var(--p-text-muted-color); font-size: 0.875rem;">Page {{ page }}</span>
-      <Button icon="pi pi-chevron-right" severity="secondary" text :disabled="logs.length < pageSize" @click="page++" />
-    </div>
+    <!-- Category grouped view -->
+    <template v-if="categoryMode">
+      <ProgressSpinner v-if="categoryLoading" />
+      <template v-else>
+        <div v-for="cat in groupedCategoryLogs" :key="cat.label">
+          <CollapsibleSection :title="cat.label">
+            <div v-for="group in cat.groups" :key="group.label" class="category-fight-group-wrap">
+              <CollapsibleSection :title="group.label" :collapsed="true">
+                <DataTable
+                  :value="group.items"
+                  striped-rows
+                  @row-click="onRowClick"
+                  style="cursor: pointer; user-select: none;"
+                  size="small"
+                  class="category-table"
+                >
+                  <Column style="width: 3rem; padding: 0;">
+                    <template #body="{ data }">
+                      <div class="checkbox-cell" @click.stop="onCheckboxClick($event, data)">
+                        <input type="checkbox" :checked="isSelected(data)" style="pointer-events: none; width: 1rem; height: 1rem;" />
+                      </div>
+                    </template>
+                  </Column>
+                  <Column header="Fight">
+                    <template #body="{ data }">
+                      <a :href="`/logs/${data.fightLogId}`" :title="`View ${fightName(data.fightType)} from ${new Date(data.fightStart).toLocaleString()}`" @click.prevent.stop="navigateTo(`/logs/${data.fightLogId}`)" style="color: inherit; text-decoration: none;">{{ fightName(data.fightType) }}</a>
+                    </template>
+                  </Column>
+                  <Column header="Character">
+                    <template #body="{ data }">{{ data.characterName || '-' }}</template>
+                  </Column>
+                  <Column header="Date">
+                    <template #body="{ data }">{{ new Date(data.fightStart).toLocaleString() }}</template>
+                  </Column>
+                  <Column header="Duration">
+                    <template #body="{ data }">{{ formatDuration(data.fightDurationInMs) }}</template>
+                  </Column>
+                  <Column header="Result">
+                    <template #body="{ data }">
+                      <Tag v-if="data.fightType !== 0" :severity="data.isSuccess ? 'success' : 'danger'" :value="data.isSuccess ? 'Kill' : `${data.fightPercent}%`" />
+                      <Tag v-else severity="secondary" value="WvW" />
+                    </template>
+                  </Column>
+                </DataTable>
+              </CollapsibleSection>
+            </div>
+          </CollapsibleSection>
+        </div>
+      </template>
+    </template>
+
+    <!-- Normal paginated view -->
+    <template v-else>
+      <ProgressSpinner v-if="pending && !logs.length" />
+      <DataTable
+        v-else
+        :value="logs"
+        :loading="pending"
+        striped-rows
+        @row-click="onRowClick"
+        style="cursor: pointer; user-select: none;"
+      >
+        <Column style="width: 3rem; padding: 0;">
+          <template #header>
+            <div class="checkbox-cell" @click.stop="togglePageSelection">
+              <Checkbox :model-value="allOnPageSelected" :indeterminate="someOnPageSelected" binary style="pointer-events: none;" />
+            </div>
+          </template>
+          <template #body="{ data }">
+            <div class="checkbox-cell" @click.stop="onCheckboxClick($event, data)">
+              <input type="checkbox" :checked="isSelected(data)" style="pointer-events: none; width: 1rem; height: 1rem;" />
+            </div>
+          </template>
+        </Column>
+        <Column header="Fight">
+          <template #body="{ data }">
+            <a :href="`/logs/${data.fightLogId}`" :title="`View ${fightName(data.fightType)} from ${new Date(data.fightStart).toLocaleString()}`" @click.prevent.stop="navigateTo(`/logs/${data.fightLogId}`)" style="color: inherit; text-decoration: none;">{{ fightName(data.fightType) }}</a>
+          </template>
+        </Column>
+        <Column header="Character">
+          <template #body="{ data }">{{ data.characterName || '-' }}</template>
+        </Column>
+        <Column header="Date">
+          <template #body="{ data }">{{ new Date(data.fightStart).toLocaleString() }}</template>
+        </Column>
+        <Column header="Duration">
+          <template #body="{ data }">{{ formatDuration(data.fightDurationInMs) }}</template>
+        </Column>
+        <Column header="Result">
+          <template #body="{ data }">
+            <Tag
+              v-if="data.fightType !== 0"
+              :severity="data.isSuccess ? 'success' : 'danger'"
+              :value="data.isSuccess ? 'Kill' : `${data.fightPercent}%`"
+            />
+            <Tag v-else severity="secondary" value="WvW" />
+          </template>
+        </Column>
+      </DataTable>
+      <div style="display: flex; align-items: center; gap: 1rem; margin-top: 1rem; justify-content: center;">
+        <Button icon="pi pi-chevron-left" severity="secondary" text :disabled="page <= 1" @click="page--" />
+        <span style="color: var(--p-text-muted-color); font-size: 0.875rem;">Page {{ page }}</span>
+        <Button icon="pi pi-chevron-right" severity="secondary" text :disabled="logs.length < pageSize" @click="page++" />
+      </div>
+    </template>
     <div v-if="selectedLogs.length > 0" class="selection-bar">
       <span style="color: var(--p-text-muted-color); font-size: 0.875rem;">{{ selectedLogs.length }} log{{ selectedLogs.length !== 1 ? 's' : '' }} selected</span>
       <Button label="Aggregate" icon="pi pi-chart-bar" @click="goToAggregate" />
@@ -118,7 +172,8 @@
 </template>
 
 <script setup lang="ts">
-import { fightName, fightTypeGroupedOptions } from '~/composables/useFightTypes'
+import { fightName, fightTypeGroupedOptions, groupBySuperCategory } from '~/composables/useFightTypes'
+import CollapsibleSection from '~/components/CollapsibleSection.vue'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -155,6 +210,9 @@ const quickCategories = [
 
 const aggregating = ref<string | null>(null)
 const noLogsToday = ref(false)
+const categoryMode = ref(false)
+const categoryLogs = ref<any[]>([])
+const categoryLoading = ref(false)
 
 const viewToday = (types: number[]) => {
   selectedFightTypes.value = [...types]
@@ -162,6 +220,23 @@ const viewToday = (types: number[]) => {
   syncUrl()
   refresh()
 }
+
+const loadCategoryLogs = async () => {
+  categoryLoading.value = true
+  try {
+    const res = await api(buildUrl().replace(/page=\d+/, 'page=1').replace(/pageSize=\d+/, 'pageSize=500')) as { data: any[] }
+    categoryLogs.value = (res.data ?? []).slice().sort((a: any, b: any) => new Date(b.fightStart).getTime() - new Date(a.fightStart).getTime())
+  } finally {
+    categoryLoading.value = false
+  }
+}
+
+const toggleCategoryMode = async () => {
+  categoryMode.value = !categoryMode.value
+  if (categoryMode.value) await loadCategoryLogs()
+}
+
+const groupedCategoryLogs = computed(() => groupBySuperCategory(categoryLogs.value))
 
 const aggregateRange = async (cat: { label: string; types: number[] }, windowMs: number, key: string) => {
   aggregating.value = cat.label + key
@@ -228,6 +303,7 @@ const onFilterChange = () => {
   page.value = 1
   syncUrl()
   refresh()
+  if (categoryMode.value) loadCategoryLogs()
 }
 
 const logs = computed(() => data.value?.data ?? [])
@@ -354,5 +430,18 @@ const goToAggregate = () => {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   min-width: 110px;
+}
+
+.category-fight-group-wrap {
+  margin: 0.25rem 0 0 0.5rem;
+}
+.category-fight-group-wrap :deep(.collapsible-section) {
+  margin-top: 0.35rem;
+}
+.category-fight-group-wrap :deep(.collapsible-title) {
+  font-size: 0.875rem;
+}
+.category-table {
+  margin-top: 0.25rem;
 }
 </style>

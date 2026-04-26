@@ -371,7 +371,31 @@ public sealed class RaidReportService(
 
         AddChunkedCodeFenceFields(surviveEmbed, "Survivability Overview", SurvivabilityHeader, BuildSurvivabilityRows(groupedPlayerFights));
 
+        if (mechanics.Count > 0)
+        {
+            var playerFightLogIdToAccount = groupedPlayerFights
+                .SelectMany(g => g.Select(pfl => new { pfl.PlayerFightLogId, Account = g.Key }))
+                .ToDictionary(x => x.PlayerFightLogId, x => x.Account);
+
+            AddChunkedCodeFenceFields(surviveEmbed, "Mechanics Overview", "Mechanic            Total   Top Player\n", BuildMechanicRows(mechanics, playerFightLogIdToAccount));
+        }
+
         return [fightsEmbed.Build(), playerEmbed.Build(), surviveEmbed.Build()];
+    }
+
+    internal static List<string> BuildMechanicRows(
+        List<PlayerFightLogMechanic> mechanics,
+        Dictionary<long, string> playerFightLogIdToAccount)
+    {
+        var names = OrderedMechanicNames(mechanics);
+        return names.Select(name =>
+        {
+            var totals = MechanicAccountTotals(name, mechanics, playerFightLogIdToAccount);
+            var total = totals.Sum(t => t.Total);
+            var top = totals.FirstOrDefault();
+            var topStr = top.AccountName != null ? $"{top.AccountName.ClipAt(13)} ({top.Total})" : "-";
+            return $"{name.ClipAt(18),-18}{string.Empty,2}{total,-6}{string.Empty,2}{topStr}\n";
+        }).ToList();
     }
 
     internal static List<string> OrderedMechanicNames(List<PlayerFightLogMechanic> mechanics) =>

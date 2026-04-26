@@ -91,6 +91,49 @@ public static class LogsEndpoints
             .Where(pfl => logIds.Contains(pfl.FightLogId))
             .ToListAsync();
 
+        var allPlayerLogIds = playerLogs.Select(p => p.PlayerFightLogId).ToList();
+        var allMechanics = await context.PlayerFightLogMechanic
+            .Where(m => allPlayerLogIds.Contains(m.PlayerFightLogId) && m.MechanicCount > 0)
+            .ToListAsync();
+
+        var fightTypeByLogId = fightLogs.ToDictionary(fl => fl.FightLogId, fl => fl.FightType);
+        var playerLogIdToFightType = playerLogs
+            .Where(p => fightTypeByLogId.ContainsKey(p.FightLogId))
+            .ToDictionary(p => p.PlayerFightLogId, p => fightTypeByLogId[p.FightLogId]);
+
+        var playerIdToAccount = playerLogs.ToDictionary(p => p.PlayerFightLogId, p => p.GuildWarsAccountName);
+
+        var mechanicsStats = allMechanics
+            .Where(m => playerLogIdToFightType.ContainsKey(m.PlayerFightLogId))
+            .GroupBy(m => playerLogIdToFightType[m.PlayerFightLogId])
+            .Select(g =>
+            {
+                var byMechanic = g.GroupBy(m => m.MechanicName).ToList();
+                var orderedMechanicNames = byMechanic
+                    .OrderByDescending(mg => mg.Sum(m => m.MechanicCount))
+                    .Select(mg => mg.Key)
+                    .ToList();
+                var playerRows = g
+                    .GroupBy(m => playerIdToAccount.GetValueOrDefault(m.PlayerFightLogId, "?"))
+                    .Select(pg => new
+                    {
+                        accountName = pg.Key,
+                        counts = pg.GroupBy(m => m.MechanicName)
+                            .ToDictionary(mg => mg.Key, mg => mg.Sum(m => m.MechanicCount)),
+                    })
+                    .OrderBy(p => p.accountName)
+                    .ToList();
+                return new
+                {
+                    fightType = (int)g.Key,
+                    mechanicNames = orderedMechanicNames,
+                    players = playerRows,
+                };
+            })
+            .Where(g => g.mechanicNames.Count > 0)
+            .OrderBy(g => g.fightType)
+            .ToList();
+
         var wvwCount = fightLogs.Count(fl => fl.FightType == 0);
         var isWvW = wvwCount >= fightLogs.Count / 2.0;
 
@@ -235,7 +278,8 @@ public static class LogsEndpoints
             sessionDurationMs,
             logs,
             timeline,
-            players
+            players,
+            mechanics = mechanicsStats,
         });
     }
 

@@ -60,6 +60,7 @@ jobs:
         uses: docker/build-push-action@v7.0.0
         with:
           context: .
+          file: ./GW2-DonBot/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ env.IMAGE_BOT }}
@@ -68,7 +69,7 @@ jobs:
         uses: docker/build-push-action@v7.0.0
         with:
           context: .
-          file: Dockerfile.api
+          file: ./DonBot.Api/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ env.IMAGE_API }}

@@ -444,8 +444,6 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
             IconUrl = "https://i.imgur.com/tQ4LD6H.png"
         };
 
-        footerService.AddInviteLink(message);
-
         message.Timestamp = DateTime.Now;
 
         return message.Build();

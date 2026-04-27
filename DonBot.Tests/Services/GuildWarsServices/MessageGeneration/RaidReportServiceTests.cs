@@ -235,6 +235,45 @@ public class RaidReportServiceTests(ITestOutputHelper output)
         Assert.True(true);
     }
     
+    [Fact]
+    public void BuildSurvivabilityTable_WithLargeSquad_ProducesOneDataRowPerPlayer()
+    {
+        var logs = Enumerable.Range(1, 25)
+            .Select(i => new PlayerFightLog
+            {
+                FightLogId = 1,
+                GuildWarsAccountName = $"Player.{i:D4}",
+                DamageTaken = i * 1000
+            }).ToList();
+
+        var table = RaidReportService.BuildSurvivabilityTable(Group(logs));
+        var dataLines = table.Split('\n').Skip(1).Where(l => !l.StartsWith("```") && l.Length > 0).ToList();
+
+        Assert.Equal(25, dataLines.Count);
+    }
+
+    [Fact]
+    public void BuildSurvivabilityTable_WithLargeSquad_TotalContentExceedsDiscordFieldValueLimit()
+    {
+        // 25-player squads produce ~1400 chars of row text — over the 1024-char per-field limit —
+        // which is why AddChunkedCodeFenceFields splits into multiple fields at 12 rows per chunk.
+        const int discordFieldValueLimit = 1024;
+
+        var logs = Enumerable.Range(1, 25)
+            .Select(i => new PlayerFightLog
+            {
+                FightLogId = 1,
+                GuildWarsAccountName = $"Player.{i:D4}",
+                DamageTaken = i * 1000
+            }).ToList();
+
+        var table = RaidReportService.BuildSurvivabilityTable(Group(logs));
+        var contentWithoutFences = table.Replace("```", string.Empty);
+
+        Assert.True(contentWithoutFences.Length > discordFieldValueLimit,
+            $"Expected table content ({contentWithoutFences.Length}) to exceed field limit ({discordFieldValueLimit})");
+    }
+
     private static List<IGrouping<string, PlayerFightLog>> Group(IEnumerable<PlayerFightLog> logs) =>
         logs.GroupBy(l => l.GuildWarsAccountName).ToList();
 }

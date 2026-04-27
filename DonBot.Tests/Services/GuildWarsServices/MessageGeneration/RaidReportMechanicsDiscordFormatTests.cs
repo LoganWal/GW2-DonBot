@@ -196,6 +196,32 @@ public class RaidReportMechanicsDiscordFormatTests
         Assert.Equal(rows[0].IndexOf('3'), rows[1].IndexOf('7'));
     }
 
+    [Fact]
+    public void BuildMechanicRows_WithManyDistinctMechanics_TotalContentExceedsDiscordFieldValueLimit()
+    {
+        // 50+ mechanics produce more text than a single Discord field value allows (1024 chars).
+        // When chunked into multiple fields and combined with survivability fields, author, and footer,
+        // the surviveEmbed exceeds Discord's 6000-char total embed limit — which is why mechanics
+        // were removed from the embed until the section can be restructured.
+        const int discordFieldValueLimit = 1024;
+
+        var mechanics = Enumerable.Range(1, 50)
+            .Select(i => new PlayerFightLogMechanic
+            {
+                PlayerFightLogId = i,
+                MechanicName = $"MechanicName{i:D2}",
+                MechanicCount = i
+            }).ToList();
+        var idToAccount = Enumerable.Range(1, 50)
+            .ToDictionary(i => (long)i, i => $"Player.{i:D4}");
+
+        var rows = RaidReportService.BuildMechanicRows(mechanics, idToAccount);
+        var totalLength = rows.Sum(r => r.Length);
+
+        Assert.True(totalLength > discordFieldValueLimit,
+            $"Expected total row content ({totalLength}) to exceed field limit ({discordFieldValueLimit})");
+    }
+
     private static List<PlayerFightLogMechanic> Mechanics(params (long Id, string Name, long Count)[] entries) =>
         entries.Select(e => new PlayerFightLogMechanic
         {

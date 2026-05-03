@@ -23,7 +23,8 @@
                       <div class="mechanic-summary-name" :title="m.mechanicName">{{ m.mechanicName }}</div>
                       <div class="mechanic-summary-row">
                         <span class="mechanic-summary-label">Max</span>
-                        <span class="mechanic-max">{{ m.max }}</span>
+                        <a v-if="m.maxFightLogId && m.max > 0" :href="`/logs/${m.maxFightLogId}`" class="mechanic-max">{{ m.max }}</a>
+                        <span v-else class="mechanic-max">{{ m.max }}</span>
                       </div>
                       <div class="mechanic-summary-row">
                         <span class="mechanic-summary-label">Avg</span>
@@ -55,7 +56,7 @@ const api = useApi()
 
 const { data, pending } = await useAsyncData(
   'mechanics-overview',
-  () => api('/api/stats/mechanics') as Promise<{ fightType: number; mechanics: { mechanicName: string; max: number; avg: number; median: number }[] }[]>
+  () => api('/api/stats/mechanics') as Promise<{ fightType: number; mechanics: { mechanicName: string; max: number; maxFightLogId: number | null; avg: number; median: number }[] }[]>
 )
 
 const byCategory = computed(() =>
@@ -144,5 +145,9 @@ const toggleBoss = (fightType: number) => {
 .mechanic-max {
   font-weight: 600;
   color: var(--p-primary-color);
+  text-decoration: none;
+}
+.mechanic-max:hover {
+  text-decoration: underline;
 }
 </style>

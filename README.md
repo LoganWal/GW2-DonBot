@@ -133,6 +133,22 @@ All per-guild settings are configured via `/gw2_server_config` (Administrator on
 
 ---
 
+### Web App
+
+A companion web app is available alongside the Discord bot. After logging in with Discord OAuth2, users can:
+
+- Browse and filter their personal fight log history
+- Aggregate multiple logs into a combined stat summary (damage, deaths, boons, mechanics)
+- View per-fight player breakdowns and a session timeline chart
+- **Upload logs directly** via the `/logs/upload` page:
+  - **Paste URLs**: submit one or more `dps.report` or `wvw.report` links. The app fetches, parses, and saves them to your history.
+  - **Upload .zevtc files**: upload raw ArcDPS combat logs. The app runs Elite Insights locally to parse them, uploads to dps.report to generate a shareable URL, and saves the result.
+  - Real-time per-file progress is streamed in the browser (Stored → Parsing → Uploading → Saving → Done).
+  - Once complete, links to the dps.report page and the in-app log view are shown. Each completed upload is saved to your history.
+  - Logs are also submitted to gw2wingman in the background after the dps.report URL is obtained.
+
+---
+
 ## Technology Stack
 
 - **.NET 10.0**, C#
@@ -147,14 +163,28 @@ All per-guild settings are configured via `/gw2_server_config` (Administrator on
 
 ### Configuration
 
-All configuration is via environment variables. Copy `.env.example` to `.env` and fill in your values:
+All configuration is via environment variables or `appsettings.user.json`. Copy `.env.example` to `.env` and fill in your values:
 
-| Variable                    | Description                                               |
-|-----------------------------|-----------------------------------------------------------|
-| `DonBotToken`               | Discord bot token                                         |
-| `DonBotSqlConnectionString` | PostgreSQL connection string (see `.env.example`)         |
-| `GHCR_USER`                 | GitHub username (required for Watchtower auto-deploy)     |
-| `GHCR_TOKEN`                | GitHub PAT with `read:packages` scope (for Watchtower)    |
+| Variable                         | Description                                               |
+|----------------------------------|-----------------------------------------------------------|
+| `DonBotToken`                    | Discord bot token                                         |
+| `DonBotSqlConnectionString`      | PostgreSQL connection string (see `.env.example`)         |
+| `DiscordClientId`                | Discord OAuth2 app client ID (for web login)              |
+| `DiscordClientSecret`            | Discord OAuth2 app client secret                          |
+| `DonBotJwtKey`                   | Random 32+ char string for JWT signing (API)              |
+| `GHCR_USER`                      | GitHub username (required for Watchtower auto-deploy)     |
+| `GHCR_TOKEN`                     | GitHub PAT with `read:packages` scope (for Watchtower)    |
+
+Additional API settings (add to `DonBot.Api/appsettings.user.json` or `.env`):
+
+| Key                              | Description                                                                 |
+|----------------------------------|-----------------------------------------------------------------------------|
+| `EliteInsights:CliPath`          | Absolute path to the EI CLI executable (required for `.zevtc` file uploads) |
+| `EliteInsights:OutputBasePath`   | Directory where EI writes per-job output (default: `/tmp/donbot/ei-output`) |
+| `Upload:StoragePath`             | Directory where uploaded `.zevtc` files are temporarily stored (default: `/tmp/donbot/uploads`) |
+| `DpsReport:UserToken`            | Optional dps.report user token (links uploads to your dps.report account)   |
+
+See `DonBot.Api/appsettings.example.json` for a full example.
 
 ### Build
 

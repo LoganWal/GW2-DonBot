@@ -24,6 +24,7 @@ app.UseAuthorization();
 
 app.MapAuthEndpoints();
 app.MapLogsEndpoints();
+app.MapUploadEndpoints();
 app.MapStatsEndpoints();
 app.MapLeaderboardEndpoints();
 app.MapPointsEndpoints();

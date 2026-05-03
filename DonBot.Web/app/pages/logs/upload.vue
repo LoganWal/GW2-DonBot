@@ -38,17 +38,23 @@
         <p class="panel-hint">Drag and drop or click to select .zevtc combat log files.</p>
         <div
           class="drop-zone"
-          :class="{ 'drop-zone--active': isDragging }"
-          @dragover.prevent="isDragging = true"
+          :class="{ 'drop-zone--active': isDragging, 'drop-zone--loading': uploadingFiles }"
+          @dragover.prevent="onDragOver"
           @dragleave.prevent="isDragging = false"
           @drop.prevent="onDrop"
-          @click="fileInput?.click()"
+          @click="onDropZoneClick"
         >
-          <i class="pi pi-upload" style="font-size: 1.5rem; color: var(--p-text-muted-color);" />
-          <p style="margin: 0.25rem 0 0; color: var(--p-text-muted-color); font-size: 0.85rem;">
-            Drop .zevtc files here or click to browse
-          </p>
-          <p style="margin: 0.15rem 0 0; font-size: 0.75rem; color: var(--p-text-muted-color);">Multiple files supported</p>
+          <template v-if="uploadingFiles">
+            <ProgressSpinner style="width: 2rem; height: 2rem;" />
+            <p style="margin: 0.25rem 0 0; color: var(--p-text-muted-color); font-size: 0.85rem;">Uploading files...</p>
+          </template>
+          <template v-else>
+            <i class="pi pi-upload" style="font-size: 1.5rem; color: var(--p-text-muted-color);" />
+            <p style="margin: 0.25rem 0 0; color: var(--p-text-muted-color); font-size: 0.85rem;">
+              Drop .zevtc files here or click to browse
+            </p>
+            <p style="margin: 0.15rem 0 0; font-size: 0.75rem; color: var(--p-text-muted-color);">Multiple files supported</p>
+          </template>
           <input ref="fileInput" type="file" multiple accept=".zevtc" style="display: none;" @change="onFileInputChange" />
         </div>
       </div>
@@ -179,6 +185,7 @@ const api = useApi()
 const toast = useToast()
 const fileInput = ref<HTMLInputElement | null>(null)
 const isDragging = ref(false)
+const uploadingFiles = ref(false)
 const urlInput = ref('')
 const submittingUrls = ref(false)
 const uploadToWingman = ref(true)
@@ -263,16 +270,23 @@ const submitUrls = async () => {
     })
     urlInput.value = ''
     for (const item of created) addUploadEntry(item)
-  } catch (err) {
-    console.error('URL submit failed', err)
+  } catch (err: any) {
+    const status = err?.response?.status ?? err?.status
+    const detail = status === 401
+      ? 'You must be logged in to submit URLs.'
+      : 'Failed to submit URLs. Please check they are valid dps.report or wvw.report links.'
+    toast.add({ severity: 'error', summary: 'Submission failed', detail, life: 5000 })
   } finally {
     submittingUrls.value = false
   }
 }
 
+const onDragOver = () => { if (!uploadingFiles.value) isDragging.value = true }
+const onDropZoneClick = () => { if (!uploadingFiles.value) fileInput.value?.click() }
+
 const onDrop = (e: DragEvent) => {
   isDragging.value = false
-  handleFiles(Array.from(e.dataTransfer?.files ?? []))
+  if (!uploadingFiles.value) handleFiles(Array.from(e.dataTransfer?.files ?? []))
 }
 
 const onFileInputChange = (e: Event) => {
@@ -287,6 +301,7 @@ const handleFiles = async (files: File[]) => {
   const formData = new FormData()
   for (const f of valid) formData.append('file', f, f.name)
 
+  uploadingFiles.value = true
   try {
     const created: { logUploadId: number; fileName: string; sourceType: 'file' }[] = await $fetch(`/api/upload/files?wingman=${uploadToWingman.value}`, {
       baseURL: config.public.apiBase,
@@ -295,8 +310,16 @@ const handleFiles = async (files: File[]) => {
       credentials: 'include'
     })
     for (const item of created) addUploadEntry(item)
-  } catch (err) {
-    console.error('File upload failed', err)
+  } catch (err: any) {
+    const status = err?.response?.status ?? err?.status
+    const detail = status === 413
+      ? 'Files are too large. Try uploading fewer files at once.'
+      : status === 401
+        ? 'You must be logged in to upload files.'
+        : 'Upload failed. Please try again.'
+    toast.add({ severity: 'error', summary: 'Upload failed', detail, life: 5000 })
+  } finally {
+    uploadingFiles.value = false
   }
 }
 
@@ -476,6 +499,10 @@ const statusLabel = (status: string) => ({
 .drop-zone--active {
   border-color: var(--p-primary-color);
   background: color-mix(in srgb, var(--p-primary-color) 8%, transparent);
+}
+.drop-zone--loading {
+  cursor: default;
+  opacity: 0.8;
 }
 
 .uploads-header {

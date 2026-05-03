@@ -13,19 +13,41 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DonBot.Api.Services;
 
-public sealed class LogUploadPipelineService(
-    ILogUploadProgressService progress,
-    IDbContextFactory<DatabaseContext> dbContextFactory,
-    IDataModelGenerationService dataModelGenerationService,
-    IPlayerService playerService,
-    IHttpClientFactory httpClientFactory,
-    IConfiguration configuration,
-    ILogger<LogUploadPipelineService> logger) : BackgroundService
+public sealed class LogUploadPipelineService : BackgroundService
 {
+    private readonly ILogUploadProgressService progress;
+    private readonly IDbContextFactory<DatabaseContext> dbContextFactory;
+    private readonly IDataModelGenerationService dataModelGenerationService;
+    private readonly IPlayerService playerService;
+    private readonly IHttpClientFactory httpClientFactory;
+    private readonly IConfiguration configuration;
+    private readonly ILogger<LogUploadPipelineService> logger;
+
     private static readonly Regex DpsReportUrlPattern =
         new(@"https?://(b\.dps|dps|wvw)\.report/\S+", RegexOptions.Compiled);
 
     private readonly Channel<long> _queue = Channel.CreateUnbounded<long>(new UnboundedChannelOptions { SingleReader = true });
+    private readonly SemaphoreSlim _concurrency;
+
+    public LogUploadPipelineService(
+        ILogUploadProgressService progress,
+        IDbContextFactory<DatabaseContext> dbContextFactory,
+        IDataModelGenerationService dataModelGenerationService,
+        IPlayerService playerService,
+        IHttpClientFactory httpClientFactory,
+        IConfiguration configuration,
+        ILogger<LogUploadPipelineService> logger)
+    {
+        this.progress = progress;
+        this.dbContextFactory = dbContextFactory;
+        this.dataModelGenerationService = dataModelGenerationService;
+        this.playerService = playerService;
+        this.httpClientFactory = httpClientFactory;
+        this.configuration = configuration;
+        this.logger = logger;
+        var concurrency = configuration.GetValue<int>("Upload:MaxConcurrentProcessing", 3);
+        _concurrency = new SemaphoreSlim(concurrency, concurrency);
+    }
 
     public void Enqueue(long uploadId) => _queue.Writer.TryWrite(uploadId);
 
@@ -33,7 +55,12 @@ public sealed class LogUploadPipelineService(
     {
         await foreach (var uploadId in _queue.Reader.ReadAllAsync(ct))
         {
-            _ = Task.Run(() => ProcessUploadAsync(uploadId, ct), ct);
+            await _concurrency.WaitAsync(ct);
+            _ = Task.Run(async () =>
+            {
+                try { await ProcessUploadAsync(uploadId, ct); }
+                finally { _concurrency.Release(); }
+            }, ct);
         }
     }
 
@@ -238,29 +265,48 @@ public sealed class LogUploadPipelineService(
     private async Task<string?> FallbackUploadToDpsReportAsync(string filePath, string fileName, string userToken, CancellationToken ct)
     {
         logger.LogInformation("EI did not output a dps.report URL, falling back to direct upload for {file}", fileName);
-        try
+
+        var uploadUrl = string.IsNullOrEmpty(userToken)
+            ? "https://dps.report/uploadContent?json=1&generator=ei"
+            : $"https://dps.report/uploadContent?json=1&generator=ei&userToken={Uri.EscapeDataString(userToken)}";
+
+        var delays = new[] { 5, 15, 30 };
+        for (var attempt = 0; attempt <= delays.Length; attempt++)
         {
-            await using var fileStream = File.OpenRead(filePath);
-            using var form = new MultipartFormDataContent();
-            form.Add(new StreamContent(fileStream), "file", fileName);
+            try
+            {
+                await using var fileStream = File.OpenRead(filePath);
+                using var form = new MultipartFormDataContent();
+                form.Add(new StreamContent(fileStream), "file", fileName);
 
-            var uploadUrl = string.IsNullOrEmpty(userToken)
-                ? "https://dps.report/uploadContent?json=1&generator=ei"
-                : $"https://dps.report/uploadContent?json=1&generator=ei&userToken={Uri.EscapeDataString(userToken)}";
+                var client = httpClientFactory.CreateClient();
+                client.Timeout = TimeSpan.FromMinutes(5);
+                var response = await client.PostAsync(uploadUrl, form, ct);
 
-            var client = httpClientFactory.CreateClient();
-            client.Timeout = TimeSpan.FromMinutes(5);
-            var response = await client.PostAsync(uploadUrl, form, ct);
-            response.EnsureSuccessStatusCode();
+                if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests && attempt < delays.Length)
+                {
+                    logger.LogWarning("dps.report rate limited for {file}, retrying in {s}s (attempt {a}/{t})", fileName, delays[attempt], attempt + 1, delays.Length);
+                    await Task.Delay(TimeSpan.FromSeconds(delays[attempt]), ct);
+                    continue;
+                }
 
-            var json = await response.Content.ReadAsStringAsync(ct);
-            return JsonSerializer.Deserialize<DpsReportUploadResult>(json)?.Permalink;
+                response.EnsureSuccessStatusCode();
+                var json = await response.Content.ReadAsStringAsync(ct);
+                return JsonSerializer.Deserialize<DpsReportUploadResult>(json)?.Permalink;
+            }
+            catch (Exception ex) when (attempt < delays.Length && ex is not OperationCanceledException)
+            {
+                logger.LogWarning(ex, "Fallback dps.report upload failed for {file} (attempt {a}/{t}), retrying in {s}s", fileName, attempt + 1, delays.Length, delays[attempt]);
+                await Task.Delay(TimeSpan.FromSeconds(delays[attempt]), ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Fallback dps.report upload failed for {file}", fileName);
+                return null;
+            }
         }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Fallback dps.report upload failed for {file}", fileName);
-            return null;
-        }
+
+        return null;
     }
 
     public void SubmitToWingman(string dpsReportUrl) => FireAndForgetWingman(dpsReportUrl);

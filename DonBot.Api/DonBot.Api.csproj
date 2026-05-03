@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\GW2-DonBot\DonBot.csproj" />
+    <ProjectReference Include="..\DonBot.Core\DonBot.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="DotNetEnv" Version="3.1.1" />

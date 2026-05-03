@@ -4,6 +4,7 @@
       <div v-if="mobileOpen" class="sidebar-backdrop" @click="closeMobile" />
     </Teleport>
 
+    <Toast position="bottom-right" />
     <AppSidebar />
 
     <div class="layout-body">

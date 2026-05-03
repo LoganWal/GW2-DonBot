@@ -1,6 +1,9 @@
 <template>
   <div>
-    <h1 class="page-title">Fight Logs</h1>
+    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+      <h1 class="page-title" style="margin: 0;">Fight Logs</h1>
+      <Button icon="pi pi-upload" label="Upload" severity="secondary" size="small" style="margin-left: auto;" @click="navigateTo('/logs/upload')" />
+    </div>
 
     <!-- Quick access buttons -->
     <div class="quick-buttons">

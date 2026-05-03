@@ -1,4 +1,7 @@
+using DonBot.Api.Services;
 using DonBot.Models.Entities;
+using DonBot.Services.DatabaseServices;
+using DonBot.Services.GuildWarsServices;
 using DonBot.Services.SecretsServices;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +24,15 @@ public static class ApiServiceRegister
         });
 
         services.AddHttpClient();
+
+        services.AddScoped(typeof(IDatabaseUpdateService<>), typeof(DatabaseUpdateService<>));
+        services.AddScoped<IEntityService, EntityService>();
+        services.AddScoped<IPlayerService, PlayerService>();
+        services.AddScoped<IDataModelGenerationService, DataModelGenerationService>();
+
+        services.AddSingleton<ILogUploadProgressService, LogUploadProgressService>();
+        services.AddSingleton<LogUploadPipelineService>();
+        services.AddHostedService(sp => sp.GetRequiredService<LogUploadPipelineService>());
 
         var jwtKey = configuration["DonBotJwtKey"] ?? Environment.GetEnvironmentVariable("DonBotJwtKey")
             ?? throw new InvalidOperationException("'DonBotJwtKey' is not configured. Set it in appsettings.user.json or the .env file.");

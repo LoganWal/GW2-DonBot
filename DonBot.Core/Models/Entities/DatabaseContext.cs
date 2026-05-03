@@ -22,6 +22,7 @@ public sealed class DatabaseContext : DbContext
         SteamAccount = Set<SteamAccount>();
         ScheduledEvent = Set<ScheduledEvent>();
         RotationAnomaly = Set<RotationAnomaly>();
+        LogUpload = Set<LogUpload>();
     }
 
     public DbSet<Account> Account { get; set; }
@@ -51,6 +52,8 @@ public sealed class DatabaseContext : DbContext
     public DbSet<ScheduledEvent> ScheduledEvent { get; set; }
 
     public DbSet<RotationAnomaly> RotationAnomaly { get; set; }
+
+    public DbSet<LogUpload> LogUpload { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

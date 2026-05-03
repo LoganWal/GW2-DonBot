@@ -6,7 +6,9 @@ using DonBot.Models.Entities;
 using DonBot.Models.Enums;
 using DonBot.Models.GuildWars2;
 using DonBot.Models.Statics;
+using DonBot.Services;
 using DonBot.Services.DatabaseServices;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
 namespace DonBot.Services.GuildWarsServices.MessageGeneration;
@@ -15,6 +17,7 @@ public sealed class WvWFightSummaryService(
     IEntityService entityService,
     IPlayerService playerService,
     IFooterService footerService,
+    IDbContextFactory<DatabaseContext> dbContextFactory,
     IConfiguration configuration) : IWvWFightSummaryService
 {
     public async Task<(Embed Embed, string? WebAppUrl)> Generate(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
@@ -114,6 +117,14 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
         if (!advancedLog)
         {
             fightLog = await entityService.FightLog.GetFirstOrDefaultAsync(s => s.Url == data.FightEliteInsightDataModel.Url);
+
+            if (fightLog == null)
+            {
+                await using var ctx = await dbContextFactory.CreateDbContextAsync();
+                fightLog = await FightLogDeduplication.FindByContentAsync(
+                    ctx, (short)FightTypesEnum.WvW, dateTimeStart,
+                    gw2Players.Select(p => p.AccountName));
+            }
 
             if (fightLog == null)
             {

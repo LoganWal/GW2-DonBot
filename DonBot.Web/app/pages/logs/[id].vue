@@ -170,7 +170,7 @@
         </div>
         <Tabs value="overview">
           <TabList>
-            <Tab value="overview">Overview</Tab>
+            <Tab value="overview">Damage & Combat</Tab>
             <Tab value="survivability">Survivability</Tab>
             <Tab v-if="mechanicNames.length > 0" value="mechanics">Mechanics</Tab>
           </TabList>

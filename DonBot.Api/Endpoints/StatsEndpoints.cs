@@ -492,6 +492,10 @@ public static class StatsEndpoints
         .Where(p => fightTypeById.ContainsKey(p.FightLogId))
         .ToDictionary(p => p.PlayerFightLogId, p => fightTypeById[p.FightLogId]);
 
+    var playerLogIdToFightLogId = playerLogs
+        .Where(p => fightTypeById.ContainsKey(p.FightLogId))
+        .ToDictionary(p => p.PlayerFightLogId, p => p.FightLogId);
+
     var mechanics = await context.PlayerFightLogMechanic
         .Where(m => pvePlayerLogIds.Contains(m.PlayerFightLogId) && m.MechanicCount > 0)
         .ToListAsync();
@@ -501,6 +505,7 @@ public static class StatsEndpoints
         .Select(g => new
         {
             fightType = playerLogIdToFightType[g.Key.PlayerFightLogId],
+            fightLogId = playerLogIdToFightLogId[g.Key.PlayerFightLogId],
             mechanicName = g.Key.MechanicName,
             count = g.Sum(m => m.MechanicCount),
         })
@@ -510,17 +515,19 @@ public static class StatsEndpoints
         .GroupBy(x => (x.fightType, x.mechanicName))
         .Select(g =>
         {
-            var values = g.Select(x => x.count).OrderBy(v => v).ToList();
-            var mid = values.Count / 2;
-            var median = values.Count % 2 == 0
-                ? (values[mid - 1] + values[mid]) / 2L
-                : values[mid];
+            var ordered = g.OrderBy(x => x.count).ToList();
+            var mid = ordered.Count / 2;
+            var median = ordered.Count % 2 == 0
+                ? (ordered[mid - 1].count + ordered[mid].count) / 2L
+                : ordered[mid].count;
+            var maxEntry = ordered[^1];
             return new
             {
                 fightType = g.Key.fightType,
                 mechanicName = g.Key.mechanicName,
-                max = values.Max(),
-                avg = Math.Round(values.Average(v => (double)v), 1),
+                max = maxEntry.count,
+                maxFightLogId = maxEntry.fightLogId,
+                avg = Math.Round(g.Average(x => (double)x.count), 1),
                 median,
             };
         })
@@ -529,7 +536,7 @@ public static class StatsEndpoints
         {
             fightType = g.Key,
             mechanics = g.OrderByDescending(m => m.max)
-                .Select(m => new { m.mechanicName, m.max, m.avg, m.median })
+                .Select(m => new { m.mechanicName, m.max, m.maxFightLogId, m.avg, m.median })
                 .ToList(),
         })
         .Where(g => g.mechanics.Count > 0)

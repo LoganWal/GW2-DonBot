@@ -65,12 +65,13 @@ const allNavItems = [
   { label: 'Leaderboard',   to: '/leaderboard', icon: 'pi-trophy' },
   { label: 'Points',        to: '/points',      icon: 'pi-star',  hidden: computed(() => !hasPoints.value) },
   { label: 'Accounts',     to: '/verify',      icon: 'pi-link' },
+  { label: 'Upload Logs',   to: '/logs/upload', icon: 'pi-upload' },
 ]
 
 const navItems = computed(() => allNavItems.filter(item => !item.hidden?.value))
 
 const isActive = (to: string) =>
-  route.path === to || route.path.startsWith(to + '/')
+  route.path === to || (to !== '/logs' && route.path.startsWith(to + '/'))
 </script>
 
 <style scoped>

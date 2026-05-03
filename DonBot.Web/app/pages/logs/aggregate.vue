@@ -57,7 +57,7 @@
         <TabList>
           <Tab value="logs">Logs</Tab>
           <Tab value="damage">Damage & Combat</Tab>
-          <Tab v-if="displayResult?.type === 'wvw'" value="support">Support</Tab>
+          <Tab value="support">Support</Tab>
           <Tab value="survivability">Survivability</Tab>
           <Tab v-if="displayResult?.type !== 'wvw'" value="mechanics">Mechanics</Tab>
         </TabList>
@@ -121,6 +121,10 @@
                   <div class="chart-label">Boons Ripped per Fight</div>
                   <Chart type="line" :data="wvwBoonsRippedChartData" :options="clickableIntChartOptions" />
                 </div>
+                <div class="chart-container clickable-chart">
+                  <div class="chart-label">Quickness % per Fight</div>
+                  <Chart type="line" :data="wvwQuickChartData" :options="clickableChartOptions" />
+                </div>
               </div>
               <DataTable :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="damage" :sort-order="-1">
                 <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
@@ -135,6 +139,9 @@
                 <Column field="downs" header="Downs" :sortable="true" style="min-width: 65px;" />
                 <Column field="interrupts" header="Interrupts" :sortable="true" style="min-width: 90px;" />
                 <Column field="numberOfBoonsRipped" header="Boons Ripped" :sortable="true" style="min-width: 110px;" />
+                <Column header="Quick %" :sortable="true" sort-field="quicknessDuration" style="min-width: 80px;">
+                  <template #body="{ data }">{{ data.quicknessDuration }}%</template>
+                </Column>
               </DataTable>
             </template>
             <template v-else-if="displayResult && filteredAggLogs.length > 0">
@@ -165,9 +172,6 @@
                 <Column header="Cleave DPS" :sortable="true" sort-field="cleaveDps" style="min-width: 105px;">
                   <template #body="{ data }">{{ data.cleaveDps?.toLocaleString() ?? '0' }}</template>
                 </Column>
-                <Column header="Avg Barrier Gen" :sortable="true" sort-field="barrierGenerated" style="min-width: 120px;">
-                  <template #body="{ data }">{{ data.barrierGenerated?.toLocaleString() ?? '0' }}</template>
-                </Column>
                 <Column header="Quick %" :sortable="true" sort-field="quicknessDuration" style="min-width: 80px;">
                   <template #body="{ data }">{{ data.quicknessDuration }}%</template>
                 </Column>
@@ -178,17 +182,13 @@
             </template>
           </TabPanel>
 
-          <!-- Support (WvW only) -->
+          <!-- Support -->
           <TabPanel value="support">
             <template v-if="displayResult && filteredAggLogs.length > 0 && displayResult.type === 'wvw'">
               <div class="charts-row mb-section">
                 <div class="chart-container clickable-chart">
                   <div class="chart-label">Avg Healing per Fight</div>
                   <Chart type="line" :data="healingChartData" :options="clickableChartOptions" />
-                </div>
-                <div class="chart-container clickable-chart">
-                  <div class="chart-label">Quickness % per Fight</div>
-                  <Chart type="line" :data="wvwQuickChartData" :options="clickableChartOptions" />
                 </div>
               </div>
               <DataTable :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="healing" :sort-order="-1">
@@ -211,8 +211,34 @@
                 <Column header="Stab Off" :sortable="true" sort-field="stabOffGroup" style="min-width: 80px;">
                   <template #body="{ data }">{{ data.stabOffGroup }}</template>
                 </Column>
-                <Column header="Quick %" :sortable="true" sort-field="quicknessDuration" style="min-width: 80px;">
-                  <template #body="{ data }">{{ data.quicknessDuration }}%</template>
+              </DataTable>
+            </template>
+            <template v-else-if="displayResult && filteredAggLogs.length > 0">
+              <div class="charts-row mb-section">
+                <div class="chart-container clickable-chart">
+                  <div class="chart-label">Avg Healing per Fight</div>
+                  <Chart type="line" :data="healingChartData" :options="clickableChartOptions" />
+                </div>
+              </div>
+              <DataTable :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="healing" :sort-order="-1">
+                <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
+                <Column header="Avg Healing" :sortable="true" sort-field="healing" style="min-width: 105px;">
+                  <template #body="{ data }">{{ data.healing?.toLocaleString() ?? '0' }}</template>
+                </Column>
+                <Column header="Avg Cleanses" :sortable="true" sort-field="cleanses" style="min-width: 105px;">
+                  <template #body="{ data }">{{ data.cleanses }}</template>
+                </Column>
+                <Column header="Avg Barrier Gen" :sortable="true" sort-field="barrierGenerated" style="min-width: 120px;">
+                  <template #body="{ data }">{{ data.barrierGenerated?.toLocaleString() ?? '0' }}</template>
+                </Column>
+                <Column header="Avg Strips" :sortable="true" sort-field="strips" style="min-width: 95px;">
+                  <template #body="{ data }">{{ data.strips }}</template>
+                </Column>
+                <Column header="Stab On" :sortable="true" sort-field="stabOnGroup" style="min-width: 80px;">
+                  <template #body="{ data }">{{ data.stabOnGroup }}</template>
+                </Column>
+                <Column header="Stab Off" :sortable="true" sort-field="stabOffGroup" style="min-width: 80px;">
+                  <template #body="{ data }">{{ data.stabOffGroup }}</template>
                 </Column>
               </DataTable>
             </template>

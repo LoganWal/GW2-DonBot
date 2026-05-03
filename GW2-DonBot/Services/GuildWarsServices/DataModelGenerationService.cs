@@ -6,6 +6,28 @@ namespace DonBot.Services.GuildWarsServices;
 
 public sealed class DataModelGenerationService(ILogger<DataModelGenerationService> logger, IHttpClientFactory httpClientFactory) : IDataModelGenerationService
 {
+    public EliteInsightDataModel GenerateEliteInsightDataModelFromHtml(string html, string url)
+    {
+        var logDataScript = ExtractLogDataScript(html);
+        if (logDataScript == null)
+        {
+            logger.LogError("Failed to locate _logData in any <script> tag for {url}.", url);
+            return new EliteInsightDataModel(url);
+        }
+
+        var fightData = ExtractAndDeserialize<FightEliteInsightDataModel>(logDataScript, "_logData");
+        var healingData = ExtractAndDeserialize<HealingEliteInsightDataModel>(logDataScript, "_healingStatsExtension");
+        var barrierData = ExtractAndDeserialize<BarrierEliteInsightDataModel>(logDataScript, "_barrierStatsExtension");
+
+        var rawFightData = ExtractRaw(logDataScript, "_logData");
+        var rawHealingData = ExtractRaw(logDataScript, "_healingStatsExtension");
+        var rawBarrierData = ExtractRaw(logDataScript, "_barrierStatsExtension");
+
+        fightData.Url = url;
+
+        return new EliteInsightDataModel(fightData, healingData, barrierData, rawFightData, rawHealingData, rawBarrierData);
+    }
+
     public async Task<EliteInsightDataModel> GenerateEliteInsightDataModelFromUrl(string url)
     {
         const int maxRetries = 3;
@@ -20,25 +42,7 @@ public sealed class DataModelGenerationService(ILogger<DataModelGenerationServic
                 using var content = response.Content;
                 var result = await content.ReadAsStringAsync();
 
-                var scriptTags = new List<string>();
-                var scriptStartIndex = 0;
-
-                while ((scriptStartIndex = result.IndexOf("<script>", scriptStartIndex, StringComparison.Ordinal)) != -1)
-                {
-                    var scriptEndIndex = result.IndexOf("</script>", scriptStartIndex, StringComparison.Ordinal);
-                    if (scriptEndIndex == -1)
-                    {
-                        logger.LogError("Malformed HTML: Missing closing </script> tag.");
-                        throw new InvalidOperationException("Malformed HTML: Missing closing </script> tag.");
-                    }
-
-                    var scriptContent = result.Substring(scriptStartIndex + "<script>".Length, scriptEndIndex - scriptStartIndex - "<script>".Length);
-                    scriptTags.Add(scriptContent);
-
-                    scriptStartIndex = scriptEndIndex + "</script>".Length;
-                }
-
-                var logDataScript = scriptTags.FirstOrDefault(script => script.Contains("_logData = {"));
+                var logDataScript = ExtractLogDataScript(result);
                 if (logDataScript == null)
                 {
                     logger.LogError("Failed to locate _logData in any <script> tag.");
@@ -89,6 +93,28 @@ public sealed class DataModelGenerationService(ILogger<DataModelGenerationServic
                 await Task.Delay(1000);
             }
         }
+    }
+
+    private string? ExtractLogDataScript(string html)
+    {
+        var scriptTags = new List<string>();
+        var scriptStartIndex = 0;
+
+        while ((scriptStartIndex = html.IndexOf("<script>", scriptStartIndex, StringComparison.Ordinal)) != -1)
+        {
+            var scriptEndIndex = html.IndexOf("</script>", scriptStartIndex, StringComparison.Ordinal);
+            if (scriptEndIndex == -1)
+            {
+                logger.LogError("Malformed HTML: Missing closing </script> tag.");
+                return null;
+            }
+
+            var scriptContent = html.Substring(scriptStartIndex + "<script>".Length, scriptEndIndex - scriptStartIndex - "<script>".Length);
+            scriptTags.Add(scriptContent);
+            scriptStartIndex = scriptEndIndex + "</script>".Length;
+        }
+
+        return scriptTags.FirstOrDefault(script => script.Contains("_logData = {"));
     }
 
     private static bool IsWingmanUrl(string url) =>

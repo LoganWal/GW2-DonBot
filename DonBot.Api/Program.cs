@@ -1,5 +1,6 @@
 using DonBot.Api.Endpoints;
 using DonBot.Api.Registration;
+using Microsoft.AspNetCore.Http.Features;
 using Serilog;
 
 var envFile = Path.Combine(Directory.GetCurrentDirectory(), "..", ".env");
@@ -14,6 +15,10 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Services(services));
 
 ApiServiceRegister.ConfigureServices(builder.Services, builder.Configuration);
+
+var maxUploadBytes = builder.Configuration.GetValue<long>("Upload:MaxRequestBytes", 1_073_741_824);
+builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = maxUploadBytes);
+builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = maxUploadBytes);
 
 var app = builder.Build();
 

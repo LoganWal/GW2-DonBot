@@ -72,8 +72,6 @@
                 <DataTable
                   :value="group.items"
                   striped-rows
-                  @row-click="onRowClick"
-                  style="cursor: pointer; user-select: none;"
                   size="small"
                   class="category-table"
                 >
@@ -104,6 +102,11 @@
                       <Tag v-else severity="secondary" value="WvW" />
                     </template>
                   </Column>
+                  <Column style="width: 3rem; padding: 0;">
+                    <template #body="{ data }">
+                      <Button icon="pi pi-eye" severity="secondary" text size="small" @click.stop="navigateTo(`/logs/${data.fightLogId}`)" />
+                    </template>
+                  </Column>
                 </DataTable>
               </CollapsibleSection>
             </div>
@@ -120,8 +123,6 @@
         :value="logs"
         :loading="pending"
         striped-rows
-        @row-click="onRowClick"
-        style="cursor: pointer; user-select: none;"
       >
         <Column style="width: 3rem; padding: 0;">
           <template #header>
@@ -157,6 +158,11 @@
               :value="data.isSuccess ? 'Kill' : `${data.fightPercent}%`"
             />
             <Tag v-else severity="secondary" value="WvW" />
+          </template>
+        </Column>
+        <Column style="width: 3rem; padding: 0;">
+          <template #body="{ data }">
+            <Button icon="pi pi-eye" severity="secondary" text size="small" @click.stop="navigateTo(`/logs/${data.fightLogId}`)" />
           </template>
         </Column>
       </DataTable>
@@ -361,10 +367,6 @@ const handleSelect = (shiftKey: boolean, row: any) => {
   }
 }
 
-const onRowClick = (e: any) => {
-  navigateTo(`/logs/${e.data.fightLogId}`)
-}
-
 const onCheckboxClick = (e: MouseEvent, row: any) => {
   handleSelect(e.shiftKey, row)
 }
@@ -389,6 +391,7 @@ const goToAggregate = () => {
   height: 100%;
   min-height: 2.5rem;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .quick-buttons {

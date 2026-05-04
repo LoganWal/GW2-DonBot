@@ -32,6 +32,7 @@ public static class ApiServiceRegister
 
         services.AddSingleton<ILogUploadProgressService, LogUploadProgressService>();
         services.AddSingleton<LogUploadPipelineService>();
+        services.AddSingleton<TusFileMapping>();
         services.AddHostedService(sp => sp.GetRequiredService<LogUploadPipelineService>());
 
         var jwtKey = configuration["DonBotJwtKey"] ?? Environment.GetEnvironmentVariable("DonBotJwtKey")
@@ -79,7 +80,16 @@ public static class ApiServiceRegister
 
                 policy.AllowAnyHeader()
                       .AllowAnyMethod()
-                      .AllowCredentials();
+                      .AllowCredentials()
+                      .WithExposedHeaders(
+                          "X-Log-Upload-Id",
+                          "Upload-Offset",
+                          "Upload-Length",
+                          "Tus-Version",
+                          "Tus-Resumable",
+                          "Tus-Max-Size",
+                          "Location"
+                      );
             });
         });
     }

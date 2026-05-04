@@ -38,23 +38,17 @@
         <p class="panel-hint">Drag and drop or click to select .zevtc combat log files.</p>
         <div
           class="drop-zone"
-          :class="{ 'drop-zone--active': isDragging, 'drop-zone--loading': uploadingFiles }"
+          :class="{ 'drop-zone--active': isDragging }"
           @dragover.prevent="onDragOver"
           @dragleave.prevent="isDragging = false"
           @drop.prevent="onDrop"
           @click="onDropZoneClick"
         >
-          <template v-if="uploadingFiles">
-            <ProgressSpinner style="width: 2rem; height: 2rem;" />
-            <p style="margin: 0.25rem 0 0; color: var(--p-text-muted-color); font-size: 0.85rem;">Uploading files...</p>
-          </template>
-          <template v-else>
-            <i class="pi pi-upload" style="font-size: 1.5rem; color: var(--p-text-muted-color);" />
-            <p style="margin: 0.25rem 0 0; color: var(--p-text-muted-color); font-size: 0.85rem;">
-              Drop .zevtc files here or click to browse
-            </p>
-            <p style="margin: 0.15rem 0 0; font-size: 0.75rem; color: var(--p-text-muted-color);">Multiple files supported</p>
-          </template>
+          <i class="pi pi-upload" style="font-size: 1.5rem; color: var(--p-text-muted-color);" />
+          <p style="margin: 0.25rem 0 0; color: var(--p-text-muted-color); font-size: 0.85rem;">
+            Drop .zevtc files here or click to browse
+          </p>
+          <p style="margin: 0.15rem 0 0; font-size: 0.75rem; color: var(--p-text-muted-color);">Multiple files supported</p>
           <input ref="fileInput" type="file" multiple accept=".zevtc" style="display: none;" @change="onFileInputChange" />
         </div>
       </div>
@@ -81,7 +75,14 @@
             <Tag :severity="statusSeverity(upload.status)" :value="statusLabel(upload.status)" />
           </div>
 
-          <div class="upload-card__stages">
+          <!-- TUS transfer progress -->
+          <template v-if="upload.status === 'transferring'">
+            <ProgressBar :value="upload.uploadProgress" style="margin: 0.25rem 0;" />
+            <div class="upload-card__message">Sending to server... {{ upload.uploadProgress }}%</div>
+          </template>
+
+          <!-- Pipeline stages -->
+          <div v-else class="upload-card__stages">
             <template v-for="stage in visibleStages(upload.sourceType)" :key="stage.key">
               <div class="stage-step" :class="stageClass(upload, stage.key)">
                 <i :class="stageIcon(upload, stage.key)" />
@@ -91,7 +92,7 @@
             </template>
           </div>
 
-          <div v-if="upload.message && !['complete', 'failed'].includes(upload.status)" class="upload-card__message">
+          <div v-if="upload.message && !['complete', 'failed', 'transferring'].includes(upload.status)" class="upload-card__message">
             {{ upload.message }}
           </div>
 
@@ -178,6 +179,8 @@
 </template>
 
 <script setup lang="ts">
+import * as tus from 'tus-js-client'
+
 definePageMeta({ middleware: 'auth' })
 
 const config = useRuntimeConfig()
@@ -185,7 +188,6 @@ const api = useApi()
 const toast = useToast()
 const fileInput = ref<HTMLInputElement | null>(null)
 const isDragging = ref(false)
-const uploadingFiles = ref(false)
 const urlInput = ref('')
 const submittingUrls = ref(false)
 const uploadToWingman = ref(true)
@@ -201,6 +203,7 @@ interface UploadEntry {
   dpsReportUrl: string | null
   fightLogId: number | null
   stageReached: string
+  uploadProgress: number
 }
 
 const FILE_STAGES = [
@@ -237,9 +240,11 @@ const history = computed(() => historyData.value?.items ?? [])
 const historyTotal = computed(() => historyData.value?.total ?? 0)
 
 const uploadSortWeight = (u: UploadEntry) => {
-  if (u.status === 'failed') return STAGE_ORDER.length + 1
-  if (u.status === 'complete') return STAGE_ORDER.length
-  return STAGE_ORDER.indexOf(u.stageReached)
+  if (u.status === 'transferring') return 0
+  if (['parsing', 'uploading', 'saving'].includes(u.status)) return 1
+  if (u.status === 'failed') return 2
+  if (u.status === 'complete') return 3
+  return 4 // stored / receiving / pending: queued but idle
 }
 
 const sortedUploads = computed(() =>
@@ -281,12 +286,12 @@ const submitUrls = async () => {
   }
 }
 
-const onDragOver = () => { if (!uploadingFiles.value) isDragging.value = true }
-const onDropZoneClick = () => { if (!uploadingFiles.value) fileInput.value?.click() }
+const onDragOver = () => { isDragging.value = true }
+const onDropZoneClick = () => { fileInput.value?.click() }
 
 const onDrop = (e: DragEvent) => {
   isDragging.value = false
-  if (!uploadingFiles.value) handleFiles(Array.from(e.dataTransfer?.files ?? []))
+  handleFiles(Array.from(e.dataTransfer?.files ?? []))
 }
 
 const onFileInputChange = (e: Event) => {
@@ -294,33 +299,73 @@ const onFileInputChange = (e: Event) => {
   if (fileInput.value) fileInput.value.value = ''
 }
 
-const handleFiles = async (files: File[]) => {
+const handleFiles = (files: File[]) => {
   const valid = files.filter(f => f.name.toLowerCase().endsWith('.zevtc'))
   if (valid.length === 0) return
 
-  const formData = new FormData()
-  for (const f of valid) formData.append('file', f, f.name)
-
-  uploadingFiles.value = true
-  try {
-    const created: { logUploadId: number; fileName: string; sourceType: 'file' }[] = await $fetch(`/api/upload/files?wingman=${uploadToWingman.value}`, {
-      baseURL: config.public.apiBase,
-      method: 'POST',
-      body: formData,
-      credentials: 'include'
+  for (const file of valid) {
+    const localId = nextLocalId++
+    uploads.value.unshift({
+      localId,
+      fileName: file.name,
+      sourceType: 'file',
+      status: 'transferring',
+      message: '',
+      dpsReportUrl: null,
+      fightLogId: null,
+      stageReached: 'transferring',
+      uploadProgress: 0
     })
-    for (const item of created) addUploadEntry(item)
-  } catch (err: any) {
-    const status = err?.response?.status ?? err?.status
-    const detail = status === 413
-      ? 'Files are too large. Try uploading fewer files at once.'
-      : status === 401
-        ? 'You must be logged in to upload files.'
-        : 'Upload failed. Please try again.'
-    toast.add({ severity: 'error', summary: 'Upload failed', detail, life: 5000 })
-  } finally {
-    uploadingFiles.value = false
+    uploadsPage.value = 1
+    startTusUpload(file, localId)
   }
+}
+
+const startTusUpload = (file: File, localId: number) => {
+  let logUploadId: number | null = null
+
+  const upload = new tus.Upload(file, {
+    endpoint: `${config.public.apiBase}/api/upload/tus`,
+    chunkSize: 50 * 1024 * 1024,
+    metadata: {
+      filename: file.name,
+      filetype: file.type || 'application/octet-stream',
+      wingman: String(uploadToWingman.value)
+    },
+    onBeforeRequest: (req) => {
+      const xhr = req.getUnderlyingObject()
+      if (xhr) (xhr as XMLHttpRequest).withCredentials = true
+    },
+    onAfterResponse: (_req, res) => {
+      const id = res.getHeader('X-Log-Upload-Id')
+      if (id) logUploadId = parseInt(id)
+    },
+    onProgress: (bytesUploaded, bytesTotal) => {
+      const entry = uploads.value.find(u => u.localId === localId)
+      if (entry) entry.uploadProgress = Math.round((bytesUploaded / bytesTotal) * 100)
+    },
+    onSuccess: () => {
+      const entry = uploads.value.find(u => u.localId === localId)
+      if (!entry) return
+      entry.status = 'stored'
+      entry.stageReached = 'stored'
+      entry.uploadProgress = 100
+      if (logUploadId !== null) {
+        subscribeToProgress(logUploadId, localId)
+      } else {
+        entry.status = 'failed'
+        entry.message = 'Upload completed but processing could not start.'
+      }
+    },
+    onError: (error) => {
+      const entry = uploads.value.find(u => u.localId === localId)
+      if (!entry) return
+      entry.status = 'failed'
+      entry.message = error instanceof Error ? error.message : 'Upload failed. Please try again.'
+    }
+  })
+
+  upload.start()
 }
 
 const addUploadEntry = (item: { logUploadId: number; fileName: string; sourceType: 'file' | 'url' }) => {
@@ -333,7 +378,8 @@ const addUploadEntry = (item: { logUploadId: number; fileName: string; sourceTyp
     message: '',
     dpsReportUrl: null,
     fightLogId: null,
-    stageReached: item.sourceType === 'file' ? 'stored' : 'pending'
+    stageReached: item.sourceType === 'file' ? 'stored' : 'pending',
+    uploadProgress: 0
   })
   uploadsPage.value = 1
   subscribeToProgress(item.logUploadId, localId)
@@ -434,7 +480,8 @@ const statusSeverity = (status: string) => {
 
 const statusLabel = (status: string) => ({
   stored: 'Stored', parsing: 'Parsing', uploading: 'Uploading',
-  saving: 'Saving', complete: 'Complete', failed: 'Failed', pending: 'Pending'
+  saving: 'Saving', complete: 'Complete', failed: 'Failed', pending: 'Pending',
+  transferring: 'Uploading', receiving: 'Receiving'
 }[status] ?? status)
 </script>
 
@@ -499,10 +546,6 @@ const statusLabel = (status: string) => ({
 .drop-zone--active {
   border-color: var(--p-primary-color);
   background: color-mix(in srgb, var(--p-primary-color) 8%, transparent);
-}
-.drop-zone--loading {
-  cursor: default;
-  opacity: 0.8;
 }
 
 .uploads-header {

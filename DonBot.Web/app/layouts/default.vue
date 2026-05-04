@@ -12,6 +12,11 @@
       <main class="layout-content">
         <slot />
       </main>
+      <footer class="layout-footer">
+        <NuxtLink to="/terms">Terms of Service</NuxtLink>
+        <span class="footer-sep">&middot;</span>
+        <NuxtLink to="/privacy">Privacy Policy</NuxtLink>
+      </footer>
     </div>
 
     <Teleport to="body">
@@ -53,6 +58,29 @@ const onDecline = () => {
 </script>
 
 <style scoped>
+.layout-footer {
+  padding: 0.75rem 1.5rem;
+  border-top: 1px solid var(--p-surface-border);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.layout-footer a {
+  color: var(--p-text-muted-color);
+  text-decoration: none;
+}
+
+.layout-footer a:hover {
+  color: var(--p-text-color);
+}
+
+.footer-sep {
+  color: var(--p-text-muted-color);
+  opacity: 0.4;
+}
+
 .cookie-banner {
   position: fixed;
   bottom: 1.5rem;

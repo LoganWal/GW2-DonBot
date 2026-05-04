@@ -14,69 +14,11 @@ public static class UploadEndpoints
     public static void MapUploadEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/upload").RequireAuthorization();
-        group.MapPost("/files", UploadFiles);
         group.MapPost("/urls", SubmitUrls);
         group.MapGet("/history", GetHistory);
         group.MapGet("/stream/{id:long}", StreamProgress).AllowAnonymous();
         group.MapPost("/wingman/{id:long}", SubmitOneToWingman);
         group.MapPost("/wingman/bulk", SubmitBulkToWingman);
-    }
-
-    private static async Task<IResult> UploadFiles(
-        HttpRequest request,
-        ClaimsPrincipal user,
-        IDbContextFactory<DatabaseContext> dbContextFactory,
-        LogUploadPipelineService pipeline,
-        IConfiguration configuration,
-        bool wingman = true)
-    {
-        var discordIdStr = user.FindFirst("discord_id")?.Value;
-        if (!long.TryParse(discordIdStr, out var discordId))
-            return Results.Unauthorized();
-
-        if (!request.HasFormContentType)
-            return Results.BadRequest("Multipart form required.");
-
-        var form = await request.ReadFormAsync();
-        if (form.Files.Count == 0)
-            return Results.BadRequest("No files provided.");
-
-        var storagePath = configuration["Upload:StoragePath"] ?? "/tmp/donbot/uploads";
-        var created = new List<object>();
-
-        await using var ctx = await dbContextFactory.CreateDbContextAsync();
-
-        foreach (var file in form.Files)
-        {
-            if (!file.FileName.EndsWith(".zevtc", StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            var upload = new LogUpload
-            {
-                DiscordId = discordId,
-                FileName = Path.GetFileName(file.FileName),
-                SourceType = "file",
-                Status = "stored",
-                SubmitToWingman = wingman,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-            ctx.LogUpload.Add(upload);
-            await ctx.SaveChangesAsync();
-
-            var uploadDir = Path.Combine(storagePath, upload.LogUploadId.ToString());
-            Directory.CreateDirectory(uploadDir);
-
-            await using (var dest = File.Create(Path.Combine(uploadDir, upload.FileName)))
-                await file.CopyToAsync(dest);
-
-            pipeline.Enqueue(upload.LogUploadId);
-            created.Add(new { upload.LogUploadId, upload.FileName, sourceType = "file" });
-        }
-
-        return created.Count == 0
-            ? Results.BadRequest("No valid .zevtc files provided.")
-            : Results.Ok(created);
     }
 
     private record SubmitUrlsRequest(List<string> Urls, bool Wingman = true);

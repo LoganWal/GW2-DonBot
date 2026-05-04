@@ -180,9 +180,6 @@ public sealed class LogUploadPipelineService : BackgroundService
             var htmlPath = eiResult?.GeneratedFiles?.FirstOrDefault(f => f.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
                 ?? Directory.GetFiles(jobOutputDir, "*.html").FirstOrDefault();
 
-            if (eiResult?.DpsReportUploadFailed == true && eiResult.DpsReportLink != null)
-                logger.LogWarning("EI flagged dps.report upload as failed for upload {id} but returned URL {url} — proceeding", uploadId, eiResult.DpsReportLink);
-
             var dpsReportUrl = eiResult?.DpsReportLink
                 ?? ExtractDpsReportUrl(eiStdout)
                 ?? ExtractDpsReportUrlFromLogFiles(jobOutputDir)
@@ -522,6 +519,9 @@ public sealed class LogUploadPipelineService : BackgroundService
             ? DateTime.UtcNow
             : DateTime.ParseExact(dateStartString, "yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
 
+    private static decimal D(double v, int decimals = 2) =>
+        double.IsFinite(v) ? Math.Round((decimal)v, decimals) : 0m;
+
     private static PlayerFightLog BuildPlayerFightLog(Gw2Player p, long fightLogId) => new()
     {
         FightLogId = fightLogId,
@@ -532,17 +532,17 @@ public sealed class LogUploadPipelineService : BackgroundService
         Kills = p.Kills,
         Downs = p.Downs,
         Deaths = p.Deaths,
-        QuicknessDuration = Convert.ToDecimal(p.TotalQuick),
-        AlacDuration = Convert.ToDecimal(p.TotalAlac),
+        QuicknessDuration = D(p.TotalQuick),
+        AlacDuration = D(p.TotalAlac),
         SubGroup = p.SubGroup,
         DamageDownContribution = p.DamageDownContribution,
         Cleanses = Convert.ToInt64(p.Cleanses),
         Strips = Convert.ToInt64(p.Strips),
-        StabGenOnGroup = Convert.ToDecimal(p.StabOnGroup),
-        StabGenOffGroup = Convert.ToDecimal(p.StabOffGroup),
+        StabGenOnGroup = D(p.StabOnGroup),
+        StabGenOffGroup = D(p.StabOffGroup),
         Healing = p.Healing,
         BarrierGenerated = p.BarrierGenerated,
-        DistanceFromTag = Convert.ToDecimal(p.DistanceFromTag),
+        DistanceFromTag = D(p.DistanceFromTag),
         TimesDowned = Convert.ToInt32(p.TimesDowned),
         Interrupts = p.Interrupts,
         NumberOfHitsWhileBlinded = p.NumberOfHitsWhileBlinded,

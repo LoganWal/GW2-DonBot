@@ -323,11 +323,11 @@
                       <i :class="openFights.has(`${group.label}:${item.fightType}`) ? 'pi pi-chevron-up' : 'pi pi-chevron-down'" class="mechanic-fight-icon" />
                     </button>
                     <div v-show="openFights.has(`${group.label}:${item.fightType}`)">
-                      <DataTable :value="item.players" striped-rows size="small" scrollable class="mechanic-table">
+                      <DataTable :value="flattenMechanicPlayers(item.players)" striped-rows size="small" scrollable class="mechanic-table">
                         <Column field="accountName" header="Account" frozen style="min-width: 150px;" />
-                        <Column v-for="mech in item.mechanicNames" :key="mech" :header="mech" style="min-width: 80px;">
+                        <Column v-for="mech in item.mechanicNames" :key="mech" :field="mech" :header="mech" :sortable="true" style="min-width: 80px;" header-style="white-space: nowrap">
                           <template #body="{ data }">
-                            <span :class="{ 'mech-zero': !data.counts[mech] }">{{ data.counts[mech] ?? 0 }}</span>
+                            <span :class="{ 'mech-zero': !data[mech] }">{{ data[mech] ?? 0 }}</span>
                           </template>
                         </Column>
                       </DataTable>
@@ -535,6 +535,9 @@ const mechanicsByGroup = computed(() =>
     players: { accountName: string; counts: Record<string, number> }[]
   }>(displayResult.value?.mechanics ?? [])
 )
+
+const flattenMechanicPlayers = (players: { accountName: string; counts: Record<string, number> }[]) =>
+  players.map(p => ({ accountName: p.accountName, ...p.counts }))
 </script>
 
 <style scoped>

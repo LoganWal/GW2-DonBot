@@ -14,6 +14,9 @@ services:
       - "5001:8080"
     environment:
       - ASPNETCORE_URLS=http://+:8080
+    volumes:
+      - ./logs-api:/app/Logs
+      - /tmp/donbot:/tmp/donbot
 
   donbot-web:
     image: ghcr.io/loganwal/gw2-donbot-web:latest

@@ -423,6 +423,7 @@ deploy/deploy-to-local.sh
 **/CLAUDE.md
 **/*.claude.md
 claude.txt
+.claudeignore
 .claude/
 .claude-cache/
 .claude_history

@@ -20,7 +20,7 @@ public static class ApiServiceRegister
         {
             var secretService = serviceProvider.GetRequiredService<ISecretService>();
             var connectionString = secretService.FetchDonBotSqlConnectionString();
-            options.UseNpgsql(connectionString);
+            options.UseNpgsql(connectionString, o => o.MigrationsAssembly("DonBot"));
         });
 
         services.AddHttpClient();

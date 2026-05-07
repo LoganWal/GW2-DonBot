@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
   pull_request:
-    branches: [main, dev]
+    branches: [main]
 
 jobs:
   build-and-test:
@@ -64,6 +64,8 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ env.IMAGE_BOT }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Build and push API image
         uses: docker/build-push-action@v7.0.0
@@ -73,6 +75,8 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ env.IMAGE_API }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Build and push web image
         uses: docker/build-push-action@v7.0.0
@@ -82,3 +86,5 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ env.IMAGE_WEB }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

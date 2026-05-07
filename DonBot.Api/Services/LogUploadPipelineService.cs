@@ -17,8 +17,7 @@ public sealed class LogUploadPipelineService : BackgroundService
 {
     private readonly ILogUploadProgressService progress;
     private readonly IDbContextFactory<DatabaseContext> dbContextFactory;
-    private readonly IDataModelGenerationService dataModelGenerationService;
-    private readonly IPlayerService playerService;
+    private readonly IServiceScopeFactory scopeFactory;
     private readonly IHttpClientFactory httpClientFactory;
     private readonly IConfiguration configuration;
     private readonly ILogger<LogUploadPipelineService> logger;
@@ -32,16 +31,14 @@ public sealed class LogUploadPipelineService : BackgroundService
     public LogUploadPipelineService(
         ILogUploadProgressService progress,
         IDbContextFactory<DatabaseContext> dbContextFactory,
-        IDataModelGenerationService dataModelGenerationService,
-        IPlayerService playerService,
+        IServiceScopeFactory scopeFactory,
         IHttpClientFactory httpClientFactory,
         IConfiguration configuration,
         ILogger<LogUploadPipelineService> logger)
     {
         this.progress = progress;
         this.dbContextFactory = dbContextFactory;
-        this.dataModelGenerationService = dataModelGenerationService;
-        this.playerService = playerService;
+        this.scopeFactory = scopeFactory;
         this.httpClientFactory = httpClientFactory;
         this.configuration = configuration;
         this.logger = logger;
@@ -68,14 +65,18 @@ public sealed class LogUploadPipelineService : BackgroundService
     {
         try
         {
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var dataModelGenerationService = scope.ServiceProvider.GetRequiredService<IDataModelGenerationService>();
+            var playerService = scope.ServiceProvider.GetRequiredService<IPlayerService>();
+
             await using var ctx = await dbContextFactory.CreateDbContextAsync(ct);
             var upload = await ctx.LogUpload.FirstOrDefaultAsync(u => u.LogUploadId == uploadId, ct);
             if (upload == null) return;
 
             if (upload.SourceType == "url")
-                await ProcessUrlUploadAsync(ctx, upload, ct);
+                await ProcessUrlUploadAsync(ctx, upload, dataModelGenerationService, playerService, ct);
             else
-                await ProcessFileUploadAsync(ctx, upload, ct);
+                await ProcessFileUploadAsync(ctx, upload, dataModelGenerationService, playerService, ct);
         }
         catch (Exception ex)
         {
@@ -86,7 +87,7 @@ public sealed class LogUploadPipelineService : BackgroundService
         }
     }
 
-    private async Task ProcessUrlUploadAsync(DatabaseContext ctx, LogUpload upload, CancellationToken ct)
+    private async Task ProcessUrlUploadAsync(DatabaseContext ctx, LogUpload upload, IDataModelGenerationService dataModelGenerationService, IPlayerService playerService, CancellationToken ct)
     {
         var uploadId = upload.LogUploadId;
         var url = upload.DpsReportUrl!;
@@ -108,7 +109,7 @@ public sealed class LogUploadPipelineService : BackgroundService
         await UpdateStatus(ctx, upload, "saving", ct);
         progress.Publish(uploadId, "saving", "Saving log data...");
 
-        var fightLogId = await SaveFightLogAsync(model, ct);
+        var fightLogId = await SaveFightLogAsync(model, playerService, ct);
 
         if (upload.SubmitToWingman) FireAndForgetWingman(url);
 
@@ -117,7 +118,7 @@ public sealed class LogUploadPipelineService : BackgroundService
         progress.Complete(uploadId);
     }
 
-    private async Task ProcessFileUploadAsync(DatabaseContext ctx, LogUpload upload, CancellationToken ct)
+    private async Task ProcessFileUploadAsync(DatabaseContext ctx, LogUpload upload, IDataModelGenerationService dataModelGenerationService, IPlayerService playerService, CancellationToken ct)
     {
         var uploadId = upload.LogUploadId;
         var storagePath = configuration["Upload:StoragePath"] ?? "/tmp/donbot/uploads";
@@ -205,7 +206,7 @@ public sealed class LogUploadPipelineService : BackgroundService
             {
                 model = await dataModelGenerationService.GenerateEliteInsightDataModelFromUrl(dpsReportUrl);
             }
-            var fightLogId = await SaveFightLogAsync(model, ct);
+            var fightLogId = await SaveFightLogAsync(model, playerService, ct);
 
             await FinalizeAsync(uploadId, dpsReportUrl, fightLogId, ct);
             progress.Publish(uploadId, "complete", "Done.", dpsReportUrl, fightLogId);
@@ -362,7 +363,7 @@ public sealed class LogUploadPipelineService : BackgroundService
         await ctx.SaveChangesAsync(ct);
     }
 
-    private async Task<long> SaveFightLogAsync(EliteInsightDataModel data, CancellationToken ct)
+    private async Task<long> SaveFightLogAsync(EliteInsightDataModel data, IPlayerService playerService, CancellationToken ct)
     {
         var fightPhase = data.FightEliteInsightDataModel.Phases?.Any() == true
             ? data.FightEliteInsightDataModel.Phases[0]
@@ -388,11 +389,11 @@ public sealed class LogUploadPipelineService : BackgroundService
         }
 
         return data.FightEliteInsightDataModel.Wvw
-            ? await SaveWvWFightLogAsync(ctx, data, fightPhase, existing, ct)
-            : await SavePvEFightLogAsync(ctx, data, fightPhase, existing, ct);
+            ? await SaveWvWFightLogAsync(ctx, data, fightPhase, existing, playerService, ct)
+            : await SavePvEFightLogAsync(ctx, data, fightPhase, existing, playerService, ct);
     }
 
-    private async Task<long> SaveWvWFightLogAsync(DatabaseContext ctx, EliteInsightDataModel data, ArcDpsPhase fightPhase, FightLog? existing, CancellationToken ct)
+    private async Task<long> SaveWvWFightLogAsync(DatabaseContext ctx, EliteInsightDataModel data, ArcDpsPhase fightPhase, FightLog? existing, IPlayerService playerService, CancellationToken ct)
     {
         if (existing != null) return existing.FightLogId;
 
@@ -437,7 +438,7 @@ public sealed class LogUploadPipelineService : BackgroundService
         return fightLog.FightLogId;
     }
 
-    private async Task<long> SavePvEFightLogAsync(DatabaseContext ctx, EliteInsightDataModel data, ArcDpsPhase fightPhase, FightLog? existing, CancellationToken ct)
+    private async Task<long> SavePvEFightLogAsync(DatabaseContext ctx, EliteInsightDataModel data, ArcDpsPhase fightPhase, FightLog? existing, IPlayerService playerService, CancellationToken ct)
     {
         if (existing != null) return existing.FightLogId;
 

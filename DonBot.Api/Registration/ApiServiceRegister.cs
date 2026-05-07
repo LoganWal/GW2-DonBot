@@ -14,7 +14,7 @@ public static class ApiServiceRegister
 {
     public static void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.AddScoped<ISecretService, SecretServices>();
+        services.AddSingleton<ISecretService, SecretServices>();
 
         services.AddDbContextFactory<DatabaseContext>((serviceProvider, options) =>
         {

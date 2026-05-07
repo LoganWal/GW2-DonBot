@@ -47,7 +47,7 @@ namespace DonBot.Migrations
 
                     b.HasKey("DiscordId");
 
-                    b.ToTable("Account");
+                    b.ToTable("Account", (string)null);
                 });
 
             modelBuilder.Entity("DonBot.Models.Entities.FightLog", b =>
@@ -94,7 +94,7 @@ namespace DonBot.Migrations
 
                     b.HasKey("FightLogId");
 
-                    b.ToTable("FightLog");
+                    b.ToTable("FightLog", (string)null);
                 });
 
             modelBuilder.Entity("DonBot.Models.Entities.FightLogRawData", b =>
@@ -116,7 +116,7 @@ namespace DonBot.Migrations
 
                     b.HasKey("FightLogId");
 
-                    b.ToTable("FightLogRawData");
+                    b.ToTable("FightLogRawData", (string)null);
                 });
 
             modelBuilder.Entity("DonBot.Models.Entities.FightsReport", b =>
@@ -138,7 +138,7 @@ namespace DonBot.Migrations
 
                     b.HasKey("FightsReportId");
 
-                    b.ToTable("FightsReport");
+                    b.ToTable("FightsReport", (string)null);
                 });
 
             modelBuilder.Entity("DonBot.Models.Entities.Guild", b =>
@@ -220,7 +220,7 @@ namespace DonBot.Migrations
 
                     b.HasKey("GuildId");
 
-                    b.ToTable("Guild");
+                    b.ToTable("Guild", (string)null);
                 });
 
             modelBuilder.Entity("DonBot.Models.Entities.GuildQuote", b =>
@@ -241,7 +241,7 @@ namespace DonBot.Migrations
 
                     b.HasKey("GuildQuoteId");
 
-                    b.ToTable("GuildQuote");
+                    b.ToTable("GuildQuote", (string)null);
                 });
 
             modelBuilder.Entity("DonBot.Models.Entities.GuildWarsAccount", b =>
@@ -273,7 +273,7 @@ namespace DonBot.Migrations
 
                     b.HasKey("GuildWarsAccountId");
 
-                    b.ToTable("GuildWarsAccount");
+                    b.ToTable("GuildWarsAccount", (string)null);
                 });
 
             modelBuilder.Entity("DonBot.Models.Entities.LogUpload", b =>
@@ -324,7 +324,7 @@ namespace DonBot.Migrations
 
                     b.HasKey("LogUploadId");
 
-                    b.ToTable("LogUpload");
+                    b.ToTable("LogUpload", (string)null);
                 });
 
             modelBuilder.Entity("DonBot.Models.Entities.PlayerFightLog", b =>
@@ -439,7 +439,7 @@ namespace DonBot.Migrations
 
                     b.HasKey("PlayerFightLogId");
 
-                    b.ToTable("PlayerFightLog");
+                    b.ToTable("PlayerFightLog", (string)null);
                 });
 
             modelBuilder.Entity("DonBot.Models.Entities.PlayerFightLogMechanic", b =>
@@ -465,7 +465,7 @@ namespace DonBot.Migrations
 
                     b.HasIndex("PlayerFightLogId");
 
-                    b.ToTable("PlayerFightLogMechanic");
+                    b.ToTable("PlayerFightLogMechanic", (string)null);
                 });
 
             modelBuilder.Entity("DonBot.Models.Entities.PlayerRaffleBid", b =>
@@ -484,7 +484,7 @@ namespace DonBot.Migrations
 
                     b.HasKey("RaffleId", "DiscordId");
 
-                    b.ToTable("PlayerRaffleBid");
+                    b.ToTable("PlayerRaffleBid", (string)null);
                 });
 
             modelBuilder.Entity("DonBot.Models.Entities.Raffle", b =>
@@ -510,7 +510,7 @@ namespace DonBot.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Raffle");
+                    b.ToTable("Raffle", (string)null);
                 });
 
             modelBuilder.Entity("DonBot.Models.Entities.RotationAnomaly", b =>
@@ -563,7 +563,7 @@ namespace DonBot.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("RotationAnomaly");
+                    b.ToTable("RotationAnomaly", (string)null);
                 });
 
             modelBuilder.Entity("DonBot.Models.Entities.ScheduledEvent", b =>
@@ -608,7 +608,7 @@ namespace DonBot.Migrations
 
                     b.HasKey("ScheduledEventId");
 
-                    b.ToTable("ScheduledEvent");
+                    b.ToTable("ScheduledEvent", (string)null);
                 });
 
             modelBuilder.Entity("DonBot.Models.Entities.SteamAccount", b =>
@@ -627,7 +627,7 @@ namespace DonBot.Migrations
 
                     b.HasKey("SteamId64");
 
-                    b.ToTable("SteamAccount");
+                    b.ToTable("SteamAccount", (string)null);
                 });
 
             modelBuilder.Entity("DonBot.Models.Entities.FightLogRawData", b =>

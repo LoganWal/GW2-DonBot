@@ -12,7 +12,7 @@ public class DatabaseContextFactory : IDesignTimeDbContextFactory<DatabaseContex
             ?? "Host=localhost;Port=5432;Database=DonBot;Username=postgres;Password=postgres;";
 
         var options = new DbContextOptionsBuilder<DatabaseContext>()
-            .UseNpgsql(connectionString)
+            .UseNpgsql(connectionString, o => o.MigrationsAssembly("DonBot"))
             .Options;
 
         return new DatabaseContext(options);

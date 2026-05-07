@@ -41,7 +41,7 @@ public sealed class VerifyCommandsService(IEntityService entityService, ILogger<
 
             if (account != null)
             {
-                var gw2Account = await entityService.GuildWarsAccount.GetFirstOrDefaultAsync(s => s.DiscordId == account.DiscordId && s.GuildWarsAccountId == accountData.Id);
+                var gw2Account = await entityService.GuildWarsAccount.GetFirstOrDefaultAsync(s => s.GuildWarsAccountId == accountData.Id);
                 if (gw2Account != null)
                 {
                     gw2Account.GuildWarsAccountId = accountData.Id;

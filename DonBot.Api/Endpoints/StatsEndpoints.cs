@@ -355,7 +355,7 @@ public static class StatsEndpoints
             fightMetaQuery = fightMetaQuery.Where(fl => fl.FightMode == fightMode.Value);
 
         var fightMeta = await fightMetaQuery
-            .Select(fl => new { fl.FightLogId, fl.FightStart, fl.FightDurationInMs, fl.IsSuccess, fl.FightMode })
+            .Select(fl => new { fl.FightLogId, fl.FightStart, fl.FightDurationInMs, fl.IsSuccess, fl.FightPercent, fl.FightMode })
             .OrderBy(fl => fl.FightStart)
             .ToListAsync();
 
@@ -422,6 +422,7 @@ public static class StatsEndpoints
                         durationMs = f.FightDurationInMs,
                         characterName = p.CharacterName,
                         isSuccess = f.IsSuccess,
+                        fightPercent = f.FightPercent,
                         fightMode = f.FightMode,
                         dps,
                         cleaveDps,

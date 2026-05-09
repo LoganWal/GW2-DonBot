@@ -26,8 +26,6 @@ public interface IEntityService
 
     IDatabaseUpdateService<Raffle> Raffle { get; }
 
-    IDatabaseUpdateService<SteamAccount> SteamAccount { get; }
-
     IDatabaseUpdateService<ScheduledEvent> ScheduledEvent { get; }
 
     IDatabaseUpdateService<RotationAnomaly> RotationAnomaly { get; }

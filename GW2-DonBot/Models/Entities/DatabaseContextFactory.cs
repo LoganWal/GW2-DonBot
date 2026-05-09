@@ -7,7 +7,7 @@ public class DatabaseContextFactory : IDesignTimeDbContextFactory<DatabaseContex
 {
     public DatabaseContext CreateDbContext(string[] args)
     {
-        // Fallback is only used by dotnet ef tooling (migrations add/update) — never at runtime
+        // Fallback is only used by dotnet ef tooling (migrations add/update) - never at runtime
         var connectionString = Environment.GetEnvironmentVariable("DonBotSqlConnectionString")
             ?? "Host=localhost;Port=5432;Database=DonBot;Username=postgres;Password=postgres;";
 

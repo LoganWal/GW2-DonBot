@@ -10,8 +10,6 @@ public class DiscordCommandHandler(
     IRaffleCommandsService raffleCommandsService,
     IRaidCommandService raidCommandService,
     IDiscordCommandService discordCommandService,
-    ISteamCommandService steamCommandService,
-    IDeadlockCommandService deadlockCommandService,
     ILeaderboardCommandsService leaderboardCommandsService,
     IGenericCommandsService genericCommandsService)
 {
@@ -21,28 +19,24 @@ public class DiscordCommandHandler(
         {
             switch (command.Data.Name)
             {
-                case "gw2_verify": await Gw2VerifyCommandExecuted(command, client); break;
-                case "gw2_deverify": await Gw2DeverifyCommandExecuted(command, client); break;
-                case "gw2_points": await Gw2PointsCommandExecuted(command); break;
-                case "gw2_create_raffle": await Gw2CreateRaffleCommandExecuted(command, client); break;
-                case "gw2_create_event_raffle": await Gw2CreateEventRaffleCommandExecuted(command, client); break;
-                case "gw2_enter_raffle": await Gw2RaffleCommandExecuted(command, client); break;
-                case "gw2_enter_event_raffle": await Gw2EventRaffleCommandExecuted(command, client); break;
-                case "gw2_complete_raffle": await Gw2CompleteRaffleCommandExecuted(command, client); break;
-                case "gw2_complete_event_raffle": await Gw2CompleteEventRaffleCommandExecuted(command, client); break;
-                case "gw2_reopen_raffle": await Gw2ReopenRaffleCommandExecuted(command, client); break;
-                case "gw2_reopen_event_raffle": await Gw2ReopenEventRaffleCommandExecuted(command, client); break;
-                case "gw2_start_raid": await Gw2StartRaidCommandExecuted(command, client); break;
-                case "gw2_close_raid": await Gw2CloseRaidCommandExecuted(command, client); break;
-                case "gw2_start_alliance_raid": await Gw2StartAllianceRaidCommandExecuted(command, client); break;
-                case "gw2_my_rank": await Gw2MyRank(command); break;
-                case "gw2_add_quote": await Gw2AddQuote(command); break;
-                case "gw2_server_config": await Gw2ServerConfig(command); break;
+                case "verify": await VerifyCommandExecuted(command, client); break;
+                case "deverify": await DeverifyCommandExecuted(command, client); break;
+                case "points": await PointsCommandExecuted(command); break;
+                case "create_raffle": await CreateRaffleCommandExecuted(command, client); break;
+                case "create_event_raffle": await CreateEventRaffleCommandExecuted(command, client); break;
+                case "enter_raffle": await RaffleCommandExecuted(command, client); break;
+                case "enter_event_raffle": await EventRaffleCommandExecuted(command, client); break;
+                case "complete_raffle": await CompleteRaffleCommandExecuted(command, client); break;
+                case "complete_event_raffle": await CompleteEventRaffleCommandExecuted(command, client); break;
+                case "reopen_raffle": await ReopenRaffleCommandExecuted(command, client); break;
+                case "reopen_event_raffle": await ReopenEventRaffleCommandExecuted(command, client); break;
+                case "start_raid": await StartRaidCommandExecuted(command, client); break;
+                case "close_raid": await CloseRaidCommandExecuted(command, client); break;
+                case "start_alliance_raid": await StartAllianceRaidCommandExecuted(command, client); break;
+                case "my_rank": await MyRank(command); break;
+                case "add_quote": await AddQuote(command); break;
+                case "server_config": await ServerConfig(command); break;
                 case "digut": await Digut(command); break;
-                case "steam_verify": await SteamVerifyCommandExecuted(command); break;
-                case "deadlock_mmr": await DeadlockMmrCommandExecuted(command); break;
-                case "deadlock_mmr_history": await DeadlockMmrHistoryCommandExecuted(command); break;
-                case "deadlock_match_history": await DeadlockMatchHistoryCommandExecuted(command); break;
                 default: await DefaultCommandExecuted(command); break;
             }
         }
@@ -57,97 +51,97 @@ public class DiscordCommandHandler(
         }
     }
 
-    private async Task Gw2VerifyCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
+    private async Task VerifyCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
     {
         await command.DeferAsync(ephemeral: true);
         await verifyCommandsService.VerifyCommandExecuted(command, client);
     }
 
-    private async Task Gw2DeverifyCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
+    private async Task DeverifyCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
     {
         await command.DeferAsync(ephemeral: true);
         await verifyCommandsService.DeverifyCommandExecuted(command, client);
     }
 
-    private async Task Gw2PointsCommandExecuted(SocketSlashCommand command)
+    private async Task PointsCommandExecuted(SocketSlashCommand command)
     {
         await command.DeferAsync(ephemeral: true);
         await pointsCommandsService.PointsCommandExecuted(command);
     }
 
-    private async Task Gw2CreateRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
+    private async Task CreateRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
     {
         await command.DeferAsync(ephemeral: true);
         await raffleCommandsService.CreateRaffleCommandExecuted(command, client);
     }
 
-    private async Task Gw2CreateEventRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
+    private async Task CreateEventRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
     {
         await command.DeferAsync(ephemeral: true);
         await raffleCommandsService.CreateEventRaffleCommandExecuted(command, client);
     }
 
-    private async Task Gw2RaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
+    private async Task RaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
     {
         await command.DeferAsync(ephemeral: true);
         await raffleCommandsService.RaffleCommandExecuted(command, client);
     }
 
-    private async Task Gw2EventRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
+    private async Task EventRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
     {
         await command.DeferAsync(ephemeral: true);
         await raffleCommandsService.EventRaffleCommandExecuted(command, client);
     }
 
-    private async Task Gw2CompleteRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
+    private async Task CompleteRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
     {
         await command.DeferAsync(ephemeral: true);
         await raffleCommandsService.CompleteRaffleCommandExecuted(command, client);
     }
 
-    private async Task Gw2CompleteEventRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
+    private async Task CompleteEventRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
     {
         await command.DeferAsync(ephemeral: true);
         await raffleCommandsService.CompleteEventRaffleCommandExecuted(command, client);
     }
 
-    private async Task Gw2ReopenRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
+    private async Task ReopenRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
     {
         await command.DeferAsync(ephemeral: true);
         await raffleCommandsService.ReopenRaffleCommandExecuted(command, client);
     }
 
-    private async Task Gw2ReopenEventRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
+    private async Task ReopenEventRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
     {
         await command.DeferAsync(ephemeral: true);
         await raffleCommandsService.ReopenEventRaffleCommandExecuted(command, client);
     }
 
-    private async Task Gw2StartRaidCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
+    private async Task StartRaidCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
     {
         await command.DeferAsync(ephemeral: true);
         await raidCommandService.StartRaid(command, client);
     }
 
-    private async Task Gw2CloseRaidCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
+    private async Task CloseRaidCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
     {
         await command.DeferAsync(ephemeral: true);
         await raidCommandService.CloseRaid(command, client);
     }
 
-    private async Task Gw2StartAllianceRaidCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
+    private async Task StartAllianceRaidCommandExecuted(SocketSlashCommand command, DiscordSocketClient client)
     {
         await command.DeferAsync(ephemeral: true);
         await raidCommandService.StartAllianceRaid(command, client);
     }
 
-    private async Task Gw2MyRank(SocketSlashCommand command)
+    private async Task MyRank(SocketSlashCommand command)
     {
         await command.DeferAsync(ephemeral: true);
         await leaderboardCommandsService.MyRankCommandExecuted(command);
     }
 
-    private async Task Gw2AddQuote(SocketSlashCommand command)
+    private async Task AddQuote(SocketSlashCommand command)
     {
         await command.DeferAsync(ephemeral: true);
         await genericCommandsService.AddQuoteCommandExecuted(command);
@@ -159,34 +153,10 @@ public class DiscordCommandHandler(
         await genericCommandsService.DigutCommandExecuted(command);
     }
 
-    private async Task Gw2ServerConfig(SocketSlashCommand command)
+    private async Task ServerConfig(SocketSlashCommand command)
     {
         await command.DeferAsync(ephemeral: true);
         await discordCommandService.ConfigureServer(command);
-    }
-
-    private async Task SteamVerifyCommandExecuted(SocketSlashCommand command)
-    {
-        await command.DeferAsync(ephemeral: true);
-        await steamCommandService.VerifySteamAccount(command);
-    }
-
-    private async Task DeadlockMmrCommandExecuted(SocketSlashCommand command)
-    {
-        await command.DeferAsync(ephemeral: true);
-        await deadlockCommandService.GetMmr(command);
-    }
-
-    private async Task DeadlockMmrHistoryCommandExecuted(SocketSlashCommand command)
-    {
-        await command.DeferAsync(ephemeral: true);
-        await deadlockCommandService.GetMmrHistory(command);
-    }
-
-    private async Task DeadlockMatchHistoryCommandExecuted(SocketSlashCommand command)
-    {
-        await command.DeferAsync(ephemeral: true);
-        await deadlockCommandService.GetMatchHistory(command);
     }
 
     private static async Task DefaultCommandExecuted(SocketSlashCommand command)

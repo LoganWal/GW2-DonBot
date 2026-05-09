@@ -63,11 +63,11 @@ public sealed class DiscordCommandService(IEntityService entityService) : IDisco
                 guild.DiscordVerifiedRoleId = (long)verifiedRole.Id;
                 break;
 
-            case "gw2_guild_member_role_id":
+            case "guild_member_role_id":
                 guild.Gw2GuildMemberRoleId = option.Value.ToString();
                 break;
 
-            case "gw2_secondary_member_role_ids":
+            case "secondary_member_role_ids":
                 guild.Gw2SecondaryMemberRoleIds = option.Value.ToString();
                 break;
 
@@ -215,69 +215,6 @@ public sealed class DiscordCommandService(IEntityService entityService) : IDisco
                 break;
             }
 
-            case "wordle_channel":
-            {
-                if (option.Value is not SocketTextChannel wordleChannel)
-                {
-                    await command.FollowupAsync("Please provide a valid text channel.", ephemeral: true);
-                    return;
-                }
-                var existing = await entityService.ScheduledEvent.GetFirstOrDefaultAsync(e =>
-                    e.GuildId == guild.GuildId && e.EventType == (short)ScheduledEventTypeEnum.Wordle);
-                var updated = BuildWordleEvent(guild.GuildId, (long)wordleChannel.Id,
-                    existing?.RoleId, existing?.Hour ?? 5);
-                if (existing != null) await entityService.ScheduledEvent.DeleteAsync(existing);
-                await entityService.ScheduledEvent.AddAsync(updated);
-                await entityService.Guild.UpdateAsync(guild);
-                await command.FollowupAsync($"Successfully updated `{subCommand.Name}`.", ephemeral: true);
-                return;
-            }
-
-            case "wordle_role":
-            {
-                if (option.Value is not SocketRole wordleRole)
-                {
-                    await command.FollowupAsync("Please provide a valid role.", ephemeral: true);
-                    return;
-                }
-                var existing = await entityService.ScheduledEvent.GetFirstOrDefaultAsync(e =>
-                    e.GuildId == guild.GuildId && e.EventType == (short)ScheduledEventTypeEnum.Wordle);
-                if (existing == null)
-                {
-                    await command.FollowupAsync("Please set a Wordle channel first using `wordle_channel`.", ephemeral: true);
-                    return;
-                }
-                var updated = BuildWordleEvent(guild.GuildId, existing.ChannelId, (long)wordleRole.Id, existing.Hour);
-                await entityService.ScheduledEvent.DeleteAsync(existing);
-                await entityService.ScheduledEvent.AddAsync(updated);
-                await entityService.Guild.UpdateAsync(guild);
-                await command.FollowupAsync($"Successfully updated `{subCommand.Name}`.", ephemeral: true);
-                return;
-            }
-
-            case "wordle_hour":
-            {
-                var hour = (long)option.Value;
-                if (hour < 0 || hour > 23)
-                {
-                    await command.FollowupAsync("Please provide a valid UTC hour between 0 and 23.", ephemeral: true);
-                    return;
-                }
-                var existing = await entityService.ScheduledEvent.GetFirstOrDefaultAsync(e =>
-                    e.GuildId == guild.GuildId && e.EventType == (short)ScheduledEventTypeEnum.Wordle);
-                if (existing == null)
-                {
-                    await command.FollowupAsync("Please set a Wordle channel first using `wordle_channel`.", ephemeral: true);
-                    return;
-                }
-                var updated = BuildWordleEvent(guild.GuildId, existing.ChannelId, existing.RoleId, (short)hour);
-                await entityService.ScheduledEvent.DeleteAsync(existing);
-                await entityService.ScheduledEvent.AddAsync(updated);
-                await entityService.Guild.UpdateAsync(guild);
-                await command.FollowupAsync($"Successfully updated `{subCommand.Name}`.", ephemeral: true);
-                return;
-            }
-
             default:
                 await command.FollowupAsync("Unknown configuration option.", ephemeral: true);
                 return;
@@ -285,23 +222,6 @@ public sealed class DiscordCommandService(IEntityService entityService) : IDisco
 
         await entityService.Guild.UpdateAsync(guild);
         await command.FollowupAsync($"Successfully updated `{subCommand.Name}`.", ephemeral: true);
-    }
-
-    private static ScheduledEvent BuildWordleEvent(long guildId, long channelId, long? roleId, short hour)
-    {
-        var tomorrow = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, DateTime.UtcNow.Day, hour, 0, 0, DateTimeKind.Utc).AddDays(1);
-        return new ScheduledEvent
-        {
-            GuildId = guildId,
-            ChannelId = channelId,
-            EventType = (short)ScheduledEventTypeEnum.Wordle,
-            Day = 0,
-            Hour = hour,
-            RepeatIntervalDays = 1,
-            UtcEventTime = tomorrow,
-            RoleId = roleId,
-            Message = string.Empty
-        };
     }
 
     private static ScheduledEvent BuildLeaderboardEvent(long guildId, long channelId, ScheduledEventTypeEnum eventType)

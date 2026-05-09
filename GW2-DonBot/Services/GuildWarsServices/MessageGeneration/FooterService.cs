@@ -12,7 +12,7 @@ public sealed class FooterService(IEntityService entityService) : IFooterService
         var guildQuotes = (await entityService.GuildQuote.GetWhereAsync(s => s.GuildId == guildId)).ToArray();
         return guildQuotes.Length <= 0
             ? string.Empty
-            : guildQuotes[new Random().Next(0, guildQuotes.Length)].Quote.PadRight(100, ' '); // whitespace added to handle discords message width
+            : guildQuotes[Random.Shared.Next(0, guildQuotes.Length)].Quote.PadRight(100, ' '); // whitespace added to handle discords message width
     }
 
     public void AddInviteLink(EmbedBuilder builder)

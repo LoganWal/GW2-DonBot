@@ -201,7 +201,7 @@ public class RaidReportMechanicsDiscordFormatTests
     {
         // 50+ mechanics produce more text than a single Discord field value allows (1024 chars).
         // When chunked into multiple fields and combined with survivability fields, author, and footer,
-        // the surviveEmbed exceeds Discord's 6000-char total embed limit — which is why mechanics
+        // the surviveEmbed exceeds Discord's 6000-char total embed limit - which is why mechanics
         // were removed from the embed until the section can be restructured.
         const int discordFieldValueLimit = 1024;
 

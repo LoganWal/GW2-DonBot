@@ -41,7 +41,7 @@ For logs delivered via webhook (e.g. a dedicated log drop-off channel), the Wing
 
 Players earn points by participating in tracked WvW fights. Points can be spent on raffle entries.
 
-- `/gw2_points` - view your balance, spending history, and leaderboard rank
+- `/points` - view your balance, spending history, and leaderboard rank
 - Role polling (every 30 min) syncs GW2 API data, updates guild membership, and applies or removes Discord roles automatically
 
 ---
@@ -54,8 +54,8 @@ Posted on a configurable schedule (default: every Monday at 00:00 UTC).
 
 **PvE leaderboard** - top 20 players (6+ logs minimum) across: DPS, Cleave DPS, Avg Res Time, Avg Damage Taken, Avg Times Downed.
 
-- `/gw2_my_rank` - view your personal rank across all leaderboards (ephemeral)
-- `/gw2_add_quote` - add a quote to the guild pool; quotes appear randomly in leaderboard footers
+- `/my_rank` - view your personal rank across all leaderboards (ephemeral)
+- `/add_quote` - add a quote to the guild pool; quotes appear randomly in message footers
 
 ---
 
@@ -67,19 +67,19 @@ Two raffle types with slash commands and one-click entry buttons.
 
 | Command | Description |
 |---|---|
-| `/gw2_create_raffle` | Create a raffle |
-| `/gw2_enter_raffle` | Enter by spending points |
-| `/gw2_complete_raffle` | Pick a winner |
-| `/gw2_reopen_raffle` | Reopen the last raffle |
+| `/create_raffle` | Create a raffle |
+| `/enter_raffle` | Enter by spending points |
+| `/complete_raffle` | Pick a winner |
+| `/reopen_raffle` | Reopen the last raffle |
 
 **Event Raffles** - multiple winners
 
 | Command | Description |
 |---|---|
-| `/gw2_create_event_raffle` | Create an event raffle |
-| `/gw2_enter_event_raffle` | Enter by spending points |
-| `/gw2_complete_event_raffle` | Pick N winners |
-| `/gw2_reopen_event_raffle` | Reopen the last event raffle |
+| `/create_event_raffle` | Create an event raffle |
+| `/enter_event_raffle` | Enter by spending points |
+| `/complete_event_raffle` | Pick N winners |
+| `/reopen_event_raffle` | Reopen the last event raffle |
 
 Raffle messages include buttons to check your balance and enter with 1, 50, 100, 1000, or a random number of points.
 
@@ -87,9 +87,9 @@ Raffle messages include buttons to check your balance and enter with 1, 50, 100,
 
 ### Raid Management
 
-- `/gw2_start_raid` - start a raid session; logs posted during the session are aggregated
-- `/gw2_close_raid` - close the raid and generate a combined summary report
-- `/gw2_start_alliance_raid` - start a raid with a custom alliance alert message
+- `/start_raid` - start a raid session; logs posted during the session are aggregated
+- `/close_raid` - close the raid and generate a combined summary report
+- `/start_alliance_raid` - start a raid with a custom alliance alert message
 
 The aggregate summary includes a **Best Times** button comparing session clears against all-time bests per boss and mode.
 
@@ -105,14 +105,13 @@ Recurring event posts configured per guild.
 | **WvW Raid Signup** | Weekly roster embed with Join / Can't Join / Will Be Late buttons |
 | **WvW Leaderboard** | Weekly WvW stats post |
 | **PvE Leaderboard** | Weekly PvE stats post |
-| **Wordle** | Daily Wordle starting word hint with definition |
 
 ---
 
 ### GW2 Account Verification
 
-- `/gw2_verify` - link a GW2 API key to your Discord account
-- `/gw2_deverify` - unlink your GW2 account
+- `/verify` - link a GW2 API key to your Discord account
+- `/deverify` - unlink your GW2 account
 - Verified accounts receive configurable Discord roles based on primary and alliance guild membership
 
 ---
@@ -128,16 +127,12 @@ Automatically removes Discord invite links and URLs posted by unverified users, 
 | Command | Description |
 |---|---|
 | `/digut` | Check the current GW2 Pinata event cycle status |
-| `/steam_verify` | Link your Steam account |
-| `/deadlock_mmr` | View your Deadlock MMR |
-| `/deadlock_mmr_history` | View your MMR history |
-| `/deadlock_match_history` | View recent match history |
 
 ---
 
 ### Server Configuration
 
-All per-guild settings are managed via `/gw2_server_config` (Administrator only).
+All per-guild settings are managed via `/server_config` (Administrator only).
 
 **Channels**
 
@@ -152,7 +147,6 @@ All per-guild settings are managed via `/gw2_server_config` (Administrator only)
 | `removed_message_channel` | Channel where removed spam messages are logged |
 | `wvw_leaderboard_channel` | Channel for the weekly WvW leaderboard |
 | `pve_leaderboard_channel` | Channel for the weekly PvE leaderboard |
-| `wordle_channel` | Channel for the daily Wordle message |
 
 **Roles**
 
@@ -161,14 +155,13 @@ All per-guild settings are managed via `/gw2_server_config` (Administrator only)
 | `guild_member_role` | Role assigned to primary GW2 guild members |
 | `secondary_member_role` | Role assigned to alliance guild members |
 | `verified_role` | Role assigned to all verified accounts |
-| `wordle_role` | Role mentioned in the daily Wordle message |
 
 **GW2 Guild IDs**
 
 | Subcommand | Description |
 |---|---|
-| `gw2_guild_member_role_id` | GW2 guild UUID for primary membership |
-| `gw2_secondary_member_role_ids` | Comma-separated GW2 guild UUIDs for alliance membership |
+| `guild_member_role_id` | GW2 guild UUID for primary membership |
+| `secondary_member_role_ids` | Comma-separated GW2 guild UUIDs for alliance membership |
 
 **Toggles**
 
@@ -181,12 +174,6 @@ All per-guild settings are managed via `/gw2_server_config` (Administrator only)
 | `auto_reply_single_log` | off | Reply with summary for a single log |
 | `wvw_leaderboard_enabled` | off | Enable the weekly WvW leaderboard |
 | `pve_leaderboard_enabled` | off | Enable the weekly PvE leaderboard |
-
-**Other**
-
-| Subcommand | Description |
-|---|---|
-| `wordle_hour` | UTC hour (0-23) for the daily Wordle post |
 
 ---
 

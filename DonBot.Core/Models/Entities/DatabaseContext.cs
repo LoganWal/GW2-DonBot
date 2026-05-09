@@ -19,7 +19,6 @@ public sealed class DatabaseContext : DbContext
         PlayerFightLog = Set<PlayerFightLog>();
         PlayerFightLogMechanic = Set<PlayerFightLogMechanic>();
         GuildQuote = Set<GuildQuote>();
-        SteamAccount = Set<SteamAccount>();
         ScheduledEvent = Set<ScheduledEvent>();
         RotationAnomaly = Set<RotationAnomaly>();
         LogUpload = Set<LogUpload>();
@@ -46,8 +45,6 @@ public sealed class DatabaseContext : DbContext
     public DbSet<PlayerFightLogMechanic> PlayerFightLogMechanic { get; set; }
 
     public DbSet<GuildQuote> GuildQuote { get; set; }
-
-    public DbSet<SteamAccount> SteamAccount { get; set; }
 
     public DbSet<ScheduledEvent> ScheduledEvent { get; set; }
 

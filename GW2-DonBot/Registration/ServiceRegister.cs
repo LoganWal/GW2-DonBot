@@ -1,7 +1,6 @@
 ﻿using DonBot.Controller.Discord;
 using DonBot.Models.Entities;
 using DonBot.Services.DatabaseServices;
-using DonBot.Services.DeadlockServices;
 using DonBot.Services.DiscordRequestServices;
 using DonBot.Services.DiscordServices;
 using DonBot.Services.GuildWarsServices;
@@ -9,7 +8,6 @@ using DonBot.Services.GuildWarsServices.MessageGeneration;
 using DonBot.Services.LoggingServices;
 using DonBot.Services.SchedulerServices;
 using DonBot.Services.SecretsServices;
-using DonBot.Services.WordleServices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -39,13 +37,9 @@ public static class ServiceRegister
         services.AddScoped<IPlayerService, PlayerService>();
         services.AddScoped<IRaidCommandService, RaidCommandCommandService>();
         services.AddScoped<IFightLogService, FightLogService>();
-        services.AddScoped<IDeadlockApiService, DeadlockApiService>();
         services.AddScoped<IRotationAnalysisService, RotationAnalysisService>();
 
         // Singleton Services - Thread-safe, stateless services
-        services.AddSingleton<IWordleService, WordleService>();
-        services.AddSingleton<IWordGeneratorService, WordGeneratorService>();
-        services.AddSingleton<DictionaryService>();
         services.AddSingleton<IPendingLogService, PendingLogService>();
 
         // Command Services - Transient for command handlers
@@ -54,8 +48,6 @@ public static class ServiceRegister
         services.AddTransient<IPointsCommandsService, PointsCommandsService>();
         services.AddTransient<IRaffleCommandsService, RaffleCommandsService>();
         services.AddTransient<IDiscordCommandService, DiscordCommandService>();
-        services.AddTransient<ISteamCommandService, SteamCommandService>();
-        services.AddTransient<IDeadlockCommandService, DeadlockCommandService>();
         services.AddTransient<ILeaderboardCommandsService, LeaderboardCommandsService>();
 
         // Polling and API Services - Transient for operational services
@@ -69,7 +61,6 @@ public static class ServiceRegister
         services.AddTransient<IScheduledEventHandler, WvwRaidSignupEventHandler>();
         services.AddTransient<IScheduledEventHandler, WvwLeaderboardEventHandler>();
         services.AddTransient<IScheduledEventHandler, PveLeaderboardEventHandler>();
-        services.AddTransient<IScheduledEventHandler, WordleEventHandler>();
 
         // Database Services
         services.AddScoped(typeof(IDatabaseUpdateService<>), typeof(DatabaseUpdateService<>));

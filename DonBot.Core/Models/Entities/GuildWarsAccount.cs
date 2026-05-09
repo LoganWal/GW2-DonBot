@@ -19,6 +19,4 @@ public class GuildWarsAccount
     public string? GuildWarsGuilds { get; set; }
 
     public int World { get; set; }
-
-    public int FailedApiPullCount { get; set; }
 }

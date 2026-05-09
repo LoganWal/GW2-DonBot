@@ -59,7 +59,8 @@ public static class ServiceRegister
         services.AddTransient<ILeaderboardCommandsService, LeaderboardCommandsService>();
 
         // Polling and API Services - Transient for operational services
-        services.AddTransient<IPollingTasksService, PollingTasksService>();
+        // Singleton: holds a shared rate limiter that must persist across polling cycles
+        services.AddSingleton<IPollingTasksService, PollingTasksService>();
         services.AddTransient<IDiscordApiService, DiscordApiService>();
 
         // Scheduling

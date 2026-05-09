@@ -47,7 +47,6 @@ public sealed class VerifyCommandsService(IEntityService entityService, ILogger<
                     gw2Account.GuildWarsAccountId = accountData.Id;
                     gw2Account.GuildWarsAccountName = accountData.Name;
                     gw2Account.GuildWarsApiKey = apiKey;
-                    gw2Account.FailedApiPullCount = 0;
 
                     await entityService.GuildWarsAccount.UpdateAsync(gw2Account);
                 }
@@ -60,8 +59,7 @@ public sealed class VerifyCommandsService(IEntityService entityService, ILogger<
                         GuildWarsApiKey = apiKey,
                         GuildWarsAccountName = accountData.Name,
                         GuildWarsGuilds = string.Join(',', accountData.Guilds),
-                        World = Convert.ToInt32(accountData.World),
-                        FailedApiPullCount = 0
+                        World = Convert.ToInt32(accountData.World)
                     };
 
                     await entityService.GuildWarsAccount.AddAsync(gw2Account);
@@ -82,8 +80,7 @@ public sealed class VerifyCommandsService(IEntityService entityService, ILogger<
                     GuildWarsApiKey = apiKey,
                     GuildWarsAccountName = accountData.Name,
                     GuildWarsGuilds = string.Join(',', accountData.Guilds),
-                    World = Convert.ToInt32(accountData.World),
-                    FailedApiPullCount = 0
+                    World = Convert.ToInt32(accountData.World)
                 };
 
                 await entityService.Account.AddAsync(account);

@@ -12,6 +12,7 @@ public static class AuthEndpoints
 {
     public static void MapAuthEndpoints(this WebApplication app)
     {
+        app.MapGet("/", DefaultApiLanding);
         app.MapGet("/auth/discord", HandleDiscordLogin);
         app.MapGet("/auth/discord/callback", HandleDiscordCallback);
         app.MapPost("/auth/logout", HandleLogout);
@@ -127,5 +128,11 @@ public static class AuthEndpoints
             ?? [];
         var showCookieBanner = bannerIds.Contains(discordId);
         return Results.Ok(new { discordId, username, showCookieBanner });
+    }
+
+    private static IResult DefaultApiLanding(ClaimsPrincipal user, IConfiguration configuration)
+    {
+        var nuxtBaseUrl = configuration["Nuxt:BaseUrl"] ?? "http://localhost:3000";
+        return Results.Redirect($"{nuxtBaseUrl}/dashboard");
     }
 }

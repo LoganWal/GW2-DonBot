@@ -150,7 +150,13 @@
             <template #content><div class="stat-label">Total Damage</div><div v-fit-text class="stat-value">{{ sum('damage').toLocaleString() }}</div></template>
           </Card>
           <Card class="stat-card">
+            <template #content><div class="stat-label">Group DPS</div><div v-fit-text class="stat-value">{{ Number((sum('damage') / (fight.log.fightDurationInMs / 1000)).toFixed(0)).toLocaleString() }}</div></template>
+          </Card>
+          <Card class="stat-card">
             <template #content><div class="stat-label">Total Cleave</div><div v-fit-text class="stat-value">{{ sum('cleave').toLocaleString() }}</div></template>
+          </Card>
+          <Card class="stat-card">
+            <template #content><div class="stat-label">Group Cleave</div><div v-fit-text class="stat-value">{{ Number((sum('cleave') / (fight.log.fightDurationInMs / 1000)).toFixed(0)).toLocaleString() }}</div></template>
           </Card>
           <Card class="stat-card">
             <template #content><div class="stat-label">Avg Alac%</div><div v-fit-text class="stat-value">{{ avg('alacDuration').toFixed(1) }}%</div></template>
@@ -182,13 +188,13 @@
                   <template #body="{ data }">{{ data.damage.toLocaleString() }}</template>
                 </Column>
                 <Column header="DPS" :sortable="true" sort-field="damage">
-                  <template #body="{ data }">{{ Number(data.damage / (fight.log.fightDurationInMs / 1000)).toFixed(0) }}</template>
+                  <template #body="{ data }">{{ Number((data.damage / (fight.log.fightDurationInMs / 1000)).toFixed(0)).toLocaleString() }}</template>
                 </Column>
                 <Column header="Cleave" :sortable="true" sort-field="cleave">
                   <template #body="{ data }">{{ data.cleave.toLocaleString() }}</template>
                 </Column>
                 <Column header="Cleave DPS" :sortable="true" sort-field="cleave">
-                  <template #body="{ data }">{{ Number(data.cleave / (fight.log.fightDurationInMs / 1000)).toFixed(0) }}</template>
+                  <template #body="{ data }">{{ Number((data.cleave / (fight.log.fightDurationInMs / 1000)).toFixed(0)).toLocaleString() }}</template>
                 </Column>
                 <Column header="Alac%" :sortable="true" sort-field="alacDuration">
                   <template #body="{ data }">{{ Number(data.alacDuration).toFixed(2) }}%</template>

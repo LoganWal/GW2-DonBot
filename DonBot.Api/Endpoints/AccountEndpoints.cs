@@ -59,7 +59,6 @@ public static class AccountEndpoints
             existing.GuildWarsApiKey = request.ApiKey;
             existing.GuildWarsGuilds = string.Join(',', accountData.Guilds);
             existing.World = Convert.ToInt32(accountData.World);
-            existing.FailedApiPullCount = 0;
         }
         else
         {
@@ -70,8 +69,7 @@ public static class AccountEndpoints
                 GuildWarsApiKey = request.ApiKey,
                 GuildWarsAccountName = accountData.Name,
                 GuildWarsGuilds = string.Join(',', accountData.Guilds),
-                World = Convert.ToInt32(accountData.World),
-                FailedApiPullCount = 0
+                World = Convert.ToInt32(accountData.World)
             });
         }
 

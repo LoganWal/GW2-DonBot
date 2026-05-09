@@ -181,8 +181,14 @@
                 <Column header="Damage" :sortable="true" sort-field="damage">
                   <template #body="{ data }">{{ data.damage.toLocaleString() }}</template>
                 </Column>
+                <Column header="DPS" :sortable="true" sort-field="damage">
+                  <template #body="{ data }">{{ Number(data.damage / (fight.log.fightDurationInMs / 1000)).toFixed(0) }}</template>
+                </Column>
                 <Column header="Cleave" :sortable="true" sort-field="cleave">
                   <template #body="{ data }">{{ data.cleave.toLocaleString() }}</template>
+                </Column>
+                <Column header="Cleave DPS" :sortable="true" sort-field="cleave">
+                  <template #body="{ data }">{{ Number(data.cleave / (fight.log.fightDurationInMs / 1000)).toFixed(0) }}</template>
                 </Column>
                 <Column header="Alac%" :sortable="true" sort-field="alacDuration">
                   <template #body="{ data }">{{ Number(data.alacDuration).toFixed(2) }}%</template>

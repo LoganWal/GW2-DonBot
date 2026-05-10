@@ -20,12 +20,16 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
             f.FightStart >= cutoff &&
             f.FightType == (short)FightTypesEnum.WvW);
 
-        if (fights.Count == 0) return null;
+        if (fights.Count == 0) {
+            return null;
+        }
 
         var fightIds = fights.Select(f => f.FightLogId).ToList();
         var playerFights = await entityService.PlayerFightLog.GetWhereAsync(pf => fightIds.Contains(pf.FightLogId));
 
-        if (playerFights.Count == 0) return null;
+        if (playerFights.Count == 0) {
+            return null;
+        }
 
         var grouped = playerFights.GroupBy(pf => pf.GuildWarsAccountName).ToList();
         var footerText = await footerService.Generate(guild.GuildId);
@@ -77,12 +81,16 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
             f.FightType != (short)FightTypesEnum.WvW &&
             f.FightType != (short)FightTypesEnum.Unkn);
 
-        if (fights.Count == 0) return null;
+        if (fights.Count == 0) {
+            return null;
+        }
 
         var fightIds = fights.Select(f => f.FightLogId).ToList();
         var playerFights = await entityService.PlayerFightLog.GetWhereAsync(pf => fightIds.Contains(pf.FightLogId));
 
-        if (playerFights.Count == 0) return null;
+        if (playerFights.Count == 0) {
+            return null;
+        }
 
         var fightDurations = fights.ToDictionary(f => f.FightLogId, f => f.FightDurationInMs);
         var grouped = playerFights.GroupBy(pf => pf.GuildWarsAccountName).ToList();
@@ -240,7 +248,9 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
             }
         }
 
-        if (!hasAnyData) return null;
+        if (!hasAnyData) {
+            return null;
+        }
 
         message.Footer = new EmbedFooterBuilder
         {

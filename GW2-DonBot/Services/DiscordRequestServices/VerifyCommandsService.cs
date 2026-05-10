@@ -184,7 +184,9 @@ public sealed class VerifyCommandsService(IEntityService entityService, ILogger<
         try
         {
             var response = await httpClientFactory.CreateClient().GetAsync($"https://api.guildwars2.com/v2/guild/{guildId}");
-            if (!response.IsSuccessStatusCode) return null;
+            if (!response.IsSuccessStatusCode) {
+                return null;
+            }
             var json = await response.Content.ReadAsStringAsync();
             var data = JsonConvert.DeserializeObject<GuildWars2GuildDataModel>(json);
             return data?.Name;

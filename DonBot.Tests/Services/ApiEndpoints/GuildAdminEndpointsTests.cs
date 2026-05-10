@@ -350,9 +350,10 @@ public class GuildAdminEndpointsTests
         {
             calls++;
             // first call transient, second call succeeds
-            if (calls == 1)
+            if (calls == 1) {
                 return Task.FromResult(new GuildAdminEndpoints.Gw2FetchResult(
                     GuildAdminEndpoints.Gw2FetchOutcome.Transient, null));
+            }
             return Task.FromResult(new GuildAdminEndpoints.Gw2FetchResult(
                 GuildAdminEndpoints.Gw2FetchOutcome.Found,
                 new GuildAdminEndpoints.Gw2GuildLookup("Bar", null)));

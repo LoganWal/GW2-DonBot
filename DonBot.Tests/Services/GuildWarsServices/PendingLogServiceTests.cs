@@ -98,4 +98,60 @@ public class PendingLogServiceTests
         Assert.NotNull(result2);
         Assert.Equal(999UL, result2.UploaderId);
     }
+
+    [Fact]
+    public void TryPeek_WithValidKey_ReturnsState()
+    {
+        var svc = new PendingLogService();
+        var state = MakeState(uploaderId: 7UL);
+        var key = svc.StorePending(state);
+
+        var peeked = svc.TryPeek(key);
+
+        Assert.NotNull(peeked);
+        Assert.Equal(7UL, peeked.UploaderId);
+    }
+
+    [Fact]
+    public void TryPeek_WithUnknownKey_ReturnsNull()
+    {
+        var svc = new PendingLogService();
+        Assert.Null(svc.TryPeek("missing"));
+    }
+
+    [Fact]
+    public void TryPeek_DoesNotConsume_StateStillAvailableForLaterTryConsume()
+    {
+        var svc = new PendingLogService();
+        var key = svc.StorePending(MakeState(uploaderId: 8UL));
+
+        var peeked = svc.TryPeek(key);
+        var consumed = svc.TryConsume(key);
+
+        Assert.NotNull(peeked);
+        Assert.NotNull(consumed);
+        Assert.Equal(8UL, consumed.UploaderId);
+    }
+
+    [Fact]
+    public void TryPeek_CalledMultipleTimes_AlwaysReturnsState()
+    {
+        var svc = new PendingLogService();
+        var key = svc.StorePending(MakeState());
+
+        Assert.NotNull(svc.TryPeek(key));
+        Assert.NotNull(svc.TryPeek(key));
+        Assert.NotNull(svc.TryPeek(key));
+    }
+
+    [Fact]
+    public void TryPeek_AfterConsume_ReturnsNull()
+    {
+        var svc = new PendingLogService();
+        var key = svc.StorePending(MakeState());
+
+        svc.TryConsume(key);
+
+        Assert.Null(svc.TryPeek(key));
+    }
 }

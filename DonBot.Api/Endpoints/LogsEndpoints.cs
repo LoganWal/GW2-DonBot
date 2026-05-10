@@ -376,11 +376,13 @@ public static class LogsEndpoints
             query = query.Where(fl => fl.FightStart <= endDt);
         }
 
-        if (isSuccess.HasValue)
+        if (isSuccess.HasValue) {
             query = query.Where(fl => fl.IsSuccess == isSuccess.Value);
+        }
 
-        if (fightMode.HasValue)
+        if (fightMode.HasValue) {
             query = query.Where(fl => fl.FightMode == fightMode.Value);
+        }
 
         var total = await query.CountAsync();
         var logs = await query

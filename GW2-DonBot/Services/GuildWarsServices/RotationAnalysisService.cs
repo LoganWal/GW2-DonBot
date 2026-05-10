@@ -30,8 +30,9 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
 
         foreach (var player in data.FightEliteInsightDataModel.Players)
         {
-            if (player.Acc == null || player.Name == null || player.Details?.Rotation == null || player.NotInSquad)
+            if (player.Acc == null || player.Name == null || player.Details?.Rotation == null || player.NotInSquad) {
                 continue;
+            }
 
             anomalies.AddRange(AnalyzePlayerRotation(
                 player.Acc,
@@ -48,31 +49,36 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
         }
     }
 
-    private static List<RotationAnomaly> AnalyzePlayerRotation(
+    internal static List<RotationAnomaly> AnalyzePlayerRotation(
         string accountName,
         string characterName,
         List<List<List<double>>> rotation,
         Dictionary<string, SkillMapEntry> skillMap,
         string fightUrl)
     {
-        if (rotation.Count == 0 || rotation[0].Count == 0)
+        if (rotation.Count == 0 || rotation[0].Count == 0) {
             return [];
+        }
 
         var skillCasts = new Dictionary<long, List<double>>();
         var orderedSkills = new List<(double Time, long SkillId)>();
 
         foreach (var skill in rotation[0])
         {
-            if (skill.Count < 2) continue;
+            if (skill.Count < 2) {
+                continue;
+            }
 
             var castTime = skill[0];
             var skillId = (long)skill[1];
 
-            if (skillMap.TryGetValue($"s{skillId}", out var entry) && entry.IsAutoAttack)
+            if (skillMap.TryGetValue($"s{skillId}", out var entry) && entry.IsAutoAttack) {
                 continue;
+            }
 
-            if (!skillCasts.ContainsKey(skillId))
+            if (!skillCasts.ContainsKey(skillId)) {
                 skillCasts[skillId] = [];
+            }
 
             skillCasts[skillId].Add(castTime);
             orderedSkills.Add((castTime, skillId));
@@ -83,7 +89,9 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
         // Tier 1: flag skills whose inter-cast intervals have suspiciously low variance (CV < threshold)
         foreach (var (skillId, castTimes) in skillCasts)
         {
-            if (castTimes.Count < MinCastCount) continue;
+            if (castTimes.Count < MinCastCount) {
+                continue;
+            }
 
             var sortedTimes = castTimes.OrderBy(t => t).ToList();
             var intervals = Enumerable.Range(1, sortedTimes.Count - 1)
@@ -91,12 +99,16 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
                 .ToList();
 
             var mean = intervals.Average();
-            if (mean < MinMeanIntervalMs) continue;
+            if (mean < MinMeanIntervalMs) {
+                continue;
+            }
 
             var stdDev = Math.Sqrt(intervals.Average(x => Math.Pow(x - mean, 2)));
             var cv = stdDev / mean;
 
-            if (cv >= CvThreshold) continue;
+            if (cv >= CvThreshold) {
+                continue;
+            }
 
             var skillName = skillMap.TryGetValue($"s{skillId}", out var info) && !string.IsNullOrEmpty(info.Name)
                 ? info.Name
@@ -153,8 +165,9 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
         List<double> skillTimes,
         Dictionary<string, SkillMapEntry> skillMap)
     {
-        if (skillIds.Count < MinCycleLength * MinCycleRepeats)
+        if (skillIds.Count < MinCycleLength * MinCycleRepeats) {
             return null;
+        }
 
         CycleDetection? best = null;
 
@@ -168,28 +181,37 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
                 while (start + (repeats + 1) * cycleLen <= skillIds.Count)
                 {
                     var next = skillIds.GetRange(start + repeats * cycleLen, cycleLen);
-                    if (!window.SequenceEqual(next)) break;
+                    if (!window.SequenceEqual(next)) {
+                        break;
+                    }
                     repeats++;
                 }
 
-                if (repeats < MinCycleRepeats) continue;
+                if (repeats < MinCycleRepeats) {
+                    continue;
+                }
 
                 // skillTimes are in seconds (EliteInsights format); convert to ms for consistency
                 var cycleTimes = Enumerable.Range(0, repeats - 1)
                     .Select(r => (skillTimes[start + (r + 1) * cycleLen] - skillTimes[start + r * cycleLen]) * 1000.0)
                     .ToList();
 
-                if (!cycleTimes.Any()) continue;
+                if (!cycleTimes.Any()) {
+                    continue;
+                }
 
                 var avgCycleTime = cycleTimes.Average();
                 var cycleStdDev = Math.Sqrt(cycleTimes.Average(x => Math.Pow(x - avgCycleTime, 2)));
                 var cycleCv = cycleStdDev / avgCycleTime;
 
-                if (cycleCv >= CvThreshold) continue;
+                if (cycleCv >= CvThreshold) {
+                    continue;
+                }
 
                 // Keep the candidate with the highest score (repeats x cycleLength)
-                if (best != null && repeats * cycleLen <= best.Repeats * best.CycleLength)
+                if (best != null && repeats * cycleLen <= best.Repeats * best.CycleLength) {
                     continue;
+                }
 
                 var cycleDesc = string.Join(" > ", window.Select(id =>
                 {

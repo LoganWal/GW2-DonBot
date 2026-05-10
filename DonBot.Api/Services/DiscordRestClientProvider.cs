@@ -17,14 +17,16 @@ public class DiscordRestClientProvider : IAsyncDisposable
 
     public async Task<DiscordRestClient> GetClientAsync()
     {
-        if (_client is { LoginState: LoginState.LoggedIn })
+        if (_client is { LoginState: LoginState.LoggedIn }) {
             return _client;
+        }
 
         await _initLock.WaitAsync();
         try
         {
-            if (_client is { LoginState: LoginState.LoggedIn })
+            if (_client is { LoginState: LoginState.LoggedIn }) {
                 return _client;
+            }
 
             var client = new DiscordRestClient();
             await client.LoginAsync(TokenType.Bot, _secretService.FetchDonBotToken());

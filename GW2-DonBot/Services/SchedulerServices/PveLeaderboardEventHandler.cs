@@ -33,12 +33,14 @@ public sealed class PveLeaderboardEventHandler(
 
         var messages = await channel.GetMessagesAsync().FlattenAsync();
         var recentMessages = messages.Where(m => (DateTimeOffset.UtcNow - m.CreatedAt).TotalDays < 14).ToList();
-        if (recentMessages.Count > 0)
+        if (recentMessages.Count > 0) {
             await channel.DeleteMessagesAsync(recentMessages);
+        }
 
         var embed = await weeklyLeaderboardService.GeneratePvE(guildEntity);
-        if (embed != null)
+        if (embed != null) {
             await channel.SendMessageAsync(embeds: [embed]);
+        }
 
         logger.LogInformation("Posted PvE leaderboard to channel {ChannelId} in guild {GuildId}.", scheduledEvent.ChannelId, scheduledEvent.GuildId);
     }

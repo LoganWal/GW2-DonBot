@@ -25,17 +25,20 @@ public static class AccountEndpoints
         IHttpClientFactory httpClientFactory)
     {
         var discordIdStr = user.FindFirst("discord_id")?.Value;
-        if (!long.TryParse(discordIdStr, out var discordId))
+        if (!long.TryParse(discordIdStr, out var discordId)) {
             return Results.Unauthorized();
+        }
 
-        if (string.IsNullOrWhiteSpace(request.ApiKey))
+        if (string.IsNullOrWhiteSpace(request.ApiKey)) {
             return Results.BadRequest("API key is required.");
+        }
 
         var client = httpClientFactory.CreateClient();
         var response = await client.GetAsync($"https://api.guildwars2.com/v2/account/?access_token={request.ApiKey}");
 
-        if (!response.IsSuccessStatusCode)
+        if (!response.IsSuccessStatusCode) {
             return Results.BadRequest("Invalid GW2 API key.");
+        }
 
         var json = await response.Content.ReadAsStringAsync();
         var accountData = JsonConvert.DeserializeObject<GuildWars2AccountDataModel>(json) ?? new GuildWars2AccountDataModel();
@@ -51,6 +54,7 @@ public static class AccountEndpoints
         }
 
         var existing = await context.GuildWarsAccount
+            .AsTracking()
             .FirstOrDefaultAsync(g => g.DiscordId == discordId && g.GuildWarsAccountId == accountData.Id);
 
         if (existing != null)
@@ -84,19 +88,22 @@ public static class AccountEndpoints
         IDbContextFactory<DatabaseContext> dbContextFactory)
     {
         var discordIdStr = user.FindFirst("discord_id")?.Value;
-        if (!long.TryParse(discordIdStr, out var discordId))
+        if (!long.TryParse(discordIdStr, out var discordId)) {
             return Results.Unauthorized();
+        }
 
-        if (!Guid.TryParse(accountId, out var accountGuid))
+        if (!Guid.TryParse(accountId, out var accountGuid)) {
             return Results.BadRequest("Invalid account ID.");
+        }
 
         await using var context = await dbContextFactory.CreateDbContextAsync();
 
         var account = await context.GuildWarsAccount
             .FirstOrDefaultAsync(g => g.DiscordId == discordId && g.GuildWarsAccountId == accountGuid);
 
-        if (account == null)
+        if (account == null) {
             return Results.NotFound();
+        }
 
         context.GuildWarsAccount.Remove(account);
         await context.SaveChangesAsync();
@@ -109,8 +116,9 @@ public static class AccountEndpoints
         IDbContextFactory<DatabaseContext> dbContextFactory)
     {
         var discordIdStr = user.FindFirst("discord_id")?.Value;
-        if (!long.TryParse(discordIdStr, out var discordId))
+        if (!long.TryParse(discordIdStr, out var discordId)) {
             return Results.Unauthorized();
+        }
 
         await using var context = await dbContextFactory.CreateDbContextAsync();
 

@@ -30,11 +30,13 @@ public static class UploadEndpoints
         LogUploadPipelineService pipeline)
     {
         var discordIdStr = user.FindFirst("discord_id")?.Value;
-        if (!long.TryParse(discordIdStr, out var discordId))
+        if (!long.TryParse(discordIdStr, out var discordId)) {
             return Results.Unauthorized();
+        }
 
-        if (request?.Urls == null || request.Urls.Count == 0)
+        if (request?.Urls == null || request.Urls.Count == 0) {
             return Results.BadRequest("No URLs provided.");
+        }
 
         var validUrls = request.Urls
             .Select(u => u.Trim())
@@ -42,8 +44,9 @@ public static class UploadEndpoints
             .Distinct()
             .ToList();
 
-        if (validUrls.Count == 0)
+        if (validUrls.Count == 0) {
             return Results.BadRequest("No valid dps.report or wvw.report URLs provided.");
+        }
 
         await using var ctx = await dbContextFactory.CreateDbContextAsync();
         var created = new List<object>();
@@ -99,13 +102,18 @@ public static class UploadEndpoints
         LogUploadPipelineService pipeline)
     {
         var discordIdStr = user.FindFirst("discord_id")?.Value;
-        if (!long.TryParse(discordIdStr, out var discordId))
+        if (!long.TryParse(discordIdStr, out var discordId)) {
             return Results.Unauthorized();
+        }
 
         await using var ctx = await dbContextFactory.CreateDbContextAsync();
         var upload = await ctx.LogUpload.FirstOrDefaultAsync(u => u.LogUploadId == id && u.DiscordId == discordId);
-        if (upload == null) return Results.NotFound();
-        if (string.IsNullOrEmpty(upload.DpsReportUrl)) return Results.BadRequest("No dps.report URL available.");
+        if (upload == null) {
+            return Results.NotFound();
+        }
+        if (string.IsNullOrEmpty(upload.DpsReportUrl)) {
+            return Results.BadRequest("No dps.report URL available.");
+        }
 
         pipeline.SubmitToWingman(upload.DpsReportUrl);
         return Results.Ok();
@@ -117,8 +125,9 @@ public static class UploadEndpoints
         LogUploadPipelineService pipeline)
     {
         var discordIdStr = user.FindFirst("discord_id")?.Value;
-        if (!long.TryParse(discordIdStr, out var discordId))
+        if (!long.TryParse(discordIdStr, out var discordId)) {
             return Results.Unauthorized();
+        }
 
         var cutoff = DateTime.UtcNow.AddHours(-24);
 
@@ -128,8 +137,9 @@ public static class UploadEndpoints
             .Select(u => u.DpsReportUrl!)
             .ToListAsync();
 
-        foreach (var url in uploads)
+        foreach (var url in uploads) {
             pipeline.SubmitToWingman(url);
+        }
 
         return Results.Ok(new { submitted = uploads.Count });
     }
@@ -141,8 +151,9 @@ public static class UploadEndpoints
         int pageSize = 20)
     {
         var discordIdStr = user.FindFirst("discord_id")?.Value;
-        if (!long.TryParse(discordIdStr, out var discordId))
+        if (!long.TryParse(discordIdStr, out var discordId)) {
             return Results.Unauthorized();
+        }
 
         pageSize = Math.Clamp(pageSize, 1, 100);
         page = Math.Max(1, page);

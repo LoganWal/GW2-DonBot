@@ -24,6 +24,10 @@ public static class ApiServiceRegister
         });
 
         services.AddHttpClient();
+        services.AddHttpClient("gw2-api", c =>
+        {
+            c.Timeout = TimeSpan.FromSeconds(8);
+        });
 
         services.AddScoped(typeof(IDatabaseUpdateService<>), typeof(DatabaseUpdateService<>));
         services.AddScoped<IEntityService, EntityService>();

@@ -1,5 +1,6 @@
 using DonBot.Api.Endpoints;
 using DonBot.Models.Entities;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace DonBot.Tests.Services.ApiEndpoints;
 
@@ -223,5 +224,145 @@ public class GuildAdminEndpointsTests
 
         Assert.Null(guild.LogDropOffChannelId);
         Assert.Null(guild.Gw2GuildMemberRoleId);
+    }
+
+    // -------------------------------------------------------------------------
+    // IsValidGw2GuildId
+    // -------------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("not-a-guid")]
+    [InlineData("123")]
+    // braced/parenthesised forms are rejected; only the dashed "D" format is valid
+    [InlineData("{4BBB52AA-D768-4FC6-8EDE-C299F2822F0F}")]
+    public void IsValidGw2GuildId_Invalid_ReturnsFalse(string? input)
+    {
+        Assert.False(GuildAdminEndpoints.IsValidGw2GuildId(input));
+    }
+
+    [Theory]
+    [InlineData("4BBB52AA-D768-4FC6-8EDE-C299F2822F0F")]
+    [InlineData("4bbb52aa-d768-4fc6-8ede-c299f2822f0f")]
+    [InlineData("  4BBB52AA-D768-4FC6-8EDE-C299F2822F0F  ")]
+    public void IsValidGw2GuildId_Valid_ReturnsTrue(string input)
+    {
+        Assert.True(GuildAdminEndpoints.IsValidGw2GuildId(input));
+    }
+
+    // -------------------------------------------------------------------------
+    // CollectGw2GuildIds
+    // -------------------------------------------------------------------------
+
+    private static GuildAdminEndpoints.GuildConfigDto BlankDto() =>
+        GuildAdminEndpoints.ToDto(new Guild { GuildId = 1 });
+
+    [Fact]
+    public void CollectGw2GuildIds_EmptyDto_ReturnsEmpty()
+    {
+        var ids = GuildAdminEndpoints.CollectGw2GuildIds(BlankDto());
+        Assert.Empty(ids);
+    }
+
+    [Fact]
+    public void CollectGw2GuildIds_PrimaryAndSecondary_TrimsAndReturnsAll()
+    {
+        var dto = BlankDto() with
+        {
+            Gw2GuildMemberRoleId = "  primary  ",
+            Gw2SecondaryMemberRoleIds = "a, b ,, c"
+        };
+
+        var ids = GuildAdminEndpoints.CollectGw2GuildIds(dto);
+
+        Assert.Equal(new[] { "primary", "a", "b", "c" }, ids);
+    }
+
+    [Fact]
+    public void CollectGw2GuildIds_DuplicatesAcrossPrimaryAndSecondary_Deduped()
+    {
+        var dto = BlankDto() with
+        {
+            Gw2GuildMemberRoleId = "shared",
+            Gw2SecondaryMemberRoleIds = "shared,other"
+        };
+
+        var ids = GuildAdminEndpoints.CollectGw2GuildIds(dto);
+
+        Assert.Equal(new[] { "shared", "other" }, ids);
+    }
+
+    // -------------------------------------------------------------------------
+    // GetGw2GuildLookupCachedAsync caching behaviour
+    // -------------------------------------------------------------------------
+
+    private static IMemoryCache NewCache() => new MemoryCache(new MemoryCacheOptions());
+
+    [Fact]
+    public async Task LookupCache_FoundResult_CachedAndNotRefetched()
+    {
+        var cache = NewCache();
+        var calls = 0;
+        Task<GuildAdminEndpoints.Gw2FetchResult> Fetcher()
+        {
+            calls++;
+            return Task.FromResult(new GuildAdminEndpoints.Gw2FetchResult(
+                GuildAdminEndpoints.Gw2FetchOutcome.Found,
+                new GuildAdminEndpoints.Gw2GuildLookup("Foo", "FOO")));
+        }
+
+        var first = await GuildAdminEndpoints.GetGw2GuildLookupCachedAsync("id-1", cache, Fetcher);
+        var second = await GuildAdminEndpoints.GetGw2GuildLookupCachedAsync("id-1", cache, Fetcher);
+
+        Assert.Equal("Foo", first?.Name);
+        Assert.Equal("Foo", second?.Name);
+        Assert.Equal(1, calls);
+    }
+
+    [Fact]
+    public async Task LookupCache_NotFound_NegativeCachedAndNotRefetched()
+    {
+        var cache = NewCache();
+        var calls = 0;
+        Task<GuildAdminEndpoints.Gw2FetchResult> Fetcher()
+        {
+            calls++;
+            return Task.FromResult(new GuildAdminEndpoints.Gw2FetchResult(
+                GuildAdminEndpoints.Gw2FetchOutcome.NotFound, null));
+        }
+
+        var first = await GuildAdminEndpoints.GetGw2GuildLookupCachedAsync("id-2", cache, Fetcher);
+        var second = await GuildAdminEndpoints.GetGw2GuildLookupCachedAsync("id-2", cache, Fetcher);
+
+        Assert.Null(first);
+        Assert.Null(second);
+        Assert.Equal(1, calls);
+    }
+
+    [Fact]
+    public async Task LookupCache_Transient_NotCachedAndRetriedNextCall()
+    {
+        var cache = NewCache();
+        var calls = 0;
+        Task<GuildAdminEndpoints.Gw2FetchResult> Fetcher()
+        {
+            calls++;
+            // first call transient, second call succeeds
+            if (calls == 1)
+                return Task.FromResult(new GuildAdminEndpoints.Gw2FetchResult(
+                    GuildAdminEndpoints.Gw2FetchOutcome.Transient, null));
+            return Task.FromResult(new GuildAdminEndpoints.Gw2FetchResult(
+                GuildAdminEndpoints.Gw2FetchOutcome.Found,
+                new GuildAdminEndpoints.Gw2GuildLookup("Bar", null)));
+        }
+
+        var first = await GuildAdminEndpoints.GetGw2GuildLookupCachedAsync("id-3", cache, Fetcher);
+        var second = await GuildAdminEndpoints.GetGw2GuildLookupCachedAsync("id-3", cache, Fetcher);
+
+        Assert.Null(first);
+        Assert.Equal("Bar", second?.Name);
+        Assert.Equal(2, calls);
     }
 }

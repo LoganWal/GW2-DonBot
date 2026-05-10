@@ -33,6 +33,8 @@ public static class ApiServiceRegister
         services.AddSingleton<ILogUploadProgressService, LogUploadProgressService>();
         services.AddSingleton<LogUploadPipelineService>();
         services.AddSingleton<TusFileMapping>();
+        services.AddSingleton<DiscordRestClientProvider>();
+        services.AddMemoryCache();
         services.AddHostedService(sp => sp.GetRequiredService<LogUploadPipelineService>());
 
         var jwtKey = configuration["DonBotJwtKey"] ?? Environment.GetEnvironmentVariable("DonBotJwtKey")

@@ -47,13 +47,20 @@ const logoImgSrc = '/donbot.png'
 const logoImgError = ref(false)
 const route = useRoute()
 
-const { data: pointsData } = await useAsyncData(
+const { data: pointsData } = useAsyncData(
   'sidebar-points',
   () => user.value ? (api('/api/points/me') as Promise<any>).catch(() => null) : Promise.resolve(null),
   { watch: [user] }
 )
 
+const { data: adminGuilds } = useAsyncData(
+  'sidebar-admin-guilds',
+  () => user.value ? (api('/api/admin/guilds') as Promise<any[]>).catch(() => []) : Promise.resolve([]),
+  { watch: [user] }
+)
+
 const hasPoints = computed(() => (pointsData.value?.points ?? 0) > 0)
+const hasAdminGuilds = computed(() => (adminGuilds.value?.length ?? 0) > 0)
 
 const allNavItems = [
   { label: 'Dashboard',      to: '/dashboard',   icon: 'pi-home' },
@@ -66,6 +73,7 @@ const allNavItems = [
   { label: 'Points',        to: '/points',      icon: 'pi-star',  hidden: computed(() => !hasPoints.value) },
   { label: 'Accounts',     to: '/verify',      icon: 'pi-link' },
   { label: 'Upload Logs',   to: '/logs/upload', icon: 'pi-upload' },
+  { label: 'Server Admin',  to: '/admin',       icon: 'pi-cog',   hidden: computed(() => !hasAdminGuilds.value) },
 ]
 
 const navItems = computed(() => allNavItems.filter(item => !item.hidden?.value))

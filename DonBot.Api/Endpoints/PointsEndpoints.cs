@@ -91,67 +91,71 @@ public static class PointsEndpoints
             return Results.Ok(new { account, gw2Accounts, lastFightDate = (DateTime?)null, fights = (object?)null });
         }
 
-        var playerLogs = await context.PlayerFightLog
-            .Where(pfl => gw2Names.Contains(pfl.GuildWarsAccountName))
-            .ToListAsync();
+        var joined = from pfl in context.PlayerFightLog
+                     join fl in context.FightLog on pfl.FightLogId equals fl.FightLogId
+                     where gw2Names.Contains(pfl.GuildWarsAccountName)
+                     select new { Pfl = pfl, fl.FightType, fl.FightStart };
 
-        if (playerLogs.Count == 0)
+        var totals = await joined
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Total = g.Count(),
+                Wvw = g.Count(x => x.FightType == 0),
+                Pve = g.Count(x => x.FightType != 0),
+                TotalDamage = g.Sum(x => x.Pfl.Damage),
+                TotalKills = g.Sum(x => x.FightType == 0 ? x.Pfl.Kills : 0),
+                TotalDeaths = g.Sum(x => x.Pfl.Deaths),
+                TotalHealing = g.Sum(x => x.Pfl.Healing),
+                TotalCleanses = g.Sum(x => x.Pfl.Cleanses),
+                TotalStrips = g.Sum(x => x.Pfl.Strips),
+                TotalDownContribution = g.Sum(x => x.FightType == 0 ? x.Pfl.DamageDownContribution : 0L),
+                AvgQuickness = g.Average(x => (double)x.Pfl.QuicknessDuration),
+                AvgAlac = g.Average(x => (double)x.Pfl.AlacDuration),
+                LastFightDate = (DateTime?)g.Max(x => x.FightStart)
+            })
+            .FirstOrDefaultAsync();
+
+        if (totals is null)
         {
             return Results.Ok(new { account, gw2Accounts, lastFightDate = (DateTime?)null, fights = (object?)null });
         }
 
-        var fightLogIds = playerLogs.Select(p => p.FightLogId).Distinct().ToList();
-        var fightLogs = await context.FightLog
-            .Where(fl => fightLogIds.Contains(fl.FightLogId))
-            .ToListAsync();
+        var bestDamageFight = await joined
+            .OrderByDescending(x => x.Pfl.Damage)
+            .Select(x => new { fightLogId = x.Pfl.FightLogId, fightType = x.FightType, damage = x.Pfl.Damage })
+            .FirstOrDefaultAsync();
 
-        var fightTypeById = fightLogs.ToDictionary(fl => fl.FightLogId, fl => fl.FightType);
-        var fightStartById = fightLogs.ToDictionary(fl => fl.FightLogId, fl => fl.FightStart);
+        var bestKillsFight = await joined
+            .Where(x => x.FightType == 0)
+            .OrderByDescending(x => x.Pfl.Kills)
+            .Select(x => new { fightLogId = x.Pfl.FightLogId, kills = x.Pfl.Kills })
+            .FirstOrDefaultAsync();
 
-        var wvwLogs = playerLogs.Where(p => fightTypeById.TryGetValue(p.FightLogId, out var t) && t == 0).ToList();
-        var pveLogs = playerLogs.Where(p => fightTypeById.TryGetValue(p.FightLogId, out var t) && t != 0).ToList();
-
-        var lastFightDate = fightLogs.Count > 0
-            ? fightLogs.Max(fl => fl.FightStart)
-            : (DateTime?)null;
-
-        var bestDamageLog = playerLogs.MaxBy(p => p.Damage);
-        var bestDamageFight = bestDamageLog is not null && fightTypeById.TryGetValue(bestDamageLog.FightLogId, out var bdt)
-            ? new { fightLogId = bestDamageLog.FightLogId, fightType = bdt, damage = bestDamageLog.Damage }
-            : null;
-
-        var bestKillsLog = wvwLogs.MaxBy(p => p.Kills);
-        var bestKillsFight = bestKillsLog is not null && fightTypeById.TryGetValue(bestKillsLog.FightLogId, out _)
-            ? new { fightLogId = bestKillsLog.FightLogId, kills = bestKillsLog.Kills }
-            : null;
+        var characterCount = await joined
+            .Where(x => x.Pfl.CharacterName != null && x.Pfl.CharacterName != "")
+            .Select(x => x.Pfl.CharacterName)
+            .Distinct()
+            .CountAsync();
 
         var fights = new
         {
-            total = playerLogs.Count,
-            wvw = wvwLogs.Count,
-            pve = pveLogs.Count,
-            // Career totals
-            totalDamage = playerLogs.Sum(p => p.Damage),
-            totalKills = wvwLogs.Sum(p => p.Kills),
-            totalDeaths = playerLogs.Sum(p => p.Deaths),
-            totalHealing = playerLogs.Sum(p => p.Healing),
-            totalCleanses = playerLogs.Sum(p => p.Cleanses),
-            totalStrips = playerLogs.Sum(p => p.Strips),
-            totalDownContribution = wvwLogs.Sum(p => p.DamageDownContribution),
-            // Averages
-            avgQuickness = playerLogs.Average(p => (double)p.QuicknessDuration),
-            avgAlac = playerLogs.Average(p => (double)p.AlacDuration),
-            // Personal bests
+            total = totals.Total,
+            wvw = totals.Wvw,
+            pve = totals.Pve,
+            totalDamage = totals.TotalDamage,
+            totalKills = totals.TotalKills,
+            totalDeaths = totals.TotalDeaths,
+            totalHealing = totals.TotalHealing,
+            totalCleanses = totals.TotalCleanses,
+            totalStrips = totals.TotalStrips,
+            totalDownContribution = totals.TotalDownContribution,
+            avgQuickness = totals.AvgQuickness,
+            avgAlac = totals.AvgAlac,
             bestDamageFight,
             bestKillsFight
         };
 
-        var characterCount = playerLogs
-            .Where(p => !string.IsNullOrEmpty(p.CharacterName))
-            .Select(p => p.CharacterName)
-            .Distinct()
-            .Count();
-
-        return Results.Ok(new { account, gw2Accounts, lastFightDate, fights, characterCount });
+        return Results.Ok(new { account, gw2Accounts, lastFightDate = totals.LastFightDate, fights, characterCount });
     }
 }

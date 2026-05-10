@@ -10,7 +10,7 @@ namespace DonBot.Tests.Services.SchedulerServices;
 
 public class SchedulerServiceTests
 {
-    // Friday 2026-03-20 10:00:00 UTC — used as a stable "now" across tests
+    // Friday 2026-03-20 10:00:00 UTC - used as a stable "now" across tests
     private static readonly DateTime Now = new(2026, 3, 20, 10, 0, 0, DateTimeKind.Utc);
 
     private static ScheduledEvent MakeWeeklyEvent(
@@ -39,7 +39,7 @@ public class SchedulerServiceTests
             []);
 
     // -------------------------------------------------------------------------
-    // GetNextEventTime — RepeatIntervalDays guard
+    // GetNextEventTime - RepeatIntervalDays guard
     // -------------------------------------------------------------------------
 
     [Fact]
@@ -63,7 +63,7 @@ public class SchedulerServiceTests
     }
 
     // -------------------------------------------------------------------------
-    // GetNextEventTime — fire day is in the future this week
+    // GetNextEventTime - fire day is in the future this week
     // -------------------------------------------------------------------------
 
     [Fact]
@@ -96,7 +96,7 @@ public class SchedulerServiceTests
     }
 
     // -------------------------------------------------------------------------
-    // GetNextEventTime — fire day is today
+    // GetNextEventTime - fire day is today
     // -------------------------------------------------------------------------
 
     [Fact]
@@ -114,7 +114,7 @@ public class SchedulerServiceTests
     [Fact]
     public void GetNextEventTime_FireDayIsToday_HourAlreadyPassed_ReturnsNextWeek()
     {
-        // now = Friday 10:00; fire on Friday (5) at 04:00 — already passed today
+        // now = Friday 10:00; fire on Friday (5) at 04:00 - already passed today
         var ev = MakeWeeklyEvent(day: 5, hour: 4);
 
         var result = SchedulerService.GetNextEventTime(ev, Now);
@@ -127,7 +127,7 @@ public class SchedulerServiceTests
     [Fact]
     public void GetNextEventTime_FireDayIsToday_ExactlyAtFireTime_ReturnsNextWeek()
     {
-        // now = Friday 10:00; fire on Friday (5) at 10:00 exactly — not strictly greater, so next week
+        // now = Friday 10:00; fire on Friday (5) at 10:00 exactly - not strictly greater, so next week
         var ev = MakeWeeklyEvent(day: 5, hour: 10);
 
         var result = SchedulerService.GetNextEventTime(ev, Now);
@@ -138,13 +138,13 @@ public class SchedulerServiceTests
     }
 
     // -------------------------------------------------------------------------
-    // GetNextEventTime — fire day was earlier this week (next occurrence is next week)
+    // GetNextEventTime - fire day was earlier this week (next occurrence is next week)
     // -------------------------------------------------------------------------
 
     [Fact]
     public void GetNextEventTime_FireDayWasEarlierThisWeek_ReturnsNextWeek()
     {
-        // now = Friday (5); fire on Tuesday (2) — Tuesday already passed this week
+        // now = Friday (5); fire on Tuesday (2) - Tuesday already passed this week
         var ev = MakeWeeklyEvent(day: 2, hour: 4);
 
         var result = SchedulerService.GetNextEventTime(ev, Now);
@@ -155,7 +155,7 @@ public class SchedulerServiceTests
     }
 
     // -------------------------------------------------------------------------
-    // GetNextEventTime — boundary hours
+    // GetNextEventTime - boundary hours
     // -------------------------------------------------------------------------
 
     [Fact]
@@ -182,7 +182,7 @@ public class SchedulerServiceTests
     }
 
     // -------------------------------------------------------------------------
-    // GetNextEventTime — Sunday (DayOfWeek = 0 boundary)
+    // GetNextEventTime - Sunday (DayOfWeek = 0 boundary)
     // -------------------------------------------------------------------------
 
     [Fact]
@@ -199,7 +199,7 @@ public class SchedulerServiceTests
     }
 
     // -------------------------------------------------------------------------
-    // GetNextEventTime — result is always strictly in the future
+    // GetNextEventTime - result is always strictly in the future
     // -------------------------------------------------------------------------
 
     [Theory]
@@ -220,7 +220,7 @@ public class SchedulerServiceTests
     }
 
     // -------------------------------------------------------------------------
-    // FastForwardEventIfBehind — no-op cases
+    // FastForwardEventIfBehind - no-op cases
     // -------------------------------------------------------------------------
 
     [Fact]
@@ -264,7 +264,7 @@ public class SchedulerServiceTests
     }
 
     // -------------------------------------------------------------------------
-    // FastForwardEventIfBehind — advances correctly
+    // FastForwardEventIfBehind - advances correctly
     // -------------------------------------------------------------------------
 
     [Fact]
@@ -373,7 +373,7 @@ public class SchedulerServiceTests
     }
 
     // -------------------------------------------------------------------------
-    // FastForwardEventIfBehind — DB interaction
+    // FastForwardEventIfBehind - DB interaction
     // -------------------------------------------------------------------------
 
     [Fact]
@@ -441,7 +441,6 @@ internal class FakeEntityService : IEntityService
     public IDatabaseUpdateService<PlayerFightLogMechanic> PlayerFightLogMechanic => throw new NotImplementedException();
     public IDatabaseUpdateService<PlayerRaffleBid> PlayerRaffleBid => throw new NotImplementedException();
     public IDatabaseUpdateService<Raffle> Raffle => throw new NotImplementedException();
-    public IDatabaseUpdateService<SteamAccount> SteamAccount => throw new NotImplementedException();
     public IDatabaseUpdateService<RotationAnomaly> RotationAnomaly => throw new NotImplementedException();
 }
 

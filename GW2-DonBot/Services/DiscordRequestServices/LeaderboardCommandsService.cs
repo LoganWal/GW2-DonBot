@@ -33,7 +33,7 @@ public sealed class LeaderboardCommandsService(
         var accountNames = gw2Accounts.Select(a => a.GuildWarsAccountName).Where(n => n != null).Cast<string>().ToList();
         if (accountNames.Count == 0)
         {
-            await command.FollowupAsync("You need to verify your GW2 account first using `/gw2_verify`.", ephemeral: true);
+            await command.FollowupAsync("You need to verify your GW2 account first using `/verify`.", ephemeral: true);
             return;
         }
 

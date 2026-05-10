@@ -255,7 +255,7 @@ public class RaidReportServiceTests(ITestOutputHelper output)
     [Fact]
     public void BuildSurvivabilityTable_WithLargeSquad_TotalContentExceedsDiscordFieldValueLimit()
     {
-        // 25-player squads produce ~1400 chars of row text — over the 1024-char per-field limit —
+        // 25-player squads produce ~1400 chars of row text - over the 1024-char per-field limit -
         // which is why AddChunkedCodeFenceFields splits into multiple fields at 12 rows per chunk.
         const int discordFieldValueLimit = 1024;
 

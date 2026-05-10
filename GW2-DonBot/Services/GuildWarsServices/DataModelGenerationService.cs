@@ -177,7 +177,7 @@ public sealed class DataModelGenerationService(ILogger<DataModelGenerationServic
             var json = ExtractRaw(script, variableName);
             if (json == null)
             {
-                logger.LogInformation("{variableName} not present in log — stats extension likely not enabled.", variableName);
+                logger.LogInformation("{variableName} not present in log - stats extension likely not enabled.", variableName);
                 return new T();
             }
 
@@ -185,7 +185,7 @@ public sealed class DataModelGenerationService(ILogger<DataModelGenerationServic
         }
         catch (Exception ex)
         {
-            logger.LogInformation(ex, "Failed to deserialize {variableName} JSON — stats extension likely not enabled.", variableName);
+            logger.LogInformation(ex, "Failed to deserialize {variableName} JSON - stats extension likely not enabled.", variableName);
             return new T();
         }
     }

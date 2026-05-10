@@ -96,7 +96,7 @@ public class PollingTasksServiceTests
 
         await service.FetchAccountData([account]);
 
-        // Auth failures are permanent — confirm we break immediately rather than burning the retry budget
+        // Auth failures are permanent - confirm we break immediately rather than burning the retry budget
         Assert.Equal(1, handler.CallCount);
     }
 

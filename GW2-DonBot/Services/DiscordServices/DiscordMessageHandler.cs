@@ -205,7 +205,7 @@ public class DiscordMessageHandler(
             return;
         }
 
-        // Embed path — auto-process as before
+        // Embed path - auto-process as before
         if (urls.All(url => _seenUrls.Contains(url)))
         {
             logger.LogWarning("Already seen, not analysing or reporting: {url}", urlList);

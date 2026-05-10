@@ -20,7 +20,7 @@ public sealed class GenericCommandsService(IEntityService entityService) : IGene
 
         if (minutesSinceEven < 5)
         {
-            // :00 to :05 — panic trying to find a map before the event
+            // :00 to :05 - panic trying to find a map before the event
             var minsUntilStart = 5 - minutesSinceEven;
             string[] preEventMessages =
             [
@@ -33,7 +33,7 @@ public sealed class GenericCommandsService(IEntityService entityService) : IGene
         }
         else if (minutesSinceEven < 23)
         {
-            // :05 to :23 — pinata is live, losing their mind trying to get into a map
+            // :05 to :23 - pinata is live, losing their mind trying to get into a map
             string[] liveMessages =
             [
                 "PINATA IS LIVE BRO!!! I'VE BEEN CLICKING JOIN MAP FOR 5 MINUTES STRAIGHT!!! WHY WON'T IT LET ME IN!!!",
@@ -45,7 +45,7 @@ public sealed class GenericCommandsService(IEntityService entityService) : IGene
         }
         else if (minutesSinceEven < 30)
         {
-            // :23 to :30 — pinata is dead, you missed it
+            // :23 to :30 - pinata is dead, you missed it
             string[] deadMessages =
             [
                 "Bro... pinata is dead. You missed it. I missed it too. We don't talk about this.",
@@ -57,7 +57,7 @@ public sealed class GenericCommandsService(IEntityService entityService) : IGene
         }
         else
         {
-            // :30 to next :00 — chill, waiting for next event at :05 of the next even hour
+            // :30 to next :00 - chill, waiting for next event at :05 of the next even hour
             var minsUntilNext = 120 - minutesSinceEven + 5;
 
             if (minsUntilNext <= 10)

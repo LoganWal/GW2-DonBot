@@ -14,7 +14,6 @@ public sealed class EntityService(
     IDatabaseUpdateService<PlayerFightLogMechanic> playerFightLogMechanic,
     IDatabaseUpdateService<PlayerRaffleBid> playerRaffleBid,
     IDatabaseUpdateService<Raffle> raffle,
-    IDatabaseUpdateService<SteamAccount> steamAccount,
     IDatabaseUpdateService<ScheduledEvent> scheduledEvent,
     IDatabaseUpdateService<RotationAnomaly> rotationAnomaly)
     : IEntityService
@@ -40,8 +39,6 @@ public sealed class EntityService(
     public IDatabaseUpdateService<PlayerRaffleBid> PlayerRaffleBid { get; } = playerRaffleBid;
 
     public IDatabaseUpdateService<Raffle> Raffle { get; } = raffle;
-
-    public IDatabaseUpdateService<SteamAccount> SteamAccount { get; } = steamAccount;
 
     public IDatabaseUpdateService<ScheduledEvent> ScheduledEvent { get; } = scheduledEvent;
 

@@ -285,9 +285,7 @@ public sealed class RaidReportService(
             Url = "https://github.com/LoganWal/GW2-DonBot",
             IconUrl = "https://i.imgur.com/tQ4LD6H.png"
         };
-        var footerText = await footerService.Generate(guildId);
-
-        EmbedFooterBuilder Footer() => new() { Text = footerText, IconUrl = "https://i.imgur.com/tQ4LD6H.png" };
+        async Task<EmbedFooterBuilder> Footer() => new() { Text = await footerService.Generate(guildId), IconUrl = "https://i.imgur.com/tQ4LD6H.png" };
 
         // --- Fights Overview embed ---
         var fightsEmbed = new EmbedBuilder
@@ -296,7 +294,7 @@ public sealed class RaidReportService(
             Description = $"**Length:** {durationString}\n",
             Color = color,
             Author = author,
-            Footer = Footer(),
+            Footer = await Footer(),
             Timestamp = DateTime.Now
         };
 
@@ -342,7 +340,7 @@ public sealed class RaidReportService(
         {
             Color = color,
             Author = author,
-            Footer = Footer(),
+            Footer = await Footer(),
             Timestamp = DateTime.Now
         };
 
@@ -365,7 +363,7 @@ public sealed class RaidReportService(
         {
             Color = color,
             Author = author,
-            Footer = Footer(),
+            Footer = await Footer(),
             Timestamp = DateTime.Now
         };
 

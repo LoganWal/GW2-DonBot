@@ -141,7 +141,7 @@ public sealed class SchedulerService(
             var fireNow = DateTime.UtcNow;
             if (scheduledEvent.UtcEventTime <= fireNow)
             {
-                logger.LogWarning("Event {ScheduledEventId} has stale UtcEventTime {UtcEventTime} at fire time — fast-forwarding before sending.",
+                logger.LogWarning("Event {ScheduledEventId} has stale UtcEventTime {UtcEventTime} at fire time - fast-forwarding before sending.",
                     scheduledEvent.ScheduledEventId, scheduledEvent.UtcEventTime);
                 await FastForwardEventIfBehind(scheduledEvent, fireNow);
             }
@@ -199,7 +199,7 @@ public sealed class SchedulerService(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to persist fast-forward for event {ScheduledEventId} — in-memory state is correct but DB may be stale.", scheduledEvent.ScheduledEventId);
+            logger.LogError(ex, "Failed to persist fast-forward for event {ScheduledEventId} - in-memory state is correct but DB may be stale.", scheduledEvent.ScheduledEventId);
         }
 
         logger.LogInformation("Fast-forwarded event {ScheduledEventId} to UtcEventTime={UtcEventTime} Day={Day}.",

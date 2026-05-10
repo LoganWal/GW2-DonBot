@@ -84,23 +84,179 @@
         </Card>
 
         <Card>
-          <template #title>GW2 guild IDs</template>
+          <template #title>GW2 guilds</template>
           <template #content>
-            <div class="field-grid">
-              <div class="field">
-                <label for="gw2-guild">
-                  Primary GW2 guild ID
-                  <i class="pi pi-info-circle field-info" v-tooltip.top="gw2PrimaryTip" />
-                </label>
-                <InputText id="gw2-guild" v-model="working.gw2GuildMemberRoleId" style="width: 100%;" />
+            <div class="gw2-section">
+              <div class="gw2-current">
+                <div class="gw2-current-row">
+                  <label class="gw2-current-label">
+                    Primary
+                    <i class="pi pi-info-circle field-info" v-tooltip.top="gw2PrimaryTip" />
+                  </label>
+                  <div class="gw2-current-value">
+                    <Chip v-if="primaryChip" :label="primaryChip.label" removable @remove="clearPrimary" />
+                    <span v-else class="empty-hint">None set.</span>
+                  </div>
+                </div>
+                <div class="gw2-current-row">
+                  <label class="gw2-current-label">
+                    Secondary
+                    <i class="pi pi-info-circle field-info" v-tooltip.top="gw2SecondaryTip" />
+                  </label>
+                  <div class="gw2-current-value">
+                    <template v-if="secondaryChips.length">
+                      <Chip
+                        v-for="chip in secondaryChips"
+                        :key="chip.id"
+                        :label="chip.label"
+                        removable
+                        @remove="removeSecondary(chip.id)"
+                      />
+                    </template>
+                    <span v-else class="empty-hint">None set.</span>
+                  </div>
+                </div>
               </div>
-              <div class="field">
-                <label for="gw2-secondary">
-                  Secondary GW2 guild IDs (comma separated)
-                  <i class="pi pi-info-circle field-info" v-tooltip.top="gw2SecondaryTip" />
-                </label>
-                <InputText id="gw2-secondary" v-model="working.gw2SecondaryMemberRoleIds" style="width: 100%;" />
+
+              <Divider />
+
+              <div v-if="myGuildsPending">
+                <ProgressSpinner style="width: 1.5rem; height: 1.5rem;" />
               </div>
+              <Message v-else-if="myGuilds && !myGuilds.hasAccount" severity="info" :closable="false">
+                <span>
+                  Link a GW2 account on the
+                  <NuxtLink to="/verify" style="color: var(--p-primary-color); text-decoration: underline;">verify page</NuxtLink>
+                  to pick guilds from a list instead of pasting IDs.
+                </span>
+              </Message>
+              <div v-else-if="myGuilds && myGuilds.guilds.length === 0" style="font-size: 0.85rem; color: var(--p-text-muted-color);">
+                Your linked GW2 account isn't a member of any guilds.
+              </div>
+              <div v-else-if="myGuilds" class="my-guilds">
+                <div class="section-label">Your guilds</div>
+                <div v-for="g in myGuilds.guilds" :key="g.id" class="my-guild-row">
+                  <div class="my-guild-name">
+                    <span>
+                      {{ g.name }}
+                      <span v-if="g.tag" class="my-guild-tag">[{{ g.tag }}]</span>
+                    </span>
+                    <span class="my-guild-id">{{ g.id }}</span>
+                  </div>
+                  <div class="my-guild-actions">
+                    <Button
+                      v-if="working.gw2GuildMemberRoleId === g.id"
+                      label="Primary"
+                      icon="pi pi-check"
+                      size="small"
+                      severity="success"
+                      disabled
+                    />
+                    <Button
+                      v-else
+                      label="Set primary"
+                      icon="pi pi-star"
+                      size="small"
+                      severity="secondary"
+                      outlined
+                      @click="setPrimary(g)"
+                    />
+                    <Button
+                      v-if="secondaryIdSet.has(g.id)"
+                      label="In secondary"
+                      icon="pi pi-check"
+                      size="small"
+                      severity="success"
+                      disabled
+                    />
+                    <Button
+                      v-else
+                      label="Add secondary"
+                      icon="pi pi-plus"
+                      size="small"
+                      severity="secondary"
+                      outlined
+                      :disabled="working.gw2GuildMemberRoleId === g.id"
+                      @click="addSecondary(g)"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <Divider />
+
+              <details class="manual-entry">
+                <summary>Add a guild by name</summary>
+                <div class="manual-entry-body">
+                  <InputText
+                    v-model="searchName"
+                    placeholder="Guild name (min 3 chars)"
+                    style="flex: 1;"
+                    @keyup.enter="runSearch"
+                  />
+                  <Button
+                    label="Search"
+                    icon="pi pi-search"
+                    size="small"
+                    :loading="searching"
+                    :disabled="searchName.trim().length < 3"
+                    @click="runSearch"
+                  />
+                </div>
+                <div v-if="searchAttempted && !searching" class="search-results">
+                  <div v-if="searchResults.length === 0" class="empty-hint">
+                    No guilds found matching "{{ lastSearchTerm }}".
+                  </div>
+                  <div v-else class="my-guilds">
+                    <div v-for="g in searchResults" :key="g.id" class="my-guild-row">
+                      <div class="my-guild-name">
+                        <span>
+                          {{ g.name }}
+                          <span v-if="g.tag" class="my-guild-tag">[{{ g.tag }}]</span>
+                        </span>
+                        <span class="my-guild-id">{{ g.id }}</span>
+                      </div>
+                      <div class="my-guild-actions">
+                        <Button
+                          v-if="working.gw2GuildMemberRoleId === g.id"
+                          label="Primary"
+                          icon="pi pi-check"
+                          size="small"
+                          severity="success"
+                          disabled
+                        />
+                        <Button
+                          v-else
+                          label="Set primary"
+                          icon="pi pi-star"
+                          size="small"
+                          severity="secondary"
+                          outlined
+                          @click="setPrimary(g)"
+                        />
+                        <Button
+                          v-if="secondaryIdSet.has(g.id)"
+                          label="In secondary"
+                          icon="pi pi-check"
+                          size="small"
+                          severity="success"
+                          disabled
+                        />
+                        <Button
+                          v-else
+                          label="Add secondary"
+                          icon="pi pi-plus"
+                          size="small"
+                          severity="secondary"
+                          outlined
+                          :disabled="working.gw2GuildMemberRoleId === g.id"
+                          @click="addSecondary(g)"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </details>
             </div>
           </template>
         </Card>
@@ -162,13 +318,16 @@ type Config = {
   pveLeaderboardEnabled: boolean
   pveLeaderboardChannelId: string | null
 }
+type Gw2Guild = { id: string; name: string; tag: string | null }
 type ConfigResponse = {
   guildId: string
   guildName: string
   config: Config
   channels: Channel[]
   roles: Role[]
+  gw2GuildNames: Gw2Guild[]
 }
+type MyGw2GuildsResponse = { hasAccount: boolean; guilds: Gw2Guild[] }
 
 type Field = { key: keyof Config; label: string; tip: string }
 
@@ -209,6 +368,98 @@ const original = ref<Config | null>(null)
 const channels = ref<Channel[]>([])
 const roles = ref<Role[]>([])
 const saving = ref(false)
+const searchName = ref('')
+const searching = ref(false)
+const searchResults = ref<Gw2Guild[]>([])
+const searchAttempted = ref(false)
+const lastSearchTerm = ref('')
+const gw2NameCache = ref<Record<string, { name: string; tag: string | null }>>({})
+
+const cacheGuild = (g: Gw2Guild) => {
+  gw2NameCache.value[g.id] = { name: g.name, tag: g.tag }
+}
+
+const { data: myGuilds, pending: myGuildsPending } = await useAsyncData(
+  'admin-my-gw2-guilds',
+  () => api('/api/admin/gw2/my-guilds') as Promise<MyGw2GuildsResponse>
+)
+
+watch(myGuilds, (mg) => {
+  if (!mg) return
+  for (const g of mg.guilds) cacheGuild(g)
+}, { immediate: true })
+
+const parseSecondary = (raw: string | null | undefined): string[] =>
+  (raw ?? '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(s => s.length > 0)
+
+const secondaryIds = computed(() => parseSecondary(working.value?.gw2SecondaryMemberRoleIds ?? null))
+const secondaryIdSet = computed(() => new Set(secondaryIds.value))
+
+const labelFor = (id: string) => {
+  const entry = gw2NameCache.value[id]
+  if (!entry) return id
+  return entry.tag ? `${entry.name} [${entry.tag}]` : entry.name
+}
+
+const primaryChip = computed(() => {
+  const id = working.value?.gw2GuildMemberRoleId
+  if (!id) return null
+  return { id, label: labelFor(id) }
+})
+
+const secondaryChips = computed(() =>
+  secondaryIds.value.map(id => ({ id, label: labelFor(id) }))
+)
+
+const setPrimary = (g: Gw2Guild) => {
+  if (!working.value) return
+  cacheGuild(g)
+  working.value.gw2GuildMemberRoleId = g.id
+  // remove from secondary if present
+  if (secondaryIdSet.value.has(g.id)) {
+    working.value.gw2SecondaryMemberRoleIds = secondaryIds.value.filter(id => id !== g.id).join(',') || null
+  }
+}
+
+const clearPrimary = () => {
+  if (!working.value) return
+  working.value.gw2GuildMemberRoleId = null
+}
+
+const addSecondary = (g: Gw2Guild) => {
+  if (!working.value) return
+  if (secondaryIdSet.value.has(g.id)) return
+  if (working.value.gw2GuildMemberRoleId === g.id) return
+  cacheGuild(g)
+  const next = [...secondaryIds.value, g.id]
+  working.value.gw2SecondaryMemberRoleIds = next.join(',')
+}
+
+const removeSecondary = (id: string) => {
+  if (!working.value) return
+  const next = secondaryIds.value.filter(x => x !== id)
+  working.value.gw2SecondaryMemberRoleIds = next.length ? next.join(',') : null
+}
+
+const runSearch = async () => {
+  const term = searchName.value.trim()
+  if (term.length < 3) return
+  searching.value = true
+  lastSearchTerm.value = term
+  try {
+    const results = await api(`/api/admin/gw2/search?name=${encodeURIComponent(term)}`) as Gw2Guild[]
+    searchResults.value = results
+    for (const g of results) cacheGuild(g)
+  } catch {
+    searchResults.value = []
+  } finally {
+    searchAttempted.value = true
+    searching.value = false
+  }
+}
 
 const { data: guilds, pending: guildsPending } = await useAsyncData(
   'admin-guilds',
@@ -227,6 +478,7 @@ const loadConfig = async (guildId: string) => {
     const res = await api(`/api/admin/guilds/${guildId}/config`) as ConfigResponse
     channels.value = res.channels
     roles.value = res.roles
+    for (const g of res.gw2GuildNames ?? []) cacheGuild(g)
     original.value = { ...res.config }
     working.value = { ...res.config }
   } catch {
@@ -355,5 +607,125 @@ const save = async () => {
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
+}
+
+.gw2-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.gw2-current {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.gw2-current-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  min-height: 2rem;
+}
+
+.gw2-current-label {
+  font-size: 0.8rem;
+  color: var(--p-text-muted-color);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 5.5rem;
+  flex-shrink: 0;
+}
+
+.gw2-current-value {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.empty-hint {
+  font-size: 0.85rem;
+  color: var(--p-text-muted-color);
+  font-style: italic;
+}
+
+.section-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--p-text-muted-color);
+  margin-bottom: 0.5rem;
+}
+
+.my-guilds {
+  display: flex;
+  flex-direction: column;
+}
+
+.my-guild-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--p-surface-border);
+}
+
+.my-guild-row:last-child {
+  border-bottom: none;
+}
+
+.my-guild-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.my-guild-name > span:first-child {
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.my-guild-id {
+  font-family: monospace;
+  font-size: 0.7rem;
+  color: var(--p-text-muted-color);
+  word-break: break-all;
+}
+
+.my-guild-tag {
+  font-size: 0.8rem;
+  color: var(--p-text-muted-color);
+  font-weight: 400;
+  margin-left: 0.25rem;
+}
+
+.my-guild-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.manual-entry summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--p-text-muted-color);
+  user-select: none;
+}
+
+.manual-entry-body {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.search-results {
+  margin-top: 0.75rem;
 }
 </style>

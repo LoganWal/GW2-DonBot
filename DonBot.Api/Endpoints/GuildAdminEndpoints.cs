@@ -2,10 +2,12 @@ using System.Security.Claims;
 using Discord;
 using Discord.Rest;
 using DonBot.Api.Services;
+using DonBot.Models.Apis.GuildWars2Api;
 using DonBot.Models.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 
 namespace DonBot.Api.Endpoints;
 
@@ -17,7 +19,13 @@ public static class GuildAdminEndpoints
         group.MapGet("/guilds", ListAdminGuilds);
         group.MapGet("/guilds/{guildId}/config", GetGuildConfig);
         group.MapPut("/guilds/{guildId}/config", UpdateGuildConfig);
+        group.MapGet("/gw2/my-guilds", GetMyGw2Guilds);
+        group.MapGet("/gw2/search", SearchGw2Guilds);
     }
+
+    public record Gw2GuildDto(string Id, string Name, string? Tag);
+
+    public record MyGw2GuildsResponse(bool HasAccount, IReadOnlyList<Gw2GuildDto> Guilds);
 
     public record GuildSummaryDto(string GuildId, string Name, string? IconUrl);
 
@@ -53,9 +61,11 @@ public static class GuildAdminEndpoints
         string GuildName,
         GuildConfigDto Config,
         IReadOnlyList<ChannelDto> Channels,
-        IReadOnlyList<RoleDto> Roles);
+        IReadOnlyList<RoleDto> Roles,
+        IReadOnlyList<Gw2GuildDto> Gw2GuildNames);
 
     private static readonly TimeSpan AdminGuildsCacheTtl = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan Gw2GuildNameCacheTtl = TimeSpan.FromHours(24);
 
     private static async Task<IResult> ListAdminGuilds(
         ClaimsPrincipal user,
@@ -101,6 +111,8 @@ public static class GuildAdminEndpoints
         ClaimsPrincipal user,
         DiscordRestClientProvider clientProvider,
         IDbContextFactory<DatabaseContext> dbContextFactory,
+        IMemoryCache cache,
+        IHttpClientFactory httpClientFactory,
         ILogger<DiscordRestClientProvider> logger)
     {
         if (!TryGetDiscordId(user, out var discordId))
@@ -139,12 +151,16 @@ public static class GuildAdminEndpoints
             .Select(r => new RoleDto(r.Id.ToString(), r.Name))
             .ToList();
 
+        var dto = ToDto(guild);
+        var gw2Names = await ResolveGw2GuildNamesAsync(CollectGw2GuildIds(dto), cache, httpClientFactory, logger);
+
         var response = new GuildConfigResponse(
             guildId,
             botGuild.Name,
-            ToDto(guild),
+            dto,
             channels,
-            roles);
+            roles,
+            gw2Names);
 
         return Results.Ok(response);
     }
@@ -155,6 +171,8 @@ public static class GuildAdminEndpoints
         ClaimsPrincipal user,
         DiscordRestClientProvider clientProvider,
         IDbContextFactory<DatabaseContext> dbContextFactory,
+        IMemoryCache cache,
+        IHttpClientFactory httpClientFactory,
         ILogger<DiscordRestClientProvider> logger)
     {
         if (!TryGetDiscordId(user, out var discordId))
@@ -195,6 +213,12 @@ public static class GuildAdminEndpoints
         if (roleError is not null)
             return Results.BadRequest(roleError);
 
+        var gw2Ids = CollectGw2GuildIds(dto);
+        var gw2Names = await ResolveGw2GuildNamesAsync(gw2Ids, cache, httpClientFactory, logger);
+        var unresolved = gw2Ids.Where(id => !gw2Names.Any(n => n.Id == id)).ToList();
+        if (unresolved.Count > 0)
+            return Results.BadRequest($"Unknown GW2 guild id(s): {string.Join(", ", unresolved)}.");
+
         await using var context = await dbContextFactory.CreateDbContextAsync();
         var guildIdLong = (long)guildIdUlong;
         var guild = await context.Guild.AsTracking().FirstOrDefaultAsync(g => g.GuildId == guildIdLong);
@@ -209,6 +233,164 @@ public static class GuildAdminEndpoints
         await context.SaveChangesAsync();
 
         return Results.Ok(ToDto(guild));
+    }
+
+    private static async Task<IResult> GetMyGw2Guilds(
+        ClaimsPrincipal user,
+        IDbContextFactory<DatabaseContext> dbContextFactory,
+        IMemoryCache cache,
+        IHttpClientFactory httpClientFactory,
+        ILogger<DiscordRestClientProvider> logger)
+    {
+        if (!TryGetDiscordId(user, out var discordIdUlong))
+            return Results.Unauthorized();
+        var discordId = (long)discordIdUlong;
+
+        await using var context = await dbContextFactory.CreateDbContextAsync();
+
+        var accounts = await context.GuildWarsAccount
+            .Where(g => g.DiscordId == discordId)
+            .Select(g => g.GuildWarsGuilds)
+            .ToListAsync();
+
+        if (accounts.Count == 0)
+            return Results.Ok(new MyGw2GuildsResponse(false, []));
+
+        var ids = accounts
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .SelectMany(s => s!.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .Distinct()
+            .ToList();
+
+        var resolved = await ResolveGw2GuildNamesAsync(ids, cache, httpClientFactory, logger);
+        var ordered = resolved.OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        return Results.Ok(new MyGw2GuildsResponse(true, ordered));
+    }
+
+    internal static List<string> CollectGw2GuildIds(GuildConfigDto dto)
+    {
+        var ids = new List<string>();
+        if (!string.IsNullOrWhiteSpace(dto.Gw2GuildMemberRoleId))
+            ids.Add(dto.Gw2GuildMemberRoleId.Trim());
+        if (!string.IsNullOrWhiteSpace(dto.Gw2SecondaryMemberRoleIds))
+            ids.AddRange(dto.Gw2SecondaryMemberRoleIds
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        return ids.Distinct().ToList();
+    }
+
+    private static async Task<IResult> SearchGw2Guilds(
+        string? name,
+        IMemoryCache cache,
+        IHttpClientFactory httpClientFactory,
+        ILogger<DiscordRestClientProvider> logger)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return Results.Ok(Array.Empty<Gw2GuildDto>());
+
+        var trimmed = name.Trim();
+        if (trimmed.Length < 3)
+            return Results.BadRequest("Search term must be at least 3 characters.");
+
+        try
+        {
+            var client = httpClientFactory.CreateClient("gw2-api");
+            var url = $"https://api.guildwars2.com/v2/guild/search?name={Uri.EscapeDataString(trimmed)}";
+            var response = await client.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+                return Results.Ok(Array.Empty<Gw2GuildDto>());
+
+            var json = await response.Content.ReadAsStringAsync();
+            var ids = JsonConvert.DeserializeObject<string[]>(json) ?? [];
+            if (ids.Length == 0)
+                return Results.Ok(Array.Empty<Gw2GuildDto>());
+
+            var resolved = await ResolveGw2GuildNamesAsync(ids, cache, httpClientFactory, logger);
+            return Results.Ok(resolved);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "GW2 guild search failed for {Name}", trimmed);
+            return Results.Ok(Array.Empty<Gw2GuildDto>());
+        }
+    }
+
+    internal record Gw2GuildLookup(string Name, string? Tag);
+
+    internal enum Gw2FetchOutcome { Found, NotFound, Transient }
+
+    internal record Gw2FetchResult(Gw2FetchOutcome Outcome, Gw2GuildLookup? Lookup);
+
+    /// GW2 guild ids are GUIDs in 8-4-4-4-12 hex form. Pre-validating avoids a network
+    /// round-trip and prevents the negative cache from filling up with junk inputs.
+    internal static bool IsValidGw2GuildId(string? id) =>
+        !string.IsNullOrWhiteSpace(id) && Guid.TryParseExact(id.Trim(), "D", out _);
+
+    internal static async Task<IReadOnlyList<Gw2GuildDto>> ResolveGw2GuildNamesAsync(
+        IEnumerable<string> ids,
+        IMemoryCache cache,
+        IHttpClientFactory httpClientFactory,
+        ILogger logger)
+    {
+        var lookups = ids.Distinct().Select(async id =>
+        {
+            if (!IsValidGw2GuildId(id))
+                return null;
+            var info = await GetGw2GuildLookupCachedAsync(id, cache, () => FetchGw2GuildAsync(id, httpClientFactory, logger));
+            return info is null ? null : new Gw2GuildDto(id, info.Name, info.Tag);
+        });
+        var results = await Task.WhenAll(lookups);
+        return results.Where(r => r is not null).Select(r => r!).ToList();
+    }
+
+    internal static async Task<Gw2GuildLookup?> GetGw2GuildLookupCachedAsync(
+        string id,
+        IMemoryCache cache,
+        Func<Task<Gw2FetchResult>> fetcher)
+    {
+        var key = $"gw2-guild-name:{id}";
+        if (cache.TryGetValue<Gw2GuildLookup?>(key, out var cached))
+            return cached;
+
+        var result = await fetcher();
+        switch (result.Outcome)
+        {
+            case Gw2FetchOutcome.Found:
+                cache.Set(key, result.Lookup, Gw2GuildNameCacheTtl);
+                return result.Lookup;
+            case Gw2FetchOutcome.NotFound:
+                cache.Set(key, (Gw2GuildLookup?)null, Gw2GuildNameCacheTtl);
+                return null;
+            default:
+                // Transient: do not cache so the next attempt can succeed.
+                return null;
+        }
+    }
+
+    private static async Task<Gw2FetchResult> FetchGw2GuildAsync(
+        string id,
+        IHttpClientFactory httpClientFactory,
+        ILogger logger)
+    {
+        try
+        {
+            var client = httpClientFactory.CreateClient("gw2-api");
+            var response = await client.GetAsync($"https://api.guildwars2.com/v2/guild/{id}");
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                return new Gw2FetchResult(Gw2FetchOutcome.NotFound, null);
+            if (!response.IsSuccessStatusCode)
+                return new Gw2FetchResult(Gw2FetchOutcome.Transient, null);
+
+            var json = await response.Content.ReadAsStringAsync();
+            var data = JsonConvert.DeserializeObject<GuildWars2GuildDataModel>(json);
+            if (string.IsNullOrEmpty(data?.Name))
+                return new Gw2FetchResult(Gw2FetchOutcome.NotFound, null);
+            return new Gw2FetchResult(Gw2FetchOutcome.Found, new Gw2GuildLookup(data.Name, data.Tag));
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to fetch GW2 guild name for {GuildId}", id);
+            return new Gw2FetchResult(Gw2FetchOutcome.Transient, null);
+        }
     }
 
     internal static GuildConfigDto ToDto(Guild g) => new(

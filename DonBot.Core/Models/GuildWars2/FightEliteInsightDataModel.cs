@@ -277,9 +277,11 @@ public class DefStatConverter : JsonConverter<DefStat>
 
     public override void WriteJson(JsonWriter writer, DefStat value, JsonSerializer serializer)
     {
-        if (value.String != null)
+        if (value.String != null) {
             writer.WriteValue(value.String);
-        else
+        }
+        else {
             writer.WriteValue(value.Double);
+        }
     }
 }

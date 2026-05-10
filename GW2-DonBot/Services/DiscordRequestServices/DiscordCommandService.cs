@@ -153,8 +153,9 @@ public sealed class DiscordCommandService(IEntityService entityService) : IDisco
                     e.GuildId == guild.GuildId && e.EventType == (short)ScheduledEventTypeEnum.WvwLeaderboard);
                 if (enabled)
                 {
-                    if (existing == null && guild.WvwLeaderboardChannelId.HasValue)
+                    if (existing == null && guild.WvwLeaderboardChannelId.HasValue) {
                         await entityService.ScheduledEvent.AddAsync(BuildLeaderboardEvent(guild.GuildId, guild.WvwLeaderboardChannelId.Value, ScheduledEventTypeEnum.WvwLeaderboard));
+                    }
                 }
                 else if (existing != null)
                 {
@@ -173,10 +174,12 @@ public sealed class DiscordCommandService(IEntityService entityService) : IDisco
                 guild.WvwLeaderboardChannelId = (long)wvwLeaderboardChannel.Id;
                 var existing = await entityService.ScheduledEvent.GetFirstOrDefaultAsync(e =>
                     e.GuildId == guild.GuildId && e.EventType == (short)ScheduledEventTypeEnum.WvwLeaderboard);
-                if (existing != null)
+                if (existing != null) {
                     await entityService.ScheduledEvent.DeleteAsync(existing);
-                if (guild.WvwLeaderboardEnabled)
+                }
+                if (guild.WvwLeaderboardEnabled) {
                     await entityService.ScheduledEvent.AddAsync(BuildLeaderboardEvent(guild.GuildId, (long)wvwLeaderboardChannel.Id, ScheduledEventTypeEnum.WvwLeaderboard));
+                }
                 break;
             }
 
@@ -188,8 +191,9 @@ public sealed class DiscordCommandService(IEntityService entityService) : IDisco
                     e.GuildId == guild.GuildId && e.EventType == (short)ScheduledEventTypeEnum.PveLeaderboard);
                 if (enabled)
                 {
-                    if (existing == null && guild.PveLeaderboardChannelId.HasValue)
+                    if (existing == null && guild.PveLeaderboardChannelId.HasValue) {
                         await entityService.ScheduledEvent.AddAsync(BuildLeaderboardEvent(guild.GuildId, guild.PveLeaderboardChannelId.Value, ScheduledEventTypeEnum.PveLeaderboard));
+                    }
                 }
                 else if (existing != null)
                 {
@@ -208,10 +212,12 @@ public sealed class DiscordCommandService(IEntityService entityService) : IDisco
                 guild.PveLeaderboardChannelId = (long)pveLeaderboardChannel.Id;
                 var existing = await entityService.ScheduledEvent.GetFirstOrDefaultAsync(e =>
                     e.GuildId == guild.GuildId && e.EventType == (short)ScheduledEventTypeEnum.PveLeaderboard);
-                if (existing != null)
+                if (existing != null) {
                     await entityService.ScheduledEvent.DeleteAsync(existing);
-                if (guild.PveLeaderboardEnabled)
+                }
+                if (guild.PveLeaderboardEnabled) {
                     await entityService.ScheduledEvent.AddAsync(BuildLeaderboardEvent(guild.GuildId, (long)pveLeaderboardChannel.Id, ScheduledEventTypeEnum.PveLeaderboard));
+                }
                 break;
             }
 
@@ -228,7 +234,9 @@ public sealed class DiscordCommandService(IEntityService entityService) : IDisco
     {
         var now = DateTime.UtcNow;
         var daysUntilMonday = ((int)DayOfWeek.Monday - (int)now.DayOfWeek + 7) % 7;
-        if (daysUntilMonday == 0) daysUntilMonday = 7;
+        if (daysUntilMonday == 0) {
+            daysUntilMonday = 7;
+        }
         var nextMonday = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0, DateTimeKind.Utc).AddDays(daysUntilMonday);
 
         return new ScheduledEvent

@@ -74,8 +74,9 @@ public static class GuildAdminEndpoints
         IMemoryCache cache,
         ILogger<DiscordRestClientProvider> logger)
     {
-        if (!TryGetDiscordId(user, out var discordId))
+        if (!TryGetDiscordId(user, out var discordId)) {
             return Results.Unauthorized();
+        }
 
         var cacheKey = $"admin-guilds:{discordId}";
         var cached = await cache.GetOrCreateAsync(cacheKey, async entry =>
@@ -94,8 +95,9 @@ public static class GuildAdminEndpoints
             var checks = candidateGuilds.Select(async botGuild =>
             {
                 var guildUser = await SafeGetGuildUserAsync(botGuild, discordId, logger);
-                if (guildUser is null || !guildUser.GuildPermissions.Administrator)
+                if (guildUser is null || !guildUser.GuildPermissions.Administrator) {
                     return null;
+                }
                 return new GuildSummaryDto(botGuild.Id.ToString(), botGuild.Name, botGuild.IconUrl);
             });
 
@@ -115,20 +117,24 @@ public static class GuildAdminEndpoints
         IHttpClientFactory httpClientFactory,
         ILogger<DiscordRestClientProvider> logger)
     {
-        if (!TryGetDiscordId(user, out var discordId))
+        if (!TryGetDiscordId(user, out var discordId)) {
             return Results.Unauthorized();
+        }
 
-        if (!ulong.TryParse(guildId, out var guildIdUlong))
+        if (!ulong.TryParse(guildId, out var guildIdUlong)) {
             return Results.BadRequest("Invalid guild id.");
+        }
 
         var client = await clientProvider.GetClientAsync();
         var botGuild = await client.GetGuildAsync(guildIdUlong);
-        if (botGuild is null)
+        if (botGuild is null) {
             return Results.NotFound("Bot is not in that guild.");
+        }
 
         var guildUser = await SafeGetGuildUserAsync(botGuild, discordId, logger);
-        if (guildUser is null || !guildUser.GuildPermissions.Administrator)
+        if (guildUser is null || !guildUser.GuildPermissions.Administrator) {
             return Results.Forbid();
+        }
 
         await using var context = await dbContextFactory.CreateDbContextAsync();
         var guildIdLong = (long)guildIdUlong;
@@ -175,20 +181,24 @@ public static class GuildAdminEndpoints
         IHttpClientFactory httpClientFactory,
         ILogger<DiscordRestClientProvider> logger)
     {
-        if (!TryGetDiscordId(user, out var discordId))
+        if (!TryGetDiscordId(user, out var discordId)) {
             return Results.Unauthorized();
+        }
 
-        if (!ulong.TryParse(guildId, out var guildIdUlong))
+        if (!ulong.TryParse(guildId, out var guildIdUlong)) {
             return Results.BadRequest("Invalid guild id.");
+        }
 
         var client = await clientProvider.GetClientAsync();
         var botGuild = await client.GetGuildAsync(guildIdUlong);
-        if (botGuild is null)
+        if (botGuild is null) {
             return Results.NotFound("Bot is not in that guild.");
+        }
 
         var guildUser = await SafeGetGuildUserAsync(botGuild, discordId, logger);
-        if (guildUser is null || !guildUser.GuildPermissions.Administrator)
+        if (guildUser is null || !guildUser.GuildPermissions.Administrator) {
             return Results.Forbid();
+        }
 
         var validChannelIds = (await botGuild.GetTextChannelsAsync()).Select(c => c.Id).ToHashSet();
         var validRoleIds = botGuild.Roles.Select(r => r.Id).ToHashSet();
@@ -203,21 +213,24 @@ public static class GuildAdminEndpoints
             ?? ValidateOptionalSnowflake(dto.WvwLeaderboardChannelId, validChannelIds, nameof(dto.WvwLeaderboardChannelId))
             ?? ValidateOptionalSnowflake(dto.PveLeaderboardChannelId, validChannelIds, nameof(dto.PveLeaderboardChannelId));
 
-        if (channelError is not null)
+        if (channelError is not null) {
             return Results.BadRequest(channelError);
+        }
 
         string? roleError = ValidateOptionalSnowflake(dto.DiscordGuildMemberRoleId, validRoleIds, nameof(dto.DiscordGuildMemberRoleId))
             ?? ValidateOptionalSnowflake(dto.DiscordSecondaryMemberRoleId, validRoleIds, nameof(dto.DiscordSecondaryMemberRoleId))
             ?? ValidateOptionalSnowflake(dto.DiscordVerifiedRoleId, validRoleIds, nameof(dto.DiscordVerifiedRoleId));
 
-        if (roleError is not null)
+        if (roleError is not null) {
             return Results.BadRequest(roleError);
+        }
 
         var gw2Ids = CollectGw2GuildIds(dto);
         var gw2Names = await ResolveGw2GuildNamesAsync(gw2Ids, cache, httpClientFactory, logger);
         var unresolved = gw2Ids.Where(id => !gw2Names.Any(n => n.Id == id)).ToList();
-        if (unresolved.Count > 0)
+        if (unresolved.Count > 0) {
             return Results.BadRequest($"Unknown GW2 guild id(s): {string.Join(", ", unresolved)}.");
+        }
 
         await using var context = await dbContextFactory.CreateDbContextAsync();
         var guildIdLong = (long)guildIdUlong;
@@ -242,8 +255,9 @@ public static class GuildAdminEndpoints
         IHttpClientFactory httpClientFactory,
         ILogger<DiscordRestClientProvider> logger)
     {
-        if (!TryGetDiscordId(user, out var discordIdUlong))
+        if (!TryGetDiscordId(user, out var discordIdUlong)) {
             return Results.Unauthorized();
+        }
         var discordId = (long)discordIdUlong;
 
         await using var context = await dbContextFactory.CreateDbContextAsync();
@@ -253,8 +267,9 @@ public static class GuildAdminEndpoints
             .Select(g => g.GuildWarsGuilds)
             .ToListAsync();
 
-        if (accounts.Count == 0)
+        if (accounts.Count == 0) {
             return Results.Ok(new MyGw2GuildsResponse(false, []));
+        }
 
         var ids = accounts
             .Where(s => !string.IsNullOrWhiteSpace(s))
@@ -270,11 +285,13 @@ public static class GuildAdminEndpoints
     internal static List<string> CollectGw2GuildIds(GuildConfigDto dto)
     {
         var ids = new List<string>();
-        if (!string.IsNullOrWhiteSpace(dto.Gw2GuildMemberRoleId))
+        if (!string.IsNullOrWhiteSpace(dto.Gw2GuildMemberRoleId)) {
             ids.Add(dto.Gw2GuildMemberRoleId.Trim());
-        if (!string.IsNullOrWhiteSpace(dto.Gw2SecondaryMemberRoleIds))
+        }
+        if (!string.IsNullOrWhiteSpace(dto.Gw2SecondaryMemberRoleIds)) {
             ids.AddRange(dto.Gw2SecondaryMemberRoleIds
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        }
         return ids.Distinct().ToList();
     }
 
@@ -284,25 +301,29 @@ public static class GuildAdminEndpoints
         IHttpClientFactory httpClientFactory,
         ILogger<DiscordRestClientProvider> logger)
     {
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrWhiteSpace(name)) {
             return Results.Ok(Array.Empty<Gw2GuildDto>());
+        }
 
         var trimmed = name.Trim();
-        if (trimmed.Length < 3)
+        if (trimmed.Length < 3) {
             return Results.BadRequest("Search term must be at least 3 characters.");
+        }
 
         try
         {
             var client = httpClientFactory.CreateClient("gw2-api");
             var url = $"https://api.guildwars2.com/v2/guild/search?name={Uri.EscapeDataString(trimmed)}";
             var response = await client.GetAsync(url);
-            if (!response.IsSuccessStatusCode)
+            if (!response.IsSuccessStatusCode) {
                 return Results.Ok(Array.Empty<Gw2GuildDto>());
+            }
 
             var json = await response.Content.ReadAsStringAsync();
             var ids = JsonConvert.DeserializeObject<string[]>(json) ?? [];
-            if (ids.Length == 0)
+            if (ids.Length == 0) {
                 return Results.Ok(Array.Empty<Gw2GuildDto>());
+            }
 
             var resolved = await ResolveGw2GuildNamesAsync(ids, cache, httpClientFactory, logger);
             return Results.Ok(resolved);
@@ -333,8 +354,9 @@ public static class GuildAdminEndpoints
     {
         var lookups = ids.Distinct().Select(async id =>
         {
-            if (!IsValidGw2GuildId(id))
+            if (!IsValidGw2GuildId(id)) {
                 return null;
+            }
             var info = await GetGw2GuildLookupCachedAsync(id, cache, () => FetchGw2GuildAsync(id, httpClientFactory, logger));
             return info is null ? null : new Gw2GuildDto(id, info.Name, info.Tag);
         });
@@ -348,8 +370,9 @@ public static class GuildAdminEndpoints
         Func<Task<Gw2FetchResult>> fetcher)
     {
         var key = $"gw2-guild-name:{id}";
-        if (cache.TryGetValue<Gw2GuildLookup?>(key, out var cached))
+        if (cache.TryGetValue<Gw2GuildLookup?>(key, out var cached)) {
             return cached;
+        }
 
         var result = await fetcher();
         switch (result.Outcome)
@@ -375,15 +398,18 @@ public static class GuildAdminEndpoints
         {
             var client = httpClientFactory.CreateClient("gw2-api");
             var response = await client.GetAsync($"https://api.guildwars2.com/v2/guild/{id}");
-            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound) {
                 return new Gw2FetchResult(Gw2FetchOutcome.NotFound, null);
-            if (!response.IsSuccessStatusCode)
+            }
+            if (!response.IsSuccessStatusCode) {
                 return new Gw2FetchResult(Gw2FetchOutcome.Transient, null);
+            }
 
             var json = await response.Content.ReadAsStringAsync();
             var data = JsonConvert.DeserializeObject<GuildWars2GuildDataModel>(json);
-            if (string.IsNullOrEmpty(data?.Name))
+            if (string.IsNullOrEmpty(data?.Name)) {
                 return new Gw2FetchResult(Gw2FetchOutcome.NotFound, null);
+            }
             return new Gw2FetchResult(Gw2FetchOutcome.Found, new Gw2GuildLookup(data.Name, data.Tag));
         }
         catch (Exception ex)
@@ -451,12 +477,15 @@ public static class GuildAdminEndpoints
 
     internal static string? ValidateOptionalSnowflake(string? value, HashSet<ulong> validIds, string fieldName)
     {
-        if (string.IsNullOrWhiteSpace(value))
+        if (string.IsNullOrWhiteSpace(value)) {
             return null;
-        if (!ulong.TryParse(value, out var parsed))
+        }
+        if (!ulong.TryParse(value, out var parsed)) {
             return $"{fieldName} is not a valid id.";
-        if (!validIds.Contains(parsed))
+        }
+        if (!validIds.Contains(parsed)) {
             return $"{fieldName} does not belong to this guild.";
+        }
         return null;
     }
 

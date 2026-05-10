@@ -341,18 +341,22 @@ public static class StatsEndpoints
             .Where(fl => fightLogIds.Contains(fl.FightLogId) && fl.FightType == fightType);
 
         if (!string.IsNullOrEmpty(startDateTime) &&
-            DateTime.TryParse(startDateTime, null, System.Globalization.DateTimeStyles.RoundtripKind, out var startDt))
+            DateTime.TryParse(startDateTime, null, System.Globalization.DateTimeStyles.RoundtripKind, out var startDt)) {
             fightMetaQuery = fightMetaQuery.Where(fl => fl.FightStart >= startDt);
+        }
 
         if (!string.IsNullOrEmpty(endDateTime) &&
-            DateTime.TryParse(endDateTime, null, System.Globalization.DateTimeStyles.RoundtripKind, out var endDt))
+            DateTime.TryParse(endDateTime, null, System.Globalization.DateTimeStyles.RoundtripKind, out var endDt)) {
             fightMetaQuery = fightMetaQuery.Where(fl => fl.FightStart <= endDt);
+        }
 
-        if (isSuccess.HasValue)
+        if (isSuccess.HasValue) {
             fightMetaQuery = fightMetaQuery.Where(fl => fl.IsSuccess == isSuccess.Value);
+        }
 
-        if (fightMode.HasValue)
+        if (fightMode.HasValue) {
             fightMetaQuery = fightMetaQuery.Where(fl => fl.FightMode == fightMode.Value);
+        }
 
         var fightMeta = await fightMetaQuery
             .Select(fl => new { fl.FightLogId, fl.FightStart, fl.FightDurationInMs, fl.IsSuccess, fl.FightPercent, fl.FightMode })
@@ -462,8 +466,9 @@ public static class StatsEndpoints
     IDbContextFactory<DatabaseContext> dbContextFactory)
 {
     var discordIdStr = user.FindFirst("discord_id")?.Value;
-    if (!long.TryParse(discordIdStr, out var discordId))
+    if (!long.TryParse(discordIdStr, out var discordId)) {
         return Results.Unauthorized();
+    }
 
     await using var context = await dbContextFactory.CreateDbContextAsync();
 

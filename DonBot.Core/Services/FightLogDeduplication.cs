@@ -18,7 +18,9 @@ public static class FightLogDeduplication
             f.FightStart >= fightStart - window &&
             f.FightStart <= fightStart + window, ct);
 
-        if (contentMatch == null) return null;
+        if (contentMatch == null) {
+            return null;
+        }
 
         var existingNames = await ctx.PlayerFightLog
             .Where(p => p.FightLogId == contentMatch.FightLogId)

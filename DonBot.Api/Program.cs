@@ -14,8 +14,9 @@ using tusdotnet.Models.Configuration;
 using tusdotnet.Stores;
 
 var envFile = Path.Combine(Directory.GetCurrentDirectory(), "..", ".env");
-if (File.Exists(envFile))
+if (File.Exists(envFile)) {
     DotNetEnv.Env.Load(envFile);
+}
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddJsonFile("appsettings.user.json", optional: true);
@@ -59,9 +60,12 @@ app.MapTus("/api/upload/tus", async httpContext =>
         {
             OnAuthorizeAsync = ctx =>
             {
-                if (ctx.Intent == IntentType.GetOptions) return Task.CompletedTask;
-                if (!(ctx.HttpContext.User.Identity?.IsAuthenticated ?? false))
+                if (ctx.Intent == IntentType.GetOptions) {
+                    return Task.CompletedTask;
+                }
+                if (!(ctx.HttpContext.User.Identity?.IsAuthenticated ?? false)) {
                     ctx.FailRequest(HttpStatusCode.Unauthorized, "Unauthorized.");
+                }
                 return Task.CompletedTask;
             },
             OnBeforeCreateAsync = ctx =>
@@ -76,7 +80,9 @@ app.MapTus("/api/upload/tus", async httpContext =>
             OnCreateCompleteAsync = async ctx =>
             {
                 var discordIdStr = ctx.HttpContext.User.FindFirst("discord_id")?.Value;
-                if (!long.TryParse(discordIdStr, out var discordId)) return;
+                if (!long.TryParse(discordIdStr, out var discordId)) {
+                    return;
+                }
 
                 var filename = ctx.Metadata.TryGetValue("filename", out var fn)
                     ? fn.GetString(Encoding.UTF8)
@@ -110,7 +116,9 @@ app.MapTus("/api/upload/tus", async httpContext =>
             OnFileCompleteAsync = async ctx =>
             {
                 var mapping = ctx.HttpContext.RequestServices.GetRequiredService<TusFileMapping>();
-                if (!mapping.TryRemove(ctx.FileId, out var logUploadId)) return;
+                if (!mapping.TryRemove(ctx.FileId, out var logUploadId)) {
+                    return;
+                }
 
                 var storagePath2 = ctx.HttpContext.RequestServices
                     .GetRequiredService<IConfiguration>()["Upload:StoragePath"] ?? "/tmp/donbot/uploads";
@@ -120,7 +128,9 @@ app.MapTus("/api/upload/tus", async httpContext =>
                 await using var db = await dbFactory.CreateDbContextAsync();
                 var upload = await db.LogUpload.FirstOrDefaultAsync(
                     u => u.LogUploadId == logUploadId, ctx.CancellationToken);
-                if (upload == null) return;
+                if (upload == null) {
+                    return;
+                }
 
                 var uploadDir = Path.Combine(storagePath2, logUploadId.ToString());
                 Directory.CreateDirectory(uploadDir);
@@ -130,8 +140,9 @@ app.MapTus("/api/upload/tus", async httpContext =>
                 await using (var dest = File.Create(Path.Combine(uploadDir, upload.FileName)))
                     await content.CopyToAsync(dest, ctx.CancellationToken);
 
-                if (ctx.Store is ITusTerminationStore terminationStore)
+                if (ctx.Store is ITusTerminationStore terminationStore) {
                     await terminationStore.DeleteFileAsync(ctx.FileId, ctx.CancellationToken);
+                }
 
                 upload.Status = "stored";
                 upload.UpdatedAt = DateTime.UtcNow;

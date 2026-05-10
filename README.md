@@ -307,6 +307,14 @@ npm install
 npm run dev     # http://localhost:3000
 ```
 
+### Tests
+
+```bash
+dotnet test
+```
+
+xUnit suite in `DonBot.Tests/`. Covers raid report aggregation, scheduler, polling retry and key-clearing rules, rotation anomaly detection, GW2 guild name cache, extension helpers, the per-guild admin endpoints, the API endpoint surface (account, points, stats, leaderboard, in-process via SQLite), and the generic database layer.
+
 ### Database Migrations
 
 Migrations are managed with EF Core and apply automatically on startup.

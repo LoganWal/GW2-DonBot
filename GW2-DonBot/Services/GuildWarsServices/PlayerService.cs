@@ -182,9 +182,13 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
             for (var mechIndex = 0; mechIndex < possibleMechanics.Count; mechIndex++)
             {
                 var mechanic = possibleMechanics[mechIndex];
-                if (string.IsNullOrEmpty(mechanic.Name) || mechanics == null || mechIndex >= mechanics.Count) continue;
+                if (string.IsNullOrEmpty(mechanic.Name) || mechanics == null || mechIndex >= mechanics.Count) {
+                    continue;
+                }
                 var value = (mechanics[mechIndex] as JArray)?.Select(s => (long)s).FirstOrDefault() ?? 0;
-                if (value <= 0) continue;
+                if (value <= 0) {
+                    continue;
+                }
                 existingPlayer.Mechanics.TryGetValue(mechanic.Name, out var existing);
                 existingPlayer.Mechanics[mechanic.Name] = existing + value;
             }

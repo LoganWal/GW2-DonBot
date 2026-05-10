@@ -71,12 +71,16 @@ public sealed class LogUploadPipelineService : BackgroundService
 
             await using var ctx = await dbContextFactory.CreateDbContextAsync(ct);
             var upload = await ctx.LogUpload.FirstOrDefaultAsync(u => u.LogUploadId == uploadId, ct);
-            if (upload == null) return;
+            if (upload == null) {
+                return;
+            }
 
-            if (upload.SourceType == "url")
+            if (upload.SourceType == "url") {
                 await ProcessUrlUploadAsync(ctx, upload, dataModelGenerationService, playerService, ct);
-            else
+            }
+            else {
                 await ProcessFileUploadAsync(ctx, upload, dataModelGenerationService, playerService, ct);
+            }
         }
         catch (Exception ex)
         {
@@ -111,7 +115,9 @@ public sealed class LogUploadPipelineService : BackgroundService
 
         var fightLogId = await SaveFightLogAsync(model, playerService, ct);
 
-        if (upload.SubmitToWingman) FireAndForgetWingman(url);
+        if (upload.SubmitToWingman) {
+            FireAndForgetWingman(url);
+        }
 
         await FinalizeAsync(uploadId, url, fightLogId, ct);
         progress.Publish(uploadId, "complete", "Done.", url, fightLogId);
@@ -146,8 +152,9 @@ public sealed class LogUploadPipelineService : BackgroundService
                 UploadToDPSReports=true
                 SaveOutTrace=true
                 """;
-            if (!string.IsNullOrEmpty(dpsReportToken))
+            if (!string.IsNullOrEmpty(dpsReportToken)) {
                 configContent += $"\nDPSReportUserToken={dpsReportToken}";
+            }
             await File.WriteAllTextAsync(tempConfigPath, configContent, ct);
 
             var isExe = eiDllPath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
@@ -169,8 +176,9 @@ public sealed class LogUploadPipelineService : BackgroundService
                 eiStdout = await proc.StandardOutput.ReadToEndAsync(ct);
                 var eiStderr = await proc.StandardError.ReadToEndAsync(ct);
                 await proc.WaitForExitAsync(ct);
-                if (proc.ExitCode != 0)
+                if (proc.ExitCode != 0) {
                     logger.LogWarning("EI CLI exited {code} for upload {id}: {err}", proc.ExitCode, uploadId, eiStderr);
+                }
             }
 
             // Stage: uploading - extract URL from EI stdout JSON, fallback to uploading ourselves
@@ -186,11 +194,14 @@ public sealed class LogUploadPipelineService : BackgroundService
                 ?? ExtractDpsReportUrlFromLogFiles(jobOutputDir)
                 ?? await FallbackUploadToDpsReportAsync(evtcPath, upload.FileName, dpsReportToken, ct);
 
-            if (dpsReportUrl == null)
+            if (dpsReportUrl == null) {
                 throw new InvalidOperationException("Could not get a dps.report URL from EI output or direct upload.");
+            }
 
             progress.Publish(uploadId, "uploading", "Got dps.report link.", dpsReportUrl);
-            if (upload.SubmitToWingman) FireAndForgetWingman(dpsReportUrl);
+            if (upload.SubmitToWingman) {
+                FireAndForgetWingman(dpsReportUrl);
+            }
 
             // Stage: saving - fetch parsed model from dps.report, save to DB
             await UpdateStatus(ctx, upload, "saving", ct);
@@ -223,7 +234,9 @@ public sealed class LogUploadPipelineService : BackgroundService
         var line = stdout.Split('\n')
             .Select(l => l.Trim())
             .FirstOrDefault(l => l.StartsWith("Processed - {"));
-        if (line == null) return null;
+        if (line == null) {
+            return null;
+        }
 
         var json = line["Processed - ".Length..];
         return JsonSerializer.Deserialize<EiProcessedResult>(json);
@@ -240,7 +253,9 @@ public sealed class LogUploadPipelineService : BackgroundService
         foreach (var logFile in Directory.GetFiles(outputDir, "*.log"))
         {
             var url = ExtractDpsReportUrl(File.ReadAllText(logFile));
-            if (url != null) return url;
+            if (url != null) {
+                return url;
+            }
         }
         return null;
     }
@@ -330,7 +345,9 @@ public sealed class LogUploadPipelineService : BackgroundService
     {
         await using var ctx = await dbContextFactory.CreateDbContextAsync(ct);
         var upload = await ctx.LogUpload.FirstOrDefaultAsync(u => u.LogUploadId == uploadId, ct);
-        if (upload == null) return;
+        if (upload == null) {
+            return;
+        }
         upload.Status = "complete";
         upload.DpsReportUrl = dpsReportUrl;
         upload.FightLogId = fightLogId;
@@ -345,7 +362,9 @@ public sealed class LogUploadPipelineService : BackgroundService
         {
             await using var ctx = await dbContextFactory.CreateDbContextAsync(ct);
             var upload = await ctx.LogUpload.FirstOrDefaultAsync(u => u.LogUploadId == uploadId, ct);
-            if (upload == null) return;
+            if (upload == null) {
+                return;
+            }
             upload.Status = "failed";
             upload.ErrorMessage = message[..Math.Min(message.Length, 2000)];
             upload.UpdatedAt = DateTime.UtcNow;
@@ -374,8 +393,9 @@ public sealed class LogUploadPipelineService : BackgroundService
         var url = data.FightEliteInsightDataModel.Url;
         FightLog? existing = null;
 
-        if (!string.IsNullOrEmpty(url))
+        if (!string.IsNullOrEmpty(url)) {
             existing = await ctx.FightLog.FirstOrDefaultAsync(f => f.Url == url, ct);
+        }
 
         if (existing == null)
         {
@@ -395,7 +415,9 @@ public sealed class LogUploadPipelineService : BackgroundService
 
     private async Task<long> SaveWvWFightLogAsync(DatabaseContext ctx, EliteInsightDataModel data, ArcDpsPhase fightPhase, FightLog? existing, IPlayerService playerService, CancellationToken ct)
     {
-        if (existing != null) return existing.FightLogId;
+        if (existing != null) {
+            return existing.FightLogId;
+        }
 
         var dateTimeStart = ParseStart(data.FightEliteInsightDataModel.Start);
         long durationMs;
@@ -440,7 +462,9 @@ public sealed class LogUploadPipelineService : BackgroundService
 
     private async Task<long> SavePvEFightLogAsync(DatabaseContext ctx, EliteInsightDataModel data, ArcDpsPhase fightPhase, FightLog? existing, IPlayerService playerService, CancellationToken ct)
     {
-        if (existing != null) return existing.FightLogId;
+        if (existing != null) {
+            return existing.FightLogId;
+        }
 
         var dateTimeStart = ParseStart(data.FightEliteInsightDataModel.Start);
         var (encounterType, sumAllTargets) = GetPvEEncounterType(data.FightEliteInsightDataModel.FightId);
@@ -626,15 +650,17 @@ public sealed class LogUploadPipelineService : BackgroundService
         try
         {
             var evtcDir = evtcPath != null ? Path.GetDirectoryName(evtcPath) : null;
-            if (evtcDir != null && Directory.Exists(evtcDir))
+            if (evtcDir != null && Directory.Exists(evtcDir)) {
                 Directory.Delete(evtcDir, recursive: true);
+            }
         }
         catch { /* best-effort */ }
 
         try
         {
-            if (jobOutputDir != null && Directory.Exists(jobOutputDir))
+            if (jobOutputDir != null && Directory.Exists(jobOutputDir)) {
                 Directory.Delete(jobOutputDir, recursive: true);
+            }
         }
         catch { /* best-effort */ }
     }

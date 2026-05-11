@@ -5,5 +5,5 @@ namespace DonBot.Services.GuildWarsServices.MessageGeneration;
 
 public interface IPvEFightSummaryService
 {
-    Task<(Embed Embed, string? WebAppUrl)> GenerateSimple(EliteInsightDataModel data, long guildId);
+    Task<(Embed Embed, string? WebAppUrl, long FightLogId)> GenerateSimple(EliteInsightDataModel data, long guildId);
 }

@@ -12,12 +12,12 @@ public sealed class MessageGenerationService(
     IRaidReportService raidReportService)
     : IMessageGenerationService
 {
-    public async Task<(Embed Embed, string? WebAppUrl)> GenerateWvWFightSummary(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
+    public async Task<(Embed Embed, string? WebAppUrl, long? FightLogId)> GenerateWvWFightSummary(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
     {
         return await wvwFightSummaryService.Generate(data, advancedLog, guild, client);
     }
 
-    public async Task<(Embed Embed, string? WebAppUrl)> GeneratePvEFightSummary(EliteInsightDataModel data, long guildId)
+    public async Task<(Embed Embed, string? WebAppUrl, long FightLogId)> GeneratePvEFightSummary(EliteInsightDataModel data, long guildId)
     {
         return await pveFightSummaryService.GenerateSimple(data, guildId);
     }
@@ -27,9 +27,9 @@ public sealed class MessageGenerationService(
         return await raidReportService.Generate(fightsReport, guildId);
     }
 
-    public async Task<(List<Embed>? Embeds, string? WebAppUrl)> GenerateRaidReplyReport(List<string> urls, long guildId)
+    public async Task<(List<Embed>? Embeds, string? WebAppUrl)> GenerateRaidReplyReport(List<long> fightLogIds, long guildId)
     {
-        return await raidReportService.GenerateSimpleReply(urls, guildId);
+        return await raidReportService.GenerateSimpleReply(fightLogIds, guildId);
     }
 
     public async Task<Embed> GenerateRaidAlert(long guildId)

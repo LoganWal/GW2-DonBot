@@ -35,6 +35,30 @@ public class RaidReportFooterTests
     }
 
     [Fact]
+    public async Task GenerateSimpleReply_LooksUpFightsByFightLogId_NotByUrl()
+    {
+        // Regression: when a user posts a log whose content is a duplicate of a
+        // previously-uploaded fight (different URL, same fight content), the dedupe
+        // path reuses the existing FightLog row and the new URL is never stored. The
+        // raid reply report must still include that fight, so it has to look up by
+        // FightLogId (the resolved id from the summary call), not by the URL the
+        // user posted in Discord.
+        var footer = new SequenceFooterService();
+        var report = MakeReport();
+        var fights = MakeFights(FightTypesEnum.Cairn, count: 2, report);
+        // Simulate: original uploader posted "/originalA" and "/originalB"; the user
+        // who triggered this reply posted "/aliasA" and "/aliasB" - URLs the DB has
+        // never seen. The id-based lookup must still find both fights.
+        var playerFights = MakePlayerFights(fights);
+        var service = BuildService(footer, fights, playerFights);
+
+        var (embeds, _) = await service.GenerateSimpleReply(fights.Select(f => f.FightLogId).ToList(), GuildId);
+
+        Assert.NotNull(embeds);
+        Assert.NotEmpty(embeds!);
+    }
+
+    [Fact]
     public async Task Generate_WvWPath_TopAggregateEmbedsHaveDistinctFooters()
     {
         var footer = new SequenceFooterService();
@@ -111,7 +135,7 @@ internal sealed class SequenceFooterService : IFooterService
 
 internal sealed class FakeWvWSummaryService(IFooterService footerService) : IWvWFightSummaryService
 {
-    public Task<(Embed Embed, string? WebAppUrl)> Generate(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
+    public Task<(Embed Embed, string? WebAppUrl, long? FightLogId)> Generate(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
         => throw new NotImplementedException();
 
     public async Task<Embed> GenerateMessage(bool advancedLog, int playerCount, List<Gw2Player> gw2Players, EmbedBuilder message, long guildId, StatTotals? statTotals = null)

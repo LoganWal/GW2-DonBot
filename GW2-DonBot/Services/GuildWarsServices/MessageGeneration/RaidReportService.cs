@@ -29,10 +29,10 @@ public sealed class RaidReportService(
         return await GetRaidReport(guildId, fights, messages);
     }
 
-    public async Task<(List<Embed>? Embeds, string? WebAppUrl)> GenerateSimpleReply(List<string> urls, long guildId)
+    public async Task<(List<Embed>? Embeds, string? WebAppUrl)> GenerateSimpleReply(List<long> fightLogIds, long guildId)
     {
         var messages = new List<Embed>();
-        var fights = (await entityService.FightLog.GetWhereAsync(s => urls.Contains(s.Url))).ToList();
+        var fights = (await entityService.FightLog.GetWhereAsync(s => fightLogIds.Contains(s.FightLogId))).ToList();
 
         return await GetRaidReport(guildId, fights, messages);
     }

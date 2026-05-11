@@ -20,7 +20,7 @@ public sealed class WvWFightSummaryService(
     IDbContextFactory<DatabaseContext> dbContextFactory,
     IConfiguration configuration) : IWvWFightSummaryService
 {
-    public async Task<(Embed Embed, string? WebAppUrl)> Generate(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
+    public async Task<(Embed Embed, string? WebAppUrl, long? FightLogId)> Generate(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
     {
         var playerCount = 5;
 
@@ -215,7 +215,7 @@ Enemies {enemyCountStr.Trim(),-3}      {enemyDamageStr.Trim(),-7}     {enemyDpsS
         });
 
         var embed = await GenerateMessage(advancedLog, playerCount, gw2Players, message, guild.GuildId);
-        return (embed, webAppUrl);
+        return (embed, webAppUrl, fightLog?.FightLogId);
     }
 
     public async Task<Embed> GenerateMessage(bool advancedLog, int playerCount, List<Gw2Player> gw2Players, EmbedBuilder message, long guildId, StatTotals? statTotals = null)

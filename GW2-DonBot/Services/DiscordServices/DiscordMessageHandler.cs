@@ -238,13 +238,13 @@ public class DiscordMessageHandler(
                         continue;
                     }
 
-                    var (advancedMessage, _) = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, true, guild, client);
+                    var (advancedMessage, _, _) = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, true, guild, client);
                     await advanceLogReportChannel.SendMessageAsync(text: "", embeds: [advancedMessage]);
                 }
 
                 await playerService.SetPlayerPoints(eliteInsightDataModel);
 
-                var (wvwMessage, wvwWebAppUrl) = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, false, guild, client);
+                var (wvwMessage, wvwWebAppUrl, _) = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, false, guild, client);
                 message = wvwMessage;
                 var cb = new ComponentBuilder().WithButton("Know My Enemy", ButtonId.KnowMyEnemy);
                 if (wvwWebAppUrl != null) {
@@ -254,7 +254,7 @@ public class DiscordMessageHandler(
             }
             else
             {
-                var (pveMessage, pveWebAppUrl) = await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, guildId);
+                var (pveMessage, pveWebAppUrl, _) = await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, guildId);
                 message = pveMessage;
                 buttonBuilder = pveWebAppUrl != null
                     ? new ComponentBuilder().WithButton("View on DonBot", style: ButtonStyle.Link, url: pveWebAppUrl).Build()
@@ -320,17 +320,25 @@ public class DiscordMessageHandler(
 
         if (urls.Count > 1)
         {
+            var resolvedFightLogIds = new List<long>();
             foreach (var eliteInsightDataModel in dataList)
             {
-                if (eliteInsightDataModel.FightEliteInsightDataModel.Wvw) {
-                    await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, false, guild, client);
+                if (eliteInsightDataModel.FightEliteInsightDataModel.Wvw)
+                {
+                    var (_, _, wvwFightLogId) = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, false, guild, client);
+                    if (wvwFightLogId.HasValue)
+                    {
+                        resolvedFightLogIds.Add(wvwFightLogId.Value);
+                    }
                 }
-                else {
-                    await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, guildId);
+                else
+                {
+                    var (_, _, pveFightLogId) = await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, guildId);
+                    resolvedFightLogIds.Add(pveFightLogId);
                 }
             }
 
-            var (messages, replyWebAppUrl) = await messageGenerationService.GenerateRaidReplyReport(urls, guildId);
+            var (messages, replyWebAppUrl) = await messageGenerationService.GenerateRaidReplyReport(resolvedFightLogIds, guildId);
             if (messages != null)
             {
                 string? bestTimesButtonId = null;
@@ -338,7 +346,7 @@ public class DiscordMessageHandler(
                 if (bestTimesIndex.HasValue)
                 {
                     var urlFights = await entityService.FightLog.GetWhereAsync(s =>
-                        urls.Contains(s.Url) &&
+                        resolvedFightLogIds.Contains(s.FightLogId) &&
                         s.FightType != (short)FightTypesEnum.WvW &&
                         s.FightType != (short)FightTypesEnum.Unkn);
                     if (urlFights.Any())
@@ -371,7 +379,7 @@ public class DiscordMessageHandler(
             MessageComponent? singleButtonBuilder = null;
             if (eliteInsightDataModel.FightEliteInsightDataModel.Wvw)
             {
-                var (wvwMsg, wvwUrl) = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, false, guild, client);
+                var (wvwMsg, wvwUrl, _) = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, false, guild, client);
                 singleMessage = wvwMsg;
                 var cb = new ComponentBuilder().WithButton("Know My Enemy", ButtonId.KnowMyEnemy);
                 if (wvwUrl != null) {
@@ -381,7 +389,7 @@ public class DiscordMessageHandler(
             }
             else
             {
-                var (pveMsg, pveUrl) = await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, guildId);
+                var (pveMsg, pveUrl, _) = await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, guildId);
                 singleMessage = pveMsg;
                 if (pveUrl != null) {
                     singleButtonBuilder = new ComponentBuilder().WithButton("View on DonBot", style: ButtonStyle.Link, url: pveUrl).Build();

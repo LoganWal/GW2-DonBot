@@ -19,7 +19,7 @@ public sealed class PvEFightSummaryService(
     IDbContextFactory<DatabaseContext> dbContextFactory,
     IConfiguration configuration) : IPvEFightSummaryService
 {
-    public async Task<(Embed Embed, string? WebAppUrl)> GenerateSimple(EliteInsightDataModel data, long guildId)
+    public async Task<(Embed Embed, string? WebAppUrl, long FightLogId)> GenerateSimple(EliteInsightDataModel data, long guildId)
     {
         // Fire-and-forget; exceptions are intentionally swallowed to avoid disrupting the summary flow
         _ = Task.Run(async () =>
@@ -436,6 +436,6 @@ public sealed class PvEFightSummaryService(
 
         footerService.AddInviteLink(message);
 
-        return (message.Build(), webAppUrl);
+        return (message.Build(), webAppUrl, existingFightLog.FightLogId);
     }
 }

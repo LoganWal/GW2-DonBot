@@ -1,4 +1,5 @@
 ﻿using DonBot.Controller.Discord;
+using DonBot.Core.Services.RaidLifecycle;
 using DonBot.Models.Entities;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.DiscordRequestServices;
@@ -36,6 +37,7 @@ public static class ServiceRegister
         services.AddScoped<ILoggingService, LoggingService>();
         services.AddScoped<IPlayerService, PlayerService>();
         services.AddScoped<IRaidCommandService, RaidCommandCommandService>();
+        services.AddScoped<IRaidLifecycleService, RaidLifecycleService>();
         services.AddScoped<IFightLogService, FightLogService>();
         services.AddScoped<IRotationAnalysisService, RotationAnalysisService>();
 

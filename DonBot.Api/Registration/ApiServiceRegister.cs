@@ -1,7 +1,9 @@
 using DonBot.Api.Services;
+using DonBot.Core.Services.RaidLifecycle;
 using DonBot.Models.Entities;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.GuildWarsServices;
+using DonBot.Services.GuildWarsServices.MessageGeneration;
 using DonBot.Services.SecretsServices;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -31,13 +33,24 @@ public static class ApiServiceRegister
 
         services.AddScoped(typeof(IDatabaseUpdateService<>), typeof(DatabaseUpdateService<>));
         services.AddScoped<IEntityService, EntityService>();
+        services.AddScoped<IRaidLifecycleService, RaidLifecycleService>();
         services.AddScoped<IPlayerService, PlayerService>();
         services.AddScoped<IDataModelGenerationService, DataModelGenerationService>();
+
+        // Message generation chain (used by web-side StartRaid for the raid alert ping).
+        services.AddTransient<IFooterService, FooterService>();
+        services.AddTransient<IPvEFightSummaryService, PvEFightSummaryService>();
+        services.AddTransient<IWvWFightSummaryService, WvWFightSummaryService>();
+        services.AddTransient<IRaidReportService, RaidReportService>();
+        services.AddTransient<IMessageGenerationService, MessageGenerationService>();
+        services.AddScoped<IRotationAnalysisService, RotationAnalysisService>();
+        services.AddScoped<IRaidAlertNotifier, RaidAlertNotifier>();
 
         services.AddSingleton<ILogUploadProgressService, LogUploadProgressService>();
         services.AddSingleton<LogUploadPipelineService>();
         services.AddSingleton<TusFileMapping>();
         services.AddSingleton<DiscordRestClientProvider>();
+        services.AddSingleton<ILiveRaidMembership, LiveRaidMembership>();
         services.AddMemoryCache();
         services.AddHostedService(sp => sp.GetRequiredService<LogUploadPipelineService>());
 

@@ -44,7 +44,7 @@ public static class ApiServiceRegister
         services.AddTransient<IRaidReportService, RaidReportService>();
         services.AddTransient<IMessageGenerationService, MessageGenerationService>();
         services.AddScoped<IRotationAnalysisService, RotationAnalysisService>();
-        services.AddScoped<IRaidAlertNotifier, RaidAlertNotifier>();
+        services.AddScoped<IRaidNotifier, RaidNotifier>();
 
         services.AddSingleton<ILogUploadProgressService, LogUploadProgressService>();
         services.AddSingleton<LogUploadPipelineService>();

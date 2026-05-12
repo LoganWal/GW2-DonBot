@@ -28,12 +28,20 @@ public class LiveRaidEndpointsIntegrationTests
             => Task.FromResult(new HashSet<long>(Allowed));
     }
 
-    private sealed class NoopRaidAlertNotifier : IRaidAlertNotifier
+    private sealed class NoopRaidNotifier : IRaidNotifier
     {
-        public int CallCount { get; private set; }
+        public int StartedCalls { get; private set; }
+        public int EndedCalls { get; private set; }
+
         public Task PostRaidStartedAsync(long guildId, CancellationToken ct = default)
         {
-            CallCount++;
+            StartedCalls++;
+            return Task.CompletedTask;
+        }
+
+        public Task PostRaidEndedAsync(FightsReport closedReport, CancellationToken ct = default)
+        {
+            EndedCalls++;
             return Task.CompletedTask;
         }
     }
@@ -42,19 +50,19 @@ public class LiveRaidEndpointsIntegrationTests
     {
         public MinimalApiHost Inner { get; }
         public FakeMembership Membership { get; } = new();
-        public NoopRaidAlertNotifier RaidAlerts { get; } = new();
+        public NoopRaidNotifier RaidNotifier { get; } = new();
 
         public TestHost()
         {
             var membership = Membership;
-            var alerts = RaidAlerts;
+            var notifier = RaidNotifier;
             Inner = new MinimalApiHost(
                 app => app.MapLiveRaidEndpoints(),
                 services =>
                 {
                     services.AddScoped<IRaidLifecycleService, RaidLifecycleService>();
                     services.AddSingleton<ILiveRaidMembership>(membership);
-                    services.AddSingleton<IRaidAlertNotifier>(alerts);
+                    services.AddSingleton<IRaidNotifier>(notifier);
                 });
             Inner.AuthenticateAs(TestDiscordId);
         }
@@ -328,7 +336,7 @@ public class LiveRaidEndpointsIntegrationTests
 
         var response = await host.Client.PostAsync("/api/live-raid/42/start", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(1, host.RaidAlerts.CallCount);
+        Assert.Equal(1, host.RaidNotifier.StartedCalls);
     }
 
     [Fact]
@@ -345,7 +353,35 @@ public class LiveRaidEndpointsIntegrationTests
 
         var response = await host.Client.PostAsync("/api/live-raid/42/start", null);
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        Assert.Equal(0, host.RaidAlerts.CallCount);
+        Assert.Equal(0, host.RaidNotifier.StartedCalls);
+    }
+
+    [Fact]
+    public async Task StopRaid_Success_FiresRaidEndedNotifier()
+    {
+        using var host = NewHost();
+        host.AllowMembership(42L);
+        await using (var db = await host.DbFactory.CreateDbContextAsync())
+        {
+            db.Guild.Add(new Guild { GuildId = 42L, GuildName = "Test" });
+            db.FightsReport.Add(new FightsReport { GuildId = 42L, FightsStart = DateTime.UtcNow.AddMinutes(-30) });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await host.Client.PostAsync("/api/live-raid/42/stop", null);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(1, host.RaidNotifier.EndedCalls);
+    }
+
+    [Fact]
+    public async Task StopRaid_NoOpenRaid_DoesNotFireRaidEndedNotifier()
+    {
+        using var host = NewHost();
+        host.AllowMembership(42L);
+
+        var response = await host.Client.PostAsync("/api/live-raid/42/stop", null);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(0, host.RaidNotifier.EndedCalls);
     }
 
     [Fact]

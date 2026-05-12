@@ -288,7 +288,7 @@ public static class LiveRaidEndpoints
         ClaimsPrincipal user,
         [FromServices] ILiveRaidMembership membership,
         [FromServices] IRaidLifecycleService raidLifecycle,
-        [FromServices] IRaidAlertNotifier raidAlerts)
+        [FromServices] IRaidNotifier raidNotifier)
     {
         if (await EnsureAuthorizedAsync(user, guildId, membership) is { } denied)
         {
@@ -298,7 +298,7 @@ public static class LiveRaidEndpoints
         var result = await raidLifecycle.OpenRaidAsync(guildId);
         if (result.Outcome == RaidOpenOutcome.Opened)
         {
-            await raidAlerts.PostRaidStartedAsync(guildId);
+            await raidNotifier.PostRaidStartedAsync(guildId);
         }
 
         return result.Outcome switch
@@ -318,7 +318,8 @@ public static class LiveRaidEndpoints
         long guildId,
         ClaimsPrincipal user,
         [FromServices] ILiveRaidMembership membership,
-        [FromServices] IRaidLifecycleService raidLifecycle)
+        [FromServices] IRaidLifecycleService raidLifecycle,
+        [FromServices] IRaidNotifier raidNotifier)
     {
         if (await EnsureAuthorizedAsync(user, guildId, membership) is { } denied)
         {
@@ -326,6 +327,11 @@ public static class LiveRaidEndpoints
         }
 
         var result = await raidLifecycle.CloseRaidAsync(guildId);
+        if (result.Outcome == RaidCloseOutcome.Closed && result.Report != null)
+        {
+            await raidNotifier.PostRaidEndedAsync(result.Report);
+        }
+
         return result.Outcome switch
         {
             RaidCloseOutcome.NoneOpen => Results.NotFound(new { error = "No open raid to close." }),

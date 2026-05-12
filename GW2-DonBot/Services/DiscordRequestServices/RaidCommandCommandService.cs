@@ -1,5 +1,6 @@
-﻿using Discord;
+using Discord;
 using Discord.WebSocket;
+using DonBot.Core.Services.RaidLifecycle;
 using DonBot.Models.Entities;
 using DonBot.Models.Statics;
 using DonBot.Services.DatabaseServices;
@@ -7,7 +8,10 @@ using DonBot.Services.GuildWarsServices;
 
 namespace DonBot.Services.DiscordRequestServices;
 
-public sealed class RaidCommandCommandService(IEntityService entityService, IMessageGenerationService messageGenerationService) : IRaidCommandService
+public sealed class RaidCommandCommandService(
+    IEntityService entityService,
+    IMessageGenerationService messageGenerationService,
+    IRaidLifecycleService raidLifecycleService) : IRaidCommandService
 {
     public async Task StartRaid(SocketSlashCommand command, DiscordSocketClient discordClient)
     {
@@ -17,29 +21,21 @@ public sealed class RaidCommandCommandService(IEntityService entityService, IMes
             return;
         }
 
-        var guild = await entityService.Guild.GetFirstOrDefaultAsync(s => s.GuildId == (long)command.GuildId);
-        if (guild == null)
+        var guildId = (long)command.GuildId;
+        var result = await raidLifecycleService.OpenRaidAsync(guildId);
+
+        switch (result.Outcome)
         {
-            await command.FollowupAsync("This discord server doesn't have raids enabled.", ephemeral: true);
-            return;
+            case RaidOpenOutcome.GuildNotConfigured:
+                await command.FollowupAsync("This discord server doesn't have raids enabled.", ephemeral: true);
+                return;
+            case RaidOpenOutcome.AlreadyOpen:
+                await command.FollowupAsync("There already exists a raid, close any existing raids.", ephemeral: true);
+                return;
         }
 
-        var existingOpenRaids = await entityService.FightsReport.GetFirstOrDefaultAsync(s => s.GuildId == (long)command.GuildId && s.FightsEnd == null);
-        if (existingOpenRaids != null)
-        {
-            await command.FollowupAsync("There already exists a raid, close any existing raids.", ephemeral: true);
-            return;
-        }
-
-        var raid = new FightsReport
-        {
-            GuildId = (long)command.GuildId,
-            FightsStart = DateTime.UtcNow
-        };
-
-        await entityService.FightsReport.AddAsync(raid);
-
-        if (guild.RaidAlertEnabled)
+        var guild = await entityService.Guild.GetFirstOrDefaultAsync(s => s.GuildId == guildId);
+        if (guild != null && guild.RaidAlertEnabled)
         {
             if (guild.RaidAlertChannelId == null)
             {
@@ -69,24 +65,24 @@ public sealed class RaidCommandCommandService(IEntityService entityService, IMes
             return;
         }
 
-        var existingOpenRaid = await entityService.FightsReport.GetFirstOrDefaultAsync(s => s.GuildId == (long)command.GuildId && s.FightsEnd == null);
-        if (existingOpenRaid == null)
+        var guildId = (long)command.GuildId;
+        var result = await raidLifecycleService.CloseRaidAsync(guildId);
+        if (result.Outcome == RaidCloseOutcome.NoneOpen || result.Report == null)
         {
             await command.FollowupAsync("No current raid running.", ephemeral: true);
             return;
         }
 
-        existingOpenRaid.FightsEnd = DateTime.UtcNow;
+        var closedReport = result.Report;
 
-        var (messages, raidWebAppUrl) = await messageGenerationService.GenerateRaidReport(existingOpenRaid, (long)command.GuildId);
+        var (messages, raidWebAppUrl) = await messageGenerationService.GenerateRaidReport(closedReport, guildId);
         if (messages == null)
         {
             await command.FollowupAsync("No logs found, closing raid!", ephemeral: true);
-            await entityService.FightsReport.UpdateAsync(existingOpenRaid);
             return;
         }
 
-        var guild = await entityService.Guild.GetFirstOrDefaultAsync(g => g.GuildId == (long)command.GuildId);
+        var guild = await entityService.Guild.GetFirstOrDefaultAsync(g => g.GuildId == guildId);
         if (guild == null)
         {
             await command.FollowupAsync("Cannot find the related discord, try the command in the discord you want the raffle in!", ephemeral: true);
@@ -109,7 +105,7 @@ public sealed class RaidCommandCommandService(IEntityService entityService, IMes
         var bestTimesIndex = BestTimesTargetIndex(messages);
         if (bestTimesIndex.HasValue)
         {
-            bestTimesButtonId = $"{ButtonId.BestTimesPvEPrefix}{existingOpenRaid.FightsReportId}";
+            bestTimesButtonId = $"{ButtonId.BestTimesPvEPrefix}{closedReport.FightsReportId}";
         }
 
         for (var i = 0; i < messages.Count; i++)
@@ -120,8 +116,6 @@ public sealed class RaidCommandCommandService(IEntityService entityService, IMes
             if (i == bestTimesIndex && bestTimesButtonId != null) { cb.WithButton("Best Times", bestTimesButtonId); hasButton = true; }
             await targetChannel.SendMessageAsync(embeds: [messages[i]], components: hasButton ? cb.Build() : null);
         }
-
-        await entityService.FightsReport.UpdateAsync(existingOpenRaid);
 
         await command.FollowupAsync("Created!", ephemeral: true);
     }

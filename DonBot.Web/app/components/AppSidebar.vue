@@ -65,6 +65,7 @@ const hasAdminGuilds = computed(() => (adminGuilds.value?.length ?? 0) > 0)
 const allNavItems = [
   { label: 'Dashboard',      to: '/dashboard',   icon: 'pi-home' },
   { label: 'Fight Logs',    to: '/logs',        icon: 'pi-list' },
+  { label: 'Live Raid',     to: '/live-raid',   icon: 'pi-bolt' },
   { label: 'My Stats',      to: '/stats',       icon: 'pi-chart-bar' },
   { label: 'Personal Bests', to: '/bests',       icon: 'pi-crown' },
   { label: 'Progression',   to: '/progression', icon: 'pi-chart-line' },

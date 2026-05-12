@@ -77,7 +77,11 @@ public static class LogsEndpoints
         }
 
         await using var context = await dbContextFactory.CreateDbContextAsync();
+        return await AggregateLogsCoreAsync(logIds, context);
+    }
 
+    internal static async Task<IResult> AggregateLogsCoreAsync(List<long> logIds, DatabaseContext context)
+    {
         var fightLogs = await context.FightLog
             .Where(fl => logIds.Contains(fl.FightLogId))
             .ToListAsync();
@@ -438,7 +442,11 @@ public static class LogsEndpoints
         IDbContextFactory<DatabaseContext> dbContextFactory)
     {
         await using var context = await dbContextFactory.CreateDbContextAsync();
+        return await GetLogCoreAsync(id, context);
+    }
 
+    internal static async Task<IResult> GetLogCoreAsync(long id, DatabaseContext context)
+    {
         var log = await context.FightLog.FirstOrDefaultAsync(fl => fl.FightLogId == id);
         if (log is null)
         {

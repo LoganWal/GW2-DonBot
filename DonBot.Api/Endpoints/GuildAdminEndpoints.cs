@@ -69,38 +69,32 @@ public static class GuildAdminEndpoints
 
     private static async Task<IResult> ListAdminGuilds(
         ClaimsPrincipal user,
-        DiscordRestClientProvider clientProvider,
+        IUserGuildsService userGuilds,
         IDbContextFactory<DatabaseContext> dbContextFactory,
-        IMemoryCache cache,
-        ILogger<DiscordRestClientProvider> logger)
+        IMemoryCache cache)
     {
-        if (!TryGetDiscordId(user, out var discordId)) {
+        var discordId = user.FindFirst("discord_id")?.Value;
+        if (string.IsNullOrEmpty(discordId)) {
             return Results.Unauthorized();
         }
 
         var cacheKey = $"admin-guilds:{discordId}";
         var cached = await cache.GetOrCoalesceAsync(cacheKey, AdminGuildsCacheTtl, TimeSpan.FromSeconds(10), async () =>
         {
-            var client = await clientProvider.GetClientAsync();
+            var userGuildList = await userGuilds.GetForPrincipalAsync(user);
+            if (userGuildList is null) {
+                return new List<GuildSummaryDto>();
+            }
 
             await using var context = await dbContextFactory.CreateDbContextAsync();
-            var trackedGuildIds = await context.Guild.Select(g => g.GuildId).ToListAsync();
-            var trackedSet = trackedGuildIds.Select(id => (ulong)id).ToHashSet();
+            var trackedSet = (await context.Guild.Select(g => g.GuildId).ToListAsync())
+                .Select(id => (ulong)id).ToHashSet();
 
-            var botGuilds = await client.GetGuildsAsync();
-            var candidateGuilds = botGuilds.Where(g => trackedSet.Contains(g.Id)).ToList();
-
-            var checks = candidateGuilds.Select(async botGuild =>
-            {
-                var guildUser = await SafeGetGuildUserAsync(botGuild, discordId, logger);
-                if (guildUser is null || !guildUser.GuildPermissions.Administrator) {
-                    return null;
-                }
-                return new GuildSummaryDto(botGuild.Id.ToString(), botGuild.Name, botGuild.IconUrl);
-            });
-
-            var results = await Task.WhenAll(checks);
-            return results.Where(r => r is not null).OrderBy(r => r!.Name).ToList();
+            return userGuildList
+                .Where(g => trackedSet.Contains(g.Id) && UserGuildsService.HasAdministrator(g))
+                .Select(g => new GuildSummaryDto(g.Id.ToString(), g.Name, UserGuildsService.BuildIconUrl(g.Id, g.Icon)))
+                .OrderBy(g => g.Name)
+                .ToList();
         });
 
         return Results.Ok(cached);
@@ -110,41 +104,48 @@ public static class GuildAdminEndpoints
         string guildId,
         ClaimsPrincipal user,
         DiscordRestClientProvider clientProvider,
+        IUserGuildsService userGuilds,
         IDbContextFactory<DatabaseContext> dbContextFactory,
         IMemoryCache cache,
         IHttpClientFactory httpClientFactory,
         ILogger<DiscordRestClientProvider> logger)
     {
-        if (!TryGetDiscordId(user, out var discordId)) {
-            return Results.Unauthorized();
-        }
-
         if (!ulong.TryParse(guildId, out var guildIdUlong)) {
             return Results.BadRequest("Invalid guild id.");
         }
+        var guildIdLong = (long)guildIdUlong;
 
-        var client = await clientProvider.GetClientAsync();
+        // Run independent work in parallel: admin check (OAuth, cached), Discord client, DB read.
+        var clientTask = clientProvider.GetClientAsync();
+        var adminTask = userGuilds.HasAdministratorAsync(user, guildIdUlong);
+        var dbReadTask = ReadGuildAsync(dbContextFactory, guildIdLong);
+
+        if (!await adminTask) {
+            return Results.Forbid();
+        }
+
+        var client = await clientTask;
         var botGuild = await client.GetGuildAsync(guildIdUlong);
         if (botGuild is null) {
             return Results.NotFound("Bot is not in that guild.");
         }
 
-        var guildUser = await SafeGetGuildUserAsync(botGuild, discordId, logger);
-        if (guildUser is null || !guildUser.GuildPermissions.Administrator) {
-            return Results.Forbid();
-        }
+        var channelsTask = botGuild.GetTextChannelsAsync();
+        var existingGuild = await dbReadTask;
 
-        await using var context = await dbContextFactory.CreateDbContextAsync();
-        var guildIdLong = (long)guildIdUlong;
-        var guild = await context.Guild.FirstOrDefaultAsync(g => g.GuildId == guildIdLong);
+        var guild = existingGuild;
         if (guild is null)
         {
+            await using var writeCtx = await dbContextFactory.CreateDbContextAsync();
             guild = new Guild { GuildId = guildIdLong, GuildName = botGuild.Name };
-            context.Guild.Add(guild);
-            await context.SaveChangesAsync();
+            writeCtx.Guild.Add(guild);
+            await writeCtx.SaveChangesAsync();
         }
 
-        var channels = (await botGuild.GetTextChannelsAsync())
+        var dto = ToDto(guild);
+        var gw2NamesTask = ResolveGw2GuildNamesAsync(CollectGw2GuildIds(dto), cache, httpClientFactory, logger);
+
+        var channels = (await channelsTask)
             .OrderBy(c => c.Position)
             .Select(c => new ChannelDto(c.Id.ToString(), c.Name))
             .ToList();
@@ -155,8 +156,7 @@ public static class GuildAdminEndpoints
             .Select(r => new RoleDto(r.Id.ToString(), r.Name))
             .ToList();
 
-        var dto = ToDto(guild);
-        var gw2Names = await ResolveGw2GuildNamesAsync(CollectGw2GuildIds(dto), cache, httpClientFactory, logger);
+        var gw2Names = await gw2NamesTask;
 
         var response = new GuildConfigResponse(
             guildId,
@@ -169,33 +169,35 @@ public static class GuildAdminEndpoints
         return Results.Ok(response);
     }
 
+    private static async Task<Guild?> ReadGuildAsync(IDbContextFactory<DatabaseContext> dbContextFactory, long guildIdLong)
+    {
+        await using var ctx = await dbContextFactory.CreateDbContextAsync();
+        return await ctx.Guild.FirstOrDefaultAsync(g => g.GuildId == guildIdLong);
+    }
+
     private static async Task<IResult> UpdateGuildConfig(
         string guildId,
         GuildConfigDto dto,
         ClaimsPrincipal user,
         DiscordRestClientProvider clientProvider,
+        IUserGuildsService userGuilds,
         IDbContextFactory<DatabaseContext> dbContextFactory,
         IMemoryCache cache,
         IHttpClientFactory httpClientFactory,
         ILogger<DiscordRestClientProvider> logger)
     {
-        if (!TryGetDiscordId(user, out var discordId)) {
-            return Results.Unauthorized();
-        }
-
         if (!ulong.TryParse(guildId, out var guildIdUlong)) {
             return Results.BadRequest("Invalid guild id.");
+        }
+
+        if (!await userGuilds.HasAdministratorAsync(user, guildIdUlong)) {
+            return Results.Forbid();
         }
 
         var client = await clientProvider.GetClientAsync();
         var botGuild = await client.GetGuildAsync(guildIdUlong);
         if (botGuild is null) {
             return Results.NotFound("Bot is not in that guild.");
-        }
-
-        var guildUser = await SafeGetGuildUserAsync(botGuild, discordId, logger);
-        if (guildUser is null || !guildUser.GuildPermissions.Administrator) {
-            return Results.Forbid();
         }
 
         var validChannelIds = (await botGuild.GetTextChannelsAsync()).Select(c => c.Id).ToHashSet();
@@ -494,17 +496,4 @@ public static class GuildAdminEndpoints
         return ulong.TryParse(raw, out discordId);
     }
 
-    private static async Task<RestGuildUser?> SafeGetGuildUserAsync(RestGuild guild, ulong userId, ILogger logger)
-    {
-        try
-        {
-            return await guild.GetUserAsync(userId);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to fetch user {UserId} in guild {GuildId} ({GuildName}); treating as not-a-member.",
-                userId, guild.Id, guild.Name);
-            return null;
-        }
-    }
 }

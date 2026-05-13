@@ -93,7 +93,10 @@ internal sealed class MinimalApiHost : IDisposable
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(JwtKey));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var token = new JwtSecurityToken(
-            claims: [new Claim("discord_id", discordId.ToString())],
+            claims: [
+                new Claim("discord_id", discordId.ToString()),
+                new Claim("discord_access_token", "test-access-token")
+            ],
             expires: DateTime.UtcNow.AddHours(1),
             signingCredentials: creds);
         return new JwtSecurityTokenHandler().WriteToken(token);

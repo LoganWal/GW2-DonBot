@@ -2,8 +2,12 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
+COPY Directory.Build.props ./
+COPY GW2-DonBot/DonBot.csproj GW2-DonBot/packages.lock.json GW2-DonBot/
+COPY DonBot.Core/DonBot.Core.csproj DonBot.Core/packages.lock.json DonBot.Core/
+RUN dotnet restore GW2-DonBot/DonBot.csproj --locked-mode
+
 COPY . .
-RUN dotnet restore GW2-DonBot/DonBot.csproj
 RUN dotnet publish GW2-DonBot/DonBot.csproj -c Release -o /app/publish --no-restore
 
 # Stage 2: runtime

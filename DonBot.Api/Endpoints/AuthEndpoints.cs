@@ -120,8 +120,20 @@ public static class AuthEndpoints
         return Results.Ok();
     }
 
-    private static IResult HandleMe(ClaimsPrincipal user, IConfiguration configuration)
+    private static IResult HandleMe(ClaimsPrincipal user, HttpContext httpContext, IConfiguration configuration)
     {
+        // Reject pre-OAuth-guilds-scope JWTs so the frontend redirects to login and the user
+        // gets a token that carries the access token needed by user-guilds-based endpoints.
+        if (string.IsNullOrEmpty(user.FindFirst("discord_access_token")?.Value))
+        {
+            httpContext.Response.Cookies.Delete("donbot_token", new CookieOptions
+            {
+                Domain = configuration["CookieDomain"] is { Length: > 0 } d ? d : null,
+                Path = "/"
+            });
+            return Results.Unauthorized();
+        }
+
         var discordId = user.FindFirst("discord_id")?.Value ?? "";
         var username = user.FindFirst("username")?.Value ?? "";
         var bannerIds = configuration["CookieBanner:UserIds"]?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)

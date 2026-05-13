@@ -19,6 +19,8 @@ jobs:
         with:
           dotnet-version: '10.0.x'
           dotnet-quality: 'preview'
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
 
       - name: Restore
         run: dotnet restore
@@ -29,13 +31,39 @@ jobs:
       - name: Test
         run: dotnet test --no-build --configuration Release --verbosity normal
 
-  deploy:
+  build-image:
     needs: build-and-test
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - name: bot
+            context: .
+            file: ./GW2-DonBot/Dockerfile
+            suffix: ''
+          - name: api
+            context: .
+            file: ./DonBot.Api/Dockerfile
+            suffix: '-api'
+          - name: web
+            context: ./DonBot.Web
+            file: ./DonBot.Web/Dockerfile
+            suffix: '-web'
+        platform:
+          - name: amd64
+            runner: ubuntu-latest
+            docker: linux/amd64
+          - name: arm64
+            runner: ubuntu-24.04-arm
+            docker: linux/arm64
+    runs-on: ${{ matrix.platform.runner }}
 
     steps:
       - uses: actions/checkout@v6.0.2
+
+      - name: Set lowercase repo
+        run: echo "REPO=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
       - name: Log in to GHCR
         uses: docker/login-action@v4.0.0
@@ -44,48 +72,72 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7.0.0
+        with:
+          context: ${{ matrix.image.context }}
+          file: ${{ matrix.image.file }}
+          platforms: ${{ matrix.platform.docker }}
+          outputs: type=image,name=ghcr.io/${{ env.REPO }}${{ matrix.image.suffix }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.image.name }}-${{ matrix.platform.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}-${{ matrix.platform.name }}
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest='${{ steps.build.outputs.digest }}'
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.image.name }}-${{ matrix.platform.name }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge-manifest:
+    needs: build-image
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - { name: bot, suffix: '' }
+          - { name: api, suffix: '-api' }
+          - { name: web, suffix: '-web' }
+
+    steps:
+      - name: Set lowercase image name
+        run: echo "IMAGE=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')${{ matrix.image.suffix }}" >> $GITHUB_ENV
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4.0.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Set lowercase image tags
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digest-${{ matrix.image.name }}-*
+          merge-multiple: true
+
+      - name: Create multi-arch manifest
+        working-directory: /tmp/digests
         run: |
-          REPO=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
-          echo "IMAGE_BOT=ghcr.io/${REPO}:latest" >> $GITHUB_ENV
-          echo "IMAGE_API=ghcr.io/${REPO}-api:latest" >> $GITHUB_ENV
-          echo "IMAGE_WEB=ghcr.io/${REPO}-web:latest" >> $GITHUB_ENV
+          docker buildx imagetools create -t "${IMAGE}:latest" \
+            $(printf "${IMAGE}@sha256:%s " *)
 
-      - name: Build and push bot image
-        uses: docker/build-push-action@v7.0.0
-        with:
-          context: .
-          file: ./GW2-DonBot/Dockerfile
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ env.IMAGE_BOT }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build and push API image
-        uses: docker/build-push-action@v7.0.0
-        with:
-          context: .
-          file: ./DonBot.Api/Dockerfile
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ env.IMAGE_API }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build and push web image
-        uses: docker/build-push-action@v7.0.0
-        with:
-          context: ./DonBot.Web
-          file: ./DonBot.Web/Dockerfile
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ env.IMAGE_WEB }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Inspect
+        run: docker buildx imagetools inspect "${IMAGE}:latest"

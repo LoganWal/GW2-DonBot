@@ -18,21 +18,19 @@
         @change="load(true)"
       />
       <template v-if="selectedFightType !== null && !isWvWFight">
-        <div style="display: flex; gap: 0.4rem;">
-          <Button size="small" label="All" :severity="successFilter === 'all' ? 'primary' : 'secondary'" @click="successFilter = 'all'; load(false)" />
-          <Button size="small" label="Kills" :severity="successFilter === 'kills' ? 'success' : 'secondary'" @click="successFilter = 'kills'; load(false)" />
-          <Button size="small" label="Wipes" :severity="successFilter === 'wipes' ? 'danger' : 'secondary'" @click="successFilter = 'wipes'; load(false)" />
-        </div>
-        <div style="display: flex; gap: 0.4rem;">
-          <Button size="small" label="All modes" :severity="difficultyFilter === null ? 'primary' : 'secondary'" @click="difficultyFilter = null; load(false)" />
-          <Button size="small" label="NM" :severity="difficultyFilter === 0 ? 'primary' : 'secondary'" @click="difficultyFilter = 0; load(false)" />
-          <Button size="small" label="CM" :severity="difficultyFilter === 1 ? 'primary' : 'secondary'" @click="difficultyFilter = 1; load(false)" />
-          <Button size="small" label="LCM" :severity="difficultyFilter === 2 ? 'primary' : 'secondary'" @click="difficultyFilter = 2; load(false)" />
-        </div>
+        <FilterButtonGroup
+          :options="successFilterOptions"
+          :model-value="successFilter"
+          @update:model-value="successFilter = $event; load(false)"
+        />
+        <FilterButtonGroup
+          :options="difficultyFilterOptions"
+          :model-value="difficultyFilter"
+          @update:model-value="difficultyFilter = $event; load(false)"
+        />
       </template>
     </div>
 
-    <!-- Filters: shown whenever a fight type is selected and not loading -->
     <template v-if="selectedFightType !== null && !loading">
       <div v-if="allCharacters.length > 1" style="margin-bottom: 1rem; max-width: 360px;">
         <MultiSelect
@@ -62,81 +60,32 @@
     </Message>
 
     <template v-else-if="points.length > 0">
-      <!-- Summary cards -->
       <div class="stat-grid" style="margin-bottom: 1.5rem;">
-        <Card class="stat-card">
-          <template #content>
-            <div class="stat-label">Fights</div>
-            <div v-fit-text class="stat-value">{{ displayPoints.length }}</div>
-          </template>
-        </Card>
-        <Card class="stat-card">
-          <template #content>
-            <div class="stat-label">Avg DPS</div>
-            <div v-fit-text class="stat-value">{{ avgOf('dps').toLocaleString() }}</div>
-          </template>
-        </Card>
-        <Card class="stat-card">
-          <template #content>
-            <div class="stat-label">Peak DPS</div>
-            <div v-fit-text class="stat-value">{{ maxOf('dps').toLocaleString() }}</div>
-          </template>
-        </Card>
-        <Card v-if="isWvW" class="stat-card">
-          <template #content>
-            <div class="stat-label">Avg Kills</div>
-            <div v-fit-text class="stat-value">{{ avgOf('kills').toFixed(1) }}</div>
-          </template>
-        </Card>
-        <Card v-if="isWvW" class="stat-card">
-          <template #content>
-            <div class="stat-label">Avg Cleanses</div>
-            <div v-fit-text class="stat-value">{{ avgOf('cleanses').toFixed(0) }}</div>
-          </template>
-        </Card>
-        <Card v-if="isWvW" class="stat-card">
-          <template #content>
-            <div class="stat-label">Avg Strips</div>
-            <div v-fit-text class="stat-value">{{ avgOf('strips').toFixed(0) }}</div>
-          </template>
-        </Card>
-        <Card v-if="!isWvW" class="stat-card">
-          <template #content>
-            <div class="stat-label">Avg Cleave DPS</div>
-            <div v-fit-text class="stat-value">{{ avgOf('cleaveDps').toLocaleString() }}</div>
-          </template>
-        </Card>
-        <Card v-if="!isWvW" class="stat-card">
-          <template #content>
-            <div class="stat-label">Avg Alacrity</div>
-            <div v-fit-text class="stat-value">{{ avgOf('alacrity').toFixed(1) }}%</div>
-          </template>
-        </Card>
-        <Card v-if="!isWvW" class="stat-card">
-          <template #content>
-            <div class="stat-label">Avg Quickness</div>
-            <div v-fit-text class="stat-value">{{ avgOf('quickness').toFixed(1) }}%</div>
-          </template>
-        </Card>
+        <StatCard label="Fights" :value="displayPoints.length" />
+        <StatCard label="Avg DPS" :value="avgOf('dps')" />
+        <StatCard label="Peak DPS" :value="maxOf('dps')" />
+        <StatCard v-if="isWvW" label="Avg Kills" :value="avgOf('kills')" :sub="'per fight'" />
+        <StatCard v-if="isWvW" label="Avg Cleanses" :value="avgOf('cleanses')" :sub="'per fight'" />
+        <StatCard v-if="isWvW" label="Avg Strips" :value="avgOf('strips')" :sub="'per fight'" />
+        <StatCard v-if="!isWvW" label="Avg Cleave DPS" :value="avgOf('cleaveDps')" />
+        <StatCard v-if="!isWvW" label="Avg Alacrity" :value="avgOf('alacrity').toFixed(1) + '%'" />
+        <StatCard v-if="!isWvW" label="Avg Quickness" :value="avgOf('quickness').toFixed(1) + '%'" />
       </div>
 
-      <!-- Boss Hp chart -->
-      <Card style="margin-bottom: 1.5rem;">
-        <template #title>Boss Hp progress over Time</template>
+      <Card v-if="!isWvW" style="margin-bottom: 1.5rem;">
+        <template #title>Boss HP Over Time</template>
         <template #content>
           <Chart type="line" :data="bossHpChartData" :options="chartOptions" style="height: 300px;" />
         </template>
       </Card>
-      
-      <!-- DPS chart -->
+
       <Card style="margin-bottom: 1.5rem;">
-        <template #title>DPS over Time</template>
+        <template #title>DPS Over Time</template>
         <template #content>
           <Chart type="line" :data="dpsChartData" :options="chartOptions" style="height: 300px;" />
         </template>
       </Card>
 
-      <!-- WvW charts -->
       <template v-if="isWvW">
         <div class="chart-grid">
           <Card>
@@ -166,7 +115,6 @@
         </div>
       </template>
 
-      <!-- PvE charts -->
       <template v-else>
         <div class="chart-grid">
           <Card>
@@ -198,22 +146,15 @@
         <template v-if="mechanicNames.length > 0">
           <div style="margin: 1.5rem 0 1rem; font-size: 0.75rem; font-weight: 600; color: var(--p-text-muted-color); text-transform: uppercase; letter-spacing: 0.05em;">Mechanics</div>
           <div class="mechanic-summary-grid" style="margin-bottom: 1.25rem;">
-            <div v-for="name in mechanicNames" :key="'sum-'+name" class="mechanic-summary-card">
-              <div class="mechanic-summary-name" :title="name">{{ name }}</div>
-              <div class="mechanic-summary-row">
-                <span class="mechanic-summary-label">Max</span>
-                <a v-if="mechanicMaxMap[name]?.logId && mechanicMaxMap[name].value > 0" :href="`/logs/${mechanicMaxMap[name].logId}`" class="mechanic-max-link">{{ mechanicMaxMap[name].value }}</a>
-                <span v-else>{{ mechanicMaxMap[name]?.value ?? 0 }}</span>
-              </div>
-              <div class="mechanic-summary-row">
-                <span class="mechanic-summary-label">Avg</span>
-                <span>{{ mechanicAvgMap[name]?.toFixed(1) ?? '0.0' }}</span>
-              </div>
-              <div class="mechanic-summary-row">
-                <span class="mechanic-summary-label">Median</span>
-                <span>{{ mechanicMedianMap[name] ?? 0 }}</span>
-              </div>
-            </div>
+            <MechanicSummaryCard
+              v-for="name in mechanicNames"
+              :key="'sum-'+name"
+              :name="name"
+              :max-value="mechanicMaxMap[name]?.value ?? 0"
+              :max-link="mechanicMaxMap[name]?.logId ? `/logs/${mechanicMaxMap[name].logId}` : null"
+              :avg="mechanicAvgMap[name]?.toFixed(1) ?? '0.0'"
+              :median="mechanicMedianMap[name] ?? 0"
+            />
           </div>
           <div class="chart-grid">
             <Card v-for="name in mechanicNames" :key="name">
@@ -230,6 +171,9 @@
 </template>
 
 <script setup lang="ts">
+import { fightTypeGroupedOptions } from '~/composables/useFightTypes'
+import { successFilterOptions, difficultyFilterOptions, type SuccessFilter, type DifficultyFilter } from '~/composables/useLogFilters'
+
 definePageMeta({ middleware: 'auth' })
 
 const api = useApi()
@@ -243,8 +187,8 @@ const loading = ref(false)
 const selectedCharacters = ref<string[]>([])
 const timeRange = ref<'all' | 'year' | 'month' | 'week'>('all')
 const allCharacters = ref<string[]>([])
-const successFilter = ref<'kills' | 'wipes' | 'all'>('all')
-const difficultyFilter = ref<number | null>(null)
+const successFilter = ref<SuccessFilter>('all')
+const difficultyFilter = ref<DifficultyFilter>(null)
 
 const isWvWFight = computed(() => selectedFightType.value === 0)
 
@@ -334,7 +278,7 @@ const makeDataset = (label: string, field: string, r: number, g: number, b: numb
 
 const bossHpChartData = computed(() => ({
   labels: labels.value,
-  datasets: [makeDataset('Boss Hp', 'fightPercent', 219, 44, 67)],
+  datasets: [makeDataset('Boss HP', 'fightPercent', 219, 44, 67)],
 }))
 
 const dpsChartData = computed(() => ({
@@ -515,42 +459,4 @@ const chartOptions = computed(() => ({
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 0.5rem;
 }
-.mechanic-summary-card {
-  background: var(--p-surface-ground);
-  border: 1px solid var(--p-surface-border);
-  border-radius: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.8rem;
-}
-.mechanic-summary-name {
-  font-weight: 600;
-  color: var(--p-text-muted-color);
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  margin-bottom: 0.35rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.mechanic-summary-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 0.25rem;
-  line-height: 1.6;
-}
-.mechanic-summary-label {
-  font-size: 0.7rem;
-  color: var(--p-text-muted-color);
-}
-.mechanic-max-link {
-  color: var(--p-primary-color);
-  text-decoration: none;
-  font-weight: 600;
-}
-.mechanic-max-link:hover {
-  text-decoration: underline;
-}
-
 </style>

@@ -23,9 +23,6 @@ public class LiveRaidEndpointsIntegrationTests
 
         public Task<HashSet<long>> FilterMemberGuildsAsync(ulong discordId, IReadOnlyCollection<long> candidateGuildIds, CancellationToken ct = default)
             => Task.FromResult(candidateGuildIds.Where(Allowed.Contains).ToHashSet());
-
-        public Task<HashSet<long>> GetUserMemberGuildsAsync(ulong discordId, CancellationToken ct = default)
-            => Task.FromResult(new HashSet<long>(Allowed));
     }
 
     private sealed class NoopRaidNotifier : IRaidNotifier

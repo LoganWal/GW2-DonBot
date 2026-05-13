@@ -1,14 +1,15 @@
 <template>
-  <Card class="stat-card best-card" style="cursor: pointer;" @click="navigateTo(`/logs/${entry.fightLogId}`)">
-    <template #content>
-      <div class="stat-label">{{ label }}</div>
-      <div class="stat-value">{{ fmt(entry.value) }}</div>
-      <div class="best-meta">
-        <span>{{ fightName(entry.fightType) }}</span>
-        <span>{{ new Date(entry.fightDate).toLocaleDateString() }}</span>
-      </div>
-    </template>
-  </Card>
+  <StatCard
+    class="best-card"
+    :label="label"
+    :value="fmt(entry.value)"
+    :to="`/logs/${entry.fightLogId}`"
+  >
+    <div class="best-meta">
+      <span>{{ fightName(entry.fightType) }}</span>
+      <span>{{ new Date(entry.fightDate).toLocaleDateString() }}</span>
+    </div>
+  </StatCard>
 </template>
 
 <script setup lang="ts">
@@ -20,10 +21,6 @@ defineProps<{
 </script>
 
 <style scoped>
-.best-card:hover {
-  border-color: var(--p-primary-color);
-}
-
 .best-meta {
   display: flex;
   justify-content: space-between;

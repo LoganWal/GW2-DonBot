@@ -19,22 +19,15 @@
                 </button>
                 <div v-show="openBosses.has(item.fightType)" class="mechanic-card-section">
                   <div class="mechanic-summary-grid">
-                    <div v-for="m in item.mechanics" :key="m.mechanicName" class="mechanic-summary-card">
-                      <div class="mechanic-summary-name" :title="m.mechanicName">{{ m.mechanicName }}</div>
-                      <div class="mechanic-summary-row">
-                        <span class="mechanic-summary-label">Max</span>
-                        <a v-if="m.maxFightLogId && m.max > 0" :href="`/logs/${m.maxFightLogId}`" class="mechanic-max">{{ m.max }}</a>
-                        <span v-else class="mechanic-max">{{ m.max }}</span>
-                      </div>
-                      <div class="mechanic-summary-row">
-                        <span class="mechanic-summary-label">Avg</span>
-                        <span>{{ m.avg.toFixed(1) }}</span>
-                      </div>
-                      <div class="mechanic-summary-row">
-                        <span class="mechanic-summary-label">Median</span>
-                        <span>{{ m.median }}</span>
-                      </div>
-                    </div>
+                    <MechanicSummaryCard
+                      v-for="m in item.mechanics"
+                      :key="m.mechanicName"
+                      :name="m.mechanicName"
+                      :max-value="m.max"
+                      :max-link="m.maxFightLogId ? `/logs/${m.maxFightLogId}` : null"
+                      :avg="m.avg.toFixed(1)"
+                      :median="m.median"
+                    />
                   </div>
                 </div>
               </div>
@@ -112,42 +105,5 @@ const toggleBoss = (fightType: number) => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 0.5rem;
-}
-.mechanic-summary-card {
-  background: var(--p-surface-ground);
-  border: 1px solid var(--p-surface-border);
-  border-radius: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.8rem;
-}
-.mechanic-summary-name {
-  font-weight: 600;
-  color: var(--p-text-muted-color);
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  margin-bottom: 0.35rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.mechanic-summary-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 0.25rem;
-  line-height: 1.6;
-}
-.mechanic-summary-label {
-  font-size: 0.7rem;
-  color: var(--p-text-muted-color);
-}
-.mechanic-max {
-  font-weight: 600;
-  color: var(--p-primary-color);
-  text-decoration: none;
-}
-.mechanic-max:hover {
-  text-decoration: underline;
 }
 </style>

@@ -6,6 +6,7 @@ const TITLES: Record<string, string> = {
   '/progression': 'Progression',
   '/leaderboard': 'Leaderboard',
   '/points':      'Points & Raffles',
+  '/live-raid':   'Live Raid',
 }
 
 export const usePageTitle = () => {

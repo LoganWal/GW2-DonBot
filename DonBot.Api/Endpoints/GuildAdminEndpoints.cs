@@ -79,10 +79,8 @@ public static class GuildAdminEndpoints
         }
 
         var cacheKey = $"admin-guilds:{discordId}";
-        var cached = await cache.GetOrCreateAsync(cacheKey, async entry =>
+        var cached = await cache.GetOrCoalesceAsync(cacheKey, AdminGuildsCacheTtl, TimeSpan.FromSeconds(10), async () =>
         {
-            entry.AbsoluteExpirationRelativeToNow = AdminGuildsCacheTtl;
-
             var client = await clientProvider.GetClientAsync();
 
             await using var context = await dbContextFactory.CreateDbContextAsync();

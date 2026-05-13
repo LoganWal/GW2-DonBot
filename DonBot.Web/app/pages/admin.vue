@@ -330,6 +330,8 @@ type ConfigResponse = {
 type MyGw2GuildsResponse = { hasAccount: boolean; guilds: Gw2Guild[] }
 
 type Field = { key: keyof Config; label: string; tip: string }
+type BooleanKey = { [K in keyof Config]: Config[K] extends boolean ? K : never }[keyof Config]
+type BooleanField = { key: BooleanKey; label: string; tip: string }
 
 const channelFields: Field[] = [
   { key: 'logDropOffChannelId', label: 'Log drop-off channel', tip: 'Webhook messages with dps.report links posted here are auto-processed without prompting users.' },
@@ -349,7 +351,7 @@ const roleFields: Field[] = [
   { key: 'discordVerifiedRoleId', label: 'Verified role', tip: 'Discord role assigned to anyone who has verified their GW2 account.' },
 ]
 
-const toggleFields: Field[] = [
+const toggleFields: BooleanField[] = [
   { key: 'raidAlertEnabled', label: 'Raid alerts enabled', tip: 'Allow scheduled raid alert messages to be posted in the raid alert channel.' },
   { key: 'removeSpamEnabled', label: 'Remove spam enabled', tip: 'Auto-delete messages from unverified users that contain dps.report or wingman links.' },
   { key: 'autoSubmitToWingman', label: 'Auto-submit logs to Wingman', tip: 'Automatically forward processed dps.report logs to gw2wingman for import.' },

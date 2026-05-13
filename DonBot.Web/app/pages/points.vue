@@ -4,18 +4,8 @@
     <ProgressSpinner v-if="pending" />
     <div v-else>
       <div class="stat-grid" style="margin-bottom: 1.5rem;">
-        <Card class="stat-card">
-          <template #content>
-            <div class="stat-label">Available Points</div>
-            <div class="stat-value">{{ pointsData?.availablePoints ?? 0 }}</div>
-          </template>
-        </Card>
-        <Card class="stat-card">
-          <template #content>
-            <div class="stat-label">Total Earned</div>
-            <div class="stat-value">{{ pointsData?.points ?? 0 }}</div>
-          </template>
-        </Card>
+        <StatCard label="Available Points" :value="pointsData?.availablePoints ?? 0" />
+        <StatCard label="Total Earned" :value="pointsData?.points ?? 0" />
       </div>
       <h2 style="margin-bottom: 1rem;">Active Raffles</h2>
       <Message v-if="!raffleData?.raffles?.length" severity="secondary" :closable="false">

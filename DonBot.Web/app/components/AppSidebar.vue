@@ -59,6 +59,14 @@ const { data: adminGuilds } = useAsyncData(
   { watch: [user] }
 )
 
+// Warm the live-raid guilds cache server-side so the first click is fast.
+// Fire-and-forget; failures are silent and the page handles its own loading.
+watch(user, (u) => {
+  if (u) {
+    void (api('/api/live-raid/guilds') as Promise<unknown>).catch(() => {})
+  }
+}, { immediate: true })
+
 const hasPoints = computed(() => (pointsData.value?.points ?? 0) > 0)
 const hasAdminGuilds = computed(() => (adminGuilds.value?.length ?? 0) > 0)
 

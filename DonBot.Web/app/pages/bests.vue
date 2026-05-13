@@ -10,7 +10,7 @@
       </TabList>
 
       <TabPanel v-if="bests.pve" value="pve">
-        <h2 class="section-title">Stats</h2>
+        <SectionTitle>Stats</SectionTitle>
         <div class="bests-grid">
           <BestCard label="Damage"              :entry="bests.pve.damage"              :fmt="n => n.toLocaleString()" />
           <BestCard label="Best DPS"            :entry="bests.pve.damagePerSecond"     :fmt="n => n.toLocaleString() + '/s'" />
@@ -26,7 +26,7 @@
 
         <template v-if="bests.bestTimes?.length">
           <template v-for="group in bestTimeGroups" :key="group.label">
-            <h2 class="section-title">{{ group.label }}</h2>
+            <SectionTitle>{{ group.label }}</SectionTitle>
             <div class="bests-grid">
               <Card class="stat-card total-card">
                 <template #content>
@@ -60,7 +60,7 @@
       </TabPanel>
 
       <TabPanel v-if="bests.wvw" value="wvw">
-        <h2 class="section-title">Stats</h2>
+        <SectionTitle>Stats</SectionTitle>
         <div class="bests-grid">
           <BestCard label="Damage"                  :entry="bests.wvw.damage"                   :fmt="n => n.toLocaleString()" />
           <BestCard label="Best DPS"               :entry="bests.wvw.damagePerSecond"          :fmt="n => n.toLocaleString() + '/s'" />
@@ -88,6 +88,8 @@
 </template>
 
 <script setup lang="ts">
+import { formatDuration, groupByFightType } from '~/composables/useFightTypes'
+
 definePageMeta({ middleware: 'auth' })
 
 const api = useApi()
@@ -96,24 +98,9 @@ const { data: bests, pending } = await useAsyncData('bests', () => api('/api/sta
 const bestTimeGroups = computed(() =>
   groupByFightType<any>((bests.value as any)?.bestTimes ?? [])
 )
-
-const formatDuration = (ms: number) => {
-  const s = Math.floor(ms / 1000)
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
-}
 </script>
 
 <style scoped>
-.section-title {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--p-text-muted-color);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 1.5rem 0 0.75rem;
-  display: block;
-}
-
 .total-card {
   border-color: rgba(99, 179, 237, 0.5) !important;
   background: rgba(99, 179, 237, 0.06) !important;

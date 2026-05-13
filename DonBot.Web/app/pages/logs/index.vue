@@ -5,7 +5,6 @@
       <Button icon="pi pi-upload" label="Upload" severity="secondary" size="small" style="margin-left: auto;" @click="navigateTo('/logs/upload')" />
     </div>
 
-    <!-- Quick access buttons -->
     <div class="quick-buttons">
       <div v-for="cat in quickCategories" :key="cat.label" class="quick-row">
         <span class="quick-label">{{ cat.label }}</span>
@@ -48,20 +47,19 @@
       />
     </div>
     <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center;">
-      <div style="display: flex; gap: 0.4rem;">
-        <Button size="small" label="All" :severity="successFilter === 'all' ? 'primary' : 'secondary'" @click="successFilter = 'all'; onFilterChange()" />
-        <Button size="small" label="Kills" :severity="successFilter === 'kills' ? 'success' : 'secondary'" @click="successFilter = 'kills'; onFilterChange()" />
-        <Button size="small" label="Wipes" :severity="successFilter === 'wipes' ? 'danger' : 'secondary'" @click="successFilter = 'wipes'; onFilterChange()" />
-      </div>
-      <div style="display: flex; gap: 0.4rem;">
-        <Button size="small" label="All modes" :severity="difficultyFilter === null ? 'primary' : 'secondary'" @click="difficultyFilter = null; onFilterChange()" />
-        <Button size="small" label="NM" :severity="difficultyFilter === 0 ? 'primary' : 'secondary'" @click="difficultyFilter = 0; onFilterChange()" />
-        <Button size="small" label="CM" :severity="difficultyFilter === 1 ? 'primary' : 'secondary'" @click="difficultyFilter = 1; onFilterChange()" />
-        <Button size="small" label="LCM" :severity="difficultyFilter === 2 ? 'primary' : 'secondary'" @click="difficultyFilter = 2; onFilterChange()" />
-      </div>
+      <FilterButtonGroup
+        :options="successFilterOptions"
+        :model-value="successFilter"
+        @update:model-value="successFilter = $event; onFilterChange()"
+      />
+      <FilterButtonGroup
+        :options="difficultyFilterOptions"
+        :model-value="difficultyFilter"
+        @update:model-value="difficultyFilter = $event; onFilterChange()"
+      />
       <Button size="small" :label="categoryMode ? 'Date Order' : 'By Category'" :icon="categoryMode ? 'pi pi-clock' : 'pi pi-th-large'" :severity="categoryMode ? 'primary' : 'secondary'" style="margin-left: auto;" @click="toggleCategoryMode" />
     </div>
-    <!-- Category grouped view -->
+
     <template v-if="categoryMode">
       <ProgressSpinner v-if="categoryLoading" />
       <template v-else>
@@ -115,7 +113,6 @@
       </template>
     </template>
 
-    <!-- Normal paginated view -->
     <template v-else>
       <ProgressSpinner v-if="pending && !logs.length" />
       <DataTable
@@ -181,7 +178,8 @@
 </template>
 
 <script setup lang="ts">
-import { fightName, fightTypeGroupedOptions, groupBySuperCategory } from '~/composables/useFightTypes'
+import { fightName, fightTypeGroupedOptions, groupBySuperCategory, formatDuration } from '~/composables/useFightTypes'
+import { successFilterOptions, difficultyFilterOptions, type SuccessFilter, type DifficultyFilter } from '~/composables/useLogFilters'
 import CollapsibleSection from '~/components/CollapsibleSection.vue'
 
 definePageMeta({ middleware: 'auth' })
@@ -201,8 +199,8 @@ const selectedFightTypes = ref<number[]>(
 const selectedCharacters = ref<string[]>(
   route.query.characters ? String(route.query.characters).split(',') : []
 )
-const successFilter = ref<'all' | 'kills' | 'wipes'>('all')
-const difficultyFilter = ref<number | null>(null)
+const successFilter = ref<SuccessFilter>('all')
+const difficultyFilter = ref<DifficultyFilter>(null)
 
 const STRIKE_TYPES = [27, 28, 29, 30, 31, 32, 33, 47, 48, 49, 50, 51]
 const RAID_TYPES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 44, 45, 46, 53, 55]
@@ -369,11 +367,6 @@ const handleSelect = (shiftKey: boolean, row: any) => {
 
 const onCheckboxClick = (e: MouseEvent, row: any) => {
   handleSelect(e.shiftKey, row)
-}
-
-const formatDuration = (ms: number) => {
-  const s = Math.floor(ms / 1000)
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
 const goToAggregate = () => {

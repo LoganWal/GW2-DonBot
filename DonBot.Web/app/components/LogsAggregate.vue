@@ -4,39 +4,26 @@
 
     <template v-else-if="result">
       <div v-if="displayResult" style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; align-items: stretch;">
-        <Card class="stat-card">
-          <template #content><div class="stat-label">Logs</div><div v-fit-text class="stat-value">{{ displayResult.totalLogs }}</div></template>
-        </Card>
-        <Card class="stat-card">
-          <template #content><div class="stat-label">Fight Time</div><div v-fit-text class="stat-value">{{ formatDuration(displayResult.totalDurationMs) }}</div></template>
-        </Card>
-        <Card v-if="displayResult.sessionDurationMs" class="stat-card">
-          <template #content><div class="stat-label">Total Time</div><div v-fit-text class="stat-value">{{ formatDuration(displayResult.sessionDurationMs) }}</div></template>
-        </Card>
-        <Card v-if="displayResult.sessionDurationMs && displayResult.sessionDurationMs > displayResult.totalDurationMs" class="stat-card">
-          <template #content><div class="stat-label">Downtime</div><div v-fit-text class="stat-value">{{ formatDuration(displayResult.sessionDurationMs - displayResult.totalDurationMs) }}</div></template>
-        </Card>
-        <Card class="stat-card">
-          <template #content><div class="stat-label">Type</div><div v-fit-text class="stat-value">{{ displayResult.type === 'wvw' ? 'WvW' : 'PvE' }}</div></template>
-        </Card>
-        <Card class="stat-card">
-          <template #content><div class="stat-label">Players</div><div v-fit-text class="stat-value">{{ displayResult.players.length }}</div></template>
-        </Card>
+        <StatCard label="Logs" :value="displayResult.totalLogs" />
+        <StatCard label="Fight Time" :value="formatDuration(displayResult.totalDurationMs, true)" />
+        <StatCard v-if="displayResult.sessionDurationMs" label="Total Time" :value="formatDuration(displayResult.sessionDurationMs, true)" />
+        <StatCard v-if="displayResult.sessionDurationMs && displayResult.sessionDurationMs > displayResult.totalDurationMs" label="Downtime" :value="formatDuration(displayResult.sessionDurationMs - displayResult.totalDurationMs, true)" />
+        <StatCard label="Type" :value="displayResult.type === 'wvw' ? 'WvW' : 'PvE'" />
+        <StatCard label="Players" :value="displayResult.players.length" />
         <ProgressSpinner v-if="filterPending" style="width: 2rem; height: 2rem;" />
       </div>
 
       <div v-if="result.type !== 'wvw'" style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.75rem; align-items: center;">
-        <div style="display: flex; gap: 0.4rem;">
-          <Button size="small" label="All" :severity="aggSuccessFilter === 'all' ? 'primary' : 'secondary'" @click="aggSuccessFilter = 'all'" />
-          <Button size="small" label="Kills" :severity="aggSuccessFilter === 'kills' ? 'success' : 'secondary'" @click="aggSuccessFilter = 'kills'" />
-          <Button size="small" label="Wipes" :severity="aggSuccessFilter === 'wipes' ? 'danger' : 'secondary'" @click="aggSuccessFilter = 'wipes'" />
-        </div>
-        <div style="display: flex; gap: 0.4rem;">
-          <Button size="small" label="All modes" :severity="aggDifficultyFilter === null ? 'primary' : 'secondary'" @click="aggDifficultyFilter = null" />
-          <Button size="small" label="NM" :severity="aggDifficultyFilter === 0 ? 'primary' : 'secondary'" @click="aggDifficultyFilter = 0" />
-          <Button size="small" label="CM" :severity="aggDifficultyFilter === 1 ? 'primary' : 'secondary'" @click="aggDifficultyFilter = 1" />
-          <Button size="small" label="LCM" :severity="aggDifficultyFilter === 2 ? 'primary' : 'secondary'" @click="aggDifficultyFilter = 2" />
-        </div>
+        <FilterButtonGroup
+          :options="successFilterOptions"
+          :model-value="aggSuccessFilter"
+          @update:model-value="aggSuccessFilter = $event"
+        />
+        <FilterButtonGroup
+          :options="difficultyFilterOptions"
+          :model-value="aggDifficultyFilter"
+          @update:model-value="aggDifficultyFilter = $event"
+        />
       </div>
 
       <Tabs value="logs">
@@ -331,7 +318,8 @@
 </template>
 
 <script setup lang="ts">
-import { fightName, groupByFightType } from '~/composables/useFightTypes'
+import { fightName, groupByFightType, formatDuration } from '~/composables/useFightTypes'
+import { successFilterOptions, difficultyFilterOptions, type SuccessFilter, type DifficultyFilter } from '~/composables/useLogFilters'
 import CollapsibleSection from '~/components/CollapsibleSection.vue'
 
 type AggregateResult = any
@@ -351,8 +339,8 @@ const result = ref<AggregateResult | null>(null)
 const displayResult = ref<AggregateResult | null>(null)
 const pending = ref(true)
 const filterPending = ref(false)
-const aggSuccessFilter = ref<'all' | 'kills' | 'wipes'>('all')
-const aggDifficultyFilter = ref<number | null>(null)
+const aggSuccessFilter = ref<SuccessFilter>('all')
+const aggDifficultyFilter = ref<DifficultyFilter>(null)
 
 const loadInitial = async () => {
   pending.value = true
@@ -431,17 +419,7 @@ const logRowStyle = (row: any) => {
   if (props.selectedLogId && row.fightLogId === props.selectedLogId) {
     return { background: 'color-mix(in srgb, var(--p-primary-color) 12%, transparent)' }
   }
-  return null
-}
-
-const formatDuration = (ms: number) => {
-  const s = Math.floor(ms / 1000)
-  const m = Math.floor(s / 60)
-  const h = Math.floor(m / 60)
-  if (h > 0) {
-    return `${h}h ${m % 60}m ${s % 60}s`
-  }
-  return `${m}m ${s % 60}s`
+  return undefined
 }
 
 const PALETTE = [
@@ -572,21 +550,6 @@ defineExpose({ reload: loadInitial })
 </script>
 
 <style scoped>
-.stat-card {
-  container-type: inline-size;
-  min-width: 120px;
-}
-.stat-label {
-  font-size: 0.75rem;
-  color: var(--p-text-muted-color);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.25rem;
-}
-.stat-value {
-  font-size: 1.5rem;
-  font-weight: 600;
-}
 .mb-section {
   margin-bottom: 0.5rem;
 }

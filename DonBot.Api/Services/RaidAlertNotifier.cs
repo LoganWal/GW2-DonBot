@@ -23,6 +23,7 @@ public sealed class RaidNotifier(
     IEntityService entityService,
     IMessageGenerationService messageGeneration,
     DiscordRestClientProvider clientProvider,
+    IConfiguration configuration,
     ILogger<RaidNotifier> logger) : IRaidNotifier
 {
     public async Task PostRaidStartedAsync(long guildId, CancellationToken ct = default)
@@ -42,7 +43,17 @@ public sealed class RaidNotifier(
             }
 
             var embed = await messageGeneration.GenerateRaidAlert(guildId);
-            await textChannel.SendMessageAsync(text: "@everyone", embeds: [embed]);
+
+            MessageComponent? components = null;
+            var webAppBaseUrl = configuration["WebApp:BaseUrl"];
+            if (!string.IsNullOrEmpty(webAppBaseUrl))
+            {
+                components = new ComponentBuilder()
+                    .WithButton("View Live Raid", style: ButtonStyle.Link, url: $"{webAppBaseUrl}/live-raid")
+                    .Build();
+            }
+
+            await textChannel.SendMessageAsync(text: "@everyone", embeds: [embed], components: components);
         }
         catch (Exception ex)
         {

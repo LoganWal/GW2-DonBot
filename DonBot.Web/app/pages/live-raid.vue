@@ -68,7 +68,7 @@
 
     <template v-else>
       <section class="section">
-        <h2 class="section-title">Last Log</h2>
+        <SectionTitle style="margin: 0 0 0.75rem">Last Log</SectionTitle>
         <ProgressSpinner v-if="logPending" />
         <LogDetail
           v-else-if="selectedLog"
@@ -80,7 +80,7 @@
       </section>
 
       <section class="section">
-        <h2 class="section-title">Aggregate</h2>
+        <SectionTitle style="margin: 0 0 0.75rem">Aggregate</SectionTitle>
         <LogsAggregate
           :fetch-aggregate="fetchAggregate"
           :reload-key="reloadKey"
@@ -99,7 +99,7 @@ import LogsAggregate from '~/components/LogsAggregate.vue'
 
 definePageMeta({ middleware: 'auth' })
 
-usePageTitle('Live Raid')
+usePageTitle()
 
 const api = useApi()
 const apiBase = useRuntimeConfig().public.apiBase as string
@@ -253,12 +253,5 @@ const formatRelative = (iso: string | null) => {
   margin-top: 2rem;
 }
 
-.section-title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  margin: 0 0 0.75rem 0;
-  color: var(--p-text-color);
-  border-bottom: 1px solid var(--p-surface-border);
-  padding-bottom: 0.5rem;
-}
+
 </style>

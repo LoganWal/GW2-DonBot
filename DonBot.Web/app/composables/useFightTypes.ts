@@ -92,3 +92,16 @@ export function groupBySuperCategory<T extends { fightType: number }>(
     }))
     .filter(sc => sc.groups.length > 0)
 }
+
+export function formatDuration(ms: number, long = false): string {
+  const s = Math.floor(ms / 1000)
+  if (long) {
+    const m = Math.floor(s / 60)
+    const h = Math.floor(m / 60)
+    if (h > 0) {
+      return `${h}h ${m % 60}m ${s % 60}s`
+    }
+    return `${m}m ${s % 60}s`
+  }
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}

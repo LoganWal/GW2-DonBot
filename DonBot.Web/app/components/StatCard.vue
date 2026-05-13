@@ -10,7 +10,7 @@
         <div class="stat-label">{{ label }}</div>
         <i v-if="to" class="pi pi-arrow-up-right stat-card-arrow" />
       </div>
-      <div v-fit-text class="stat-value">{{ formattedValue }}</div>
+      <div class="stat-value">{{ formattedValue }}</div>
       <div v-if="sub" class="stat-sub">{{ sub }}</div>
       <slot />
     </template>
@@ -33,7 +33,7 @@ const formattedValue = computed(() => {
   if (v == null) {
     return '0'
   }
-  return typeof v === 'number' ? v.toLocaleString() : v
+  return typeof v === 'number' ? formatCompact(v) : v
 })
 
 const onClick = () => {

@@ -4,7 +4,7 @@
       <div class="stat-label">{{ label }}</div>
       <div v-for="row in rows" :key="row.side" class="agg-row">
         <span class="agg-side">{{ row.side }}</span>
-        <span v-fit-text class="stat-value">{{ formatted(row.value) }}</span>
+        <span class="stat-value">{{ formatted(row.value) }}</span>
       </div>
     </template>
   </Card>
@@ -22,7 +22,7 @@ defineProps<{
 }>()
 
 const formatted = (v: string | number) =>
-  typeof v === 'number' ? v.toLocaleString() : v
+  typeof v === 'number' ? formatCompact(v) : v
 </script>
 
 <style scoped>

@@ -12,14 +12,14 @@
       <TabPanel v-if="bests.pve" value="pve">
         <SectionTitle>Stats</SectionTitle>
         <div class="bests-grid">
-          <BestCard label="Damage"              :entry="bests.pve.damage"              :fmt="n => n.toLocaleString()" />
-          <BestCard label="Best DPS"            :entry="bests.pve.damagePerSecond"     :fmt="n => n.toLocaleString() + '/s'" />
-          <BestCard label="Cleave"              :entry="bests.pve.cleave"              :fmt="n => n.toLocaleString()" />
-          <BestCard label="Best Cleave DPS"     :entry="bests.pve.cleavePerSecond"     :fmt="n => n.toLocaleString() + '/s'" />
-          <BestCard label="Healing"             :entry="bests.pve.healing"             :fmt="n => n.toLocaleString()" />
-          <BestCard label="Best HPS"            :entry="bests.pve.healingPerSecond"    :fmt="n => n.toLocaleString() + '/s'" />
-          <BestCard label="Cleanses"            :entry="bests.pve.cleanses"            :fmt="n => n.toLocaleString()" />
-          <BestCard label="Barrier Generated"   :entry="bests.pve.barrierGenerated"    :fmt="n => n.toLocaleString()" />
+          <BestCard label="Damage"              :entry="bests.pve.damage"              :fmt="n => formatCompact(n)" />
+          <BestCard label="Best DPS"            :entry="bests.pve.damagePerSecond"     :fmt="n => formatCompact(n) + '/s'" />
+          <BestCard label="Cleave"              :entry="bests.pve.cleave"              :fmt="n => formatCompact(n)" />
+          <BestCard label="Best Cleave DPS"     :entry="bests.pve.cleavePerSecond"     :fmt="n => formatCompact(n) + '/s'" />
+          <BestCard label="Healing"             :entry="bests.pve.healing"             :fmt="n => formatCompact(n)" />
+          <BestCard label="Best HPS"            :entry="bests.pve.healingPerSecond"    :fmt="n => formatCompact(n) + '/s'" />
+          <BestCard label="Cleanses"            :entry="bests.pve.cleanses"            :fmt="n => formatCompact(n)" />
+          <BestCard label="Barrier Generated"   :entry="bests.pve.barrierGenerated"    :fmt="n => formatCompact(n)" />
         </div>
 
         <template v-if="bests.bestTimes?.length">
@@ -29,7 +29,7 @@
               <Card class="stat-card total-card">
                 <template #content>
                   <div class="stat-label">Total</div>
-                  <div v-fit-text class="stat-value">{{ formatDuration(group.items.filter(t => t.fightType !== 42).reduce((sum, t) => sum + t.durationMs, 0)) }}</div>
+                  <div class="stat-value">{{ formatDuration(group.items.filter(t => t.fightType !== 42).reduce((sum, t) => sum + t.durationMs, 0)) }}</div>
                 </template>
               </Card>
               <StatCard
@@ -41,7 +41,7 @@
                 :value="formatDuration(t.durationMs)"
                 :to="`/logs/${t.fightLogId}`"
               >
-                <div class="dps-row">{{ t.playerDps.toLocaleString() }} DPS</div>
+                <div class="dps-row">{{ formatCompact(t.playerDps) }} DPS</div>
                 <div class="best-meta">
                   <span>{{ new Date(t.fightDate).toLocaleDateString() }}</span>
                 </div>
@@ -54,29 +54,29 @@
       <TabPanel v-if="bests.wvw" value="wvw">
         <SectionTitle>Damage</SectionTitle>
         <div class="bests-grid">
-          <BestCard label="Damage"               :entry="bests.wvw.damage"                    :fmt="n => n.toLocaleString()" />
-          <BestCard label="Best DPS"             :entry="bests.wvw.damagePerSecond"           :fmt="n => n.toLocaleString() + '/s'" />
+          <BestCard label="Damage"               :entry="bests.wvw.damage"                    :fmt="n => formatCompact(n)" />
+          <BestCard label="Best DPS"             :entry="bests.wvw.damagePerSecond"           :fmt="n => formatCompact(n) + '/s'" />
         </div>
 
         <SectionTitle>Kills &amp; Downs</SectionTitle>
         <div class="bests-grid">
-          <BestCard label="Kills"                :entry="bests.wvw.kills"                     :fmt="n => n.toLocaleString()" />
-          <BestCard label="Best Kills/s"         :entry="bests.wvw.killsPerSecond"            :fmt="n => n.toLocaleString() + '/s'" />
-          <BestCard label="Downs"                :entry="bests.wvw.downs"                     :fmt="n => n.toLocaleString()" />
-          <BestCard label="Best Downs/s"         :entry="bests.wvw.downsPerSecond"            :fmt="n => n.toLocaleString() + '/s'" />
-          <BestCard label="Down Contribution"    :entry="bests.wvw.downContribution"          :fmt="n => n.toLocaleString()" />
-          <BestCard label="Best Down Contrib/s"  :entry="bests.wvw.downContributionPerSecond" :fmt="n => n.toLocaleString() + '/s'" />
+          <BestCard label="Kills"                :entry="bests.wvw.kills"                     :fmt="n => formatCompact(n)" />
+          <BestCard label="Best Kills/s"         :entry="bests.wvw.killsPerSecond"            :fmt="n => formatCompact(n) + '/s'" />
+          <BestCard label="Downs"                :entry="bests.wvw.downs"                     :fmt="n => formatCompact(n)" />
+          <BestCard label="Best Downs/s"         :entry="bests.wvw.downsPerSecond"            :fmt="n => formatCompact(n) + '/s'" />
+          <BestCard label="Down Contribution"    :entry="bests.wvw.downContribution"          :fmt="n => formatCompact(n)" />
+          <BestCard label="Best Down Contrib/s"  :entry="bests.wvw.downContributionPerSecond" :fmt="n => formatCompact(n) + '/s'" />
         </div>
 
         <SectionTitle>Support</SectionTitle>
         <div class="bests-grid">
-          <BestCard label="Cleanses"             :entry="bests.wvw.cleanses"                  :fmt="n => n.toLocaleString()" />
-          <BestCard label="Best Cleanses/s"      :entry="bests.wvw.cleansesPerSecond"         :fmt="n => n.toLocaleString() + '/s'" />
-          <BestCard label="Strips"               :entry="bests.wvw.strips"                    :fmt="n => n.toLocaleString()" />
-          <BestCard label="Best Strips/s"        :entry="bests.wvw.stripsPerSecond"           :fmt="n => n.toLocaleString() + '/s'" />
-          <BestCard label="Healing"              :entry="bests.wvw.healing"                   :fmt="n => n.toLocaleString()" />
-          <BestCard label="Best HPS"             :entry="bests.wvw.healingPerSecond"          :fmt="n => n.toLocaleString() + '/s'" />
-          <BestCard label="Barrier Generated"    :entry="bests.wvw.barrierGenerated"          :fmt="n => n.toLocaleString()" />
+          <BestCard label="Cleanses"             :entry="bests.wvw.cleanses"                  :fmt="n => formatCompact(n)" />
+          <BestCard label="Best Cleanses/s"      :entry="bests.wvw.cleansesPerSecond"         :fmt="n => formatCompact(n) + '/s'" />
+          <BestCard label="Strips"               :entry="bests.wvw.strips"                    :fmt="n => formatCompact(n)" />
+          <BestCard label="Best Strips/s"        :entry="bests.wvw.stripsPerSecond"           :fmt="n => formatCompact(n) + '/s'" />
+          <BestCard label="Healing"              :entry="bests.wvw.healing"                   :fmt="n => formatCompact(n)" />
+          <BestCard label="Best HPS"             :entry="bests.wvw.healingPerSecond"          :fmt="n => formatCompact(n) + '/s'" />
+          <BestCard label="Barrier Generated"    :entry="bests.wvw.barrierGenerated"          :fmt="n => formatCompact(n)" />
         </div>
 
         <SectionTitle>Boons</SectionTitle>

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Security.Claims;
 using System.Text.Json;
 using DonBot.Api.Endpoints;
 using DonBot.Api.Services;
@@ -14,15 +15,25 @@ public class LiveRaidEndpointsIntegrationTests
 {
     private const long TestDiscordId = 5555L;
 
-    private sealed class FakeMembership : ILiveRaidMembership
+    private sealed class FakeUserGuilds : IUserGuildsService
     {
         public HashSet<long> Allowed { get; } = new();
 
-        public Task<bool> IsMemberAsync(ulong discordId, long guildId, CancellationToken ct = default)
-            => Task.FromResult(Allowed.Contains(guildId));
+        private IReadOnlyList<DiscordUserGuild> Build() => Allowed
+            .Select(id => new DiscordUserGuild((ulong)id, $"Guild{id}", null, false, 0))
+            .ToList();
 
-        public Task<HashSet<long>> FilterMemberGuildsAsync(ulong discordId, IReadOnlyCollection<long> candidateGuildIds, CancellationToken ct = default)
-            => Task.FromResult(candidateGuildIds.Where(Allowed.Contains).ToHashSet());
+        public Task<IReadOnlyList<DiscordUserGuild>?> GetUserGuildsAsync(ulong discordId, string accessToken, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<DiscordUserGuild>?>(Build());
+
+        public Task<IReadOnlyList<DiscordUserGuild>?> GetForPrincipalAsync(ClaimsPrincipal user, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<DiscordUserGuild>?>(Build());
+
+        public Task<bool> IsMemberAsync(ClaimsPrincipal user, ulong guildId, CancellationToken ct = default)
+            => Task.FromResult(Allowed.Contains((long)guildId));
+
+        public Task<bool> HasAdministratorAsync(ClaimsPrincipal user, ulong guildId, CancellationToken ct = default)
+            => Task.FromResult(Allowed.Contains((long)guildId));
     }
 
     private sealed class NoopRaidNotifier : IRaidNotifier
@@ -46,7 +57,7 @@ public class LiveRaidEndpointsIntegrationTests
     private sealed class TestHost : IDisposable
     {
         public MinimalApiHost Inner { get; }
-        public FakeMembership Membership { get; } = new();
+        public FakeUserGuilds Membership { get; } = new();
         public NoopRaidNotifier RaidNotifier { get; } = new();
 
         public TestHost()
@@ -58,7 +69,7 @@ public class LiveRaidEndpointsIntegrationTests
                 services =>
                 {
                     services.AddScoped<IRaidLifecycleService, RaidLifecycleService>();
-                    services.AddSingleton<ILiveRaidMembership>(membership);
+                    services.AddSingleton<IUserGuildsService>(membership);
                     services.AddSingleton<IRaidNotifier>(notifier);
                 });
             Inner.AuthenticateAs(TestDiscordId);

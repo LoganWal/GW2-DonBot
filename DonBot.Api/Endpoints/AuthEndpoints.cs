@@ -25,7 +25,7 @@ public static class AuthEndpoints
         var clientId = secretService.FetchDiscordClientId();
         var redirectUri = configuration["Discord:RedirectUri"] ?? "http://localhost:5001/auth/discord/callback";
         var encodedRedirectUri = HttpUtility.UrlEncode(redirectUri);
-        var url = $"https://discord.com/api/oauth2/authorize?client_id={clientId}&redirect_uri={encodedRedirectUri}&response_type=code&scope=identify";
+        var url = $"https://discord.com/api/oauth2/authorize?client_id={clientId}&redirect_uri={encodedRedirectUri}&response_type=code&scope=identify+guilds";
         return Results.Redirect(url);
     }
 
@@ -95,7 +95,8 @@ public static class AuthEndpoints
         var jwtToken = new JwtSecurityToken(
             claims: [
                 new Claim("discord_id", discordId),
-                new Claim("username", username)
+                new Claim("username", username),
+                new Claim("discord_access_token", accessToken)
             ],
             expires: DateTime.UtcNow.AddDays(7),
             signingCredentials: credentials);

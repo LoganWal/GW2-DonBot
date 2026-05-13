@@ -4,11 +4,12 @@
       <h1 class="page-title" style="margin: 0;">Live Raid</h1>
       <Select
         v-model="selectedGuildIdStr"
-        :options="guildOptions"
+        :options="guildOptions ?? []"
         option-label="guildName"
         option-value="guildId"
-        placeholder="Select a server"
+        :placeholder="guildsPending ? 'Loading servers...' : 'Select a server'"
         :loading="guildsPending"
+        :disabled="guildsPending"
         style="min-width: 260px;"
       />
       <Tag v-if="report?.isOpen" severity="success" value="LIVE" />
@@ -18,7 +19,14 @@
       </span>
       <div style="margin-left: auto; display: flex; gap: 0.5rem;">
         <Button
-          v-if="!report || !report.isOpen"
+          v-if="guildsPending || reportPending"
+          icon="pi pi-spinner pi-spin"
+          label="Loading..."
+          severity="secondary"
+          disabled
+        />
+        <Button
+          v-else-if="!report || !report.isOpen"
           icon="pi pi-play"
           label="Start Raid"
           severity="success"
@@ -104,7 +112,7 @@ usePageTitle()
 const api = useApi()
 const apiBase = useRuntimeConfig().public.apiBase as string
 
-const { data: guildOptions, pending: guildsPending } = await useAsyncData(
+const { data: guildOptions, pending: guildsPending } = useLazyAsyncData(
   'live-raid-guilds',
   () => $fetch<{ guildId: string; guildName: string }[]>(`${apiBase}/api/live-raid/guilds`, { credentials: 'include' }),
   { default: () => [] }

@@ -50,7 +50,7 @@ public static class ApiServiceRegister
         services.AddSingleton<LogUploadPipelineService>();
         services.AddSingleton<TusFileMapping>();
         services.AddSingleton<DiscordRestClientProvider>();
-        services.AddSingleton<ILiveRaidMembership, LiveRaidMembership>();
+        services.AddSingleton<IUserGuildsService, UserGuildsService>();
         services.AddMemoryCache();
         services.AddHostedService(sp => sp.GetRequiredService<LogUploadPipelineService>());
 

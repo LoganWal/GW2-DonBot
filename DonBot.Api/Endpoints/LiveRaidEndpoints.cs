@@ -5,6 +5,7 @@ using DonBot.Core.Services.RaidLifecycle;
 using DonBot.Models.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace DonBot.Api.Endpoints;
 
@@ -23,51 +24,54 @@ public static class LiveRaidEndpoints
         group.MapPost("/{guildId:long}/stop", StopRaid);
     }
 
+    private record GuildListItem(string guildId, string guildName);
+
+    private static readonly TimeSpan GuildListCacheTtl = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan GuildListErrorTtl = TimeSpan.FromSeconds(5);
+
     private static async Task<IResult> ListGuilds(
         ClaimsPrincipal user,
-        [FromServices] ILiveRaidMembership membership,
-        [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory)
+        [FromServices] IUserGuildsService userGuilds,
+        [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory,
+        [FromServices] IMemoryCache cache)
     {
-        if (!TryGetDiscordId(user, out var discordId))
+        var discordId = user.FindFirst("discord_id")?.Value;
+        if (string.IsNullOrEmpty(discordId))
         {
             return Results.Unauthorized();
         }
 
-        await using var ctx = await dbContextFactory.CreateDbContextAsync();
-        var candidateGuildIds = await ctx.FightsReport
-            .Where(r => r.GuildId > 0)
-            .Select(r => r.GuildId)
-            .Distinct()
-            .ToListAsync();
-
-        if (candidateGuildIds.Count == 0)
+        var cacheKey = $"live-raid:guilds-response:{discordId}";
+        var result = await cache.GetOrCoalesceAsync(cacheKey, GuildListCacheTtl, GuildListErrorTtl, async () =>
         {
-            return Results.Ok(Array.Empty<object>());
-        }
+            var userGuildList = await userGuilds.GetForPrincipalAsync(user);
+            if (userGuildList is null)
+            {
+                return new List<GuildListItem>();
+            }
 
-        var memberGuildIds = await membership.FilterMemberGuildsAsync(discordId, candidateGuildIds);
-        if (memberGuildIds.Count == 0)
-        {
-            return Results.Ok(Array.Empty<object>());
-        }
+            var userGuildIds = userGuildList.Select(g => (long)g.Id).ToHashSet();
 
-        var guilds = await ctx.Guild
-            .Where(g => memberGuildIds.Contains(g.GuildId))
-            .OrderBy(g => g.GuildName)
-            .Select(g => new { guildId = g.GuildId.ToString(), guildName = g.GuildName ?? g.GuildId.ToString() })
-            .ToListAsync();
+            await using var ctx = await dbContextFactory.CreateDbContextAsync();
+            return await ctx.Guild
+                .Where(g => userGuildIds.Contains(g.GuildId)
+                    && ctx.FightsReport.Any(r => r.GuildId == g.GuildId && r.GuildId > 0))
+                .OrderBy(g => g.GuildName)
+                .Select(g => new GuildListItem(g.GuildId.ToString(), g.GuildName ?? g.GuildId.ToString()))
+                .ToListAsync();
+        });
 
-        return Results.Ok(guilds);
+        return Results.Ok(result);
     }
 
     private static async Task<IResult> GetLatestRaid(
         long guildId,
         ClaimsPrincipal user,
-        [FromServices] ILiveRaidMembership membership,
+        [FromServices] IUserGuildsService userGuilds,
         [FromServices] IRaidLifecycleService raidLifecycle,
         [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory)
     {
-        if (await EnsureAuthorizedAsync(user, guildId, membership) is { } denied)
+        if (await EnsureAuthorizedAsync(user, guildId, userGuilds) is { } denied)
         {
             return denied;
         }
@@ -97,13 +101,13 @@ public static class LiveRaidEndpoints
     private static async Task<IResult> GetAggregate(
         long guildId,
         ClaimsPrincipal user,
-        [FromServices] ILiveRaidMembership membership,
+        [FromServices] IUserGuildsService userGuilds,
         [FromServices] IRaidLifecycleService raidLifecycle,
         [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory,
         HttpContext httpContext,
         string? logIds = null)
     {
-        if (await EnsureAuthorizedAsync(user, guildId, membership) is { } denied)
+        if (await EnsureAuthorizedAsync(user, guildId, userGuilds) is { } denied)
         {
             return denied;
         }
@@ -144,11 +148,11 @@ public static class LiveRaidEndpoints
         long guildId,
         long fightLogId,
         ClaimsPrincipal user,
-        [FromServices] ILiveRaidMembership membership,
+        [FromServices] IUserGuildsService userGuilds,
         [FromServices] IRaidLifecycleService raidLifecycle,
         [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory)
     {
-        if (await EnsureAuthorizedAsync(user, guildId, membership) is { } denied)
+        if (await EnsureAuthorizedAsync(user, guildId, userGuilds) is { } denied)
         {
             return denied;
         }
@@ -178,25 +182,19 @@ public static class LiveRaidEndpoints
     private static async Task StreamUpdates(
         long guildId,
         ClaimsPrincipal user,
-        [FromServices] ILiveRaidMembership membership,
+        [FromServices] IUserGuildsService userGuilds,
         [FromServices] IRaidLifecycleService raidLifecycle,
         [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory,
         [FromServices] IHostApplicationLifetime lifetime,
         HttpContext httpContext,
         CancellationToken ct)
     {
-        if (!TryGetDiscordId(user, out var discordId))
-        {
-            httpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            return;
-        }
-
         // Combine the request-aborted token with the app's stopping token so app shutdown
         // doesn't wait for Kestrel's drain timeout to tear down active SSE connections.
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, lifetime.ApplicationStopping);
         ct = linkedCts.Token;
 
-        if (!await membership.IsMemberAsync(discordId, guildId, ct))
+        if (!await userGuilds.IsMemberAsync(user, (ulong)guildId, ct))
         {
             httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
             return;
@@ -286,11 +284,11 @@ public static class LiveRaidEndpoints
     private static async Task<IResult> StartRaid(
         long guildId,
         ClaimsPrincipal user,
-        [FromServices] ILiveRaidMembership membership,
+        [FromServices] IUserGuildsService userGuilds,
         [FromServices] IRaidLifecycleService raidLifecycle,
         [FromServices] IRaidNotifier raidNotifier)
     {
-        if (await EnsureAuthorizedAsync(user, guildId, membership) is { } denied)
+        if (await EnsureAuthorizedAsync(user, guildId, userGuilds) is { } denied)
         {
             return denied;
         }
@@ -317,11 +315,11 @@ public static class LiveRaidEndpoints
     private static async Task<IResult> StopRaid(
         long guildId,
         ClaimsPrincipal user,
-        [FromServices] ILiveRaidMembership membership,
+        [FromServices] IUserGuildsService userGuilds,
         [FromServices] IRaidLifecycleService raidLifecycle,
         [FromServices] IRaidNotifier raidNotifier)
     {
-        if (await EnsureAuthorizedAsync(user, guildId, membership) is { } denied)
+        if (await EnsureAuthorizedAsync(user, guildId, userGuilds) is { } denied)
         {
             return denied;
         }
@@ -344,22 +342,10 @@ public static class LiveRaidEndpoints
         };
     }
 
-    private static bool TryGetDiscordId(ClaimsPrincipal user, out ulong discordId)
-    {
-        discordId = 0;
-        var raw = user.FindFirst("discord_id")?.Value;
-        return ulong.TryParse(raw, out discordId);
-    }
-
     private static async Task<IResult?> EnsureAuthorizedAsync(
-        ClaimsPrincipal user, long guildId, ILiveRaidMembership membership)
+        ClaimsPrincipal user, long guildId, IUserGuildsService userGuilds)
     {
-        if (!TryGetDiscordId(user, out var discordId))
-        {
-            return Results.Unauthorized();
-        }
-
-        return await membership.IsMemberAsync(discordId, guildId) ? null : Results.Forbid();
+        return await userGuilds.IsMemberAsync(user, (ulong)guildId) ? null : Results.Forbid();
     }
 
     private static async Task<List<long>> GetFightLogIdsInWindowAsync(
@@ -374,5 +360,4 @@ public static class LiveRaidEndpoints
             .Select(fl => fl.FightLogId)
             .ToListAsync(ct);
     }
-
 }

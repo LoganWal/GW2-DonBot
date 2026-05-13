@@ -301,8 +301,6 @@ public static class StatsEndpoints
         barrierGenerated = Best(logs, p => p.BarrierGenerated, meta),
         stabOnGroup = Best(logs, p => p.StabGenOnGroup, meta),
         stabOffGroup = Best(logs, p => p.StabGenOffGroup, meta),
-        quickness = Best(logs, p => p.QuicknessDuration, meta),
-        alacrity = Best(logs, p => p.AlacDuration, meta),
     };
 
     private static async Task<IResult> GetMyProgression(
@@ -456,8 +454,6 @@ public static class StatsEndpoints
         healing = Best(logs, p => p.Healing, meta),
         healingPerSecond = BestPerSecond(logs, p => p.Healing, meta),
         cleanses = Best(logs, p => p.Cleanses, meta),
-        quickness = Best(logs, p => p.QuicknessDuration, meta),
-        alacrity = Best(logs, p => p.AlacDuration, meta),
         barrierGenerated = Best(logs, p => p.BarrierGenerated, meta),
     };
 

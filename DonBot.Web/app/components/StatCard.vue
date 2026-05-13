@@ -12,6 +12,7 @@
       </div>
       <div v-fit-text class="stat-value">{{ formattedValue }}</div>
       <div v-if="sub" class="stat-sub">{{ sub }}</div>
+      <slot />
     </template>
   </Card>
 </template>

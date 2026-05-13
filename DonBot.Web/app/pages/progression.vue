@@ -72,15 +72,15 @@
         <StatCard v-if="!isWvW" label="Avg Quickness" :value="avgOf('quickness').toFixed(1) + '%'" />
       </div>
 
-      <Card style="margin-bottom: 1.5rem;">
-        <template #title>Boss Hp progress over Time</template>
+      <Card v-if="!isWvW" style="margin-bottom: 1.5rem;">
+        <template #title>Boss HP Over Time</template>
         <template #content>
           <Chart type="line" :data="bossHpChartData" :options="chartOptions" style="height: 300px;" />
         </template>
       </Card>
-      
+
       <Card style="margin-bottom: 1.5rem;">
-        <template #title>DPS over Time</template>
+        <template #title>DPS Over Time</template>
         <template #content>
           <Chart type="line" :data="dpsChartData" :options="chartOptions" style="height: 300px;" />
         </template>
@@ -278,7 +278,7 @@ const makeDataset = (label: string, field: string, r: number, g: number, b: numb
 
 const bossHpChartData = computed(() => ({
   labels: labels.value,
-  datasets: [makeDataset('Boss Hp', 'fightPercent', 219, 44, 67)],
+  datasets: [makeDataset('Boss HP', 'fightPercent', 219, 44, 67)],
 }))
 
 const dpsChartData = computed(() => ({

@@ -20,8 +20,6 @@
           <BestCard label="Best HPS"            :entry="bests.pve.healingPerSecond"    :fmt="n => n.toLocaleString() + '/s'" />
           <BestCard label="Cleanses"            :entry="bests.pve.cleanses"            :fmt="n => n.toLocaleString()" />
           <BestCard label="Barrier Generated"   :entry="bests.pve.barrierGenerated"    :fmt="n => n.toLocaleString()" />
-          <BestCard label="Quickness"           :entry="bests.pve.quickness"           :fmt="n => Number(n).toFixed(1) + '%'" />
-          <BestCard label="Alacrity"            :entry="bests.pve.alacrity"            :fmt="n => Number(n).toFixed(1) + '%'" />
         </div>
 
         <template v-if="bests.bestTimes?.length">
@@ -34,53 +32,57 @@
                   <div v-fit-text class="stat-value">{{ formatDuration(group.items.filter(t => t.fightType !== 42).reduce((sum, t) => sum + t.durationMs, 0)) }}</div>
                 </template>
               </Card>
-              <Card
+              <StatCard
                 v-for="t in group.items"
                 :key="t.fightType"
                 :title="t.fightType === 42 ? 'Not included in total' : undefined"
-                :class="['stat-card', t.fightType === 42 ? 'best-card excluded-card' : 'best-card']"
-                style="cursor: pointer;"
-                @click="navigateTo(`/logs/${t.fightLogId}`)"
+                :class="t.fightType === 42 ? 'best-card excluded-card' : 'best-card'"
+                :label="fightName(t.fightType)"
+                :value="formatDuration(t.durationMs)"
+                :to="`/logs/${t.fightLogId}`"
               >
-                <template #content>
-                  <div class="stat-label">{{ fightName(t.fightType) }}</div>
-                  <div v-fit-text class="stat-value">{{ formatDuration(t.durationMs) }}</div>
-                  <div style="font-size: 0.8rem; color: var(--p-text-muted-color); margin-top: 0.2rem;">
-                    {{ t.playerDps.toLocaleString() }} DPS
-                  </div>
-                  <div class="best-meta">
-                    <span>{{ new Date(t.fightDate).toLocaleDateString() }}</span>
-                    <span style="color: var(--p-primary-color);">View →</span>
-                  </div>
-                </template>
-              </Card>
+                <div class="dps-row">{{ t.playerDps.toLocaleString() }} DPS</div>
+                <div class="best-meta">
+                  <span>{{ new Date(t.fightDate).toLocaleDateString() }}</span>
+                </div>
+              </StatCard>
             </div>
           </template>
         </template>
       </TabPanel>
 
       <TabPanel v-if="bests.wvw" value="wvw">
-        <SectionTitle>Stats</SectionTitle>
+        <SectionTitle>Damage</SectionTitle>
         <div class="bests-grid">
-          <BestCard label="Damage"                  :entry="bests.wvw.damage"                   :fmt="n => n.toLocaleString()" />
-          <BestCard label="Best DPS"               :entry="bests.wvw.damagePerSecond"          :fmt="n => n.toLocaleString() + '/s'" />
-          <BestCard label="Kills"                  :entry="bests.wvw.kills"                    :fmt="n => n.toLocaleString()" />
-          <BestCard label="Best Kills/s"           :entry="bests.wvw.killsPerSecond"           :fmt="n => n.toLocaleString() + '/s'" />
-          <BestCard label="Downs"                  :entry="bests.wvw.downs"                    :fmt="n => n.toLocaleString()" />
-          <BestCard label="Best Downs/s"           :entry="bests.wvw.downsPerSecond"           :fmt="n => n.toLocaleString() + '/s'" />
-          <BestCard label="Down Contribution"      :entry="bests.wvw.downContribution"         :fmt="n => n.toLocaleString()" />
-          <BestCard label="Best Down Contrib/s"    :entry="bests.wvw.downContributionPerSecond" :fmt="n => n.toLocaleString() + '/s'" />
-          <BestCard label="Cleanses"               :entry="bests.wvw.cleanses"                 :fmt="n => n.toLocaleString()" />
-          <BestCard label="Best Cleanses/s"        :entry="bests.wvw.cleansesPerSecond"        :fmt="n => n.toLocaleString() + '/s'" />
-          <BestCard label="Strips"                 :entry="bests.wvw.strips"                   :fmt="n => n.toLocaleString()" />
-          <BestCard label="Best Strips/s"          :entry="bests.wvw.stripsPerSecond"          :fmt="n => n.toLocaleString() + '/s'" />
-          <BestCard label="Healing"                :entry="bests.wvw.healing"                  :fmt="n => n.toLocaleString()" />
-          <BestCard label="Best HPS"               :entry="bests.wvw.healingPerSecond"         :fmt="n => n.toLocaleString() + '/s'" />
-          <BestCard label="Barrier Generated"      :entry="bests.wvw.barrierGenerated"         :fmt="n => n.toLocaleString()" />
-          <BestCard label="Stab (On Group)"   :entry="bests.wvw.stabOnGroup"      :fmt="n => Number(n).toFixed(2)" />
-          <BestCard label="Stab (Off Group)"  :entry="bests.wvw.stabOffGroup"     :fmt="n => Number(n).toFixed(2)" />
-          <BestCard label="Quickness"         :entry="bests.wvw.quickness"        :fmt="n => Number(n).toFixed(1) + '%'" />
-          <BestCard label="Alacrity"          :entry="bests.wvw.alacrity"         :fmt="n => Number(n).toFixed(1) + '%'" />
+          <BestCard label="Damage"               :entry="bests.wvw.damage"                    :fmt="n => n.toLocaleString()" />
+          <BestCard label="Best DPS"             :entry="bests.wvw.damagePerSecond"           :fmt="n => n.toLocaleString() + '/s'" />
+        </div>
+
+        <SectionTitle>Kills &amp; Downs</SectionTitle>
+        <div class="bests-grid">
+          <BestCard label="Kills"                :entry="bests.wvw.kills"                     :fmt="n => n.toLocaleString()" />
+          <BestCard label="Best Kills/s"         :entry="bests.wvw.killsPerSecond"            :fmt="n => n.toLocaleString() + '/s'" />
+          <BestCard label="Downs"                :entry="bests.wvw.downs"                     :fmt="n => n.toLocaleString()" />
+          <BestCard label="Best Downs/s"         :entry="bests.wvw.downsPerSecond"            :fmt="n => n.toLocaleString() + '/s'" />
+          <BestCard label="Down Contribution"    :entry="bests.wvw.downContribution"          :fmt="n => n.toLocaleString()" />
+          <BestCard label="Best Down Contrib/s"  :entry="bests.wvw.downContributionPerSecond" :fmt="n => n.toLocaleString() + '/s'" />
+        </div>
+
+        <SectionTitle>Support</SectionTitle>
+        <div class="bests-grid">
+          <BestCard label="Cleanses"             :entry="bests.wvw.cleanses"                  :fmt="n => n.toLocaleString()" />
+          <BestCard label="Best Cleanses/s"      :entry="bests.wvw.cleansesPerSecond"         :fmt="n => n.toLocaleString() + '/s'" />
+          <BestCard label="Strips"               :entry="bests.wvw.strips"                    :fmt="n => n.toLocaleString()" />
+          <BestCard label="Best Strips/s"        :entry="bests.wvw.stripsPerSecond"           :fmt="n => n.toLocaleString() + '/s'" />
+          <BestCard label="Healing"              :entry="bests.wvw.healing"                   :fmt="n => n.toLocaleString()" />
+          <BestCard label="Best HPS"             :entry="bests.wvw.healingPerSecond"          :fmt="n => n.toLocaleString() + '/s'" />
+          <BestCard label="Barrier Generated"    :entry="bests.wvw.barrierGenerated"          :fmt="n => n.toLocaleString()" />
+        </div>
+
+        <SectionTitle>Boons</SectionTitle>
+        <div class="bests-grid">
+          <BestCard label="Stab (On Group)"      :entry="bests.wvw.stabOnGroup"               :fmt="n => Number(n).toFixed(2)" />
+          <BestCard label="Stab (Off Group)"     :entry="bests.wvw.stabOffGroup"              :fmt="n => Number(n).toFixed(2)" />
         </div>
       </TabPanel>
     </Tabs>
@@ -123,9 +125,10 @@ const bestTimeGroups = computed(() =>
   gap: 0.75rem;
 }
 
-/* noinspection CssUnusedSymbol */
-.best-card:hover {
-  border-color: var(--p-primary-color);
+.dps-row {
+  font-size: 0.8rem;
+  color: var(--p-text-muted-color);
+  margin-top: 0.2rem;
 }
 
 .best-meta {

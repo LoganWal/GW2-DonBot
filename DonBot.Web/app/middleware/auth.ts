@@ -6,6 +6,8 @@ export default defineNuxtRouteMiddleware(async (to) => {
     await fetchMe()
   }
   if (!user.value) {
-    return navigateTo('/')
+    const config = useRuntimeConfig()
+    const returnTo = encodeURIComponent(to.fullPath)
+    return navigateTo(`${config.public.apiBase}/auth/discord?returnTo=${returnTo}`, { external: true })
   }
 })

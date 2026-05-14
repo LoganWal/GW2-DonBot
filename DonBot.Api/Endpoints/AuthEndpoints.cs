@@ -19,6 +19,7 @@ public static class AuthEndpoints
     }
 
     private static IResult HandleDiscordLogin(
+        string? returnTo,
         ISecretService secretService,
         IConfiguration configuration)
     {
@@ -26,11 +27,25 @@ public static class AuthEndpoints
         var redirectUri = configuration["Discord:RedirectUri"] ?? "http://localhost:5001/auth/discord/callback";
         var encodedRedirectUri = HttpUtility.UrlEncode(redirectUri);
         var url = $"https://discord.com/api/oauth2/authorize?client_id={clientId}&redirect_uri={encodedRedirectUri}&response_type=code&scope=identify+guilds";
+        if (IsSafeReturnPath(returnTo))
+        {
+            url += $"&state={HttpUtility.UrlEncode(returnTo)}";
+        }
         return Results.Redirect(url);
+    }
+
+    private static bool IsSafeReturnPath(string? path)
+    {
+        // Only accept relative same-origin paths to prevent open-redirect attacks.
+        return !string.IsNullOrEmpty(path)
+            && path.StartsWith('/')
+            && !path.StartsWith("//")
+            && !path.StartsWith("/\\");
     }
 
     private static async Task<IResult> HandleDiscordCallback(
         string? code,
+        string? state,
         HttpContext httpContext,
         ISecretService secretService,
         IConfiguration configuration,
@@ -38,6 +53,7 @@ public static class AuthEndpoints
         IHostEnvironment env)
     {
         var nuxtBaseUrl = configuration["Nuxt:BaseUrl"] ?? "http://localhost:3000";
+        var returnPath = IsSafeReturnPath(state) ? state! : "/dashboard";
 
         if (string.IsNullOrEmpty(code))
         {
@@ -111,7 +127,7 @@ public static class AuthEndpoints
             Expires = DateTimeOffset.UtcNow.AddDays(7)
         });
 
-        return Results.Redirect($"{nuxtBaseUrl}/dashboard");
+        return Results.Redirect($"{nuxtBaseUrl}{returnPath}");
     }
 
     private static IResult HandleLogout(HttpContext httpContext)

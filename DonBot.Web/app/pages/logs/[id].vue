@@ -1,21 +1,22 @@
 <template>
   <div>
-    <ProgressSpinner v-if="pending" />
-    <LogDetail v-else-if="fight" :data="fight" />
-    <p v-else-if="!pending">Log not found.</p>
+    <LogsAggregate :fetch-aggregate="fetchAggregate" :reload-key="logId" hide-logs-tab />
   </div>
 </template>
 
 <script setup lang="ts">
-import LogDetail from '~/components/LogDetail.vue'
+import LogsAggregate from '~/components/LogsAggregate.vue'
 
 definePageMeta({ middleware: 'auth' })
 
 const api = useApi()
 const route = useRoute()
 
-const { data: fight, pending } = await useAsyncData(
-  `log-${route.params.id}`,
-  () => api(`/api/logs/${route.params.id}`) as Promise<{ log: any; players: any[]; mechanics: any[] }>
-)
+const logId = computed(() => Number(route.params.id))
+
+const fetchAggregate = () =>
+  api('/api/logs/aggregate', {
+    method: 'POST',
+    body: { logIds: [logId.value] },
+  })
 </script>

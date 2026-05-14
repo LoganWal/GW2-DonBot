@@ -18,7 +18,6 @@ public static class LiveRaidEndpoints
         group.MapGet("/guilds", ListGuilds);
         group.MapGet("/{guildId:long}", GetLatestRaid);
         group.MapGet("/{guildId:long}/aggregate", GetAggregate);
-        group.MapGet("/{guildId:long}/logs/{fightLogId:long}", GetSingleLog);
         group.MapGet("/{guildId:long}/stream", StreamUpdates);
         group.MapPost("/{guildId:long}/start", StartRaid);
         group.MapPost("/{guildId:long}/stop", StopRaid);
@@ -142,41 +141,6 @@ public static class LiveRaidEndpoints
         }
 
         return await LogsEndpoints.AggregateLogsCoreAsync(fightLogIds, ctx);
-    }
-
-    private static async Task<IResult> GetSingleLog(
-        long guildId,
-        long fightLogId,
-        ClaimsPrincipal user,
-        [FromServices] IUserGuildsService userGuilds,
-        [FromServices] IRaidLifecycleService raidLifecycle,
-        [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory)
-    {
-        if (await EnsureAuthorizedAsync(user, guildId, userGuilds) is { } denied)
-        {
-            return denied;
-        }
-
-        var report = await raidLifecycle.GetLatestRaidAsync(guildId);
-        if (report == null)
-        {
-            return Results.NotFound();
-        }
-
-        await using var ctx = await dbContextFactory.CreateDbContextAsync();
-
-        var end = report.FightsEnd ?? DateTime.UtcNow;
-        var inWindow = await ctx.FightLog.AnyAsync(fl =>
-            fl.FightLogId == fightLogId
-            && fl.GuildId == guildId
-            && fl.FightStart >= report.FightsStart
-            && fl.FightStart <= end);
-        if (!inWindow)
-        {
-            return Results.NotFound();
-        }
-
-        return await LogsEndpoints.GetLogCoreAsync(fightLogId, ctx);
     }
 
     private static async Task StreamUpdates(

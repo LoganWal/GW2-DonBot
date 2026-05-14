@@ -75,16 +75,13 @@
     </template>
 
     <template v-else>
-      <section class="section">
+      <section v-if="selectedFightLogId" class="section">
         <SectionTitle style="margin: 0 0 0.75rem">Last Log</SectionTitle>
-        <ProgressSpinner v-if="logPending" />
-        <LogDetail
-          v-else-if="selectedLog"
-          :data="selectedLog"
-          :show-progression-link="false"
-          :show-wingman-button="false"
+        <LogsAggregate
+          :fetch-aggregate="fetchSingleLogAggregate"
+          :reload-key="selectedFightLogId"
+          hide-logs-tab
         />
-        <Message v-else severity="warn" :closable="false">Log not found.</Message>
       </section>
 
       <section class="section">
@@ -102,7 +99,6 @@
 </template>
 
 <script setup lang="ts">
-import LogDetail from '~/components/LogDetail.vue'
 import LogsAggregate from '~/components/LogsAggregate.vue'
 
 definePageMeta({ middleware: 'auth' })
@@ -133,37 +129,15 @@ const guildIdStr = computed<string | null>(() => selectedGuildIdStr.value)
 const { report, pending: reportPending, reloadKey, refresh: refreshReport } = useLiveRaid(guildIdStr)
 
 const selectedFightLogId = ref<number | null>(null)
-const selectedLog = ref<{ log: any; players: any[]; mechanics: any[] } | null>(null)
-const logPending = ref(false)
-
-const loadLog = async () => {
-  if (!selectedFightLogId.value || !guildIdStr.value) {
-    selectedLog.value = null
-    return
-  }
-  logPending.value = true
-  try {
-    selectedLog.value = await $fetch(
-      `${apiBase}/api/live-raid/${guildIdStr.value}/logs/${selectedFightLogId.value}`,
-      { credentials: 'include' }
-    )
-  } catch {
-    selectedLog.value = null
-  } finally {
-    logPending.value = false
-  }
-}
 
 watch(report, (r, prev) => {
   if (!r) {
     selectedFightLogId.value = null
-    selectedLog.value = null
     return
   }
   const ids = r.fightLogIds
   if (ids.length === 0) {
     selectedFightLogId.value = null
-    selectedLog.value = null
     return
   }
   // Auto-select latest unless user manually picked one that's still present.
@@ -179,10 +153,6 @@ watch(report, (r, prev) => {
   }
 }, { deep: true })
 
-watch(selectedFightLogId, () => {
-  loadLog()
-})
-
 const onSelectLog = (fightLogId: number) => {
   selectedFightLogId.value = fightLogId
 }
@@ -190,6 +160,13 @@ const onSelectLog = (fightLogId: number) => {
 const fetchAggregate = (logIds?: number[]) => {
   const qs = logIds && logIds.length > 0 ? `?logIds=${logIds.join(',')}` : ''
   return $fetch(`${apiBase}/api/live-raid/${guildIdStr.value}/aggregate${qs}`, { credentials: 'include' })
+}
+
+const fetchSingleLogAggregate = () => {
+  if (!selectedFightLogId.value) {
+    return Promise.resolve(null)
+  }
+  return $fetch(`${apiBase}/api/live-raid/${guildIdStr.value}/aggregate?logIds=${selectedFightLogId.value}`, { credentials: 'include' })
 }
 
 const actionPending = ref(false)

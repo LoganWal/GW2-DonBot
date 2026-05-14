@@ -5,14 +5,28 @@ using DonBot.Models.Entities;
 using DonBot.Models.Statics;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.GuildWarsServices;
+using Microsoft.Extensions.Configuration;
 
 namespace DonBot.Services.DiscordRequestServices;
 
 public sealed class RaidCommandCommandService(
     IEntityService entityService,
     IMessageGenerationService messageGenerationService,
-    IRaidLifecycleService raidLifecycleService) : IRaidCommandService
+    IRaidLifecycleService raidLifecycleService,
+    IConfiguration configuration) : IRaidCommandService
 {
+    private MessageComponent? BuildLiveRaidComponents()
+    {
+        var webAppBaseUrl = configuration["WebApp:BaseUrl"];
+        if (string.IsNullOrEmpty(webAppBaseUrl))
+        {
+            return null;
+        }
+        return new ComponentBuilder()
+            .WithButton("View Live Raid", style: ButtonStyle.Link, url: $"{webAppBaseUrl}/live-raid")
+            .Build();
+    }
+
     public async Task StartRaid(SocketSlashCommand command, DiscordSocketClient discordClient)
     {
         if (command.GuildId == null)
@@ -50,7 +64,7 @@ public sealed class RaidCommandCommandService(
             }
 
             var message = messageGenerationService.GenerateRaidAlert(guild.GuildId);
-            await targetChannel.SendMessageAsync(text: "@everyone", embeds: [await message]);
+            await targetChannel.SendMessageAsync(text: "@everyone", embeds: [await message], components: BuildLiveRaidComponents());
             await command.FollowupAsync("Created!", ephemeral: true);
         }
 
@@ -162,7 +176,7 @@ public sealed class RaidCommandCommandService(
             var raidMessage = command.Data.Options.FirstOrDefault(x => x.Name == "raid-message")?.Value?.ToString();
             var message = messageGenerationService.GenerateRaidAlert(guild.GuildId);
 
-            await targetChannel.SendMessageAsync(text: $"@everyone {raidMessage}", embeds: [await message]);
+            await targetChannel.SendMessageAsync(text: $"@everyone {raidMessage}", embeds: [await message], components: BuildLiveRaidComponents());
             await command.FollowupAsync("Created!", ephemeral: true);
         }
 

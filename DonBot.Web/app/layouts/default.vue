@@ -5,6 +5,7 @@
     </Teleport>
 
     <Toast position="bottom-right" />
+    <ConfirmDialog />
     <AppSidebar />
 
     <div class="layout-body">

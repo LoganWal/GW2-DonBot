@@ -15,7 +15,7 @@ public sealed class RaidCommandCommandService(
     IRaidLifecycleService raidLifecycleService,
     IConfiguration configuration) : IRaidCommandService
 {
-    private MessageComponent? BuildLiveRaidComponents()
+    private MessageComponent? BuildLiveRaidComponents(long guildId)
     {
         var webAppBaseUrl = configuration["WebApp:BaseUrl"];
         if (string.IsNullOrEmpty(webAppBaseUrl))
@@ -23,7 +23,7 @@ public sealed class RaidCommandCommandService(
             return null;
         }
         return new ComponentBuilder()
-            .WithButton("View Live Raid", style: ButtonStyle.Link, url: $"{webAppBaseUrl}/live-raid")
+            .WithButton("View Live Raid", style: ButtonStyle.Link, url: $"{webAppBaseUrl}/live-raid?guild={guildId}")
             .Build();
     }
 
@@ -64,7 +64,7 @@ public sealed class RaidCommandCommandService(
             }
 
             var message = messageGenerationService.GenerateRaidAlert(guild.GuildId);
-            await targetChannel.SendMessageAsync(text: "@everyone", embeds: [await message], components: BuildLiveRaidComponents());
+            await targetChannel.SendMessageAsync(text: "@everyone", embeds: [await message], components: BuildLiveRaidComponents(guild.GuildId));
             await command.FollowupAsync("Created!", ephemeral: true);
         }
 
@@ -176,7 +176,7 @@ public sealed class RaidCommandCommandService(
             var raidMessage = command.Data.Options.FirstOrDefault(x => x.Name == "raid-message")?.Value?.ToString();
             var message = messageGenerationService.GenerateRaidAlert(guild.GuildId);
 
-            await targetChannel.SendMessageAsync(text: $"@everyone {raidMessage}", embeds: [await message], components: BuildLiveRaidComponents());
+            await targetChannel.SendMessageAsync(text: $"@everyone {raidMessage}", embeds: [await message], components: BuildLiveRaidComponents(guild.GuildId));
             await command.FollowupAsync("Created!", ephemeral: true);
         }
 

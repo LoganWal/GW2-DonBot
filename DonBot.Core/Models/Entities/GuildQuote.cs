@@ -10,5 +10,5 @@ public class GuildQuote
     public long GuildId { get; init; }
 
     [MaxLength(1000)]
-    public string Quote { get; init; } = string.Empty;
+    public string Quote { get; set; } = string.Empty;
 }

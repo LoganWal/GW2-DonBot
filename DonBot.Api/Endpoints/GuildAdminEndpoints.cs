@@ -21,7 +21,17 @@ public static class GuildAdminEndpoints
         group.MapPut("/guilds/{guildId}/config", UpdateGuildConfig);
         group.MapGet("/gw2/my-guilds", GetMyGw2Guilds);
         group.MapGet("/gw2/search", SearchGw2Guilds);
+        group.MapGet("/guilds/{guildId}/quotes", ListQuotes);
+        group.MapPost("/guilds/{guildId}/quotes", CreateQuote);
+        group.MapPut("/guilds/{guildId}/quotes/{quoteId}", UpdateQuote);
+        group.MapDelete("/guilds/{guildId}/quotes/{quoteId}", DeleteQuote);
     }
+
+    public record QuoteDto(long QuoteId, string Quote);
+
+    public record QuoteWriteDto(string Quote);
+
+    internal const int MaxQuoteLength = 1000;
 
     public record Gw2GuildDto(string Id, string Name, string? Tag);
 
@@ -487,6 +497,129 @@ public static class GuildAdminEndpoints
             return $"{fieldName} does not belong to this guild.";
         }
         return null;
+    }
+
+    internal static string? ValidateQuoteText(string? quote)
+    {
+        if (string.IsNullOrWhiteSpace(quote)) {
+            return "Quote cannot be empty.";
+        }
+        if (quote.Length > MaxQuoteLength) {
+            return $"Quote must be {MaxQuoteLength} characters or fewer.";
+        }
+        return null;
+    }
+
+    private static async Task<IResult> ListQuotes(
+        string guildId,
+        ClaimsPrincipal user,
+        IUserGuildsService userGuilds,
+        IDbContextFactory<DatabaseContext> dbContextFactory)
+    {
+        if (!ulong.TryParse(guildId, out var guildIdUlong)) {
+            return Results.BadRequest("Invalid guild id.");
+        }
+        if (!await userGuilds.HasAdministratorAsync(user, guildIdUlong)) {
+            return Results.Forbid();
+        }
+
+        var guildIdLong = (long)guildIdUlong;
+        await using var ctx = await dbContextFactory.CreateDbContextAsync();
+        var quotes = await ctx.GuildQuote
+            .Where(q => q.GuildId == guildIdLong)
+            .OrderBy(q => q.GuildQuoteId)
+            .Select(q => new QuoteDto(q.GuildQuoteId, q.Quote))
+            .ToListAsync();
+        return Results.Ok(quotes);
+    }
+
+    private static async Task<IResult> CreateQuote(
+        string guildId,
+        QuoteWriteDto body,
+        ClaimsPrincipal user,
+        IUserGuildsService userGuilds,
+        IDbContextFactory<DatabaseContext> dbContextFactory)
+    {
+        if (!ulong.TryParse(guildId, out var guildIdUlong)) {
+            return Results.BadRequest("Invalid guild id.");
+        }
+        if (!await userGuilds.HasAdministratorAsync(user, guildIdUlong)) {
+            return Results.Forbid();
+        }
+
+        var trimmed = body.Quote?.Trim() ?? string.Empty;
+        var error = ValidateQuoteText(trimmed);
+        if (error is not null) {
+            return Results.BadRequest(error);
+        }
+
+        var guildIdLong = (long)guildIdUlong;
+        await using var ctx = await dbContextFactory.CreateDbContextAsync();
+        var quote = new GuildQuote { GuildId = guildIdLong, Quote = trimmed };
+        ctx.GuildQuote.Add(quote);
+        await ctx.SaveChangesAsync();
+        return Results.Ok(new QuoteDto(quote.GuildQuoteId, quote.Quote));
+    }
+
+    private static async Task<IResult> UpdateQuote(
+        string guildId,
+        long quoteId,
+        QuoteWriteDto body,
+        ClaimsPrincipal user,
+        IUserGuildsService userGuilds,
+        IDbContextFactory<DatabaseContext> dbContextFactory)
+    {
+        if (!ulong.TryParse(guildId, out var guildIdUlong)) {
+            return Results.BadRequest("Invalid guild id.");
+        }
+        if (!await userGuilds.HasAdministratorAsync(user, guildIdUlong)) {
+            return Results.Forbid();
+        }
+
+        var trimmed = body.Quote?.Trim() ?? string.Empty;
+        var error = ValidateQuoteText(trimmed);
+        if (error is not null) {
+            return Results.BadRequest(error);
+        }
+
+        var guildIdLong = (long)guildIdUlong;
+        await using var ctx = await dbContextFactory.CreateDbContextAsync();
+        var quote = await ctx.GuildQuote.AsTracking()
+            .FirstOrDefaultAsync(q => q.GuildQuoteId == quoteId && q.GuildId == guildIdLong);
+        if (quote is null) {
+            return Results.NotFound();
+        }
+
+        quote.Quote = trimmed;
+        await ctx.SaveChangesAsync();
+        return Results.Ok(new QuoteDto(quote.GuildQuoteId, quote.Quote));
+    }
+
+    private static async Task<IResult> DeleteQuote(
+        string guildId,
+        long quoteId,
+        ClaimsPrincipal user,
+        IUserGuildsService userGuilds,
+        IDbContextFactory<DatabaseContext> dbContextFactory)
+    {
+        if (!ulong.TryParse(guildId, out var guildIdUlong)) {
+            return Results.BadRequest("Invalid guild id.");
+        }
+        if (!await userGuilds.HasAdministratorAsync(user, guildIdUlong)) {
+            return Results.Forbid();
+        }
+
+        var guildIdLong = (long)guildIdUlong;
+        await using var ctx = await dbContextFactory.CreateDbContextAsync();
+        var quote = await ctx.GuildQuote.AsTracking()
+            .FirstOrDefaultAsync(q => q.GuildQuoteId == quoteId && q.GuildId == guildIdLong);
+        if (quote is null) {
+            return Results.NotFound();
+        }
+
+        ctx.GuildQuote.Remove(quote);
+        await ctx.SaveChangesAsync();
+        return Results.NoContent();
     }
 
     private static bool TryGetDiscordId(ClaimsPrincipal user, out ulong discordId)

@@ -341,6 +341,43 @@ public class GuildAdminEndpointsTests
         Assert.Equal(1, calls);
     }
 
+    // -------------------------------------------------------------------------
+    // ValidateQuoteText
+    // -------------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void ValidateQuoteText_NullOrWhitespace_ReturnsError(string? input)
+    {
+        var error = GuildAdminEndpoints.ValidateQuoteText(input);
+        Assert.NotNull(error);
+        Assert.Contains("empty", error);
+    }
+
+    [Fact]
+    public void ValidateQuoteText_AtLimit_ReturnsNull()
+    {
+        var input = new string('a', GuildAdminEndpoints.MaxQuoteLength);
+        Assert.Null(GuildAdminEndpoints.ValidateQuoteText(input));
+    }
+
+    [Fact]
+    public void ValidateQuoteText_OverLimit_ReturnsError()
+    {
+        var input = new string('a', GuildAdminEndpoints.MaxQuoteLength + 1);
+        var error = GuildAdminEndpoints.ValidateQuoteText(input);
+        Assert.NotNull(error);
+        Assert.Contains("1000", error);
+    }
+
+    [Fact]
+    public void ValidateQuoteText_Normal_ReturnsNull()
+    {
+        Assert.Null(GuildAdminEndpoints.ValidateQuoteText("hello world"));
+    }
+
     [Fact]
     public async Task LookupCache_Transient_NotCachedAndRetriedNextCall()
     {

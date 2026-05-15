@@ -114,13 +114,12 @@ const { data: guildOptions, pending: guildsPending } = useLazyAsyncData(
   { default: () => [] }
 )
 
-const selectedGuildIdStr = ref<string | null>(null)
+const { selectedGuildId: selectedGuildIdStr, ensureSelection } = useSelectedGuild()
 
-watchEffect(() => {
-  if (!selectedGuildIdStr.value && (guildOptions.value?.length ?? 0) > 0) {
-    selectedGuildIdStr.value = guildOptions.value![0]!.guildId
-  }
-})
+watch(guildOptions, (opts) => {
+  if (!opts?.length) return
+  ensureSelection(opts.map(g => g.guildId), opts[0]?.guildId ?? null)
+}, { immediate: true })
 
 // Discord snowflakes exceed Number.MAX_SAFE_INTEGER, so we must keep them as
 // strings end-to-end. Converting via Number() corrupts the last few digits.

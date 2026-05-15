@@ -276,6 +276,98 @@
           </template>
         </Card>
 
+        <Card>
+          <template #title>Server quotes</template>
+          <template #content>
+            <div class="quotes-section">
+              <div v-if="quotesPending" class="empty-hint">
+                <ProgressSpinner style="width: 1.5rem; height: 1.5rem;" />
+              </div>
+              <template v-else>
+                <div v-if="!quotes.length" class="empty-hint">No quotes yet.</div>
+                <div v-else class="quotes-list">
+                  <div v-for="q in quotes" :key="q.quoteId" class="quote-row">
+                    <template v-if="editingQuoteId === q.quoteId">
+                      <Textarea
+                        v-model="editingQuoteText"
+                        auto-resize
+                        rows="2"
+                        style="flex: 1;"
+                        :maxlength="maxQuoteLength"
+                      />
+                      <div class="quote-actions">
+                        <Button
+                          label="Save"
+                          icon="pi pi-check"
+                          size="small"
+                          :loading="quoteSaving"
+                          :disabled="!editingQuoteText.trim() || quoteSaving"
+                          @click="saveEditQuote(q)"
+                        />
+                        <Button
+                          label="Cancel"
+                          icon="pi pi-times"
+                          size="small"
+                          severity="secondary"
+                          outlined
+                          :disabled="quoteSaving"
+                          @click="cancelEditQuote"
+                        />
+                      </div>
+                    </template>
+                    <template v-else>
+                      <div class="quote-text">{{ q.quote }}</div>
+                      <div class="quote-actions">
+                        <Button
+                          icon="pi pi-pencil"
+                          size="small"
+                          severity="secondary"
+                          outlined
+                          aria-label="Edit"
+                          @click="startEditQuote(q)"
+                        />
+                        <Button
+                          icon="pi pi-trash"
+                          size="small"
+                          severity="danger"
+                          outlined
+                          aria-label="Delete"
+                          :loading="deletingQuoteId === q.quoteId"
+                          @click="deleteQuote(q)"
+                        />
+                      </div>
+                    </template>
+                  </div>
+                </div>
+
+                <Divider />
+
+                <div class="quote-new">
+                  <div class="section-label">Add a quote</div>
+                  <Textarea
+                    v-model="newQuoteText"
+                    auto-resize
+                    rows="2"
+                    placeholder="New quote..."
+                    style="width: 100%;"
+                    :maxlength="maxQuoteLength"
+                  />
+                  <div class="quote-new-actions">
+                    <Button
+                      label="Add quote"
+                      icon="pi pi-plus"
+                      size="small"
+                      :loading="addingQuote"
+                      :disabled="!newQuoteText.trim() || addingQuote"
+                      @click="addQuote"
+                    />
+                  </div>
+                </div>
+              </template>
+            </div>
+          </template>
+        </Card>
+
         <div class="actions">
           <Button label="Cancel" severity="secondary" :disabled="!isDirty || saving" @click="cancel" />
           <Button label="Save changes" icon="pi pi-check" :loading="saving" :disabled="!isDirty || saving" @click="save" />
@@ -291,6 +383,7 @@ definePageMeta({ middleware: 'auth' })
 
 const api = useApi()
 const toast = useToast()
+const { confirmDelete } = useConfirmAction()
 
 type GuildSummary = { guildId: string; name: string; iconUrl: string | null }
 type Channel = { id: string; name: string }
@@ -364,7 +457,7 @@ const toggleFields: BooleanField[] = [
 const gw2PrimaryTip = 'GW2 guild ID (UUID) used to assign the primary Guild member role.'
 const gw2SecondaryTip = 'Comma-separated GW2 guild IDs (UUIDs) used to assign the Secondary member role.'
 
-const selectedGuildId = ref<string | null>(null)
+const { selectedGuildId, ensureSelection } = useSelectedGuild()
 const working = ref<Config | null>(null)
 const original = ref<Config | null>(null)
 const channels = ref<Channel[]>([])
@@ -376,6 +469,17 @@ const searchResults = ref<Gw2Guild[]>([])
 const searchAttempted = ref(false)
 const lastSearchTerm = ref('')
 const gw2NameCache = ref<Record<string, { name: string; tag: string | null }>>({})
+
+type Quote = { quoteId: number; quote: string }
+const maxQuoteLength = 1000
+const quotes = ref<Quote[]>([])
+const quotesPending = ref(false)
+const newQuoteText = ref('')
+const addingQuote = ref(false)
+const editingQuoteId = ref<number | null>(null)
+const editingQuoteText = ref('')
+const quoteSaving = ref(false)
+const deletingQuoteId = ref<number | null>(null)
 
 const cacheGuild = (g: Gw2Guild) => {
   gw2NameCache.value[g.id] = { name: g.name, tag: g.tag }
@@ -469,10 +573,108 @@ const { data: guilds, pending: guildsPending } = await useAsyncData(
 )
 
 watch(guilds, (gs) => {
-  if (!selectedGuildId.value && gs?.length) selectedGuildId.value = gs[0]?.guildId ?? null
+  if (!gs?.length) return
+  ensureSelection(gs.map(g => g.guildId), gs[0]?.guildId ?? null)
 }, { immediate: true })
 
 const configPending = ref(false)
+
+const loadQuotes = async (guildId: string) => {
+  quotesPending.value = true
+  try {
+    quotes.value = await api(`/api/admin/guilds/${guildId}/quotes`) as Quote[]
+  } catch {
+    quotes.value = []
+    toast.add({ severity: 'error', summary: 'Load failed', detail: 'Failed to load quotes.', life: 4000 })
+  } finally {
+    quotesPending.value = false
+  }
+}
+
+const addQuote = async () => {
+  if (!selectedGuildId.value) {
+    return
+  }
+  const text = newQuoteText.value.trim()
+  if (!text) {
+    return
+  }
+  addingQuote.value = true
+  try {
+    const created = await api(`/api/admin/guilds/${selectedGuildId.value}/quotes`, {
+      method: 'POST',
+      body: { quote: text },
+    }) as Quote
+    quotes.value = [...quotes.value, created]
+    newQuoteText.value = ''
+    toast.add({ severity: 'success', summary: 'Added', detail: 'Quote added.', life: 2500 })
+  } catch (err: any) {
+    toast.add({ severity: 'error', summary: 'Add failed', detail: err?.data ?? 'Could not add quote.', life: 4000 })
+  } finally {
+    addingQuote.value = false
+  }
+}
+
+const startEditQuote = (q: Quote) => {
+  editingQuoteId.value = q.quoteId
+  editingQuoteText.value = q.quote
+}
+
+const cancelEditQuote = () => {
+  editingQuoteId.value = null
+  editingQuoteText.value = ''
+}
+
+const saveEditQuote = async (q: Quote) => {
+  if (!selectedGuildId.value) {
+    return
+  }
+  const text = editingQuoteText.value.trim()
+  if (!text) {
+    return
+  }
+  quoteSaving.value = true
+  try {
+    const updated = await api(`/api/admin/guilds/${selectedGuildId.value}/quotes/${q.quoteId}`, {
+      method: 'PUT',
+      body: { quote: text },
+    }) as Quote
+    quotes.value = quotes.value.map(x => x.quoteId === updated.quoteId ? updated : x)
+    cancelEditQuote()
+    toast.add({ severity: 'success', summary: 'Saved', detail: 'Quote updated.', life: 2500 })
+  } catch (err: any) {
+    toast.add({ severity: 'error', summary: 'Save failed', detail: err?.data ?? 'Could not update quote.', life: 4000 })
+  } finally {
+    quoteSaving.value = false
+  }
+}
+
+const deleteQuote = async (q: Quote) => {
+  if (!selectedGuildId.value) {
+    return
+  }
+  const ok = await confirmDelete({
+    message: `Delete this quote?\n\n"${q.quote}"`,
+  })
+  if (!ok) {
+    return
+  }
+  deletingQuoteId.value = q.quoteId
+  try {
+    await api(`/api/admin/guilds/${selectedGuildId.value}/quotes/${q.quoteId}`, {
+      method: 'DELETE',
+    })
+    quotes.value = quotes.value.filter(x => x.quoteId !== q.quoteId)
+    if (editingQuoteId.value === q.quoteId) {
+      cancelEditQuote()
+    }
+    toast.add({ severity: 'success', summary: 'Deleted', detail: 'Quote removed.', life: 2500 })
+  } catch (err: any) {
+    toast.add({ severity: 'error', summary: 'Delete failed', detail: err?.data ?? 'Could not delete quote.', life: 4000 })
+  } finally {
+    deletingQuoteId.value = null
+  }
+}
 
 const loadConfig = async (guildId: string) => {
   configPending.value = true
@@ -514,6 +716,9 @@ watch(selectedGuildId, (id, previousId) => {
     }
   }
   loadConfig(id)
+  cancelEditQuote()
+  newQuoteText.value = ''
+  loadQuotes(id)
 }, { immediate: true })
 
 const cancel = () => {
@@ -729,5 +934,52 @@ const save = async () => {
 
 .search-results {
   margin-top: 0.75rem;
+}
+
+.quotes-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.quotes-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.quote-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--p-surface-border);
+}
+
+.quote-row:last-child {
+  border-bottom: none;
+}
+
+.quote-text {
+  flex: 1;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.quote-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.quote-new {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.quote-new-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 </style>

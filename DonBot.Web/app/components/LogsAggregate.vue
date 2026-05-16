@@ -26,6 +26,30 @@
         />
       </div>
 
+      <div v-if="displayResult && displayResult.players?.length > 0" style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-bottom: 0.75rem;">
+        <span style="font-size: 0.8rem; color: var(--p-text-muted-color);">
+          {{ selectedPlayers.length }} of {{ displayResult.players.length }} players selected
+        </span>
+        <Button
+          label="Select All"
+          icon="pi pi-check-square"
+          size="small"
+          severity="secondary"
+          outlined
+          :disabled="selectedPlayers.length === displayResult.players.length"
+          @click="selectAllPlayers"
+        />
+        <Button
+          label="Unselect All"
+          icon="pi pi-stop"
+          size="small"
+          severity="secondary"
+          outlined
+          :disabled="selectedPlayers.length === 0"
+          @click="unselectAllPlayers"
+        />
+      </div>
+
       <Tabs :value="hideLogsTab ? 'damage' : 'logs'" class="tabs-with-toggles">
         <div class="tab-toggles">
           <Button
@@ -107,7 +131,8 @@
                   <Chart :type="chartType" :data="downsChartData" :options="clickableIntChartOptions" />
                 </div>
               </div>
-              <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="damage" :sort-order="-1">
+              <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="damage" :sort-order="-1" data-key="accountName" :selection="selectedPlayers" @update:selection="onSelectionChange">
+                <Column selection-mode="multiple" header-style="width: 3rem" frozen />
                 <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
                 <Column field="fightCount" header="Fights" :sortable="true" style="min-width: 65px;" />
                 <Column header="Avg Damage" :sortable="true" sort-field="damage" style="min-width: 110px;">
@@ -131,7 +156,8 @@
                   <Chart :type="chartType" :data="pveCleaveDpsChartData" :options="clickableChartOptions" />
                 </div>
               </div>
-              <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="dps" :sort-order="-1">
+              <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="dps" :sort-order="-1" data-key="accountName" :selection="selectedPlayers" @update:selection="onSelectionChange">
+                <Column selection-mode="multiple" header-style="width: 3rem" frozen />
                 <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
                 <Column field="fightCount" header="Fights" :sortable="true" style="min-width: 65px;" />
                 <Column header="DPS" :sortable="true" sort-field="dps" style="min-width: 90px;">
@@ -174,7 +200,8 @@
                   <Chart :type="chartType" :data="wvwBoonsRippedChartData" :options="clickableIntChartOptions" />
                 </div>
               </div>
-              <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="healing" :sort-order="-1">
+              <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="healing" :sort-order="-1" data-key="accountName" :selection="selectedPlayers" @update:selection="onSelectionChange">
+                <Column selection-mode="multiple" header-style="width: 3rem" frozen />
                 <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
                 <Column header="Avg Healing" :sortable="true" sort-field="healing" style="min-width: 105px;">
                   <template #body="{ data }">{{ data.healing?.toLocaleString() ?? '0' }}</template>
@@ -220,7 +247,8 @@
                   <Chart :type="chartType" :data="pveQuickChartData" :options="clickableChartOptions" />
                 </div>
               </div>
-              <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="healing" :sort-order="-1">
+              <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="healing" :sort-order="-1" data-key="accountName" :selection="selectedPlayers" @update:selection="onSelectionChange">
+                <Column selection-mode="multiple" header-style="width: 3rem" frozen />
                 <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
                 <Column header="Avg Healing" :sortable="true" sort-field="healing" style="min-width: 105px;">
                   <template #body="{ data }">{{ data.healing?.toLocaleString() ?? '0' }}</template>
@@ -260,7 +288,8 @@
                   <Chart :type="chartType" :data="damageTakenChartData" :options="clickableChartOptions" />
                 </div>
               </div>
-              <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="deaths" :sort-order="-1">
+              <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="deaths" :sort-order="-1" data-key="accountName" :selection="selectedPlayers" @update:selection="onSelectionChange">
+                <Column selection-mode="multiple" header-style="width: 3rem" frozen />
                 <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
                 <Column field="deaths" header="Deaths" :sortable="true" style="min-width: 70px;" />
                 <Column field="timesDowned" header="Downed" :sortable="true" style="min-width: 70px;" />
@@ -296,7 +325,8 @@
                   <Chart :type="chartType" :data="damageTakenChartData" :options="clickableChartOptions" />
                 </div>
               </div>
-              <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="deaths" :sort-order="-1">
+              <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="deaths" :sort-order="-1" data-key="accountName" :selection="selectedPlayers" @update:selection="onSelectionChange">
+                <Column selection-mode="multiple" header-style="width: 3rem" frozen />
                 <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
                 <Column field="deaths" header="Deaths" :sortable="true" style="min-width: 70px;" />
                 <Column field="timesDowned" header="Downed" :sortable="true" style="min-width: 70px;" />
@@ -374,6 +404,34 @@ const aggSuccessFilter = ref<SuccessFilter>('all')
 const aggDifficultyFilter = ref<DifficultyFilter>(null)
 const showGraphs = ref(true)
 const showTables = ref(true)
+const unselectedAccounts = ref<Set<string>>(new Set())
+
+const selectedPlayers = computed(() =>
+  (displayResult.value?.players ?? []).filter((p: any) => !unselectedAccounts.value.has(p.accountName))
+)
+
+const selectedAccountSet = computed(() => {
+  return new Set(selectedPlayers.value.map((p: any) => p.accountName))
+})
+
+const onSelectionChange = (newSelection: any[]) => {
+  const selectedNames = new Set(newSelection.map((p: any) => p.accountName))
+  const next = new Set<string>()
+  for (const p of (displayResult.value?.players ?? [])) {
+    if (!selectedNames.has(p.accountName)) {
+      next.add(p.accountName)
+    }
+  }
+  unselectedAccounts.value = next
+}
+
+const selectAllPlayers = () => {
+  unselectedAccounts.value = new Set()
+}
+
+const unselectAllPlayers = () => {
+  unselectedAccounts.value = new Set((displayResult.value?.players ?? []).map((p: any) => p.accountName))
+}
 
 const loadInitial = async () => {
   pending.value = true
@@ -477,7 +535,7 @@ const allAccounts = computed(() => {
       seen.add(p.accountName)
     }
   }
-  return [...seen]
+  return [...seen].filter(a => selectedAccountSet.value.has(a))
 })
 
 const makeDataset = (account: string, i: number, getValue: (p: any) => number | null, dashed = false) => ({
@@ -497,16 +555,17 @@ const makeDataset = (account: string, i: number, getValue: (p: any) => number | 
 })
 
 const makeBarData = (getValue: (p: any) => number | null) => {
-  const players = (displayResult.value?.players ?? [])
-    .map((p: any) => ({ account: p.accountName, value: Number(getValue(p) ?? 0) }))
-    .filter(p => p.value !== 0)
-    .sort((a, b) => b.value - a.value)
+  const players = ((displayResult.value?.players ?? []) as any[])
+    .filter((p: any) => selectedAccountSet.value.has(p.accountName))
+    .map((p: any) => ({ account: p.accountName as string, value: Number(getValue(p) ?? 0) }))
+    .filter((p: { account: string; value: number }) => p.value !== 0)
+    .sort((a: { account: string; value: number }, b: { account: string; value: number }) => b.value - a.value)
   return {
-    labels: players.map(p => p.account),
+    labels: players.map((p: { account: string; value: number }) => p.account),
     datasets: [{
-      data: players.map(p => p.value),
-      backgroundColor: players.map((_, i) => playerColor(i) + 'cc'),
-      borderColor: players.map((_, i) => playerColor(i)),
+      data: players.map((p: { account: string; value: number }) => p.value),
+      backgroundColor: players.map((_: unknown, i: number) => playerColor(i) + 'cc'),
+      borderColor: players.map((_: unknown, i: number) => playerColor(i)),
       borderWidth: 1,
     }],
   }

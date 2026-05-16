@@ -3,6 +3,39 @@
     <ProgressSpinner v-if="pending" />
 
     <template v-else-if="result">
+      <div v-if="hideLogsTab && singleLog" style="margin-bottom: 1.25rem;">
+        <div style="display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem;">
+          <h2 style="margin: 0; font-size: 1.25rem; font-weight: 600;">{{ fightName(singleLog.fightType) }}</h2>
+          <span style="color: var(--p-text-muted-color); font-size: 0.875rem;">
+            {{ new Date(singleLog.fightStart).toLocaleString() }} · {{ formatDuration(singleLog.fightDurationInMs) }}
+          </span>
+          <Tag
+            v-if="singleLog.fightType !== 0"
+            :severity="singleLog.isSuccess ? 'success' : 'danger'"
+            :value="singleLog.isSuccess ? 'Kill' : `${singleLog.fightPercent}% — Wipe`"
+          />
+          <Tag v-else severity="secondary" value="WvW" />
+          <Button
+            v-if="singleLog.url"
+            label="View on dps.report"
+            icon="pi pi-external-link"
+            size="small"
+            severity="secondary"
+            outlined
+            as="a"
+            :href="singleLog.url"
+            target="_blank"
+            rel="noopener"
+            style="margin-left: auto;"
+          />
+        </div>
+        <div v-if="displayResult" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: stretch;">
+          <StatCard label="Fight Time" :value="formatDuration(displayResult.totalDurationMs, true)" />
+          <StatCard label="Type" :value="displayResult.type === 'wvw' ? 'WvW' : 'PvE'" />
+          <StatCard label="Players" :value="displayResult.players.length" />
+        </div>
+      </div>
+
       <div v-if="displayResult && !hideLogsTab" style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; align-items: stretch;">
         <StatCard label="Logs" :value="displayResult.totalLogs" />
         <StatCard label="Fight Time" :value="formatDuration(displayResult.totalDurationMs, true)" />
@@ -115,11 +148,11 @@
             <template v-if="displayResult && filteredAggLogs.length > 0 && displayResult.type === 'wvw'">
               <div v-if="showGraphs" class="charts-row mb-section">
                 <div class="chart-container clickable-chart">
-                  <div class="chart-label">Avg Damage per Fight</div>
+                  <div class="chart-label">Damage per Fight</div>
                   <Chart :type="chartType" :data="wvwDamageChartData" :options="clickableChartOptions" />
                 </div>
                 <div class="chart-container clickable-chart">
-                  <div class="chart-label">Avg DDC per Fight</div>
+                  <div class="chart-label">DDC per Fight</div>
                   <Chart :type="chartType" :data="wvwDdcChartData" :options="clickableChartOptions" />
                 </div>
                 <div class="chart-container clickable-chart">
@@ -133,16 +166,33 @@
               </div>
               <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="damage" :sort-order="-1" data-key="accountName" :selection="selectedPlayers" @update:selection="onSelectionChange">
                 <Column selection-mode="multiple" header-style="width: 3rem" frozen />
+                <Column field="fightCount" :sortable="true" style="width: 40px; min-width: 40px;" header-style="width: 40px">
+                  <template #header><i class="pi pi-hashtag" v-tooltip.top="'Fights'" /></template>
+                </Column>
+                <Column field="subGroup" :sortable="true" style="width: 40px; min-width: 40px;" header-style="width: 40px">
+                  <template #header><i class="pi pi-users" v-tooltip.top="'Subgroup'" /></template>
+                </Column>
                 <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
-                <Column field="fightCount" header="Fights" :sortable="true" style="min-width: 65px;" />
-                <Column header="Avg Damage" :sortable="true" sort-field="damage" style="min-width: 110px;">
+                <Column header="Damage" :sortable="true" sort-field="damage" style="min-width: 95px;">
                   <template #body="{ data }">{{ data.damage?.toLocaleString() ?? '0' }}</template>
                 </Column>
-                <Column header="Avg DDC" :sortable="true" sort-field="damageDownContribution" style="min-width: 100px;">
+                <Column header="DDC" :sortable="true" sort-field="damageDownContribution" style="min-width: 85px;">
                   <template #body="{ data }">{{ data.damageDownContribution?.toLocaleString() ?? '0' }}</template>
                 </Column>
                 <Column field="kills" header="Kills" :sortable="true" style="min-width: 60px;" />
                 <Column field="downs" header="Downs" :sortable="true" style="min-width: 65px;" />
+                <ColumnGroup type="footer">
+                  <Row v-for="row in damageWvwSummary" :key="row.key" :class="{ 'summary-total': row.isTotal }">
+                    <Column footer="" />
+                    <Column footer="" />
+                    <Column :footer="row.subGroupLabel" />
+                    <Column :footer="row.rowLabel" />
+                    <Column :footer="fmtN(row.damage)" />
+                    <Column :footer="fmtN(row.damageDownContribution)" />
+                    <Column :footer="fmtN(row.kills)" />
+                    <Column :footer="fmtN(row.downs)" />
+                  </Row>
+                </ColumnGroup>
               </DataTable>
             </template>
             <template v-else-if="displayResult && filteredAggLogs.length > 0">
@@ -158,8 +208,13 @@
               </div>
               <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="dps" :sort-order="-1" data-key="accountName" :selection="selectedPlayers" @update:selection="onSelectionChange">
                 <Column selection-mode="multiple" header-style="width: 3rem" frozen />
+                <Column field="fightCount" :sortable="true" style="width: 40px; min-width: 40px;" header-style="width: 40px">
+                  <template #header><i class="pi pi-hashtag" v-tooltip.top="'Fights'" /></template>
+                </Column>
+                <Column field="subGroup" :sortable="true" style="width: 40px; min-width: 40px;" header-style="width: 40px">
+                  <template #header><i class="pi pi-users" v-tooltip.top="'Subgroup'" /></template>
+                </Column>
                 <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
-                <Column field="fightCount" header="Fights" :sortable="true" style="min-width: 65px;" />
                 <Column header="DPS" :sortable="true" sort-field="dps" style="min-width: 90px;">
                   <template #body="{ data }">{{ data.dps?.toLocaleString() ?? '0' }}</template>
                 </Column>
@@ -172,6 +227,18 @@
                 <Column header="Alac %" :sortable="true" sort-field="alacDuration" style="min-width: 75px;">
                   <template #body="{ data }">{{ data.alacDuration }}%</template>
                 </Column>
+                <ColumnGroup type="footer">
+                  <Row v-for="row in damagePveSummary" :key="row.key" :class="{ 'summary-total': row.isTotal }">
+                    <Column footer="" />
+                    <Column footer="" />
+                    <Column :footer="row.subGroupLabel" />
+                    <Column :footer="row.rowLabel" />
+                    <Column :footer="fmtN(row.dps)" />
+                    <Column :footer="fmtN(row.cleaveDps)" />
+                    <Column :footer="fmtPct(row.quicknessDuration)" />
+                    <Column :footer="fmtPct(row.alacDuration)" />
+                  </Row>
+                </ColumnGroup>
               </DataTable>
             </template>
           </TabPanel>
@@ -180,62 +247,87 @@
             <template v-if="displayResult && filteredAggLogs.length > 0 && displayResult.type === 'wvw'">
               <div v-if="showGraphs" class="charts-row mb-section">
                 <div class="chart-container clickable-chart">
-                  <div class="chart-label">Avg Healing per Fight</div>
+                  <div class="chart-label">Healing per Fight</div>
                   <Chart :type="chartType" :data="healingChartData" :options="clickableChartOptions" />
                 </div>
                 <div class="chart-container clickable-chart">
-                  <div class="chart-label">Avg Cleanses per Fight</div>
+                  <div class="chart-label">Cleanses per Fight</div>
                   <Chart :type="chartType" :data="cleansesChartData" :options="clickableIntChartOptions" />
-                </div>
-                <div class="chart-container clickable-chart">
-                  <div class="chart-label">Quickness % per Fight</div>
-                  <Chart :type="chartType" :data="wvwQuickChartData" :options="clickableChartOptions" />
-                </div>
-                <div class="chart-container clickable-chart">
-                  <div class="chart-label">Avg Strips per Fight</div>
-                  <Chart :type="chartType" :data="stripsChartData" :options="clickableIntChartOptions" />
                 </div>
                 <div class="chart-container clickable-chart">
                   <div class="chart-label">Boons Ripped per Fight</div>
                   <Chart :type="chartType" :data="wvwBoonsRippedChartData" :options="clickableIntChartOptions" />
                 </div>
+                <div class="chart-container clickable-chart">
+                  <div class="chart-label">Strips per Fight</div>
+                  <Chart :type="chartType" :data="stripsChartData" :options="clickableIntChartOptions" />
+                </div>
+                <div class="chart-container clickable-chart">
+                  <div class="chart-label">Quickness % per Fight</div>
+                  <Chart :type="chartType" :data="wvwQuickChartData" :options="clickableChartOptions" />
+                </div>
               </div>
               <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="healing" :sort-order="-1" data-key="accountName" :selection="selectedPlayers" @update:selection="onSelectionChange">
                 <Column selection-mode="multiple" header-style="width: 3rem" frozen />
+                <Column field="fightCount" :sortable="true" style="width: 40px; min-width: 40px;" header-style="width: 40px">
+                  <template #header><i class="pi pi-hashtag" v-tooltip.top="'Fights'" /></template>
+                </Column>
+                <Column field="subGroup" :sortable="true" style="width: 40px; min-width: 40px;" header-style="width: 40px">
+                  <template #header><i class="pi pi-users" v-tooltip.top="'Subgroup'" /></template>
+                </Column>
                 <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
-                <Column header="Avg Healing" :sortable="true" sort-field="healing" style="min-width: 105px;">
+                <Column header="Healing" :sortable="true" sort-field="healing" style="min-width: 105px;">
                   <template #body="{ data }">{{ data.healing?.toLocaleString() ?? '0' }}</template>
                 </Column>
-                <Column header="Avg Cleanses" :sortable="true" sort-field="cleanses" style="min-width: 105px;">
-                  <template #body="{ data }">{{ data.cleanses }}</template>
-                </Column>
-                <Column header="Avg Strips" :sortable="true" sort-field="strips" style="min-width: 95px;">
-                  <template #body="{ data }">{{ data.strips }}</template>
-                </Column>
-                <Column header="Avg Barrier Gen" :sortable="true" sort-field="barrierGenerated" style="min-width: 120px;">
+                <Column header="Barrier Gen" :sortable="true" sort-field="barrierGenerated" style="min-width: 120px;">
                   <template #body="{ data }">{{ data.barrierGenerated?.toLocaleString() ?? '0' }}</template>
                 </Column>
-                <Column header="Stab On" :sortable="true" sort-field="stabOnGroup" style="min-width: 80px;">
+                <Column :sortable="true" sort-field="stabOnGroup" style="min-width: 100px;">
+                  <template #header><span v-tooltip.top="'Stability generation on your own subgroup'">Stab On Gen</span></template>
                   <template #body="{ data }">{{ data.stabOnGroup }}</template>
                 </Column>
-                <Column header="Stab Off" :sortable="true" sort-field="stabOffGroup" style="min-width: 80px;">
+                <Column :sortable="true" sort-field="stabOffGroup" style="min-width: 100px;">
+                  <template #header><span v-tooltip.top="'Stability generation on players in other subgroups'">Stab Off Gen</span></template>
                   <template #body="{ data }">{{ data.stabOffGroup }}</template>
                 </Column>
-                <Column field="interrupts" header="Interrupts" :sortable="true" style="min-width: 90px;" />
+                <Column header="Cleanses" :sortable="true" sort-field="cleanses" style="min-width: 95px;">
+                  <template #body="{ data }">{{ data.cleanses?.toLocaleString() ?? '0' }}</template>
+                </Column>
                 <Column field="numberOfBoonsRipped" header="Boons Ripped" :sortable="true" style="min-width: 110px;" />
+                <Column header="Strips" :sortable="true" sort-field="strips" style="min-width: 80px;">
+                  <template #body="{ data }">{{ data.strips?.toLocaleString() ?? '0' }}</template>
+                </Column>
+                <Column field="interrupts" header="Interrupts" :sortable="true" style="min-width: 90px;" />
                 <Column header="Quick %" :sortable="true" sort-field="quicknessDuration" style="min-width: 80px;">
                   <template #body="{ data }">{{ data.quicknessDuration }}%</template>
                 </Column>
+                <ColumnGroup type="footer">
+                  <Row v-for="row in supportWvwSummary" :key="row.key" :class="{ 'summary-total': row.isTotal }">
+                    <Column footer="" />
+                    <Column footer="" />
+                    <Column :footer="row.subGroupLabel" />
+                    <Column :footer="row.rowLabel" />
+                    <Column :footer="fmtN(row.healing)" />
+                    <Column :footer="fmtN(row.barrierGenerated)" />
+                    <Column :footer="fmtDec(row.stabOnGroup)" />
+                    <Column :footer="fmtDec(row.stabOffGroup)" />
+                    <Column :footer="fmtN(row.cleanses)" />
+                    <Column :footer="fmtN(row.numberOfBoonsRipped)" />
+                    <Column :footer="fmtN(row.strips)" />
+                    <Column :footer="fmtN(row.interrupts)" />
+                    <Column :footer="fmtPct(row.quicknessDuration)" />
+                  </Row>
+                </ColumnGroup>
               </DataTable>
             </template>
             <template v-else-if="displayResult && filteredAggLogs.length > 0">
               <div v-if="showGraphs" class="charts-row mb-section">
                 <div class="chart-container clickable-chart">
-                  <div class="chart-label">Avg Healing per Fight</div>
+                  <div class="chart-label">Healing per Fight</div>
                   <Chart :type="chartType" :data="healingChartData" :options="clickableChartOptions" />
                 </div>
                 <div class="chart-container clickable-chart">
-                  <div class="chart-label">Avg Cleanses per Fight</div>
+                  <div class="chart-label">Cleanses per Fight</div>
                   <Chart :type="chartType" :data="cleansesChartData" :options="clickableIntChartOptions" />
                 </div>
                 <div class="chart-container clickable-chart">
@@ -249,18 +341,24 @@
               </div>
               <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="healing" :sort-order="-1" data-key="accountName" :selection="selectedPlayers" @update:selection="onSelectionChange">
                 <Column selection-mode="multiple" header-style="width: 3rem" frozen />
+                <Column field="fightCount" :sortable="true" style="width: 40px; min-width: 40px;" header-style="width: 40px">
+                  <template #header><i class="pi pi-hashtag" v-tooltip.top="'Fights'" /></template>
+                </Column>
+                <Column field="subGroup" :sortable="true" style="width: 40px; min-width: 40px;" header-style="width: 40px">
+                  <template #header><i class="pi pi-users" v-tooltip.top="'Subgroup'" /></template>
+                </Column>
                 <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
-                <Column header="Avg Healing" :sortable="true" sort-field="healing" style="min-width: 105px;">
+                <Column header="Healing" :sortable="true" sort-field="healing" style="min-width: 105px;">
                   <template #body="{ data }">{{ data.healing?.toLocaleString() ?? '0' }}</template>
                 </Column>
-                <Column header="Avg Barrier Gen" :sortable="true" sort-field="barrierGenerated" style="min-width: 120px;">
+                <Column header="Barrier Gen" :sortable="true" sort-field="barrierGenerated" style="min-width: 120px;">
                   <template #body="{ data }">{{ data.barrierGenerated?.toLocaleString() ?? '0' }}</template>
                 </Column>
-                <Column header="Avg Cleanses" :sortable="true" sort-field="cleanses" style="min-width: 105px;">
-                  <template #body="{ data }">{{ data.cleanses }}</template>
+                <Column header="Cleanses" :sortable="true" sort-field="cleanses" style="min-width: 95px;">
+                  <template #body="{ data }">{{ data.cleanses?.toLocaleString() ?? '0' }}</template>
                 </Column>
-                <Column header="Avg Strips" :sortable="true" sort-field="strips" style="min-width: 95px;">
-                  <template #body="{ data }">{{ data.strips }}</template>
+                <Column header="Strips" :sortable="true" sort-field="strips" style="min-width: 80px;">
+                  <template #body="{ data }">{{ data.strips?.toLocaleString() ?? '0' }}</template>
                 </Column>
                 <Column header="Stab On" :sortable="true" sort-field="stabOnGroup" style="min-width: 80px;">
                   <template #body="{ data }">{{ data.stabOnGroup }}</template>
@@ -268,6 +366,20 @@
                 <Column header="Stab Off" :sortable="true" sort-field="stabOffGroup" style="min-width: 80px;">
                   <template #body="{ data }">{{ data.stabOffGroup }}</template>
                 </Column>
+                <ColumnGroup type="footer">
+                  <Row v-for="row in supportPveSummary" :key="row.key" :class="{ 'summary-total': row.isTotal }">
+                    <Column footer="" />
+                    <Column footer="" />
+                    <Column :footer="row.subGroupLabel" />
+                    <Column :footer="row.rowLabel" />
+                    <Column :footer="fmtN(row.healing)" />
+                    <Column :footer="fmtN(row.barrierGenerated)" />
+                    <Column :footer="fmtN(row.cleanses)" />
+                    <Column :footer="fmtN(row.strips)" />
+                    <Column :footer="fmtDec(row.stabOnGroup)" />
+                    <Column :footer="fmtDec(row.stabOffGroup)" />
+                  </Row>
+                </ColumnGroup>
               </DataTable>
             </template>
           </TabPanel>
@@ -290,6 +402,12 @@
               </div>
               <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="deaths" :sort-order="-1" data-key="accountName" :selection="selectedPlayers" @update:selection="onSelectionChange">
                 <Column selection-mode="multiple" header-style="width: 3rem" frozen />
+                <Column field="fightCount" :sortable="true" style="width: 40px; min-width: 40px;" header-style="width: 40px">
+                  <template #header><i class="pi pi-hashtag" v-tooltip.top="'Fights'" /></template>
+                </Column>
+                <Column field="subGroup" :sortable="true" style="width: 40px; min-width: 40px;" header-style="width: 40px">
+                  <template #header><i class="pi pi-users" v-tooltip.top="'Subgroup'" /></template>
+                </Column>
                 <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
                 <Column field="deaths" header="Deaths" :sortable="true" style="min-width: 70px;" />
                 <Column field="timesDowned" header="Downed" :sortable="true" style="min-width: 70px;" />
@@ -307,6 +425,22 @@
                 <Column header="Dist Tag" :sortable="true" sort-field="distanceFromTag" style="min-width: 80px;">
                   <template #body="{ data }">{{ data.distanceFromTag > 0 ? data.distanceFromTag : '-' }}</template>
                 </Column>
+                <ColumnGroup type="footer">
+                  <Row v-for="row in survivabilityWvwSummary" :key="row.key" :class="{ 'summary-total': row.isTotal }">
+                    <Column footer="" />
+                    <Column footer="" />
+                    <Column :footer="row.subGroupLabel" />
+                    <Column :footer="row.rowLabel" />
+                    <Column :footer="fmtN(row.deaths)" />
+                    <Column :footer="fmtN(row.timesDowned)" />
+                    <Column :footer="fmtN(row.firstToDie)" />
+                    <Column :footer="fmtN(row.damageTaken)" />
+                    <Column :footer="fmtN(row.barrierMitigation)" />
+                    <Column :footer="fmtSec(row.resurrectionTime)" />
+                    <Column :footer="fmtN(row.timesInterrupted)" />
+                    <Column :footer="row.distanceFromTag > 0 ? fmtDec(row.distanceFromTag) : '-'" />
+                  </Row>
+                </ColumnGroup>
               </DataTable>
             </template>
 
@@ -327,6 +461,12 @@
               </div>
               <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="deaths" :sort-order="-1" data-key="accountName" :selection="selectedPlayers" @update:selection="onSelectionChange">
                 <Column selection-mode="multiple" header-style="width: 3rem" frozen />
+                <Column field="fightCount" :sortable="true" style="width: 40px; min-width: 40px;" header-style="width: 40px">
+                  <template #header><i class="pi pi-hashtag" v-tooltip.top="'Fights'" /></template>
+                </Column>
+                <Column field="subGroup" :sortable="true" style="width: 40px; min-width: 40px;" header-style="width: 40px">
+                  <template #header><i class="pi pi-users" v-tooltip.top="'Subgroup'" /></template>
+                </Column>
                 <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
                 <Column field="deaths" header="Deaths" :sortable="true" style="min-width: 70px;" />
                 <Column field="timesDowned" header="Downed" :sortable="true" style="min-width: 70px;" />
@@ -337,6 +477,19 @@
                 <Column header="Res Time (s)" :sortable="true" sort-field="resurrectionTime" style="min-width: 105px;">
                   <template #body="{ data }">{{ (data.resurrectionTime / 1000).toFixed(1) }}</template>
                 </Column>
+                <ColumnGroup type="footer">
+                  <Row v-for="row in survivabilityPveSummary" :key="row.key" :class="{ 'summary-total': row.isTotal }">
+                    <Column footer="" />
+                    <Column footer="" />
+                    <Column :footer="row.subGroupLabel" />
+                    <Column :footer="row.rowLabel" />
+                    <Column :footer="fmtN(row.deaths)" />
+                    <Column :footer="fmtN(row.timesDowned)" />
+                    <Column :footer="fmtN(row.firstToDie)" />
+                    <Column :footer="fmtN(row.damageTaken)" />
+                    <Column :footer="fmtSec(row.resurrectionTime)" />
+                  </Row>
+                </ColumnGroup>
               </DataTable>
             </template>
           </TabPanel>
@@ -405,6 +558,84 @@ const aggDifficultyFilter = ref<DifficultyFilter>(null)
 const showGraphs = ref(true)
 const showTables = ref(true)
 const unselectedAccounts = ref<Set<string>>(new Set())
+
+const singleLog = computed(() => {
+  const logs = result.value?.logs ?? []
+  return logs.length === 1 ? logs[0] : null
+})
+
+type AggMode = 'sum' | 'avg'
+
+const aggregateGroup = (players: any[], spec: Record<string, AggMode>) => {
+  const result: Record<string, number> = {}
+  for (const field of Object.keys(spec)) {
+    const mode = spec[field]
+    const values = players.map((p: any) => Number(p[field]) || 0)
+    const total = values.reduce((s: number, v: number) => s + v, 0)
+    result[field] = mode === 'sum' ? total : (values.length > 0 ? total / values.length : 0)
+  }
+  return result
+}
+
+const buildSummary = (players: any[], spec: Record<string, AggMode>) => {
+  if (!players || players.length === 0) {
+    return [] as any[]
+  }
+  const bySub = new Map<number, any[]>()
+  for (const p of players) {
+    const sg = Number(p.subGroup ?? 0)
+    if (!bySub.has(sg)) {
+      bySub.set(sg, [])
+    }
+    bySub.get(sg)!.push(p)
+  }
+  const subs = [...bySub.keys()].sort((a, b) => a - b)
+  const rows: any[] = subs.map(sg => ({
+    key: `sub-${sg}`,
+    subGroupLabel: String(sg),
+    rowLabel: `Sub ${sg}`,
+    isTotal: false,
+    ...aggregateGroup(bySub.get(sg)!, spec),
+  }))
+  rows.push({
+    key: 'total',
+    subGroupLabel: '',
+    rowLabel: 'Total',
+    isTotal: true,
+    ...aggregateGroup(players, spec),
+  })
+  return rows
+}
+
+const fmtN = (v: number) => Math.round(v ?? 0).toLocaleString()
+const fmtPct = (v: number) => `${(v ?? 0).toFixed(2)}%`
+const fmtDec = (v: number, d = 2) => (v ?? 0).toFixed(d)
+const fmtSec = (v: number) => ((v ?? 0) / 1000).toFixed(1)
+
+const damageWvwSummary = computed(() => buildSummary(displayResult.value?.players ?? [], {
+  damage: 'sum', damageDownContribution: 'sum', kills: 'sum', downs: 'sum',
+}))
+const damagePveSummary = computed(() => buildSummary(displayResult.value?.players ?? [], {
+  dps: 'sum', cleaveDps: 'sum', quicknessDuration: 'avg', alacDuration: 'avg',
+}))
+const supportWvwSummary = computed(() => buildSummary(displayResult.value?.players ?? [], {
+  healing: 'sum', cleanses: 'sum', strips: 'sum', barrierGenerated: 'sum',
+  stabOnGroup: 'avg', stabOffGroup: 'avg',
+  interrupts: 'sum', numberOfBoonsRipped: 'sum', quicknessDuration: 'avg',
+}))
+const supportPveSummary = computed(() => buildSummary(displayResult.value?.players ?? [], {
+  healing: 'sum', barrierGenerated: 'sum', cleanses: 'sum', strips: 'sum',
+  stabOnGroup: 'avg', stabOffGroup: 'avg',
+}))
+const survivabilityWvwSummary = computed(() => buildSummary(displayResult.value?.players ?? [], {
+  deaths: 'sum', timesDowned: 'sum', firstToDie: 'sum', damageTaken: 'sum',
+  barrierMitigation: 'sum', resurrectionTime: 'sum', timesInterrupted: 'sum',
+  distanceFromTag: 'avg',
+}))
+const survivabilityPveSummary = computed(() => buildSummary(displayResult.value?.players ?? [], {
+  deaths: 'sum', timesDowned: 'sum', firstToDie: 'sum', damageTaken: 'sum',
+  resurrectionTime: 'sum',
+}))
 
 const selectedPlayers = computed(() =>
   (displayResult.value?.players ?? []).filter((p: any) => !unselectedAccounts.value.has(p.accountName))
@@ -637,7 +868,7 @@ const handleChartClick = (_event: any, elements: any[]) => {
   if (props.rowAction === 'select') {
     emit('select-log', fight.fightLogId)
   } else {
-    navigateTo(`/logs/${fight.fightLogId}`)
+    window.open(`/logs/${fight.fightLogId}`, '_blank', 'noopener')
   }
 }
 
@@ -811,5 +1042,13 @@ defineExpose({ reload: loadInitial })
 }
 .mech-zero {
   color: var(--p-text-muted-color);
+}
+:deep(tfoot tr.summary-total td) {
+  font-weight: 700;
+  border-top: 2px solid var(--p-surface-border);
+}
+:deep(tfoot td) {
+  font-size: 0.8rem;
+  background: color-mix(in srgb, var(--p-surface-card) 60%, transparent);
 }
 </style>

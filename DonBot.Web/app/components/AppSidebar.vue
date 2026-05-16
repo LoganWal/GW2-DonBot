@@ -8,6 +8,15 @@
         </div>
         <span class="logo-text">DonBot</span>
       </NuxtLink>
+      <Button
+        class="sidebar-toggle"
+        :icon="collapsed ? 'pi pi-chevron-right' : 'pi pi-chevron-left'"
+        text
+        severity="secondary"
+        size="small"
+        aria-label="Toggle sidebar"
+        @click="toggle"
+      />
     </div>
 
     <nav class="sidebar-nav">
@@ -25,16 +34,6 @@
       </NuxtLink>
     </nav>
 
-    <div class="sidebar-footer">
-      <Button
-        :icon="collapsed ? 'pi pi-chevron-right' : 'pi pi-chevron-left'"
-        text
-        severity="secondary"
-        size="small"
-        @click="toggle"
-        aria-label="Toggle sidebar"
-      />
-    </div>
   </aside>
 </template>
 
@@ -119,8 +118,14 @@ const isActive = (to: string) =>
   height: 60px;
   display: flex;
   align-items: center;
-  padding: 0 1rem;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0 0.75rem 0 1rem;
   border-bottom: 1px solid var(--p-surface-border);
+  flex-shrink: 0;
+}
+
+.sidebar-toggle {
   flex-shrink: 0;
 }
 
@@ -238,17 +243,16 @@ const isActive = (to: string) =>
   background: var(--p-primary-color);
 }
 
-/* Footer */
-.sidebar-footer {
-  padding: 0.75rem 0.5rem;
-  border-top: 1px solid var(--p-surface-border);
-  display: flex;
-  justify-content: flex-end;
+/* Collapsed: hide toggle since user can't see it well; keep visible so they can reopen */
+/* noinspection CssUnusedSymbol */
+.app-sidebar.collapsed .sidebar-logo {
+  justify-content: center;
+  padding: 0;
 }
 
 /* noinspection CssUnusedSymbol */
-.app-sidebar.collapsed .sidebar-footer {
-  justify-content: center;
+.app-sidebar.collapsed .logo-link {
+  display: none;
 }
 
 /* Mobile */
@@ -265,7 +269,7 @@ const isActive = (to: string) =>
     transform: translateX(0);
   }
 
-  .sidebar-footer {
+  .sidebar-toggle {
     display: none;
   }
 }

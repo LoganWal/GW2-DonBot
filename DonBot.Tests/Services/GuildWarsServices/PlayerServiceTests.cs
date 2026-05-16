@@ -82,6 +82,59 @@ public class PlayerServiceTests
     }
 
     [Fact]
+    public void GetGw2Players_TimeOfDeath_WhenAccountHasMultipleCharactersAndOnlySecondDied_RecordsDeathTime()
+    {
+        // Regression: previously, when the first ArcDps player entry for an account had no death
+        // and a later entry for the same account did, the merge kept TimeOfDeath null.
+        // That dropped the death entirely, so downstream "first to die" picked the wrong player.
+        var boons = StandardBoons();
+        var data = new EliteInsightDataModel(
+            new FightEliteInsightDataModel
+            {
+                Boons = boons,
+                Players =
+                [
+                    new ArcDpsPlayer { Acc = "Same.1234", Profession = "Guardian", Name = "CharA", NotInSquad = false, Group = 1, Details = new ArcsDpsPlayerDetails { DeathRecap = [] } },
+                    new ArcDpsPlayer { Acc = "Same.1234", Profession = "Warrior",  Name = "CharB", NotInSquad = false, Group = 1, Details = new ArcsDpsPlayerDetails { DeathRecap = [new DeathRecap { Time = 1000 }] } }
+                ]
+            },
+            new HealingEliteInsightDataModel(),
+            new BarrierEliteInsightDataModel(),
+            null, null, null);
+        var phase = BuildPhase(BoonData(boons.Count, stabIndex: boons.IndexOf(Gw2BoonIds.Stability), stabValue: 0));
+
+        var players = Service.GetGw2Players(data, phase);
+
+        Assert.Single(players);
+        Assert.Equal(1000L, players[0].TimeOfDeath);
+    }
+
+    [Fact]
+    public void GetGw2Players_TimeOfDeath_WhenAccountHasMultipleCharactersWithDeaths_KeepsEarliest()
+    {
+        var boons = StandardBoons();
+        var data = new EliteInsightDataModel(
+            new FightEliteInsightDataModel
+            {
+                Boons = boons,
+                Players =
+                [
+                    new ArcDpsPlayer { Acc = "Same.1234", Profession = "Guardian", Name = "CharA", NotInSquad = false, Group = 1, Details = new ArcsDpsPlayerDetails { DeathRecap = [new DeathRecap { Time = 5000 }] } },
+                    new ArcDpsPlayer { Acc = "Same.1234", Profession = "Warrior",  Name = "CharB", NotInSquad = false, Group = 1, Details = new ArcsDpsPlayerDetails { DeathRecap = [new DeathRecap { Time = 2000 }] } }
+                ]
+            },
+            new HealingEliteInsightDataModel(),
+            new BarrierEliteInsightDataModel(),
+            null, null, null);
+        var phase = BuildPhase(BoonData(boons.Count, stabIndex: boons.IndexOf(Gw2BoonIds.Stability), stabValue: 0));
+
+        var players = Service.GetGw2Players(data, phase);
+
+        Assert.Single(players);
+        Assert.Equal(2000L, players[0].TimeOfDeath);
+    }
+
+    [Fact]
     public void GetGw2Players_TotalQuick_WhenQuicknessNotInBoonsList_ReturnsZero()
     {
         var boons = new List<int> { 740, 725, Gw2BoonIds.Alacrity };

@@ -167,7 +167,10 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
                     existingPlayer.TotalQuick += totalQuick;
                     existingPlayer.TotalAlac += totalAlac;
                     existingPlayer.ResurrectionTime += resurrectionTime;
-                    existingPlayer.TimeOfDeath = deathTime != null && existingPlayer.TimeOfDeath >= deathTime ? deathTime : existingPlayer.TimeOfDeath;
+                    if (deathTime.HasValue && (!existingPlayer.TimeOfDeath.HasValue || deathTime.Value < existingPlayer.TimeOfDeath.Value))
+                    {
+                        existingPlayer.TimeOfDeath = deathTime;
+                    }
                 }
             }
             catch (Exception ex)

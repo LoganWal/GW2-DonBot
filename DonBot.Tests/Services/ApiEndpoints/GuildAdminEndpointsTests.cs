@@ -378,6 +378,97 @@ public class GuildAdminEndpointsTests
         Assert.Null(GuildAdminEndpoints.ValidateQuoteText("hello world"));
     }
 
+    // -------------------------------------------------------------------------
+    // NormalizeRoleIdList
+    // -------------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void NormalizeRoleIdList_NullOrWhitespace_ReturnsNull(string? input)
+    {
+        Assert.Null(GuildAdminEndpoints.NormalizeRoleIdList(input));
+    }
+
+    [Fact]
+    public void NormalizeRoleIdList_OnlyInvalid_ReturnsNull()
+    {
+        Assert.Null(GuildAdminEndpoints.NormalizeRoleIdList("abc, def, , -5"));
+    }
+
+    [Fact]
+    public void NormalizeRoleIdList_FiltersJunkTrimsAndDedupes()
+    {
+        var result = GuildAdminEndpoints.NormalizeRoleIdList(" 100 , bad , 200, 100, 300 ");
+        Assert.Equal("100,200,300", result);
+    }
+
+    // -------------------------------------------------------------------------
+    // ValidateRoleIdList
+    // -------------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void ValidateRoleIdList_NullOrWhitespace_ReturnsNull(string? input)
+    {
+        Assert.Null(GuildAdminEndpoints.ValidateRoleIdList(input, new HashSet<ulong> { 1UL }, "Field"));
+    }
+
+    [Fact]
+    public void ValidateRoleIdList_AllValid_ReturnsNull()
+    {
+        var valid = new HashSet<ulong> { 100UL, 200UL };
+        Assert.Null(GuildAdminEndpoints.ValidateRoleIdList("100,200", valid, "ScheduledEventManagerRoleIds"));
+    }
+
+    [Fact]
+    public void ValidateRoleIdList_NonNumericEntry_ReturnsError()
+    {
+        var error = GuildAdminEndpoints.ValidateRoleIdList("100,abc", new HashSet<ulong> { 100UL }, "ScheduledEventManagerRoleIds");
+        Assert.NotNull(error);
+        Assert.Contains("invalid id", error);
+    }
+
+    [Fact]
+    public void ValidateRoleIdList_EntryNotInGuild_ReturnsError()
+    {
+        var error = GuildAdminEndpoints.ValidateRoleIdList("100,999", new HashSet<ulong> { 100UL }, "ScheduledEventManagerRoleIds");
+        Assert.NotNull(error);
+        Assert.Contains("does not belong", error);
+    }
+
+    // -------------------------------------------------------------------------
+    // ApplyDto: ScheduledEventManagerRoleIds normalization
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void ApplyDto_ScheduledEventManagerRoleIds_NormalizedOnSave()
+    {
+        var guild = new Guild { GuildId = 1 };
+        var dto = GuildAdminEndpoints.ToDto(guild) with
+        {
+            ScheduledEventManagerRoleIds = " 100 , bad , 200, 100 "
+        };
+
+        GuildAdminEndpoints.ApplyDto(guild, dto);
+
+        Assert.Equal("100,200", guild.ScheduledEventManagerRoleIds);
+    }
+
+    [Fact]
+    public void ApplyDto_ScheduledEventManagerRoleIds_BlankClearedToNull()
+    {
+        var guild = new Guild { GuildId = 1, ScheduledEventManagerRoleIds = "100,200" };
+        var dto = GuildAdminEndpoints.ToDto(guild) with { ScheduledEventManagerRoleIds = "  " };
+
+        GuildAdminEndpoints.ApplyDto(guild, dto);
+
+        Assert.Null(guild.ScheduledEventManagerRoleIds);
+    }
+
     [Fact]
     public async Task LookupCache_Transient_NotCachedAndRetriedNextCall()
     {

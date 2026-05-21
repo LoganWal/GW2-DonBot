@@ -80,21 +80,21 @@
                       </div>
                     </template>
                   </Column>
-                  <Column header="Fight">
+                  <Column header="Fight" sort-field="fightType" :sortable="true">
                     <template #body="{ data }">
                       <a :href="`/logs/${data.fightLogId}`" :title="`View ${fightName(data.fightType)} from ${new Date(data.fightStart).toLocaleString()}`" @click.prevent.stop="navigateTo(`/logs/${data.fightLogId}`)" style="color: inherit; text-decoration: none;">{{ fightName(data.fightType) }}</a>
                     </template>
                   </Column>
-                  <Column header="Character">
+                  <Column header="Character" sort-field="characterName" :sortable="true">
                     <template #body="{ data }">{{ data.characterName || '-' }}</template>
                   </Column>
-                  <Column header="Date">
+                  <Column header="Date" sort-field="fightStart" :sortable="true">
                     <template #body="{ data }">{{ new Date(data.fightStart).toLocaleString() }}</template>
                   </Column>
-                  <Column header="Duration">
+                  <Column header="Duration" sort-field="fightDurationInMs" :sortable="true">
                     <template #body="{ data }">{{ formatDuration(data.fightDurationInMs) }}</template>
                   </Column>
-                  <Column header="Result">
+                  <Column header="Result" sort-field="isSuccess" :sortable="true">
                     <template #body="{ data }">
                       <Tag v-if="data.fightType !== 0" :severity="data.isSuccess ? 'success' : 'danger'" :value="data.isSuccess ? 'Kill' : `${data.fightPercent}%`" />
                       <Tag v-else severity="secondary" value="WvW" />

@@ -79,6 +79,24 @@
                   style="width: 100%;"
                 />
               </div>
+              <div class="field">
+                <label for="scheduledEventManagerRoleIds">
+                  Scheduled event manager roles
+                  <i class="pi pi-info-circle field-info" v-tooltip.top="managerRolesTip" />
+                </label>
+                <MultiSelect
+                  id="scheduledEventManagerRoleIds"
+                  v-model="managerRoleSelection"
+                  :options="roles"
+                  option-label="name"
+                  option-value="id"
+                  placeholder="None"
+                  filter
+                  display="chip"
+                  show-clear
+                  style="width: 100%;"
+                />
+              </div>
             </div>
           </template>
         </Card>
@@ -410,6 +428,7 @@ type Config = {
   wvwLeaderboardChannelId: string | null
   pveLeaderboardEnabled: boolean
   pveLeaderboardChannelId: string | null
+  scheduledEventManagerRoleIds: string | null
 }
 type Gw2Guild = { id: string; name: string; tag: string | null }
 type ConfigResponse = {
@@ -456,6 +475,7 @@ const toggleFields: BooleanField[] = [
 
 const gw2PrimaryTip = 'GW2 guild ID (UUID) used to assign the primary Guild member role.'
 const gw2SecondaryTip = 'Comma-separated GW2 guild IDs (UUIDs) used to assign the Secondary member role.'
+const managerRolesTip = 'Members with any of these roles can manage scheduled events from the Scheduling page in addition to Discord administrators.'
 
 const { selectedGuildId, ensureSelection } = useSelectedGuild()
 const working = ref<Config | null>(null)
@@ -503,6 +523,14 @@ const parseSecondary = (raw: string | null | undefined): string[] =>
 
 const secondaryIds = computed(() => parseSecondary(working.value?.gw2SecondaryMemberRoleIds ?? null))
 const secondaryIdSet = computed(() => new Set(secondaryIds.value))
+
+const managerRoleSelection = computed<string[]>({
+  get: () => parseSecondary(working.value?.scheduledEventManagerRoleIds ?? null),
+  set: (ids) => {
+    if (!working.value) return
+    working.value.scheduledEventManagerRoleIds = ids.length ? ids.join(',') : null
+  },
+})
 
 const labelFor = (id: string) => {
   const entry = gw2NameCache.value[id]

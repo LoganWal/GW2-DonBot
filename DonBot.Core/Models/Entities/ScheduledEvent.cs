@@ -24,7 +24,5 @@ public class ScheduledEvent
 
     public short EventType { get; init; }
 
-    public long? RoleId { get; init; }
-
     public short RepeatIntervalDays { get; init; } = 7;
 }

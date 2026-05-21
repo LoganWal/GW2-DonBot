@@ -58,6 +58,12 @@ const { data: adminGuilds } = useAsyncData(
   { watch: [user] }
 )
 
+const { data: schedulingGuilds } = useAsyncData(
+  'sidebar-scheduling-guilds',
+  () => user.value ? (api('/api/scheduling/guilds') as Promise<any[]>).catch(() => []) : Promise.resolve([]),
+  { watch: [user] }
+)
+
 // Warm the live-raid guilds cache so the page can read it instantly.
 // Same useAsyncData key as live-raid.vue so the page shares this result.
 useLazyAsyncData(
@@ -70,6 +76,7 @@ useLazyAsyncData(
 
 const hasPoints = computed(() => (pointsData.value?.points ?? 0) > 0)
 const hasAdminGuilds = computed(() => (adminGuilds.value?.length ?? 0) > 0)
+const hasSchedulingGuilds = computed(() => (schedulingGuilds.value?.length ?? 0) > 0)
 
 const allNavItems = [
   { label: 'Dashboard',      to: '/dashboard',   icon: 'pi-home' },
@@ -83,6 +90,7 @@ const allNavItems = [
   { label: 'Points',        to: '/points',      icon: 'pi-star',  hidden: computed(() => !hasPoints.value) },
   { label: 'Accounts',     to: '/verify',      icon: 'pi-link' },
   { label: 'Upload Logs',   to: '/logs/upload', icon: 'pi-upload' },
+  { label: 'Scheduling',    to: '/scheduling',  icon: 'pi-calendar', hidden: computed(() => !hasSchedulingGuilds.value) },
   { label: 'Server Admin',  to: '/admin',       icon: 'pi-cog',   hidden: computed(() => !hasAdminGuilds.value) },
 ]
 

@@ -64,7 +64,8 @@ public static class GuildAdminEndpoints
         bool WvwLeaderboardEnabled,
         string? WvwLeaderboardChannelId,
         bool PveLeaderboardEnabled,
-        string? PveLeaderboardChannelId);
+        string? PveLeaderboardChannelId,
+        string? ScheduledEventManagerRoleIds);
 
     public record GuildConfigResponse(
         string GuildId,
@@ -233,6 +234,11 @@ public static class GuildAdminEndpoints
 
         if (roleError is not null) {
             return Results.BadRequest(roleError);
+        }
+
+        var managerRoleError = ValidateRoleIdList(dto.ScheduledEventManagerRoleIds, validRoleIds, nameof(dto.ScheduledEventManagerRoleIds));
+        if (managerRoleError is not null) {
+            return Results.BadRequest(managerRoleError);
         }
 
         var gw2Ids = CollectGw2GuildIds(dto);
@@ -450,7 +456,8 @@ public static class GuildAdminEndpoints
         g.WvwLeaderboardEnabled,
         LongToString(g.WvwLeaderboardChannelId),
         g.PveLeaderboardEnabled,
-        LongToString(g.PveLeaderboardChannelId));
+        LongToString(g.PveLeaderboardChannelId),
+        g.ScheduledEventManagerRoleIds);
 
     internal static string? LongToString(long? value) => value?.ToString();
 
@@ -483,6 +490,20 @@ public static class GuildAdminEndpoints
         guild.WvwLeaderboardChannelId = ParseOptionalLong(dto.WvwLeaderboardChannelId);
         guild.PveLeaderboardEnabled = dto.PveLeaderboardEnabled;
         guild.PveLeaderboardChannelId = ParseOptionalLong(dto.PveLeaderboardChannelId);
+        guild.ScheduledEventManagerRoleIds = NormalizeRoleIdList(dto.ScheduledEventManagerRoleIds);
+    }
+
+    internal static string? NormalizeRoleIdList(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) {
+            return null;
+        }
+        var ids = value
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(id => ulong.TryParse(id, out _))
+            .Distinct()
+            .ToList();
+        return ids.Count == 0 ? null : string.Join(",", ids);
     }
 
     internal static string? ValidateOptionalSnowflake(string? value, HashSet<ulong> validIds, string fieldName)
@@ -495,6 +516,23 @@ public static class GuildAdminEndpoints
         }
         if (!validIds.Contains(parsed)) {
             return $"{fieldName} does not belong to this guild.";
+        }
+        return null;
+    }
+
+    internal static string? ValidateRoleIdList(string? value, HashSet<ulong> validIds, string fieldName)
+    {
+        if (string.IsNullOrWhiteSpace(value)) {
+            return null;
+        }
+        foreach (var part in value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!ulong.TryParse(part, out var parsed)) {
+                return $"{fieldName} contains an invalid id.";
+            }
+            if (!validIds.Contains(parsed)) {
+                return $"{fieldName} contains a role that does not belong to this guild.";
+            }
         }
         return null;
     }

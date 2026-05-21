@@ -133,14 +133,21 @@
           @click="submitBulkToWingman"
         />
       </div>
-      <DataTable :value="history" size="small" striped-rows>
-        <Column header="Source">
+      <DataTable
+        :value="history"
+        size="small"
+        striped-rows
+        sort-field="createdAt"
+        :sort-order="-1"
+        removable-sort
+      >
+        <Column header="Source" field="sourceType" :sortable="true">
           <template #body="{ data }">
             <Tag :value="data.sourceType === 'url' ? 'URL' : 'File'" severity="secondary" />
           </template>
         </Column>
-        <Column header="Name" field="fileName" />
-        <Column header="Date">
+        <Column header="Name" field="fileName" :sortable="true" />
+        <Column header="Date" sort-field="createdAt" :sortable="true">
           <template #body="{ data }">{{ new Date(data.createdAt).toLocaleString() }}</template>
         </Column>
         <Column header="Links">

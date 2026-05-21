@@ -47,6 +47,7 @@ app.MapPointsEndpoints();
 app.MapAccountEndpoints();
 app.MapGuildAdminEndpoints();
 app.MapLiveRaidEndpoints();
+app.MapSchedulingEndpoints();
 
 app.MapTus("/api/upload/tus", async httpContext =>
 {

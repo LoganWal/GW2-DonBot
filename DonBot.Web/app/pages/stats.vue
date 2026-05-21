@@ -4,7 +4,7 @@
     <ProgressSpinner v-if="pending" />
     <div v-else-if="stats">
       <Message v-if="!stats.wvw && !stats.pve" severity="info" :closable="false">No fight data found.</Message>
-      <Tabs v-else :value="defaultTab">
+      <Tabs v-else v-model:value="activeTab">
         <TabList>
           <Tab v-if="stats.pve" value="pve">PvE</Tab>
           <Tab v-if="stats.wvw" value="wvw">WvW</Tab>
@@ -98,10 +98,18 @@
       </Tabs>
       <template v-if="stats.characters?.length">
         <SectionTitle style="margin-top: 1.5rem;">Characters</SectionTitle>
-        <DataTable :value="stats.characters" striped-rows style="max-width: 600px;">
-          <Column field="characterName" header="Character" />
-          <Column field="wvwLogs" header="WvW Logs" />
-          <Column field="pveLogs" header="PvE Logs" />
+        <DataTable
+          :key="charactersSortField"
+          :value="stats.characters"
+          striped-rows
+          style="max-width: 600px;"
+          :sort-field="charactersSortField"
+          :sort-order="-1"
+          removable-sort
+        >
+          <Column field="characterName" header="Character" :sortable="true" />
+          <Column field="pveLogs" header="PvE Logs" :sortable="true" />
+          <Column field="wvwLogs" header="WvW Logs" :sortable="true" />
         </DataTable>
       </template>
     </div>
@@ -114,5 +122,10 @@ definePageMeta({ middleware: 'auth' })
 const api = useApi()
 const { data: stats, pending } = await useAsyncData('stats', () => api('/api/stats/me') as Promise<any>)
 
-const defaultTab = computed(() => stats.value?.pve ? 'pve' : 'wvw')
+const activeTab = ref<'pve' | 'wvw'>('pve')
+watch(stats, (s) => {
+  activeTab.value = s?.pve ? 'pve' : 'wvw'
+}, { immediate: true })
+
+const charactersSortField = computed(() => activeTab.value === 'wvw' ? 'wvwLogs' : 'pveLogs')
 </script>

@@ -53,4 +53,7 @@ public class Guild
     public bool PveLeaderboardEnabled { get; set; }
 
     public long? PveLeaderboardChannelId { get; set; }
+
+    [MaxLength(1000)]
+    public string? ScheduledEventManagerRoleIds { get; set; }
 }

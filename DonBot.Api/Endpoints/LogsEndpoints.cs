@@ -1,4 +1,6 @@
 using DonBot.Models.Entities;
+using DonBot.Models.Enums;
+using DonBot.Services.GuildWarsServices;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
@@ -13,6 +15,7 @@ public static class LogsEndpoints
         group.MapGet("/", GetLogs);
         group.MapGet("/characters", GetMyCharacters);
         group.MapPost("/aggregate", AggregateLogs);
+        group.MapPost("/know-my-enemy", KnowMyEnemy);
         group.MapPost("/wingman", SubmitToWingman);
         group.MapGet("/{id:long}", GetLog);
     }
@@ -62,6 +65,83 @@ public static class LogsEndpoints
         }
 
         return Results.Ok(new { submitted = results.Count, results });
+    }
+
+    private static async Task<IResult> KnowMyEnemy(
+        LogIdsRequest request,
+        IDbContextFactory<DatabaseContext> dbContextFactory,
+        IDataModelGenerationService dataModelGenerationService)
+    {
+        if (request?.LogIds == null || request.LogIds.Count == 0)
+        {
+            return Results.BadRequest("No log IDs provided.");
+        }
+
+        await using var context = await dbContextFactory.CreateDbContextAsync();
+
+        var logs = await context.FightLog
+            .Where(fl => request.LogIds.Contains(fl.FightLogId)
+                && fl.FightType == (short)FightTypesEnum.WvW
+                && fl.Url != null
+                && fl.Url != string.Empty)
+            .Select(fl => new { fl.FightLogId, fl.Url })
+            .ToListAsync();
+
+        if (logs.Count == 0)
+        {
+            return Results.Ok(new { logsProcessed = 0, totalTargets = 0, classes = Array.Empty<object>() });
+        }
+
+        var throttle = new SemaphoreSlim(4);
+        var fetched = await Task.WhenAll(logs.Select(async log =>
+        {
+            await throttle.WaitAsync();
+            try
+            {
+                var data = await dataModelGenerationService.GenerateEliteInsightDataModelFromUrl(log.Url!);
+                return data.FightEliteInsightDataModel.Targets ?? new();
+            }
+            catch
+            {
+                return new();
+            }
+            finally
+            {
+                throttle.Release();
+            }
+        }));
+
+        var allTargets = fetched
+            .SelectMany(t => t)
+            .Where(t => t.Name != null && t.Name != "Dummy PvP Agent")
+            .ToList();
+
+        var classes = allTargets
+            .GroupBy(t => t.Name!.Split(' ').FirstOrDefault() ?? "Unknown")
+            .Select(grp =>
+            {
+                var avgStrike = grp.Average(t => t.Details?.DmgDistributions?
+                    .Sum(d => d.Distribution?.Where(dis => dis[0].Bool == false).Sum(dis => dis[2].Double) ?? 0.0) ?? 0.0);
+                var avgCondi = grp.Average(t => t.Details?.DmgDistributions?
+                    .Sum(d => d.Distribution?.Where(dis => dis[0].Bool == true).Sum(dis => dis[2].Double) ?? 0.0) ?? 0.0);
+                return new
+                {
+                    className = grp.Key,
+                    count = grp.Count(),
+                    avgStrike = (long)Math.Round(avgStrike),
+                    avgCondi = (long)Math.Round(avgCondi),
+                    avgTotal = (long)Math.Round(avgStrike + avgCondi),
+                };
+            })
+            .OrderByDescending(c => c.avgTotal)
+            .ToList();
+
+        return Results.Ok(new
+        {
+            logsProcessed = logs.Count,
+            totalTargets = allTargets.Count,
+            classes,
+        });
     }
 
     private record AggregateLogsRequest(List<long> LogIds);
@@ -148,12 +228,16 @@ public static class LogsEndpoints
 
         var grouped = playerLogs.GroupBy(pfl => pfl.GuildWarsAccountName).ToList();
 
-        var firstToDieCounts = playerLogs
+        var firstToDieByFight = playerLogs
             .GroupBy(pfl => pfl.FightLogId)
             .Where(g => g.Any(pfl => pfl.TimeOfDeath.HasValue))
-            .Select(g => g.Where(pfl => pfl.TimeOfDeath.HasValue)
-                .OrderBy(pfl => pfl.TimeOfDeath)
-                .First().GuildWarsAccountName)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Where(pfl => pfl.TimeOfDeath.HasValue)
+                    .OrderBy(pfl => pfl.TimeOfDeath)
+                    .First().GuildWarsAccountName);
+
+        var firstToDieCounts = firstToDieByFight.Values
             .GroupBy(name => name)
             .ToDictionary(g => g.Key, g => g.Count());
 
@@ -240,6 +324,7 @@ public static class LogsEndpoints
         {
             var fightPlayers = playerLogsByFight.GetValueOrDefault(fl.FightLogId, []);
             var durationSec = fl.FightDurationInMs / 1000.0;
+            var firstDeadAccount = firstToDieByFight.GetValueOrDefault(fl.FightLogId);
             return new
             {
                 fightLogId = fl.FightLogId,
@@ -264,6 +349,15 @@ public static class LogsEndpoints
                     alacDuration = Math.Round((double)pfl.AlacDuration, 2),
                     damageDownContribution = pfl.DamageDownContribution,
                     numberOfBoonsRipped = pfl.NumberOfBoonsRipped,
+                    barrierGenerated = pfl.BarrierGenerated,
+                    barrierMitigation = pfl.BarrierMitigation,
+                    stabOnGroup = Math.Round((double)pfl.StabGenOnGroup, 2),
+                    stabOffGroup = Math.Round((double)pfl.StabGenOffGroup, 2),
+                    interrupts = pfl.Interrupts,
+                    timesInterrupted = pfl.TimesInterrupted,
+                    resurrectionTime = pfl.ResurrectionTime,
+                    firstToDie = pfl.GuildWarsAccountName == firstDeadAccount ? 1 : 0,
+                    distanceFromTag = pfl.DistanceFromTag < 1100 ? Math.Round((double)pfl.DistanceFromTag, 2) : 0,
                 }).ToList(),
             };
         }).ToList();

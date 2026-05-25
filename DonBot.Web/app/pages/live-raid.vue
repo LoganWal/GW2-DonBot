@@ -17,6 +17,16 @@
       <span v-if="report" style="color: var(--p-text-muted-color); font-size: 0.85rem;">
         Started {{ new Date(report.fightsStart).toLocaleString() }}
       </span>
+      <Tag
+        v-if="aggregateSummary?.type === 'wvw'"
+        severity="info"
+        :value="`${aggregateSummary.wins ?? 0} ${(aggregateSummary.wins ?? 0) === 1 ? 'win' : 'wins'} / ${aggregateSummary.losses ?? 0} ${(aggregateSummary.losses ?? 0) === 1 ? 'loss' : 'losses'}`"
+      />
+      <Tag
+        v-else-if="aggregateSummary?.type === 'pve'"
+        severity="info"
+        :value="`${aggregateSummary.kills ?? 0} ${(aggregateSummary.kills ?? 0) === 1 ? 'kill' : 'kills'} / ${aggregateSummary.wipes ?? 0} ${(aggregateSummary.wipes ?? 0) === 1 ? 'wipe' : 'wipes'}`"
+      />
       <div style="margin-left: auto; display: flex; gap: 0.5rem;">
         <Button
           v-if="guildsPending || reportPending"
@@ -92,6 +102,7 @@
           :selected-log-id="selectedFightLogId"
           row-action="select"
           @select-log="onSelectLog"
+          @summary="aggregateSummary = $event"
         />
       </section>
     </template>
@@ -128,6 +139,7 @@ const guildIdStr = computed<string | null>(() => selectedGuildIdStr.value)
 const { report, pending: reportPending, reloadKey, refresh: refreshReport } = useLiveRaid(guildIdStr)
 
 const selectedFightLogId = ref<number | null>(null)
+const aggregateSummary = ref<{ type: 'wvw' | 'pve'; wins?: number; losses?: number; kills?: number; wipes?: number } | null>(null)
 
 watch(report, (r, prev) => {
   if (!r) {

@@ -33,6 +33,20 @@
           <StatCard label="Fight Time" :value="formatDuration(displayResult.totalDurationMs, true)" />
           <StatCard label="Type" :value="displayResult.type === 'wvw' ? 'WvW' : 'PvE'" />
           <StatCard label="Players" :value="displayResult.players.length" />
+          <StatCard v-if="displayResult.type === 'wvw' && enemyData" label="Enemy Count" :value="(enemyData.totalTargets ?? 0).toLocaleString()" />
+          <template v-if="displayResult.type !== 'wvw'">
+            <StatCard label="Group DPS" :value="groupDps.toLocaleString()" />
+            <StatCard label="Avg Quick" :value="`${avgQuick.toFixed(1)}%`" />
+            <StatCard label="Avg Alac" :value="`${avgAlac.toFixed(1)}%`" />
+          </template>
+          <template v-else>
+            <StatCard label="Damage Dealt" :value="wvwTotals.damage.toLocaleString()" />
+            <StatCard label="Damage Taken" :value="wvwTotals.damageTaken.toLocaleString()" />
+            <StatCard label="Enemies Killed" :value="wvwTotals.kills.toLocaleString()" />
+            <StatCard label="Enemies Downed" :value="wvwTotals.downs.toLocaleString()" />
+            <StatCard label="Group Deaths" :value="wvwTotals.deaths.toLocaleString()" />
+            <StatCard label="Group Downed" :value="wvwTotals.timesDowned.toLocaleString()" />
+          </template>
         </div>
       </div>
 
@@ -43,6 +57,22 @@
         <StatCard v-if="displayResult.sessionDurationMs && displayResult.sessionDurationMs > displayResult.totalDurationMs" label="Downtime" :value="formatDuration(displayResult.sessionDurationMs - displayResult.totalDurationMs, true)" />
         <StatCard label="Type" :value="displayResult.type === 'wvw' ? 'WvW' : 'PvE'" />
         <StatCard label="Players" :value="displayResult.players.length" />
+        <StatCard v-if="displayResult.type === 'wvw' && enemyData" label="Enemy Count" :value="(enemyData.totalTargets ?? 0).toLocaleString()" />
+        <template v-if="displayResult.type === 'wvw'">
+          <StatCard label="Win / Loss" :value="`${wvwWinLoss.wins}W / ${wvwWinLoss.losses}L`" />
+          <StatCard label="Damage Dealt" :value="wvwTotals.damage.toLocaleString()" />
+          <StatCard label="Damage Taken" :value="wvwTotals.damageTaken.toLocaleString()" />
+          <StatCard label="Enemies Killed" :value="wvwTotals.kills.toLocaleString()" />
+          <StatCard label="Enemies Downed" :value="wvwTotals.downs.toLocaleString()" />
+          <StatCard label="Group Deaths" :value="wvwTotals.deaths.toLocaleString()" />
+          <StatCard label="Group Downed" :value="wvwTotals.timesDowned.toLocaleString()" />
+        </template>
+        <template v-else>
+          <StatCard label="Kills / Wipes" :value="`${pveKillsWipes.kills}K / ${pveKillsWipes.wipes}W`" />
+          <StatCard label="Group DPS" :value="groupDps.toLocaleString()" />
+          <StatCard label="Avg Quick" :value="`${avgQuick.toFixed(1)}%`" />
+          <StatCard label="Avg Alac" :value="`${avgAlac.toFixed(1)}%`" />
+        </template>
         <ProgressSpinner v-if="filterPending" style="width: 2rem; height: 2rem;" />
       </div>
 
@@ -83,7 +113,7 @@
         />
       </div>
 
-      <Tabs :value="hideLogsTab ? 'damage' : 'logs'" class="tabs-with-toggles">
+      <Tabs v-model:value="activeTab" class="tabs-with-toggles">
         <div class="tab-toggles">
           <Button
             :label="showGraphs ? 'Hide Graphs' : 'Show Graphs'"
@@ -104,10 +134,11 @@
         </div>
         <TabList>
           <Tab v-if="!hideLogsTab" value="logs">Logs</Tab>
-          <Tab value="damage">Damage & Combat</Tab>
+          <Tab value="damage">Damage</Tab>
           <Tab value="support">Support</Tab>
           <Tab value="survivability">Survivability</Tab>
           <Tab v-if="displayResult?.type !== 'wvw'" value="mechanics">Mechanics</Tab>
+          <Tab v-if="displayResult?.type === 'wvw'" value="enemy">Know My Enemy</Tab>
         </TabList>
         <TabPanels>
 
@@ -146,20 +177,20 @@
 
           <TabPanel value="damage">
             <template v-if="displayResult && filteredAggLogs.length > 0 && displayResult.type === 'wvw'">
-              <div v-if="showGraphs" class="charts-row mb-section">
-                <div class="chart-container clickable-chart">
+              <div v-if="showGraphs && (chartHasData(wvwDamageChartData) || chartHasData(wvwDdcChartData) || chartHasData(killsChartData) || chartHasData(downsChartData))" class="charts-row mb-section">
+                <div v-if="chartHasData(wvwDamageChartData)" class="chart-container clickable-chart">
                   <div class="chart-label">Damage per Fight</div>
                   <Chart :type="chartType" :data="wvwDamageChartData" :options="clickableChartOptions" />
                 </div>
-                <div class="chart-container clickable-chart">
+                <div v-if="chartHasData(wvwDdcChartData)" class="chart-container clickable-chart">
                   <div class="chart-label">DDC per Fight</div>
                   <Chart :type="chartType" :data="wvwDdcChartData" :options="clickableChartOptions" />
                 </div>
-                <div class="chart-container clickable-chart">
+                <div v-if="chartHasData(killsChartData)" class="chart-container clickable-chart">
                   <div class="chart-label">Kills per Fight</div>
                   <Chart :type="chartType" :data="killsChartData" :options="clickableIntChartOptions" />
                 </div>
-                <div class="chart-container clickable-chart">
+                <div v-if="chartHasData(downsChartData)" class="chart-container clickable-chart">
                   <div class="chart-label">Downs per Fight</div>
                   <Chart :type="chartType" :data="downsChartData" :options="clickableIntChartOptions" />
                 </div>
@@ -196,14 +227,22 @@
               </DataTable>
             </template>
             <template v-else-if="displayResult && filteredAggLogs.length > 0">
-              <div v-if="showGraphs" class="charts-row mb-section">
-                <div class="chart-container clickable-chart">
+              <div v-if="showGraphs && (chartHasData(pveDpsChartData) || chartHasData(pveCleaveDpsChartData) || chartHasData(pveQuickChartData) || chartHasData(pveAlacChartData))" class="charts-row mb-section">
+                <div v-if="chartHasData(pveDpsChartData)" class="chart-container clickable-chart">
                   <div class="chart-label">DPS per Fight</div>
                   <Chart :type="chartType" :data="pveDpsChartData" :options="clickableChartOptions" />
                 </div>
-                <div class="chart-container clickable-chart">
+                <div v-if="chartHasData(pveCleaveDpsChartData)" class="chart-container clickable-chart">
                   <div class="chart-label">Cleave DPS per Fight</div>
                   <Chart :type="chartType" :data="pveCleaveDpsChartData" :options="clickableChartOptions" />
+                </div>
+                <div v-if="chartHasData(pveQuickChartData)" class="chart-container clickable-chart">
+                  <div class="chart-label">Quickness % per Fight</div>
+                  <Chart :type="chartType" :data="pveQuickChartData" :options="clickableChartOptions" />
+                </div>
+                <div v-if="chartHasData(pveAlacChartData)" class="chart-container clickable-chart">
+                  <div class="chart-label">Alacrity % per Fight</div>
+                  <Chart :type="chartType" :data="pveAlacChartData" :options="clickableChartOptions" />
                 </div>
               </div>
               <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="dps" :sort-order="-1" data-key="accountName" :selection="selectedPlayers" @update:selection="onSelectionChange">
@@ -245,24 +284,40 @@
 
           <TabPanel value="support">
             <template v-if="displayResult && filteredAggLogs.length > 0 && displayResult.type === 'wvw'">
-              <div v-if="showGraphs" class="charts-row mb-section">
-                <div class="chart-container clickable-chart">
+              <div v-if="showGraphs && (chartHasData(healingChartData) || chartHasData(barrierGenChartData) || chartHasData(stabOnChartData) || chartHasData(stabOffChartData) || chartHasData(cleansesChartData) || chartHasData(wvwBoonsRippedChartData) || chartHasData(stripsChartData) || chartHasData(interruptsChartData) || chartHasData(wvwQuickChartData))" class="charts-row mb-section">
+                <div v-if="chartHasData(healingChartData)" class="chart-container clickable-chart">
                   <div class="chart-label">Healing per Fight</div>
                   <Chart :type="chartType" :data="healingChartData" :options="clickableChartOptions" />
                 </div>
-                <div class="chart-container clickable-chart">
+                <div v-if="chartHasData(barrierGenChartData)" class="chart-container clickable-chart">
+                  <div class="chart-label">Barrier Gen per Fight</div>
+                  <Chart :type="chartType" :data="barrierGenChartData" :options="clickableChartOptions" />
+                </div>
+                <div v-if="chartHasData(stabOnChartData)" class="chart-container clickable-chart">
+                  <div class="chart-label">Stab On Gen per Fight</div>
+                  <Chart :type="chartType" :data="stabOnChartData" :options="clickableChartOptions" />
+                </div>
+                <div v-if="chartHasData(stabOffChartData)" class="chart-container clickable-chart">
+                  <div class="chart-label">Stab Off Gen per Fight</div>
+                  <Chart :type="chartType" :data="stabOffChartData" :options="clickableChartOptions" />
+                </div>
+                <div v-if="chartHasData(cleansesChartData)" class="chart-container clickable-chart">
                   <div class="chart-label">Cleanses per Fight</div>
                   <Chart :type="chartType" :data="cleansesChartData" :options="clickableIntChartOptions" />
                 </div>
-                <div class="chart-container clickable-chart">
+                <div v-if="chartHasData(wvwBoonsRippedChartData)" class="chart-container clickable-chart">
                   <div class="chart-label">Boons Ripped per Fight</div>
                   <Chart :type="chartType" :data="wvwBoonsRippedChartData" :options="clickableIntChartOptions" />
                 </div>
-                <div class="chart-container clickable-chart">
+                <div v-if="chartHasData(stripsChartData)" class="chart-container clickable-chart">
                   <div class="chart-label">Strips per Fight</div>
                   <Chart :type="chartType" :data="stripsChartData" :options="clickableIntChartOptions" />
                 </div>
-                <div class="chart-container clickable-chart">
+                <div v-if="chartHasData(interruptsChartData)" class="chart-container clickable-chart">
+                  <div class="chart-label">Interrupts per Fight</div>
+                  <Chart :type="chartType" :data="interruptsChartData" :options="clickableIntChartOptions" />
+                </div>
+                <div v-if="chartHasData(wvwQuickChartData)" class="chart-container clickable-chart">
                   <div class="chart-label">Quickness % per Fight</div>
                   <Chart :type="chartType" :data="wvwQuickChartData" :options="clickableChartOptions" />
                 </div>
@@ -321,22 +376,30 @@
               </DataTable>
             </template>
             <template v-else-if="displayResult && filteredAggLogs.length > 0">
-              <div v-if="showGraphs" class="charts-row mb-section">
-                <div class="chart-container clickable-chart">
+              <div v-if="showGraphs && (chartHasData(healingChartData) || chartHasData(barrierGenChartData) || chartHasData(cleansesChartData) || chartHasData(stripsChartData) || chartHasData(stabOnChartData) || chartHasData(stabOffChartData))" class="charts-row mb-section">
+                <div v-if="chartHasData(healingChartData)" class="chart-container clickable-chart">
                   <div class="chart-label">Healing per Fight</div>
                   <Chart :type="chartType" :data="healingChartData" :options="clickableChartOptions" />
                 </div>
-                <div class="chart-container clickable-chart">
+                <div v-if="chartHasData(barrierGenChartData)" class="chart-container clickable-chart">
+                  <div class="chart-label">Barrier Gen per Fight</div>
+                  <Chart :type="chartType" :data="barrierGenChartData" :options="clickableChartOptions" />
+                </div>
+                <div v-if="chartHasData(cleansesChartData)" class="chart-container clickable-chart">
                   <div class="chart-label">Cleanses per Fight</div>
                   <Chart :type="chartType" :data="cleansesChartData" :options="clickableIntChartOptions" />
                 </div>
-                <div class="chart-container clickable-chart">
-                  <div class="chart-label">Alacrity % per Fight</div>
-                  <Chart :type="chartType" :data="pveAlacChartData" :options="clickableChartOptions" />
+                <div v-if="chartHasData(stripsChartData)" class="chart-container clickable-chart">
+                  <div class="chart-label">Strips per Fight</div>
+                  <Chart :type="chartType" :data="stripsChartData" :options="clickableIntChartOptions" />
                 </div>
-                <div class="chart-container clickable-chart">
-                  <div class="chart-label">Quickness % per Fight</div>
-                  <Chart :type="chartType" :data="pveQuickChartData" :options="clickableChartOptions" />
+                <div v-if="chartHasData(stabOnChartData)" class="chart-container clickable-chart">
+                  <div class="chart-label">Stab On Group per Fight</div>
+                  <Chart :type="chartType" :data="stabOnChartData" :options="clickableChartOptions" />
+                </div>
+                <div v-if="chartHasData(stabOffChartData)" class="chart-container clickable-chart">
+                  <div class="chart-label">Stab Off Group per Fight</div>
+                  <Chart :type="chartType" :data="stabOffChartData" :options="clickableChartOptions" />
                 </div>
               </div>
               <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="healing" :sort-order="-1" data-key="accountName" :selection="selectedPlayers" @update:selection="onSelectionChange">
@@ -386,18 +449,62 @@
 
           <TabPanel value="survivability">
             <template v-if="displayResult && filteredAggLogs.length > 0 && displayResult.type === 'wvw'">
-              <div v-if="showGraphs" class="charts-row mb-section">
-                <div class="chart-container clickable-chart">
+              <div v-if="showGraphs && (chartHasData(deathsChartData) || chartHasData(downedChartData) || chartHasData(firstToDieChartData) || chartHasData(damageTakenChartData) || chartHasData(barrierMitChartData) || chartHasData(resTimeChartData) || chartHasData(timesInterruptedChartData) || tagRadialPoints.length > 0)" class="charts-row mb-section">
+                <div v-if="chartHasData(deathsChartData)" class="chart-container clickable-chart">
                   <div class="chart-label">Deaths per Fight</div>
                   <Chart :type="chartType" :data="deathsChartData" :options="clickableIntChartOptions" />
                 </div>
-                <div class="chart-container clickable-chart">
+                <div v-if="chartHasData(downedChartData)" class="chart-container clickable-chart">
                   <div class="chart-label">Downed per Fight</div>
                   <Chart :type="chartType" :data="downedChartData" :options="clickableIntChartOptions" />
                 </div>
-                <div class="chart-container clickable-chart">
+                <div v-if="chartHasData(firstToDieChartData)" class="chart-container clickable-chart">
+                  <div class="chart-label">Died 1st per Fight</div>
+                  <Chart :type="chartType" :data="firstToDieChartData" :options="clickableIntChartOptions" />
+                </div>
+                <div v-if="chartHasData(damageTakenChartData)" class="chart-container clickable-chart">
                   <div class="chart-label">Damage Taken per Fight</div>
                   <Chart :type="chartType" :data="damageTakenChartData" :options="clickableChartOptions" />
+                </div>
+                <div v-if="chartHasData(barrierMitChartData)" class="chart-container clickable-chart">
+                  <div class="chart-label">Barrier Mit per Fight</div>
+                  <Chart :type="chartType" :data="barrierMitChartData" :options="clickableChartOptions" />
+                </div>
+                <div v-if="chartHasData(resTimeChartData)" class="chart-container clickable-chart">
+                  <div class="chart-label">Res Time (s) per Fight</div>
+                  <Chart :type="chartType" :data="resTimeChartData" :options="clickableChartOptions" />
+                </div>
+                <div v-if="chartHasData(timesInterruptedChartData)" class="chart-container clickable-chart">
+                  <div class="chart-label">Interrupted per Fight</div>
+                  <Chart :type="chartType" :data="timesInterruptedChartData" :options="clickableIntChartOptions" />
+                </div>
+                <div v-if="tagRadialPoints.length > 0" class="chart-container tag-radial-wrap">
+                  <div class="chart-label">Distance from Tag</div>
+                  <svg viewBox="0 0 400 400" class="tag-radial">
+                    <circle v-for="ring in tagRadialRings" :key="ring.r" :cx="200" :cy="200" :r="ring.r" class="tag-radial-ring" />
+                    <text v-for="ring in tagRadialRings" :key="`l-${ring.r}`" :x="200" :y="200 - ring.r - 2" class="tag-radial-ring-label">{{ ring.label }}</text>
+                    <circle :cx="200" :cy="200" r="6" class="tag-radial-center" />
+                    <text :x="200" :y="194" class="tag-radial-center-label">TAG</text>
+                    <g v-for="pt in tagRadialPoints" :key="pt.account">
+                      <line :x1="200" :y1="200" :x2="pt.x" :y2="pt.y" :stroke="pt.color" stroke-opacity="0.25" stroke-width="1" />
+                      <circle
+                        :cx="pt.x"
+                        :cy="pt.y"
+                        :r="hoveredAccount === pt.account ? 7 : 5"
+                        :fill="pt.color"
+                        stroke="#0f0f14"
+                        stroke-width="1.5"
+                        class="tag-radial-dot"
+                        @mouseenter="onRadialEnter(pt, $event)"
+                        @mouseleave="onRadialLeave"
+                      />
+                      <text :x="pt.labelX" :y="pt.labelY" :text-anchor="pt.anchor" class="tag-radial-label">{{ pt.shortAccount }} · {{ Math.round(pt.distance) }}</text>
+                    </g>
+                  </svg>
+                  <div v-if="radialTooltip" class="tag-radial-tooltip" :style="{ left: radialTooltip.left + 'px', top: radialTooltip.top + 'px' }">
+                    <strong>{{ radialTooltip.account }}</strong>
+                    <span>{{ Math.round(radialTooltip.distance) }} units</span>
+                  </div>
                 </div>
               </div>
               <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="deaths" :sort-order="-1" data-key="accountName" :selection="selectedPlayers" @update:selection="onSelectionChange">
@@ -445,18 +552,26 @@
             </template>
 
             <template v-else-if="displayResult && filteredAggLogs.length > 0">
-              <div v-if="showGraphs" class="charts-row mb-section">
-                <div class="chart-container clickable-chart">
+              <div v-if="showGraphs && (chartHasData(deathsChartData) || chartHasData(downedChartData) || chartHasData(firstToDieChartData) || chartHasData(damageTakenChartData) || chartHasData(resTimeChartData))" class="charts-row mb-section">
+                <div v-if="chartHasData(deathsChartData)" class="chart-container clickable-chart">
                   <div class="chart-label">Deaths per Fight</div>
                   <Chart :type="chartType" :data="deathsChartData" :options="clickableIntChartOptions" />
                 </div>
-                <div class="chart-container clickable-chart">
+                <div v-if="chartHasData(downedChartData)" class="chart-container clickable-chart">
                   <div class="chart-label">Downed per Fight</div>
                   <Chart :type="chartType" :data="downedChartData" :options="clickableIntChartOptions" />
                 </div>
-                <div class="chart-container clickable-chart">
+                <div v-if="chartHasData(firstToDieChartData)" class="chart-container clickable-chart">
+                  <div class="chart-label">Died 1st per Fight</div>
+                  <Chart :type="chartType" :data="firstToDieChartData" :options="clickableIntChartOptions" />
+                </div>
+                <div v-if="chartHasData(damageTakenChartData)" class="chart-container clickable-chart">
                   <div class="chart-label">Damage Taken per Fight</div>
                   <Chart :type="chartType" :data="damageTakenChartData" :options="clickableChartOptions" />
+                </div>
+                <div v-if="chartHasData(resTimeChartData)" class="chart-container clickable-chart">
+                  <div class="chart-label">Res Time (s) per Fight</div>
+                  <Chart :type="chartType" :data="resTimeChartData" :options="clickableChartOptions" />
                 </div>
               </div>
               <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="deaths" :sort-order="-1" data-key="accountName" :selection="selectedPlayers" @update:selection="onSelectionChange">
@@ -497,7 +612,7 @@
           <TabPanel value="mechanics">
             <div v-if="mechanicsByGroup.length > 0">
               <div v-for="group in mechanicsByGroup" :key="group.label" class="mechanic-group">
-                <CollapsibleSection :title="group.label" :collapsed="true">
+                <CollapsibleSection :title="group.label" :collapsed="false">
                   <div v-for="item in group.items" :key="item.fightType" class="mechanic-fight-wrap">
                     <button class="mechanic-fight-toggle" @click="toggleFight(`${group.label}:${item.fightType}`)">
                       <span>{{ fightName(item.fightType) }}</span>
@@ -518,6 +633,34 @@
               </div>
             </div>
             <Message v-else severity="info" :closable="false">No mechanics data available.</Message>
+          </TabPanel>
+
+          <TabPanel value="enemy">
+            <div class="enemy-pane">
+              <ProgressSpinner v-if="enemyLoading" />
+              <Message v-if="enemyError" severity="error" :closable="false">{{ enemyError }}</Message>
+              <template v-if="enemyData && !enemyLoading">
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.75rem;">
+                  <StatCard label="Logs Processed" :value="enemyData.logsProcessed" />
+                  <StatCard label="Total Enemies" :value="enemyData.totalTargets" />
+                  <StatCard label="Classes" :value="enemyData.classes?.length ?? 0" />
+                </div>
+                <DataTable v-if="enemyData.classes?.length" :value="enemyData.classes" striped-rows size="small" sort-field="avgTotal" :sort-order="-1">
+                  <Column field="className" header="Class" :sortable="true" />
+                  <Column field="count" header="Count" :sortable="true" style="width: 6rem;" />
+                  <Column header="Avg Total Dmg" :sortable="true" sort-field="avgTotal">
+                    <template #body="{ data }">{{ data.avgTotal?.toLocaleString() ?? '0' }}</template>
+                  </Column>
+                  <Column header="Avg Strike" :sortable="true" sort-field="avgStrike">
+                    <template #body="{ data }">{{ data.avgStrike?.toLocaleString() ?? '0' }}</template>
+                  </Column>
+                  <Column header="Avg Condi" :sortable="true" sort-field="avgCondi">
+                    <template #body="{ data }">{{ data.avgCondi?.toLocaleString() ?? '0' }}</template>
+                  </Column>
+                </DataTable>
+                <Message v-else severity="info" :closable="false">No enemy data found.</Message>
+              </template>
+            </div>
           </TabPanel>
 
         </TabPanels>
@@ -547,6 +690,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'select-log', fightLogId: number): void
+  (e: 'summary', summary: { type: 'wvw' | 'pve'; wins?: number; losses?: number; kills?: number; wipes?: number } | null): void
 }>()
 
 const result = ref<AggregateResult | null>(null)
@@ -557,11 +701,120 @@ const aggSuccessFilter = ref<SuccessFilter>('all')
 const aggDifficultyFilter = ref<DifficultyFilter>(null)
 const showGraphs = ref(true)
 const showTables = ref(true)
+const activeTab = ref<string>('damage')
 const unselectedAccounts = ref<Set<string>>(new Set())
+const enemyData = ref<any>(null)
+const enemyLoading = ref(false)
+const enemyError = ref<string | null>(null)
+const api = useApi()
+
+const loadEnemyData = async () => {
+  enemyLoading.value = true
+  enemyError.value = null
+  try {
+    const logIds = (result.value?.logs ?? []).map((l: any) => l.fightLogId)
+    enemyData.value = await api('/api/logs/know-my-enemy', {
+      method: 'POST',
+      body: { logIds },
+    })
+  } catch (err: any) {
+    enemyError.value = err?.message ?? 'Failed to load enemy data.'
+  } finally {
+    enemyLoading.value = false
+  }
+}
+
+watch(() => props.reloadKey, () => {
+  enemyData.value = null
+  enemyError.value = null
+})
+
+watch(result, (r) => {
+  if (r?.type === 'wvw' && !enemyData.value && !enemyLoading.value) {
+    loadEnemyData()
+  }
+  if (!r) {
+    emit('summary', null)
+    return
+  }
+  if (r.type === 'wvw') {
+    emit('summary', { type: 'wvw', wins: wvwWinLoss.value.wins, losses: wvwWinLoss.value.losses })
+  } else {
+    emit('summary', { type: 'pve', kills: pveKillsWipes.value.kills, wipes: pveKillsWipes.value.wipes })
+  }
+}, { immediate: true })
 
 const singleLog = computed(() => {
   const logs = result.value?.logs ?? []
   return logs.length === 1 ? logs[0] : null
+})
+
+const groupDps = computed(() => {
+  const players = displayResult.value?.players ?? []
+  return Math.round(players.reduce((s: number, p: any) => s + (Number(p.dps) || 0), 0))
+})
+
+const avgQuick = computed(() => {
+  const players = (displayResult.value?.players ?? []).filter((p: any) => Number(p.quicknessDuration) > 0)
+  if (players.length === 0) {
+    return 0
+  }
+  return players.reduce((s: number, p: any) => s + (Number(p.quicknessDuration) || 0), 0) / players.length
+})
+
+const avgAlac = computed(() => {
+  const players = (displayResult.value?.players ?? []).filter((p: any) => Number(p.alacDuration) > 0)
+  if (players.length === 0) {
+    return 0
+  }
+  return players.reduce((s: number, p: any) => s + (Number(p.alacDuration) || 0), 0) / players.length
+})
+
+const wvwWinLoss = computed(() => {
+  const timeline = displayResult.value?.timeline ?? []
+  let wins = 0
+  let losses = 0
+  for (const fight of timeline) {
+    const players = fight.players ?? []
+    const kills = players.reduce((s: number, p: any) => s + (Number(p.kills) || 0), 0)
+    const deaths = players.reduce((s: number, p: any) => s + (Number(p.deaths) || 0), 0)
+    if (kills > deaths) {
+      wins++
+    } else {
+      losses++
+    }
+  }
+  return { wins, losses }
+})
+
+const pveKillsWipes = computed(() => {
+  const logs = displayResult.value?.logs ?? []
+  let kills = 0
+  let wipes = 0
+  for (const log of logs) {
+    if (log.fightType === 0) {
+      continue
+    }
+    if (log.isSuccess) {
+      kills++
+    } else {
+      wipes++
+    }
+  }
+  return { kills, wipes }
+})
+
+const wvwTotals = computed(() => {
+  const players = displayResult.value?.players ?? []
+  const sum = (field: string) => players.reduce((s: number, p: any) => s + (Number(p[field]) || 0), 0)
+  return {
+    damage: sum('damage'),
+    damageTaken: sum('damageTaken'),
+    kills: sum('kills'),
+    downs: sum('downs'),
+    deaths: sum('deaths'),
+    timesDowned: sum('timesDowned'),
+  }
 })
 
 type AggMode = 'sum' | 'avg'
@@ -752,6 +1005,18 @@ const PALETTE = [
 ]
 const playerColor = (i: number) => PALETTE[i % PALETTE.length]
 
+const accountColorMap = computed(() => {
+  const accounts = ((displayResult.value?.players ?? []) as any[])
+    .map((p: any) => p.accountName as string)
+    .filter((a, i, arr) => arr.indexOf(a) === i)
+    .sort()
+  const map = new Map<string, string>()
+  accounts.forEach((a, i) => map.set(a, playerColor(i)))
+  return map
+})
+
+const colorFor = (account: string) => accountColorMap.value.get(account) ?? playerColor(0)
+
 const chartLabels = computed(() =>
   (displayResult.value?.timeline ?? []).map((t: any) => {
     const time = new Date(t.fightStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -769,14 +1034,14 @@ const allAccounts = computed(() => {
   return [...seen].filter(a => selectedAccountSet.value.has(a))
 })
 
-const makeDataset = (account: string, i: number, getValue: (p: any) => number | null, dashed = false) => ({
+const makeDataset = (account: string, _i: number, getValue: (p: any) => number | null, dashed = false) => ({
   label: account,
   data: (displayResult.value?.timeline ?? []).map((fight: any) => {
     const p = fight.players.find((pl: any) => pl.accountName === account)
     return p ? getValue(p) : null
   }),
-  borderColor: playerColor(i),
-  backgroundColor: dashed ? 'transparent' : playerColor(i) + '22',
+  borderColor: colorFor(account),
+  backgroundColor: dashed ? 'transparent' : colorFor(account) + '22',
   tension: 0.3,
   spanGaps: true,
   pointRadius: 3,
@@ -795,8 +1060,8 @@ const makeBarData = (getValue: (p: any) => number | null) => {
     labels: players.map((p: { account: string; value: number }) => p.account),
     datasets: [{
       data: players.map((p: { account: string; value: number }) => p.value),
-      backgroundColor: players.map((_: unknown, i: number) => playerColor(i) + 'cc'),
-      borderColor: players.map((_: unknown, i: number) => playerColor(i)),
+      backgroundColor: players.map((p: { account: string; value: number }) => colorFor(p.account) + 'cc'),
+      borderColor: players.map((p: { account: string; value: number }) => colorFor(p.account)),
       borderWidth: 1,
     }],
   }
@@ -823,14 +1088,97 @@ const chartData = (getValue: (p: any) => number | null, dashed = false) => compu
   return { labels: chartLabels.value, datasets }
 })
 
+const chartHasData = (data: any) => {
+  const datasets = data?.datasets ?? []
+  if (datasets.length === 0) {
+    return false
+  }
+  return datasets.some((ds: any) => (ds.data ?? []).some((v: any) => v !== null && v !== undefined && Number(v) !== 0))
+}
+
 const wvwDamageChartData = chartData(p => p.damage)
 const killsChartData = chartData(p => p.kills)
 const downsChartData = chartData(p => p.downs)
 const wvwDdcChartData = chartData(p => p.damageDownContribution)
 const wvwBoonsRippedChartData = chartData(p => p.numberOfBoonsRipped)
 const healingChartData = chartData(p => p.healing)
+const barrierGenChartData = chartData(p => p.barrierGenerated)
 const cleansesChartData = chartData(p => p.cleanses)
 const stripsChartData = chartData(p => p.strips)
+const stabOnChartData = chartData(p => p.stabOnGroup)
+const stabOffChartData = chartData(p => p.stabOffGroup)
+const interruptsChartData = chartData(p => p.interrupts)
+const barrierMitChartData = chartData(p => p.barrierMitigation)
+const resTimeChartData = chartData(p => p.resurrectionTime ? p.resurrectionTime / 1000 : 0)
+const firstToDieChartData = chartData(p => p.firstToDie)
+const timesInterruptedChartData = chartData(p => p.timesInterrupted)
+const distanceFromTagChartData = chartData(p => p.distanceFromTag)
+
+const tagRadialRings = [
+  { r: 50, label: '300' },
+  { r: 100, label: '600' },
+  { r: 150, label: '900' },
+  { r: 180, label: '1100' },
+]
+
+const hoveredAccount = ref<string | null>(null)
+const radialTooltip = ref<{ account: string; distance: number; left: number; top: number } | null>(null)
+
+const onRadialEnter = (pt: { account: string; distance: number }, ev: MouseEvent) => {
+  hoveredAccount.value = pt.account
+  const wrap = (ev.currentTarget as SVGElement).closest('.tag-radial-wrap') as HTMLElement | null
+  if (!wrap) {
+    return
+  }
+  const wrapRect = wrap.getBoundingClientRect()
+  radialTooltip.value = {
+    account: pt.account,
+    distance: pt.distance,
+    left: ev.clientX - wrapRect.left + 12,
+    top: ev.clientY - wrapRect.top + 12,
+  }
+}
+
+const onRadialLeave = () => {
+  hoveredAccount.value = null
+  radialTooltip.value = null
+}
+
+const tagRadialPoints = computed(() => {
+  const players = (displayResult.value?.players ?? [])
+    .filter((p: any) => selectedAccountSet.value.has(p.accountName) && Number(p.distanceFromTag) > 0)
+    .map((p: any) => ({ account: p.accountName as string, distance: Number(p.distanceFromTag) }))
+    .sort((a, b) => a.distance - b.distance)
+
+  if (players.length === 0) {
+    return []
+  }
+
+  const maxR = 180
+  const maxDist = 1100
+  return players.map((p, i) => {
+    const angle = (i / players.length) * Math.PI * 2 - Math.PI / 2
+    const r = Math.min(p.distance / maxDist, 1) * maxR
+    const x = 200 + Math.cos(angle) * r
+    const y = 200 + Math.sin(angle) * r
+    const labelOffset = 14
+    const labelX = 200 + Math.cos(angle) * (r + labelOffset)
+    const labelY = 200 + Math.sin(angle) * (r + labelOffset)
+    const anchor = labelX < 195 ? 'end' : labelX > 205 ? 'start' : 'middle'
+    const shortAccount = p.account.replace(/\.\d+$/, '')
+    return {
+      account: p.account,
+      shortAccount,
+      distance: p.distance,
+      x,
+      y,
+      labelX,
+      labelY,
+      anchor,
+      color: colorFor(p.account),
+    }
+  })
+})
 const wvwQuickChartData = chartData(p => p.quicknessDuration, true)
 
 const pveDpsChartData = chartData(p => p.dps)
@@ -1042,6 +1390,73 @@ defineExpose({ reload: loadInitial })
 }
 .mech-zero {
   color: var(--p-text-muted-color);
+}
+.tag-radial-wrap {
+  position: relative;
+}
+.tag-radial {
+  width: 100%;
+  height: 320px;
+  display: block;
+}
+.tag-radial-dot {
+  cursor: pointer;
+  transition: r 0.1s ease;
+}
+.tag-radial-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(15, 15, 20, 0.95);
+  border: 1px solid var(--p-primary-color);
+  border-radius: 4px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.75rem;
+  color: var(--p-text-color);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  z-index: 5;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+.tag-radial-tooltip strong {
+  color: var(--p-primary-color);
+}
+.tag-radial-ring {
+  fill: none;
+  stroke: #3f3f46;
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+.tag-radial-ring-label {
+  fill: var(--p-text-muted-color);
+  font-size: 9px;
+  text-anchor: middle;
+  font-family: inherit;
+}
+.tag-radial-center {
+  fill: var(--p-primary-color);
+}
+.tag-radial-center-label {
+  fill: var(--p-primary-color);
+  font-size: 10px;
+  font-weight: 700;
+  text-anchor: middle;
+  font-family: inherit;
+  letter-spacing: 0.05em;
+}
+.tag-radial-label {
+  fill: var(--p-text-color);
+  font-size: 10px;
+  font-family: inherit;
+  dominant-baseline: middle;
+}
+.enemy-pane :deep(.stat-card.p-card),
+.enemy-pane :deep(.stat-card.p-card .p-card-body) {
+  background: color-mix(in srgb, var(--p-surface-card) 60%, var(--p-primary-color) 40%) !important;
+}
+.enemy-pane :deep(.stat-card.p-card) {
+  border: 1px solid var(--p-primary-color) !important;
 }
 :deep(tfoot tr.summary-total td) {
   font-weight: 700;

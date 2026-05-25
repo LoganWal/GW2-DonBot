@@ -17,30 +17,29 @@ public class EliteInsightExtensionsTests
     }
 
     [Theory]
-    [InlineData("Guardian", " (Grd)")]
-    [InlineData("Firebrand", " (Fb)")]
-    [InlineData("Willbender", " (Wlb)")]
-    [InlineData("Mesmer", " (Msm)")]
-    [InlineData("Virtuoso", " (Vrt)")]
-    [InlineData("Soulbeast", " (Slb)")]
-    [InlineData("Reaper", " (Rpr)")]
+    [InlineData("Guardian", " (Gua)")]
+    [InlineData("Firebrand", " (Fir)")]
+    [InlineData("Willbender", " (Wil)")]
+    [InlineData("Mesmer", " (Mes)")]
+    [InlineData("Virtuoso", " (Vir)")]
+    [InlineData("Soulbeast", " (Sou)")]
+    [InlineData("Reaper", " (Rea)")]
     [InlineData("Catalyst", " (Cat)")]
     [InlineData("Mechanist", " (Mec)")]
-    public void GetClassAppend_KnownClass_ReturnsParenthesisedShorthand(string className, string expected)
+    public void GetClassAppend_KnownClass_ReturnsParenthesisedFirstThreeCharacters(string className, string expected)
     {
         Assert.Equal(expected, EliteInsightExtensions.GetClassAppend(className));
     }
 
     [Fact]
-    public void GetClassAppend_UnknownClass_ReturnsThreeQuestionMarks()
+    public void GetClassAppend_ClassShorterThanThreeCharacters_ReturnsWholeName()
     {
-        Assert.Equal(" (???)", EliteInsightExtensions.GetClassAppend("DefinitelyNotAClass"));
+        Assert.Equal(" (Ax)", EliteInsightExtensions.GetClassAppend("Ax"));
     }
 
     [Fact]
-    public void GetClassAppend_CaseSensitive_LowercaseClassNotMatched()
+    public void GetClassAppend_PreservesOriginalCasing()
     {
-        // dictionary lookup is case-sensitive: lowercase is treated as unknown
-        Assert.Equal(" (???)", EliteInsightExtensions.GetClassAppend("guardian"));
+        Assert.Equal(" (gua)", EliteInsightExtensions.GetClassAppend("guardian"));
     }
 }

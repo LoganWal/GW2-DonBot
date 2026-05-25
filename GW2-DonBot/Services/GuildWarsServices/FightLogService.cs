@@ -8,6 +8,16 @@ namespace DonBot.Services.GuildWarsServices;
 
 public sealed class FightLogService(IDataModelGenerationService dataModelGenerationService, IEntityService entityService) : IFightLogService
 {
+    // Kept within DiscordTable.MaxRowWidth so Discord doesn't wrap the last column on mobile.
+    internal static readonly DiscordTable.Column[] EnemyColumns =
+    [
+        new("Class", 12),
+        new("Count", 5, DiscordTable.Align.Right),
+        new("Avg Dmg", 7, DiscordTable.Align.Right),
+        new("Strike", 6, DiscordTable.Align.Right),
+        new("Condi", 6, DiscordTable.Align.Right)
+    ];
+
     public async Task GetEnemyInformation(SocketMessageComponent command)
     {
         await command.DeferAsync(ephemeral: true);
@@ -28,14 +38,19 @@ public sealed class FightLogService(IDataModelGenerationService dataModelGenerat
 
         var targetsByClass = targets.GroupBy(s => s.Name?.Split(' ').FirstOrDefault());
 
-        var enemyOverview = "```Class         Count  Avg Dmg   Strike   Condi\n";
+        var enemyOverview = $"```{DiscordTable.Header(EnemyColumns)}";
 
         foreach (var classTarget in targetsByClass.OrderByDescending(s => s.Average(d => d.Details?.DmgDistributions?.Sum(dis => dis.TotalDamage))))
         {
             var averageStrikeDamage = classTarget.Average(s => s.Details?.DmgDistributions?.Sum(d => d.Distribution?.Where(dis => dis[0].Bool == false).Sum(dis => dis[2].Double))) ?? 0;
             var averageCondiDamage = classTarget.Average(s => s.Details?.DmgDistributions?.Sum(d => d.Distribution?.Where(dis => dis[0].Bool == true).Sum(dis => dis[2].Double))) ?? 0;
             var totalAverageDamage = averageStrikeDamage + averageCondiDamage;
-            enemyOverview += $"{classTarget.Key?.PadRight(12)}{string.Empty, -2}{classTarget.Count(),-5}{string.Empty, -2}{((float)totalAverageDamage).FormatNumber(),-7}{string.Empty, -3}{((float)averageStrikeDamage).FormatNumber(),-7}{string.Empty, -2}{((float)averageCondiDamage).FormatNumber(),-7}\n";
+            enemyOverview += DiscordTable.Row(EnemyColumns,
+                (classTarget.Key ?? string.Empty).ClipAt(12),
+                classTarget.Count().ToString(),
+                ((float)totalAverageDamage).FormatNumber(),
+                ((float)averageStrikeDamage).FormatNumber(),
+                ((float)averageCondiDamage).FormatNumber());
         }
         enemyOverview += "```";
 

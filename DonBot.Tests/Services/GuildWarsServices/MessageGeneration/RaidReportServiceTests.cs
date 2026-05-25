@@ -1,3 +1,4 @@
+using DonBot.Extensions;
 using DonBot.Models.Entities;
 using DonBot.Services.GuildWarsServices.MessageGeneration;
 using Xunit.Abstractions;
@@ -26,10 +27,10 @@ public class RaidReportServiceTests(ITestOutputHelper output)
         var table = RaidReportService.BuildSurvivabilityTable(Group([]));
         var header = table.Split('\n')[0];
         Assert.Contains("Player", header);
-        Assert.Contains("Res (s)", header);
-        Assert.Contains("Dmg Taken", header);
-        Assert.Contains("Downed", header);
-        Assert.Contains("Died 1st", header);
+        Assert.Contains("Res(s)", header);
+        Assert.Contains("DmgTkn", header);
+        Assert.Contains("Down", header);
+        Assert.Contains("1st", header);
     }
     
     [Fact]
@@ -51,19 +52,19 @@ public class RaidReportServiceTests(ITestOutputHelper output)
         var dataLines = rawLines.Skip(1).Where(l => l.Length > 0 && !l.StartsWith("```")).ToList();
 
         // Find where each column header starts
-        var resStart   = header.IndexOf("Res (s)", StringComparison.Ordinal);
-        var dmgStart   = header.IndexOf("Dmg Taken", StringComparison.Ordinal);
-        var downsStart = header.IndexOf("Downed", StringComparison.Ordinal);
-        var firstStart = header.IndexOf("Died 1st", StringComparison.Ordinal);
+        var resStart   = header.IndexOf("Res(s)", StringComparison.Ordinal);
+        var dmgStart   = header.IndexOf("DmgTkn", StringComparison.Ordinal);
+        var downsStart = header.IndexOf("Down", StringComparison.Ordinal);
+        var firstStart = header.IndexOf("1st", StringComparison.Ordinal);
 
-        Assert.True(resStart > 0,   "Res (s) column header not found");
-        Assert.True(dmgStart > 0,   "Dmg Taken column header not found");
-        Assert.True(downsStart > 0, "Downed column header not found");
-        Assert.True(firstStart > 0, "Died 1st column header not found");
+        Assert.True(resStart > 0,   "Res(s) column header not found");
+        Assert.True(dmgStart > 0,   "DmgTkn column header not found");
+        Assert.True(downsStart > 0, "Down column header not found");
+        Assert.True(firstStart > 0, "1st column header not found");
 
-        Assert.True(resStart < dmgStart,     "Res (s) must come before Dmg Taken");
-        Assert.True(dmgStart < downsStart,   "Dmg Taken must come before Times Downed");
-        Assert.True(downsStart < firstStart, "Times Downed must come before First");
+        Assert.True(resStart < dmgStart,     "Res(s) must come before DmgTkn");
+        Assert.True(dmgStart < downsStart,   "DmgTkn must come before Down");
+        Assert.True(downsStart < firstStart, "Down must come before 1st");
 
         foreach (var dataLine in dataLines)
         {
@@ -183,6 +184,29 @@ public class RaidReportServiceTests(ITestOutputHelper output)
 
         var table = RaidReportService.BuildSurvivabilityTable(Group(logs));
         Assert.Contains("7.5", table); // 7500ms = 7.5s
+    }
+
+    [Fact]
+    public void BuildSurvivabilityTable_RowsStayWithinMobileWidth()
+    {
+        // Wide values across every column - rows must still fit Discord's mobile code-block width
+        // so the last column doesn't wrap onto its own line.
+        var logs = Enumerable.Range(1, 10)
+            .Select(i => new PlayerFightLog
+            {
+                FightLogId = i,
+                GuildWarsAccountName = "VeryLongAccountName.9999",
+                ResurrectionTime = 123_456,
+                DamageTaken = 9_999_999,
+                TimesDowned = 99,
+                TimeOfDeath = i
+            }).ToList();
+
+        var table = RaidReportService.BuildSurvivabilityTable(Group(logs));
+        var rows = table.Replace("```", string.Empty).Split('\n').Where(l => l.Length > 0);
+
+        Assert.All(rows, row => Assert.True(row.Length <= DiscordTable.MaxRowWidth,
+            $"Row exceeds {DiscordTable.MaxRowWidth} chars ({row.Length}): '{row}'"));
     }
 
     [Fact]

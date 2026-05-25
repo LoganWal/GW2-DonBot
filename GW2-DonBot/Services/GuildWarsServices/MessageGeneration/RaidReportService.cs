@@ -15,7 +15,52 @@ public sealed class RaidReportService(
     IWvWFightSummaryService wvWFightSummaryService,
     IConfiguration configuration) : IRaidReportService
 {
-    const string SurvivabilityHeader = "Player         Res (s)    Dmg Taken   Downed   Died 1st\n";
+    // Column layouts kept narrow (<= DiscordTable.MaxRowWidth) so Discord doesn't wrap the
+    // last column onto its own line in mobile code blocks.
+    internal static readonly DiscordTable.Column[] SurvivabilityColumns =
+    [
+        new("Player", 13),
+        new("Res(s)", 7, DiscordTable.Align.Right),
+        new("DmgTkn", 8, DiscordTable.Align.Right),
+        new("Down", 4, DiscordTable.Align.Right),
+        new("1st", 3, DiscordTable.Align.Right)
+    ];
+
+    internal static readonly DiscordTable.Column[] FightsColumns =
+    [
+        new("Fight", 13),
+        new("Best", 8, DiscordTable.Align.Right),
+        new("Success", 12),
+        new("Cnt", 3, DiscordTable.Align.Right)
+    ];
+
+    internal static readonly DiscordTable.Column[] PlayerColumns =
+    [
+        new("Player", 12),
+        new("Dmg", 8),
+        new("Cleave", 7),
+        new("Alac", 4),
+        new("Quick", 5)
+    ];
+
+    internal static readonly DiscordTable.Column[] WvWRaidColumns =
+    [
+        new("Players", 7, DiscordTable.Align.Right),
+        new("Downs", 5, DiscordTable.Align.Right),
+        new("Kills", 5, DiscordTable.Align.Right),
+        new("TmsDwn", 6, DiscordTable.Align.Right),
+        new("Deaths", 6, DiscordTable.Align.Right)
+    ];
+
+    internal static readonly DiscordTable.Column[] WvWSubColumns =
+    [
+        new("Sub", 3),
+        new("Quick", 5, DiscordTable.Align.Right),
+        new("Alac", 5, DiscordTable.Align.Right),
+        new("Intrpt", 6, DiscordTable.Align.Right)
+    ];
+
+    private static string SurvivabilityHeader => DiscordTable.Header(SurvivabilityColumns);
 
     public async Task<(List<Embed>? Embeds, string? WebAppUrl)> Generate(FightsReport fightsReport, long guildId)
     {
@@ -121,7 +166,12 @@ public sealed class RaidReportService(
 
         return groupedPlayerFights
             .OrderBy(s => s.Sum(d => d.ResurrectionTime))
-            .Select(gw2Player => $"{gw2Player.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13),-13}{string.Empty,2}{Math.Round((double)gw2Player.Sum(s => s.ResurrectionTime) / 1000, 3),-9}{string.Empty,2}{gw2Player.Sum(s => s.DamageTaken),-10}{string.Empty,2}{gw2Player.Sum(s => s.TimesDowned),-7}{string.Empty,2}{firstToDieCounts.GetValueOrDefault(gw2Player.Key, 0)}\n")
+            .Select(gw2Player => DiscordTable.Row(SurvivabilityColumns,
+                gw2Player.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13) ?? string.Empty,
+                Math.Round((double)gw2Player.Sum(s => s.ResurrectionTime) / 1000, 3).ToString(CultureInfo.CurrentCulture),
+                gw2Player.Sum(s => s.DamageTaken).ToString(CultureInfo.CurrentCulture),
+                gw2Player.Sum(s => s.TimesDowned).ToString(CultureInfo.CurrentCulture),
+                firstToDieCounts.GetValueOrDefault(gw2Player.Key, 0).ToString(CultureInfo.CurrentCulture)))
             .ToList();
     }
 
@@ -248,8 +298,12 @@ public sealed class RaidReportService(
 
         if (!advancedLog)
         {
-            var raidOverview = "```Players   Downs   Kills   Times Downed   Deaths\n";
-            raidOverview += $"{gw2Players.Count,-4}{string.Empty,-6}{gw2Players.Sum(s => s.Downs), -4}{string.Empty,-4}{gw2Players.Sum(s => s.Kills), -4}{string.Empty,-4}{gw2Players.Sum(s => s.TimesDowned), -4}{string.Empty,-11}{gw2Players.Sum(s => s.Deaths), -4}```";
+            var raidOverview = $"```{DiscordTable.Header(WvWRaidColumns)}{DiscordTable.Row(WvWRaidColumns,
+                gw2Players.Count.ToString(CultureInfo.CurrentCulture),
+                gw2Players.Sum(s => s.Downs).ToString(CultureInfo.CurrentCulture),
+                gw2Players.Sum(s => s.Kills).ToString(CultureInfo.CurrentCulture),
+                gw2Players.Sum(s => s.TimesDowned).ToString(CultureInfo.CurrentCulture),
+                gw2Players.Sum(s => s.Deaths).ToString(CultureInfo.CurrentCulture))}```";
 
             message.AddField(x =>
             {
@@ -258,10 +312,14 @@ public sealed class RaidReportService(
                 x.IsInline = false;
             });
 
-            var subOverview = "```Sub   Quick   Alac    Interrupted\n";
+            var subOverview = $"```{DiscordTable.Header(WvWSubColumns)}";
             foreach (var subData in dataBySub.OrderBy(s => s.Key))
             {
-                subOverview += $"{subData.Key,-2}{string.Empty,-4}{Math.Round(subData.Average(s => s.TotalQuick), 2),-5}{string.Empty,-3}{Math.Round(subData.Average(s => s.TotalAlac), 2),-5}{string.Empty,-3}{subData.Sum(s => s.TimesInterrupted),-5}\n";
+                subOverview += DiscordTable.Row(WvWSubColumns,
+                    subData.Key.ToString(CultureInfo.CurrentCulture),
+                    Math.Round(subData.Average(s => s.TotalQuick), 2).ToString(CultureInfo.CurrentCulture),
+                    Math.Round(subData.Average(s => s.TotalAlac), 2).ToString(CultureInfo.CurrentCulture),
+                    subData.Sum(s => s.TimesInterrupted).ToString(CultureInfo.CurrentCulture));
             }
             subOverview += "```";
 
@@ -329,11 +387,16 @@ public sealed class RaidReportService(
                     successFightTimeString += " (!)";
                 }
 
-                fightRows.Add($"({fightTypeFightMode.Key.GetFightModeName()}){(Enum.GetName(typeof(FightTypesEnum), groupedFight.Key) ?? nameof(FightTypesEnum.Unkn)),-10}{string.Empty,2}{bestFightTimeString,-6}{string.Empty,6}{successFightTimeString,-11}{string.Empty,5}{fightTypeFightModeList.Count}\n");
+                var fightName = $"({fightTypeFightMode.Key.GetFightModeName()}){Enum.GetName(typeof(FightTypesEnum), groupedFight.Key) ?? nameof(FightTypesEnum.Unkn)}".ClipAt(13);
+                fightRows.Add(DiscordTable.Row(FightsColumns,
+                    fightName,
+                    bestFightTimeString.Trim(),
+                    successFightTimeString.Trim(),
+                    fightTypeFightModeList.Count.ToString(CultureInfo.CurrentCulture)));
             }
         }
 
-        AddChunkedCodeFenceFields(fightsEmbed, "Fights Overview", "Fight           Best  (t)    Success (t)     Count\n", fightRows);
+        AddChunkedCodeFenceFields(fightsEmbed, "Fights Overview", DiscordTable.Header(FightsColumns), fightRows);
 
         // --- Player Overview embed ---
         var playerEmbed = new EmbedBuilder
@@ -352,11 +415,16 @@ public sealed class RaidReportService(
 
             var totalFightTimeSec = playerFights.Sum(s => s.FightDurationInMs) / 1000f;
             var dps = playerFightsListForType.Sum(s => s.Damage / totalFightTimeSec);
-            var playerLine = $"{groupedPlayerFight.Key.ClipAt(13),-13}{string.Empty,2}{dps.FormatNumber(true),-8}{string.Empty,2}{playerFightsListForType.Sum(s => s.Cleave / totalFightTimeSec).FormatNumber(true),-8}{string.Empty,2}{Math.Round(playerFightsListForType.Average(s => s.AlacDuration), 2).ToString(CultureInfo.CurrentCulture),-5}{string.Empty,3}{Math.Round(playerFightsListForType.Average(s => s.QuicknessDuration), 2).ToString(CultureInfo.CurrentCulture),-5}\n";
+            var playerLine = DiscordTable.Row(PlayerColumns,
+                groupedPlayerFight.Key.ClipAt(12),
+                dps.FormatNumber(true),
+                playerFightsListForType.Sum(s => s.Cleave / totalFightTimeSec).FormatNumber(true),
+                Math.Round(playerFightsListForType.Average(s => s.AlacDuration), 1).ToString(CultureInfo.CurrentCulture),
+                Math.Round(playerFightsListForType.Average(s => s.QuicknessDuration), 1).ToString(CultureInfo.CurrentCulture));
             playerLineByDmg.Add(new Tuple<float, string>(dps, playerLine));
         }
 
-        AddChunkedCodeFenceFields(playerEmbed, "Player Overview", "Player         Dmg       Cleave    Alac    Quick\n", playerLineByDmg.OrderByDescending(s => s.Item1).Select(t => t.Item2));
+        AddChunkedCodeFenceFields(playerEmbed, "Player Overview", DiscordTable.Header(PlayerColumns), playerLineByDmg.OrderByDescending(s => s.Item1).Select(t => t.Item2));
 
         // --- Survivability + Mechanics embed ---
         var surviveEmbed = new EmbedBuilder

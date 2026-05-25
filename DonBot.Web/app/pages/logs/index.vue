@@ -1,19 +1,11 @@
 <template>
   <div>
-    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
       <h1 class="page-title" style="margin: 0;">Fight Logs</h1>
-      <Button icon="pi pi-upload" label="Upload" severity="secondary" size="small" style="margin-left: auto;" @click="navigateTo('/logs/upload')" />
+      <Button icon="pi pi-sliders-h" label="Quick Aggregation Filters" severity="secondary" size="small" style="margin-left: auto;" @click="showQuickFilters = true" />
+      <Button icon="pi pi-upload" label="Upload" severity="secondary" size="small" @click="navigateTo('/logs/upload')" />
     </div>
 
-    <div class="quick-buttons">
-      <div v-for="cat in quickCategories" :key="cat.label" class="quick-row">
-        <span class="quick-label">{{ cat.label }}</span>
-        <Button size="small" severity="secondary" label="View" @click="viewToday(cat.types)" />
-        <Button size="small" severity="secondary" label="Agg 24h" :loading="aggregating === cat.label + '24h'" @click="aggregateRange(cat, 24 * 60 * 60 * 1000, '24h')" />
-        <Button size="small" severity="secondary" label="Agg Week" :loading="aggregating === cat.label + 'week'" @click="aggregateRange(cat, 7 * 24 * 60 * 60 * 1000, 'week')" />
-        <Button size="small" severity="secondary" label="Agg Month" :loading="aggregating === cat.label + 'month'" @click="aggregateRange(cat, 30 * 24 * 60 * 60 * 1000, 'month')" />
-      </div>
-    </div>
     <Message v-if="noLogsToday" severity="warn" :closable="true" style="margin-bottom: 1rem;" @close="noLogsToday = false">
       No logs found for today in that category.
     </Message>
@@ -28,6 +20,7 @@
         option-value="value"
         placeholder="All fight types"
         filter
+        auto-filter-focus
         :filter-fields="['label', 'group']"
         show-clear
         display="chip"
@@ -40,6 +33,8 @@
         :options="availableCharacters"
         placeholder="All characters"
         :loading="charactersPending"
+        filter
+        auto-filter-focus
         show-clear
         display="chip"
         style="min-width: 200px; flex: 1;"
@@ -57,8 +52,29 @@
         :model-value="difficultyFilter"
         @update:model-value="difficultyFilter = $event; onFilterChange()"
       />
-      <Button size="small" :label="categoryMode ? 'Date Order' : 'By Category'" :icon="categoryMode ? 'pi pi-clock' : 'pi pi-th-large'" :severity="categoryMode ? 'primary' : 'secondary'" style="margin-left: auto;" @click="toggleCategoryMode" />
+      <Select
+        v-model="sortMode"
+        :options="sortModeOptions"
+        option-label="label"
+        option-value="value"
+        style="margin-left: auto; min-width: 11rem;"
+        @change="onSortModeChange"
+      />
     </div>
+
+    <Dialog v-model:visible="showQuickFilters" modal header="Quick Aggregation Filters" :style="{ width: '36rem', maxWidth: '95vw' }" :dismissable-mask="true">
+      <div class="quick-buttons-modal">
+        <div v-for="cat in quickCategories" :key="cat.label" class="quick-row">
+          <span class="quick-label">{{ cat.label }}</span>
+          <div class="quick-actions">
+            <Button size="small" severity="secondary" label="View" @click="viewTodayFromModal(cat.types)" />
+            <Button size="small" severity="secondary" label="Agg 24h" :loading="aggregating === cat.label + '24h'" @click="aggregateRange(cat, 24 * 60 * 60 * 1000, '24h')" />
+            <Button size="small" severity="secondary" label="Agg Week" :loading="aggregating === cat.label + 'week'" @click="aggregateRange(cat, 7 * 24 * 60 * 60 * 1000, 'week')" />
+            <Button size="small" severity="secondary" label="Agg Month" :loading="aggregating === cat.label + 'month'" @click="aggregateRange(cat, 30 * 24 * 60 * 60 * 1000, 'month')" />
+          </div>
+        </div>
+      </div>
+    </Dialog>
 
     <template v-if="categoryMode">
       <ProgressSpinner v-if="categoryLoading" />
@@ -217,15 +233,28 @@ const quickCategories = [
 
 const aggregating = ref<string | null>(null)
 const noLogsToday = ref(false)
-const categoryMode = ref(false)
+const showQuickFilters = ref(false)
+const sortMode = ref<'time' | 'category'>(route.query.sort === 'category' ? 'category' : 'time')
+const categoryMode = computed(() => sortMode.value === 'category')
 const categoryLogs = ref<any[]>([])
 const categoryLoading = ref(false)
+
+const sortModeOptions = [
+  { label: 'Sort: By Time', value: 'time' },
+  { label: 'Sort: By Category', value: 'category' },
+]
 
 const viewToday = (types: number[]) => {
   selectedFightTypes.value = [...types]
   page.value = 1
   syncUrl()
   refresh()
+  if (categoryMode.value) loadCategoryLogs()
+}
+
+const viewTodayFromModal = (types: number[]) => {
+  viewToday(types)
+  showQuickFilters.value = false
 }
 
 const loadCategoryLogs = async () => {
@@ -238,9 +267,12 @@ const loadCategoryLogs = async () => {
   }
 }
 
-const toggleCategoryMode = async () => {
-  categoryMode.value = !categoryMode.value
-  if (categoryMode.value) await loadCategoryLogs()
+const onSortModeChange = async () => {
+  syncUrl()
+  if (categoryMode.value && categoryLogs.value.length === 0)
+  {
+    await loadCategoryLogs()
+  }
 }
 
 const groupedCategoryLogs = computed(() => groupBySuperCategory(categoryLogs.value))
@@ -258,11 +290,19 @@ const aggregateRange = async (cat: { label: string; types: number[] }, windowMs:
       noLogsToday.value = true
       return
     }
+    showQuickFilters.value = false
     navigateTo(`/logs/aggregate?ids=${ids.join(',')}`)
   } finally {
     aggregating.value = null
   }
 }
+
+onMounted(() => {
+  if (categoryMode.value)
+  {
+    loadCategoryLogs()
+  }
+})
 
 const { data: availableCharacters, pending: charactersPending } = await useAsyncData(
   'log-characters',
@@ -282,6 +322,10 @@ const syncUrl = () => {
   if (selectedCharacters.value.length)
   {
     q.characters = selectedCharacters.value.join(',')
+  }
+  if (sortMode.value === 'category')
+  {
+    q.sort = 'category'
   }
   router.replace({ query: q })
 }
@@ -387,21 +431,24 @@ const goToAggregate = () => {
   touch-action: manipulation;
 }
 
-.quick-buttons {
+.quick-buttons-modal {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  margin-bottom: 1rem;
-  padding: 0.75rem 1rem;
-  background: var(--p-surface-card);
-  border: 1px solid var(--p-surface-border);
-  border-radius: 0.75rem;
+  gap: 0.6rem;
 }
 
 .quick-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.quick-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-left: auto;
 }
 
 .selection-bar {

@@ -66,6 +66,7 @@
             />
             <AggCard
               label="Damage vs Barrier"
+              :colspan="2"
               :rows="[
                 { side: 'Dmg Taken', value: stats.wvw.totalDamageTaken ?? 0 },
                 { side: 'Barrier Mit.', value: stats.wvw.totalBarrierMitigation ?? 0 },

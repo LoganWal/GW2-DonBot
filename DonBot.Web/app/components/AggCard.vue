@@ -1,5 +1,5 @@
 <template>
-  <Card class="stat-card agg-card">
+  <Card class="stat-card agg-card" :style="colspan ? `grid-column: span ${colspan};` : undefined">
     <template #content>
       <div class="stat-label">{{ label }}</div>
       <div v-for="row in rows" :key="row.side" class="agg-row">
@@ -19,6 +19,7 @@ export interface AggRow {
 defineProps<{
   label: string
   rows: AggRow[]
+  colspan?: number
 }>()
 
 const formatted = (v: string | number) =>

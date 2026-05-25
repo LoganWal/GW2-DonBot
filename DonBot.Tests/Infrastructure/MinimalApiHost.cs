@@ -2,6 +2,8 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using DonBot.Models.Entities;
+using DonBot.Models.GuildWars2;
+using DonBot.Services.GuildWarsServices;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
@@ -48,6 +50,10 @@ internal sealed class MinimalApiHost : IDisposable
         }
 
         builder.Services.AddMemoryCache();
+
+        // Endpoints under test reference IDataModelGenerationService for parameter inference at
+        // startup. Register a stub so the host builds; tests that exercise it override via configureServices.
+        builder.Services.AddSingleton<IDataModelGenerationService, StubDataModelGenerationService>();
 
         builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
@@ -118,5 +124,14 @@ internal sealed class MinimalApiHost : IDisposable
     private sealed class SingleHandlerFactory(HttpMessageHandler handler) : IHttpClientFactory
     {
         public HttpClient CreateClient(string name) => new(handler, disposeHandler: false);
+    }
+
+    private sealed class StubDataModelGenerationService : IDataModelGenerationService
+    {
+        public Task<EliteInsightDataModel> GenerateEliteInsightDataModelFromUrl(string url) =>
+            Task.FromResult(new EliteInsightDataModel());
+
+        public EliteInsightDataModel GenerateEliteInsightDataModelFromHtml(string html, string url) =>
+            new();
     }
 }

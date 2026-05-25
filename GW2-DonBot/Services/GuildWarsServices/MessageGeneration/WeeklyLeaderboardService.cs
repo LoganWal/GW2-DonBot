@@ -12,6 +12,31 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
     private const int TopN = 20;
     private const string AuthorIconUrl = "https://i.imgur.com/tQ4LD6H.png";
 
+    // Leaderboard rows kept within DiscordTable.MaxRowWidth so Discord doesn't wrap the last
+    // column onto its own line in mobile code blocks.
+    private const int LeaderNameWidth = 20;
+
+    internal static readonly DiscordTable.Column[] LeaderDamageColumns =
+    [
+        new("#", 2), new("Name", LeaderNameWidth),
+        new("Damage", 6, DiscordTable.Align.Right), new("DownC", 6, DiscordTable.Align.Right)
+    ];
+
+    internal static readonly DiscordTable.Column[] LeaderStabColumns =
+    [
+        new("#", 2), new("Name", LeaderNameWidth),
+        new("S(on)", 5, DiscordTable.Align.Right), new("S(off)", 6, DiscordTable.Align.Right)
+    ];
+
+    internal static DiscordTable.Column[] SimpleColumns(string valueHeader) =>
+    [
+        new("#", 2), new("Name", LeaderNameWidth),
+        new(valueHeader, Math.Max(valueHeader.Length, 6), DiscordTable.Align.Right)
+    ];
+
+    private static string LeaderName(IGrouping<string, PlayerFightLog> group) =>
+        $"({group.Count()}) {group.Key}".ClipAt(LeaderNameWidth);
+
     public async Task<List<Embed>?> GenerateWvW(Guild guild)
     {
         var cutoff = DateTime.UtcNow.AddDays(-7);
@@ -295,14 +320,13 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
 
     private static string BuildWvWDamageTable(List<IGrouping<string, PlayerFightLog>> grouped)
     {
-        var table = "```#    Name                   Damage    Down C\n";
+        var table = $"```{DiscordTable.Header(LeaderDamageColumns)}";
         var index = 1;
         foreach (var g in grouped.OrderByDescending(g => g.Sum(s => s.Damage)).Take(TopN))
         {
-            var name = $"({g.Count()}) {g.Key}".ClipAt(21);
             var totalDmg = ((float)g.Sum(s => s.Damage)).FormatNumber();
             var totalDc = ((float)g.Sum(s => s.DamageDownContribution)).FormatNumber();
-            table += $"{index.ToString().PadLeft(2, '0')}{string.Empty,3}{name,-21}{string.Empty,2}{totalDmg,-8}{string.Empty,2}{totalDc}\n";
+            table += DiscordTable.Row(LeaderDamageColumns, index.ToString().PadLeft(2, '0'), LeaderName(g), totalDmg, totalDc);
             index++;
         }
         return table + "```";
@@ -310,14 +334,13 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
 
     private static string BuildWvWStabTable(List<IGrouping<string, PlayerFightLog>> grouped)
     {
-        var table = "```#    Name                   S(on)  S(off)\n";
+        var table = $"```{DiscordTable.Header(LeaderStabColumns)}";
         var index = 1;
         foreach (var g in grouped.Where(g => g.Count() >= 10).OrderByDescending(g => g.Average(s => s.StabGenOnGroup)).Take(TopN))
         {
-            var name = $"({g.Count()}) {g.Key}".ClipAt(21);
             var stabOn = Math.Round(g.Average(s => (double)s.StabGenOnGroup), 2).ToString("F2", CultureInfo.InvariantCulture);
             var stabOff = Math.Round(g.Average(s => (double)s.StabGenOffGroup), 2).ToString("F2", CultureInfo.InvariantCulture);
-            table += $"{index.ToString().PadLeft(2, '0')}{string.Empty,3}{name,-21}{string.Empty,2}{stabOn,-6}{string.Empty,1}{stabOff}\n";
+            table += DiscordTable.Row(LeaderStabColumns, index.ToString().PadLeft(2, '0'), LeaderName(g), stabOn, stabOff);
             index++;
         }
         return table + "```";
@@ -325,7 +348,8 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
 
     private static string BuildWvWDistanceTable(List<IGrouping<string, PlayerFightLog>> grouped)
     {
-        var table = "```#    Name                   Avg Dist\n";
+        var columns = SimpleColumns("Avg Dist");
+        var table = $"```{DiscordTable.Header(columns)}";
         var index = 1;
         // Ascending order: lower distance = closer to tag = better; same threshold as per-fight view
         var eligible = grouped
@@ -335,9 +359,8 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
 
         foreach (var g in eligible)
         {
-            var name = $"({g.Count()}) {g.Key}".ClipAt(21);
             var avgDist = Math.Round(g.Where(s => s.DistanceFromTag is > 0 and < 1100).Average(s => (double)s.DistanceFromTag), 1);
-            table += $"{index.ToString().PadLeft(2, '0')}{string.Empty,3}{name,-21}{string.Empty,2}{avgDist.ToString("F1", CultureInfo.InvariantCulture)}\n";
+            table += DiscordTable.Row(columns, index.ToString().PadLeft(2, '0'), LeaderName(g), avgDist.ToString("F1", CultureInfo.InvariantCulture));
             index++;
         }
         return table + "```";
@@ -345,15 +368,15 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
 
     private static string BuildWvWSimpleTable(string columnHeader, List<IGrouping<string, PlayerFightLog>> grouped, Func<IGrouping<string, PlayerFightLog>, double> selector, Func<double, string> formatter, bool ascending = false)
     {
-        var table = $"```#    Name                   {columnHeader}\n";
+        var columns = SimpleColumns(columnHeader);
+        var table = $"```{DiscordTable.Header(columns)}";
         var ordered = ascending
             ? grouped.OrderBy(selector)
             : grouped.OrderByDescending(selector);
         var index = 1;
         foreach (var g in ordered.Take(TopN))
         {
-            var name = $"({g.Count()}) {g.Key}".ClipAt(21);
-            table += $"{index.ToString().PadLeft(2, '0')}{string.Empty,3}{name,-21}{string.Empty,2}{formatter(selector(g))}\n";
+            table += DiscordTable.Row(columns, index.ToString().PadLeft(2, '0'), LeaderName(g), formatter(selector(g)));
             index++;
         }
         return table + "```";
@@ -361,17 +384,18 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
 
     private static string BuildPvEDpsTable(List<IGrouping<string, PlayerFightLog>> grouped, Dictionary<long, long> fightDurations)
     {
-        var table = "```#    Name                   Avg DPS\n";
+        var columns = SimpleColumns("Avg DPS");
+        var table = $"```{DiscordTable.Header(columns)}";
         var players = grouped.Where(g => g.Count() >= 6).Select(g =>
         {
             var totalSec = Math.Max(g.Sum(pf => fightDurations.GetValueOrDefault(pf.FightLogId, 1)) / 1000f, 1f);
-            return (Name: $"({g.Count()}) {g.Key}".ClipAt(21), Dps: g.Sum(pf => pf.Damage) / totalSec);
+            return (Name: $"({g.Count()}) {g.Key}".ClipAt(LeaderNameWidth), Dps: g.Sum(pf => pf.Damage) / totalSec);
         }).OrderByDescending(p => p.Dps).Take(TopN).ToList();
 
         var index = 1;
         foreach (var (name, dps) in players)
         {
-            table += $"{index.ToString().PadLeft(2, '0')}{string.Empty,3}{name,-21}{string.Empty,2}{dps.FormatNumber(true)}\n";
+            table += DiscordTable.Row(columns, index.ToString().PadLeft(2, '0'), name, dps.FormatNumber(true));
             index++;
         }
         return table + "```";
@@ -379,17 +403,18 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
 
     private static string BuildPvECleaveDpsTable(List<IGrouping<string, PlayerFightLog>> grouped, Dictionary<long, long> fightDurations)
     {
-        var table = "```#    Name                   Avg Cleave/s\n";
+        var columns = SimpleColumns("Avg Cleave/s");
+        var table = $"```{DiscordTable.Header(columns)}";
         var players = grouped.Where(g => g.Count() >= 6).Select(g =>
         {
             var totalSec = Math.Max(g.Sum(pf => fightDurations.GetValueOrDefault(pf.FightLogId, 1)) / 1000f, 1f);
-            return (Name: $"({g.Count()}) {g.Key}".ClipAt(21), Dps: g.Sum(pf => pf.Cleave) / totalSec);
+            return (Name: $"({g.Count()}) {g.Key}".ClipAt(LeaderNameWidth), Dps: g.Sum(pf => pf.Cleave) / totalSec);
         }).OrderByDescending(p => p.Dps).Take(TopN).ToList();
 
         var index = 1;
         foreach (var (name, dps) in players)
         {
-            table += $"{index.ToString().PadLeft(2, '0')}{string.Empty,3}{name,-21}{string.Empty,2}{dps.FormatNumber(true)}\n";
+            table += DiscordTable.Row(columns, index.ToString().PadLeft(2, '0'), name, dps.FormatNumber(true));
             index++;
         }
         return table + "```";
@@ -397,7 +422,8 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
 
     private static string BuildPvESimpleTable(string columnHeader, List<IGrouping<string, PlayerFightLog>> grouped, Func<IGrouping<string, PlayerFightLog>, double> selector, Func<double, string> formatter, bool ascending = false)
     {
-        var table = $"```#    Name                   {columnHeader}\n";
+        var columns = SimpleColumns(columnHeader);
+        var table = $"```{DiscordTable.Header(columns)}";
         var eligible = grouped.Where(g => g.Count() >= 6);
         var ordered = ascending
             ? eligible.OrderBy(selector)
@@ -405,8 +431,7 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
         var index = 1;
         foreach (var g in ordered.Take(TopN))
         {
-            var name = $"({g.Count()}) {g.Key}".ClipAt(21);
-            table += $"{index.ToString().PadLeft(2, '0')}{string.Empty,3}{name,-21}{string.Empty,2}{formatter(selector(g))}\n";
+            table += DiscordTable.Row(columns, index.ToString().PadLeft(2, '0'), LeaderName(g), formatter(selector(g)));
             index++;
         }
         return table + "```";

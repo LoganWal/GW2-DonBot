@@ -2,5 +2,7 @@ namespace DonBot.Models.Statics;
 
 internal static class DiscordDisplayConstants
 {
-    public const int PlayerNameWidth = 21;
+    // Kept narrow so per-player rows (index + name + values) stay within DiscordTable.MaxRowWidth
+    // and Discord doesn't wrap the trailing column onto its own line on mobile.
+    public const int PlayerNameWidth = 20;
 }

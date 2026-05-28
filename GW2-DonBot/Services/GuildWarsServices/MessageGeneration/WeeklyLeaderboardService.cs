@@ -94,6 +94,9 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
         embed2.Footer = new EmbedFooterBuilder { Text = footerText, IconUrl = AuthorIconUrl };
         embed2.Timestamp = DateTime.Now;
 
+        footerService.AddWidthSpacer(embed1);
+        footerService.AddWidthSpacer(embed2);
+
         return [embed1.Build(), embed2.Build()];
     }
 
@@ -144,6 +147,7 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
         };
 
         footerService.AddInviteLink(message);
+        footerService.AddWidthSpacer(message);
         message.Timestamp = DateTime.Now;
 
         return message.Build();
@@ -282,6 +286,7 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
             Text = await footerService.Generate(guild.GuildId),
             IconUrl = AuthorIconUrl
         };
+        footerService.AddWidthSpacer(message);
         message.Timestamp = DateTime.Now;
 
         return message.Build();

@@ -1,4 +1,5 @@
 using Discord;
+using DonBot.Extensions;
 using DonBot.Models.Entities;
 using DonBot.Services.GuildWarsServices.MessageGeneration;
 using DonBot.Tests.Infrastructure;
@@ -8,18 +9,20 @@ namespace DonBot.Tests.Services.GuildWarsServices.MessageGeneration;
 public class FooterServiceTests
 {
     [Fact]
-    public async Task Generate_NoQuotes_ReturnsEmptyString()
+    public async Task Generate_NoQuotes_ReturnsSingleInvisibleSpacer()
     {
         var entityService = new InMemoryEntityService();
         var svc = new FooterService(entityService);
 
         var result = await svc.Generate(guildId: 1L);
 
-        Assert.Equal(string.Empty, result);
+        // Discord hides the footer icon when the text is empty, so a single Hangul-filler keeps
+        // the icon visible without pushing the timestamp away from it.
+        Assert.Equal("ㅤ", result);
     }
 
     [Fact]
-    public async Task Generate_WithSingleQuote_ReturnsThatQuotePaddedTo100Chars()
+    public async Task Generate_WithSingleQuote_ReturnsThatQuoteUnpadded()
     {
         var entityService = new InMemoryEntityService();
         entityService.GuildQuoteRepo.Items.Add(new GuildQuote { GuildId = 1L, Quote = "hello world" });
@@ -27,8 +30,7 @@ public class FooterServiceTests
 
         var result = await svc.Generate(guildId: 1L);
 
-        Assert.StartsWith("hello world", result);
-        Assert.Equal(100, result.Length);
+        Assert.Equal("hello world", result);
     }
 
     [Fact]
@@ -56,6 +58,25 @@ public class FooterServiceTests
 
         Assert.Equal(longQuote, result);
         Assert.Equal(150, result.Length);
+    }
+
+    [Fact]
+    public void AddWidthSpacer_AddsInvisibleFullWidthField()
+    {
+        var entityService = new InMemoryEntityService();
+        var svc = new FooterService(entityService);
+        var builder = new EmbedBuilder().WithTitle("ignored");
+
+        svc.AddWidthSpacer(builder);
+
+        var field = Assert.Single(builder.Fields);
+        var value = field.Value!.ToString()!;
+        // Field value is a run of full-width Hangul-filler (U+3164) spacers sized to a max table row
+        // (minus a few, since the glyph is wider than a monospace char), so the embed renders at full
+        // width and code-block rows don't wrap on mobile.
+        Assert.Equal(DiscordTable.MaxRowWidth - 5, value.Length);
+        Assert.All(value, c => Assert.Equal('ㅤ', c));
+        Assert.False(field.IsInline);
     }
 
     [Fact]

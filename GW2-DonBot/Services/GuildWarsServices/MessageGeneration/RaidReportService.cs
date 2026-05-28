@@ -437,6 +437,10 @@ public sealed class RaidReportService(
 
         AddChunkedCodeFenceFields(surviveEmbed, "Survivability Overview", SurvivabilityHeader, BuildSurvivabilityRows(groupedPlayerFights));
 
+        footerService.AddWidthSpacer(fightsEmbed);
+        footerService.AddWidthSpacer(playerEmbed);
+        footerService.AddWidthSpacer(surviveEmbed);
+
         return [fightsEmbed.Build(), playerEmbed.Build(), surviveEmbed.Build()];
     }
 

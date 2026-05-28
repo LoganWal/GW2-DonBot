@@ -13,12 +13,53 @@
     </div>
     <div class="topbar-end">
       <Button
-        :icon="dark ? 'pi pi-sun' : 'pi pi-moon'"
+        icon="pi pi-palette"
         text
         severity="secondary"
-        aria-label="Toggle theme"
-        @click="toggleTheme"
+        aria-label="Choose theme"
+        aria-haspopup="true"
+        aria-controls="theme-menu"
+        @click="toggleThemeMenu"
       />
+      <Popover id="theme-menu" ref="themePopover" class="theme-popover">
+        <div class="theme-menu">
+          <div class="theme-row">
+            <span class="theme-menu-label">Appearance</span>
+            <SelectButton
+              :model-value="appearance"
+              :options="appearanceOptions"
+              option-label="label"
+              option-value="value"
+              :allow-empty="false"
+              size="small"
+              @update:model-value="setAppearance"
+            >
+              <template #option="{ option }">
+                <i :class="option.icon" aria-hidden="true" />
+                <span>{{ option.label }}</span>
+              </template>
+            </SelectButton>
+          </div>
+          <div class="theme-row">
+            <span class="theme-menu-label">Accent</span>
+            <div class="theme-swatches" role="radiogroup" aria-label="Accent theme">
+              <button
+                v-for="option in accentOptions"
+                :key="option.value"
+                type="button"
+                class="theme-swatch"
+                :class="{ selected: accent === option.value }"
+                :style="{ '--swatch-color': option.swatch }"
+                role="radio"
+                :aria-checked="accent === option.value"
+                :aria-label="option.label"
+                :title="option.label"
+                @click="setAccent(option.value)"
+              />
+            </div>
+          </div>
+        </div>
+      </Popover>
       <template v-if="user">
         <div class="topbar-divider" />
         <Avatar
@@ -44,9 +85,24 @@ const config = useRuntimeConfig()
 const { user, logout } = useAuth()
 const { toggleMobile } = useSidebar()
 const pageTitle = usePageTitle()
+const themePopover = ref()
 
 useHead(() => ({ title: `${pageTitle.value} · DonBot` }))
-const { dark, toggle: toggleTheme } = useTheme()
+const {
+  accent,
+  accentOptions,
+  appearance,
+  appearanceOptions,
+  initialize: initializeTheme,
+  setAccent,
+  setAppearance
+} = useTheme()
+
+onMounted(() => initializeTheme())
+
+const toggleThemeMenu = (event: Event) => {
+  themePopover.value?.toggle(event)
+}
 
 const navigateToDiscord = () => {
   window.location.href = `${config.public.apiBase}/auth/discord`
@@ -112,6 +168,49 @@ const navigateToDiscord = () => {
   font-size: 0.9rem;
   font-weight: 500;
   color: var(--p-text-color);
+}
+
+.theme-menu {
+  display: grid;
+  gap: 1rem;
+  min-width: min(22rem, calc(100vw - 2rem));
+}
+
+.theme-row {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.theme-menu-label {
+  color: var(--p-text-muted-color);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.theme-swatches {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.theme-swatch {
+  position: relative;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--p-surface-border);
+  border-radius: 999px;
+  background: var(--swatch-color);
+  cursor: pointer;
+}
+
+.theme-swatch.selected {
+  box-shadow: 0 0 0 2px var(--p-surface-ground), 0 0 0 4px var(--p-primary-color);
+}
+
+.theme-swatch:focus-visible {
+  outline: 2px solid var(--p-primary-color);
+  outline-offset: 3px;
 }
 
 @media (max-width: 768px) {

@@ -72,9 +72,8 @@ public class FooterServiceTests
         var field = Assert.Single(builder.Fields);
         var value = field.Value!.ToString()!;
         // Field value is a run of full-width Hangul-filler (U+3164) spacers sized to a max table row
-        // (minus a few, since the glyph is wider than a monospace char), so the embed renders at full
-        // width and code-block rows don't wrap on mobile.
-        Assert.Equal(DiscordTable.MaxRowWidth - 5, value.Length);
+        // so the embed renders at full width and code-block rows don't wrap on mobile.
+        Assert.Equal(DiscordTable.MaxRowWidth, value.Length);
         Assert.All(value, c => Assert.Equal('ㅤ', c));
         Assert.False(field.IsInline);
     }

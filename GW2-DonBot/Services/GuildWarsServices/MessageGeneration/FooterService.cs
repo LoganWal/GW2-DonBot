@@ -15,9 +15,8 @@ public sealed class FooterService(IEntityService entityService) : IFooterService
 
     // The spacer only needs to be as wide as the widest table row it's protecting. Tables are capped
     // at DiscordTable.MaxRowWidth monospace chars, but the spacer glyph is full-width, so fewer are
-    // needed to reach the embed's content width — trimmed by 5 so it tracks the table without
-    // overshooting.
-    private const int SpacerWidth = DiscordTable.MaxRowWidth - 5;
+    // needed to reach the embed's content width
+    private const int SpacerWidth = DiscordTable.MaxRowWidth;
 
     public async Task<string> Generate(long guildId)
     {

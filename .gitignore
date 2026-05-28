@@ -432,6 +432,7 @@ claude.txt
 # OpenAI / ChatGPT / Codex
 chatgpt.md
 chatgpt.txt
+AGENTS.md
 .openai/
 .openai-cache/
 .openai_history

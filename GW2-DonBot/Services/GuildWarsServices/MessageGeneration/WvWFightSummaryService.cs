@@ -546,6 +546,8 @@ public sealed class WvWFightSummaryService(
             });
         }
 
+        footerService.AddWidthSpacer(message);
+
         message.Footer = new EmbedFooterBuilder()
         {
             Text = $"{await footerService.Generate(guildId)}",

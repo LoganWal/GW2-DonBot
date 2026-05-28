@@ -434,6 +434,7 @@ public sealed class PvEFightSummaryService(
             x.IsInline = false;
         });
 
+        footerService.AddWidthSpacer(message);
         footerService.AddInviteLink(message);
 
         return (message.Build(), webAppUrl, existingFightLog.FightLogId);

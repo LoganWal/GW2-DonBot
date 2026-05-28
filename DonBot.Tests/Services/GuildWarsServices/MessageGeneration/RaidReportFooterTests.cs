@@ -128,6 +128,10 @@ internal sealed class SequenceFooterService : IFooterService
         return Task.FromResult($"Q{n}");
     }
 
+    public void AddWidthSpacer(EmbedBuilder builder)
+    {
+    }
+
     public void AddInviteLink(EmbedBuilder builder)
     {
     }

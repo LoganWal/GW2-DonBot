@@ -16,9 +16,9 @@ public class FooterServiceTests
 
         var result = await svc.Generate(guildId: 1L);
 
-        // Discord hides the footer icon when the text is empty, so a single Hangul-filler keeps
-        // the icon visible without pushing the timestamp away from it.
-        Assert.Equal("ㅤ", result);
+        // Discord hides the footer icon when the text is empty, so a single halfwidth Hangul-filler
+        // keeps the icon visible without pushing the timestamp away from it.
+        Assert.Equal("ﾠ", result);
     }
 
     [Fact]
@@ -61,7 +61,7 @@ public class FooterServiceTests
     }
 
     [Fact]
-    public void AddWidthSpacer_AddsInvisibleFullWidthField()
+    public void AddWidthSpacer_NoExistingFields_AddsInvisibleFullWidthField()
     {
         var entityService = new InMemoryEntityService();
         var svc = new FooterService(entityService);
@@ -71,11 +71,28 @@ public class FooterServiceTests
 
         var field = Assert.Single(builder.Fields);
         var value = field.Value!.ToString()!;
-        // Field value is a run of full-width Hangul-filler (U+3164) spacers sized to a max table row
-        // so the embed renders at full width and code-block rows don't wrap on mobile.
-        Assert.Equal(DiscordTable.MaxRowWidth, value.Length);
-        Assert.All(value, c => Assert.Equal('ㅤ', c));
+        // With no fields to attach to, the spacer is its own field: a run of halfwidth Hangul-filler
+        // (U+FFA0) sized to a max table row so the embed renders at full width on mobile.
+        Assert.Equal(DiscordTable.MaxRowWidth - 3, value.Length);
+        Assert.All(value, c => Assert.Equal('ﾠ', c));
         Assert.False(field.IsInline);
+    }
+
+    [Fact]
+    public void AddWidthSpacer_WithExistingFields_AppendsSpacerLineToLastFieldValue()
+    {
+        var entityService = new InMemoryEntityService();
+        var svc = new FooterService(entityService);
+        var builder = new EmbedBuilder();
+        builder.AddField(x => { x.Name = "Survivability Overview"; x.Value = "```table```"; x.IsInline = false; });
+
+        svc.AddWidthSpacer(builder);
+
+        // No extra field is added; the spacer is appended onto the last field's value on its own
+        // line so there's no empty name-line gap between the table and the spacer.
+        var field = Assert.Single(builder.Fields);
+        var expectedSpacer = new string('ﾠ', DiscordTable.MaxRowWidth - 3);
+        Assert.Equal($"```table```\n{expectedSpacer}", field.Value!.ToString());
     }
 
     [Fact]

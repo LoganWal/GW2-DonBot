@@ -4,15 +4,19 @@ namespace DonBot.Extensions;
 
 /// <summary>
 /// Renders monospace tables for Discord code blocks. Headers and rows are built from the
-/// same <see cref="Column"/> specs, so they always line up. Columns are separated by a single
-/// space and trailing spaces are trimmed, keeping rows narrow enough to avoid Discord wrapping
-/// the last column onto its own line on mobile.
+/// same <see cref="Column"/> specs, so they always line up. Every table is padded to
+/// <see cref="MaxRowWidth"/> by spreading any slack across the gaps between columns, so all
+/// tables render at the same width regardless of how many columns they have. Trailing spaces are
+/// trimmed, keeping rows narrow enough to avoid Discord wrapping the last column onto its own line
+/// on mobile.
 /// </summary>
 public static class DiscordTable
 {
     /// <summary>
-    /// Target maximum width (in characters) for a rendered row. Discord's mobile code blocks
-    /// wrap around this width; staying at or under it keeps each row on a single line.
+    /// The width (in characters) every rendered row is padded to. This is also the cap: Discord's
+    /// code blocks wrap around this width, so staying at it keeps each row on a single line while
+    /// giving every table the same width. The embed width-spacer is sized to match (see
+    /// FooterService), so columns padded to this width don't wrap.
     /// </summary>
     public const int MaxRowWidth = 40;
 
@@ -34,12 +38,13 @@ public static class DiscordTable
 
     private static string Compose(IReadOnlyList<Column> columns, IReadOnlyList<string> cells)
     {
+        var gaps = GapWidths(columns);
         var builder = new StringBuilder();
         for (var i = 0; i < columns.Count; i++)
         {
             if (i > 0)
             {
-                builder.Append(' ');
+                builder.Append(' ', gaps[i - 1]);
             }
 
             var text = i < cells.Count ? cells[i] ?? string.Empty : string.Empty;
@@ -54,5 +59,39 @@ public static class DiscordTable
         }
 
         return $"{builder.ToString().TrimEnd()}\n";
+    }
+
+    /// <summary>
+    /// Width of each gap between columns. Columns are normally separated by a single space, but any
+    /// slack up to <see cref="MaxRowWidth"/> is spread evenly across the gaps so every table renders
+    /// at the same width. Falls back to single-space gaps when the columns already fill (or exceed)
+    /// the target width, so a table is never narrowed below its natural layout.
+    /// </summary>
+    private static int[] GapWidths(IReadOnlyList<Column> columns)
+    {
+        var gapCount = columns.Count - 1;
+        if (gapCount <= 0)
+        {
+            return [];
+        }
+
+        var gaps = new int[gapCount];
+        Array.Fill(gaps, 1);
+
+        var contentWidth = columns.Sum(c => c.Width);
+        var slack = MaxRowWidth - contentWidth - gapCount;
+        if (slack <= 0)
+        {
+            return gaps;
+        }
+
+        var perGap = slack / gapCount;
+        var remainder = slack % gapCount;
+        for (var i = 0; i < gapCount; i++)
+        {
+            gaps[i] += perGap + (i < remainder ? 1 : 0);
+        }
+
+        return gaps;
     }
 }

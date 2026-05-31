@@ -8,15 +8,18 @@ public sealed class FooterService(IEntityService entityService) : IFooterService
 {
     private const string InviteLink = "https://discord.com/api/oauth2/authorize?client_id=1021682849797111838&permissions=8&scope=bot";
 
-    // Hangul Filler (U+3164): renders as a truly blank glyph with width, and unlike a regular space
-    // Discord does NOT trim it from the end of a line. Used to force an embed's width — see
-    // AddWidthSpacer.
-    private const char WidthSpacer = 'ㅤ';
+    // Halfwidth Hangul Filler (U+FFA0): renders as a blank glyph with width, and unlike a regular
+    // space Discord does NOT trim it from the end of a line. It is also not whitespace per .NET, so
+    // it passes Discord.Net's "field value must not be entirely whitespace" check. Used to force an
+    // embed's width, see AddWidthSpacer. (Hangul Filler U+3164 was used previously but Discord
+    // stopped honouring its width, so the spacer collapsed to blank lines and rows wrapped again.)
+    private const char WidthSpacer = 'ﾠ';
 
     // The spacer only needs to be as wide as the widest table row it's protecting. Tables are capped
     // at DiscordTable.MaxRowWidth monospace chars, but the spacer glyph is full-width, so fewer are
-    // needed to reach the embed's content width
-    private const int SpacerWidth = DiscordTable.MaxRowWidth;
+    // needed to reach the embed's content width. Trimmed by 3 so the spacer line itself doesn't wrap
+    // onto a second line.
+    private const int SpacerWidth = DiscordTable.MaxRowWidth - 3;
 
     public async Task<string> Generate(long guildId)
     {
@@ -30,16 +33,28 @@ public sealed class FooterService(IEntityService entityService) : IFooterService
 
     // A code block inside an embed wraps to the embed's content width, and only proportional-font
     // lines (title/description/fields) set that width — the code block itself never widens the
-    // embed. So on mobile a wide table row wraps its last column onto a second line. Adding a field
-    // whose value is a line of invisible width-spacers forces the embed to its full width, keeping
-    // table rows on one line. This lives in a field (not the footer) so it doesn't push the footer
-    // timestamp away from the bot icon.
+    // embed. So on mobile a wide table row wraps its last column onto a second line. A line of
+    // invisible width-spacers forces the embed to its full width, keeping table rows on one line.
+    //
+    // We append the spacer onto the last field's value (on its own line, just after the closing code
+    // fence) rather than adding a new field: a separate field renders an empty name-line above its
+    // value, which shows as a blank gap between the table and the spacer. Reusing the last field
+    // avoids that gap. If the embed has no fields yet, fall back to adding one.
     public void AddWidthSpacer(EmbedBuilder builder)
     {
+        var spacer = new string(WidthSpacer, SpacerWidth);
+
+        if (builder.Fields.Count > 0)
+        {
+            var lastField = builder.Fields[^1];
+            lastField.Value = $"{lastField.Value}\n{spacer}";
+            return;
+        }
+
         builder.AddField(x =>
         {
             x.Name = "​";
-            x.Value = new string(WidthSpacer, SpacerWidth);
+            x.Value = spacer;
             x.IsInline = false;
         });
     }

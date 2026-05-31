@@ -6,6 +6,7 @@ using DonBot.Models.Enums;
 using DonBot.Models.GuildWars2;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.GuildWarsServices.MessageGeneration;
+using DonBot.Tests.Infrastructure;
 using Microsoft.Extensions.Configuration;
 
 namespace DonBot.Tests.Services.GuildWarsServices.MessageGeneration;
@@ -72,6 +73,23 @@ public class RaidReportFooterTests
         Assert.NotNull(embeds);
         Assert.Equal(2, embeds!.Count);
         Assert.NotEqual(embeds[0].Footer?.Text, embeds[1].Footer?.Text);
+    }
+
+    [Fact]
+    public async Task GenerateRaidAlert_HasAlertTitleDescriptionGoldColorAndInviteLink()
+    {
+        // Real FooterService here (not the sequence stub) so AddInviteLink actually adds its field.
+        var footer = new FooterService(new InMemoryEntityService());
+        var service = BuildService(footer, [], []);
+
+        var embed = await service.GenerateRaidAlert(GuildId);
+
+        Assert.StartsWith("RAID STARTING!", embed.Title);
+        Assert.Contains("GET IN HERE!", embed.Description);
+        Assert.Equal((Color)System.Drawing.Color.Gold, embed.Color);
+        Assert.NotNull(embed.Footer?.Text);
+        // AddInviteLink adds a field linking to the bot's OAuth invite URL.
+        Assert.Contains(embed.Fields, f => f.Value.Contains("oauth2/authorize"));
     }
 
     private static RaidReportService BuildService(

@@ -93,7 +93,6 @@ public static class StatsEndpoints
         {
             totalFights = logs.Count,
             totalFightDurationMs = totalDurationMs,
-            // Damage
             totalDamage,
             avgDps = s > 0 ? (long)(totalDamage / s) : 0,
             totalCleave,
@@ -102,7 +101,6 @@ public static class StatsEndpoints
             totalKills = logs.Sum(p => p.Kills),
             totalDowns = logs.Sum(p => p.Downs),
             totalDeaths = logs.Sum(p => p.Deaths),
-            // Support
             totalHealing,
             avgHealingPerSecond = s > 0 ? (long)(totalHealing / s) : 0,
             totalBarrierGenerated = logs.Sum(p => p.BarrierGenerated),
@@ -110,23 +108,17 @@ public static class StatsEndpoints
             avgCleansesPerSecond = s > 0 ? Math.Round(totalCleanses / s, 2) : 0,
             totalStrips,
             avgStripsPerSecond = s > 0 ? Math.Round(totalStrips / s, 2) : 0,
-            // Boon gen
             avgQuickness = logs.Average(p => (double)p.QuicknessDuration),
             avgAlac = logs.Average(p => (double)p.AlacDuration),
             avgStabOnGroup = logs.Average(p => (double)p.StabGenOnGroup),
             avgStabOffGroup = logs.Average(p => (double)p.StabGenOffGroup),
-            // Survivability / positioning
             totalTimesDowned = logs.Sum(p => p.TimesDowned),
             avgDistanceFromTag = logs.Average(p => (double)p.DistanceFromTag),
-            // Aggregations (Attacks Missed)
             totalHitsWhileBlinded = logs.Sum(p => p.NumberOfHitsWhileBlinded),
             totalMissesAgainst = logs.Sum(p => p.NumberOfMissesAgainst),
-            // Aggregations (Attacks Blocked)
             totalBlockedAttacks = logs.Sum(p => p.NumberOfTimesBlockedAttack),
             totalEnemyBlockedAttacks = logs.Sum(p => p.NumberOfTimesEnemyBlockedAttack),
-            // Aggregations (Boons)
             totalBoonsRipped = logs.Sum(p => p.NumberOfBoonsRipped),
-            // Damage taken
             totalDamageTaken,
             totalBarrierMitigation,
             barrierMitigationPercent = totalDamageTaken > 0
@@ -147,7 +139,6 @@ public static class StatsEndpoints
         {
             totalFights = logs.Count,
             totalFightDurationMs = totalDurationMs,
-            // Player overview (DPS-style)
             totalDamage,
             avgDps = s > 0 ? (long)(totalDamage / s) : 0,
             totalCleave,
@@ -156,7 +147,6 @@ public static class StatsEndpoints
             avgHealingPerSecond = s > 0 ? (long)(totalHealing / s) : 0,
             avgQuickness = logs.Average(p => (double)p.QuicknessDuration),
             avgAlac = logs.Average(p => (double)p.AlacDuration),
-            // Survivability
             totalResurrectionTime = logs.Sum(p => p.ResurrectionTime),
             totalDamageTaken = logs.Sum(p => p.DamageTaken),
             totalTimesDowned = logs.Sum(p => p.TimesDowned),
@@ -208,7 +198,6 @@ public static class StatsEndpoints
             .Where(p => metaById.TryGetValue(p.FightLogId, out var m) && m.FightType != (short)FightTypesEnum.WvW)
             .ToList();
 
-        // Best kill time per PvE boss type (successful kills only, exclude unknown)
         var pveFightLogIds = pveLogs.Select(p => p.FightLogId).ToHashSet();
         var playerLogByFightId = pveLogs.ToDictionary(p => p.FightLogId);
         var bestTimes = fightMeta

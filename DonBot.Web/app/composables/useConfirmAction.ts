@@ -10,10 +10,6 @@ type ConfirmActionOptions = {
   severity?: 'danger' | 'warn' | 'info' | 'success' | 'secondary' | 'primary'
 }
 
-/**
- * Generic confirm modal wrapper. Returns a promise that resolves true when
- * the user accepts and false when they reject or dismiss the dialog.
- */
 export const useConfirmAction = () => {
   const confirm = useConfirm()
 

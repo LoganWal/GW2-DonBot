@@ -17,10 +17,7 @@ using Microsoft.Extensions.Logging;
 
 namespace DonBot.Tests.Infrastructure;
 
-/// Minimal in-process API host for endpoint tests. Wires only the dependencies the endpoints
-/// under test actually use (DbContextFactory backed by SQLite, JWT bearer auth, IHttpClientFactory).
-/// Avoids running the real <see cref="DonBot.Api.Program"/> entrypoint, which would pull in
-/// Npgsql, hosted services, and the live Discord client.
+/// Minimal in-process API host for endpoint tests.
 internal sealed class MinimalApiHost : IDisposable
 {
     public const string JwtKey = "test-jwt-signing-key-must-be-at-least-256-bits-long-for-hmac-sha256!!";
@@ -51,8 +48,7 @@ internal sealed class MinimalApiHost : IDisposable
 
         builder.Services.AddMemoryCache();
 
-        // Endpoints under test reference IDataModelGenerationService for parameter inference at
-        // startup. Register a stub so the host builds; tests that exercise it override via configureServices.
+        // Endpoint binding needs this at startup; specific tests can override it.
         builder.Services.AddSingleton<IDataModelGenerationService, StubDataModelGenerationService>();
 
         builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -73,7 +69,6 @@ internal sealed class MinimalApiHost : IDisposable
 
         var app = builder.Build();
 
-        // create schema once context factory has the connection
         using (var scope = app.Services.CreateScope())
         {
             var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<DatabaseContext>>();

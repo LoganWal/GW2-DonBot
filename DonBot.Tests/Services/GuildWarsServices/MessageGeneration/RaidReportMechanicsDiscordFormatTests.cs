@@ -5,8 +5,6 @@ namespace DonBot.Tests.Services.GuildWarsServices.MessageGeneration;
 
 public class RaidReportMechanicsDiscordFormatTests
 {
-    // --- BuildMechanicRows ---
-
     [Fact]
     public void BuildMechanicRows_WhenNoMechanics_ReturnsEmptyList()
     {
@@ -87,7 +85,6 @@ public class RaidReportMechanicsDiscordFormatTests
         var rows = RaidReportService.BuildMechanicRows(mechanics, idToAccount);
 
         Assert.Single(rows);
-        // ClipAt(13): "TopScorer.567" (13 chars); "LowScorer.123" (13 chars)
         Assert.Contains("TopScorer.567", rows[0]);
         Assert.DoesNotContain("LowScorer", rows[0]);
     }
@@ -150,7 +147,6 @@ public class RaidReportMechanicsDiscordFormatTests
 
         var rows = RaidReportService.BuildMechanicRows(mechanics, idToAccount);
 
-        // ClipAt(13) = "VeryLongAccou" (13 chars: V-e-r-y-L-o-n-g-A-c-c-o-u)
         Assert.Contains("VeryLongAccou (5)", rows[0]);
         Assert.DoesNotContain("VeryLongAccoun", rows[0]);
     }
@@ -192,17 +188,14 @@ public class RaidReportMechanicsDiscordFormatTests
 
         var rows = RaidReportService.BuildMechanicRows(mechanics, idToAccount);
 
-        // The total count field starts at the same column in each row (after 20 chars: 18 name + 2 spaces)
+        // Count columns must stay aligned.
         Assert.Equal(rows[0].IndexOf('3'), rows[1].IndexOf('7'));
     }
 
     [Fact]
     public void BuildMechanicRows_WithManyDistinctMechanics_TotalContentExceedsDiscordFieldValueLimit()
     {
-        // 50+ mechanics produce more text than a single Discord field value allows (1024 chars).
-        // When chunked into multiple fields and combined with survivability fields, author, and footer,
-        // the surviveEmbed exceeds Discord's 6000-char total embed limit - which is why mechanics
-        // were removed from the embed until the section can be restructured.
+        // Discord limits field values to 1024 chars and embeds to 6000 chars.
         const int discordFieldValueLimit = 1024;
 
         var mechanics = Enumerable.Range(1, 50)

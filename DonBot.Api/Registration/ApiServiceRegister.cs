@@ -37,7 +37,6 @@ public static class ApiServiceRegister
         services.AddScoped<IPlayerService, PlayerService>();
         services.AddScoped<IDataModelGenerationService, DataModelGenerationService>();
 
-        // Message generation chain (used by web-side StartRaid for the raid alert ping).
         services.AddTransient<IFooterService, FooterService>();
         services.AddTransient<IPvEFightSummaryService, PvEFightSummaryService>();
         services.AddTransient<IWvWFightSummaryService, WvWFightSummaryService>();
@@ -51,6 +50,8 @@ public static class ApiServiceRegister
         services.AddSingleton<TusFileMapping>();
         services.AddSingleton<DiscordRestClientProvider>();
         services.AddSingleton<IUserGuildsService, UserGuildsService>();
+        services.AddSingleton<IDiscordCommandAccessService, DiscordCommandAccessService>();
+        services.AddSingleton<IRaffleEventHub, RaffleEventHub>();
         services.AddMemoryCache();
         services.AddHostedService(sp => sp.GetRequiredService<LogUploadPipelineService>());
 
@@ -91,7 +92,7 @@ public static class ApiServiceRegister
                 }
                 else
                 {
-                    // No explicit origins configured: allow any localhost origin for local dev.
+                    // Default to localhost origins for local dev.
                     policy.SetIsOriginAllowed(origin =>
                         Uri.TryCreate(origin, UriKind.Absolute, out var uri) &&
                         uri.Host == "localhost");

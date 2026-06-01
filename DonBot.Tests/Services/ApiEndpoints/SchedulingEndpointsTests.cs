@@ -25,10 +25,6 @@ public class SchedulingEndpointsTests
             repeat,
             message);
 
-    // -------------------------------------------------------------------------
-    // ValidateEvent
-    // -------------------------------------------------------------------------
-
     [Fact]
     public void ValidateEvent_HappyPath_ReturnsNull()
     {
@@ -122,10 +118,6 @@ public class SchedulingEndpointsTests
         Assert.Contains("256", error);
     }
 
-    // -------------------------------------------------------------------------
-    // ParseRoleIds
-    // -------------------------------------------------------------------------
-
     [Theory]
     [InlineData(null)]
     [InlineData("")]
@@ -141,10 +133,6 @@ public class SchedulingEndpointsTests
         var ids = SchedulingEndpoints.ParseRoleIds("100, 200 , abc, 100, , 300");
         Assert.Equal(new HashSet<ulong> { 100UL, 200UL, 300UL }, ids);
     }
-
-    // -------------------------------------------------------------------------
-    // ToDto
-    // -------------------------------------------------------------------------
 
     [Fact]
     public void ToDto_StringifiesIdsAndCopiesFields()

@@ -552,7 +552,6 @@ const setPrimary = (g: Gw2Guild) => {
   if (!working.value) return
   cacheGuild(g)
   working.value.gw2GuildMemberRoleId = g.id
-  // remove from secondary if present
   if (secondaryIdSet.value.has(g.id)) {
     working.value.gw2SecondaryMemberRoleIds = secondaryIds.value.filter(id => id !== g.id).join(',') || null
   }

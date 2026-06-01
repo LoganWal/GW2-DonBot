@@ -7,15 +7,37 @@ using Microsoft.Extensions.Logging;
 using System.Text;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.GuildWarsServices.MessageGeneration;
+using Microsoft.Extensions.Configuration;
 
 namespace DonBot.Services.DiscordRequestServices;
 
 public sealed class RaffleCommandsService(
     IEntityService entityService,
     IFooterService footerService,
-    ILogger<RaffleCommandsService> logger)
+    ILogger<RaffleCommandsService> logger,
+    IConfiguration configuration)
     : IRaffleCommandsService
 {
+    private MessageComponent BuildRaffleComponents(int raffleType, long guildId)
+    {
+        var isEvent = raffleType == (int)RaffleTypeEnum.Event;
+        var builder = new ComponentBuilder()
+            .WithButton("Points", ButtonId.RafflePoints, ButtonStyle.Success)
+            .WithButton("1 Point", isEvent ? ButtonId.RaffleEvent1 : ButtonId.Raffle1)
+            .WithButton("50 Points", isEvent ? ButtonId.RaffleEvent50 : ButtonId.Raffle50)
+            .WithButton("100 Points", isEvent ? ButtonId.RaffleEvent100 : ButtonId.Raffle100)
+            .WithButton("1000 Points", isEvent ? ButtonId.RaffleEvent1000 : ButtonId.Raffle1000, ButtonStyle.Danger)
+            .WithButton("Random!", isEvent ? ButtonId.RaffleEventRandom : ButtonId.RaffleRandom, ButtonStyle.Success, row: 1);
+
+        var webAppBaseUrl = configuration["WebApp:BaseUrl"];
+        if (!string.IsNullOrWhiteSpace(webAppBaseUrl))
+        {
+            builder.WithButton("Open Raffle Page", style: ButtonStyle.Link, url: $"{webAppBaseUrl.TrimEnd('/')}/points?guild={guildId}", row: 1);
+        }
+
+        return builder.Build();
+    }
+
     public async Task CreateRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
     {
         SocketGuildUser? guildUser = null;
@@ -82,26 +104,24 @@ public sealed class RaffleCommandsService(
             Timestamp = DateTime.Now
         };
 
-        var buttonBuilder = new ComponentBuilder()
-            .WithButton("Points", ButtonId.RafflePoints, ButtonStyle.Success)
-            .WithButton("1 Point", ButtonId.Raffle1)
-            .WithButton("50 Points", ButtonId.Raffle50)
-            .WithButton("100 Points", ButtonId.Raffle100)
-            .WithButton("1000 Points", ButtonId.Raffle1000, ButtonStyle.Danger)
-            .WithButton("Random!", ButtonId.RaffleRandom, ButtonStyle.Success)
-            .Build();
-
         var raffle = new Raffle
         {
             Description = $"{command.Data.Options.First().Value}",
             GuildId = guild.GuildId,
             IsActive = true,
-            RaffleType = (int)RaffleTypeEnum.Normal
+            RaffleType = (int)RaffleTypeEnum.Normal,
+            CreatorDiscordId = (long)command.User.Id
         };
 
         await entityService.Raffle.AddAsync(raffle);
 
-        await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: [message.Build()], components: buttonBuilder);
+        var sent = await targetChannel.SendMessageAsync(
+            text: $"<@&{guild.DiscordVerifiedRoleId}>",
+            embeds: [message.Build()],
+            components: BuildRaffleComponents(raffle.RaffleType, guild.GuildId));
+        raffle.MessageChannelId = (long)targetChannel.Id;
+        raffle.MessageId = (long)sent.Id;
+        await entityService.Raffle.UpdateAsync(raffle);
         await command.FollowupAsync("Raffle created successfully!", ephemeral: true);
     }
 
@@ -239,26 +259,24 @@ public sealed class RaffleCommandsService(
             Timestamp = DateTime.Now
         };
 
-        var buttonBuilder = new ComponentBuilder()
-            .WithButton("Points", ButtonId.RafflePoints, ButtonStyle.Success)
-            .WithButton("1 Point", ButtonId.RaffleEvent1)
-            .WithButton("50 Points", ButtonId.RaffleEvent50)
-            .WithButton("100 Points", ButtonId.RaffleEvent100)
-            .WithButton("1000 Points", ButtonId.RaffleEvent1000, ButtonStyle.Danger)
-            .WithButton("Random!", ButtonId.RaffleEventRandom, ButtonStyle.Success)
-            .Build();
-
         var raffle = new Raffle
         {
             Description = $"{command.Data.Options.First().Value}",
             GuildId = guild.GuildId,
             IsActive = true,
-            RaffleType = (int)RaffleTypeEnum.Event
+            RaffleType = (int)RaffleTypeEnum.Event,
+            CreatorDiscordId = (long)command.User.Id
         };
 
         await entityService.Raffle.AddAsync(raffle);
 
-        await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: [message.Build()], components: buttonBuilder);
+        var sent = await targetChannel.SendMessageAsync(
+            text: $"<@&{guild.DiscordVerifiedRoleId}>",
+            embeds: [message.Build()],
+            components: BuildRaffleComponents(raffle.RaffleType, guild.GuildId));
+        raffle.MessageChannelId = (long)targetChannel.Id;
+        raffle.MessageId = (long)sent.Id;
+        await entityService.Raffle.UpdateAsync(raffle);
 
         await command.FollowupAsync("Created!", ephemeral: true);
     }
@@ -784,8 +802,13 @@ public sealed class RaffleCommandsService(
 
         var builtMessage = message.Build();
 
+        var sent = await targetChannel.SendMessageAsync(
+            text: $"<@&{guild.DiscordVerifiedRoleId}>",
+            embeds: [builtMessage],
+            components: BuildRaffleComponents(latestRaffle.RaffleType, guild.GuildId));
+        latestRaffle.MessageChannelId = (long)targetChannel.Id;
+        latestRaffle.MessageId = (long)sent.Id;
         await entityService.Raffle.UpdateAsync(latestRaffle);
-        await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: [builtMessage]);
         await command.FollowupAsync("Reopened!", ephemeral: true);
     }
 
@@ -869,8 +892,13 @@ public sealed class RaffleCommandsService(
 
         var builtMessage = message.Build();
 
+        var sent = await targetChannel.SendMessageAsync(
+            text: $"<@&{guild.DiscordVerifiedRoleId}>",
+            embeds: [builtMessage],
+            components: BuildRaffleComponents(latestRaffle.RaffleType, guild.GuildId));
+        latestRaffle.MessageChannelId = (long)targetChannel.Id;
+        latestRaffle.MessageId = (long)sent.Id;
         await entityService.Raffle.UpdateAsync(latestRaffle);
-        await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: [builtMessage]);
         await command.FollowupAsync("Reopened!", ephemeral: true);
     }
 

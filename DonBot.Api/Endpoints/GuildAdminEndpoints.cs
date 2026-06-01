@@ -126,7 +126,6 @@ public static class GuildAdminEndpoints
         }
         var guildIdLong = (long)guildIdUlong;
 
-        // Run independent work in parallel: admin check (OAuth, cached), Discord client, DB read.
         var clientTask = clientProvider.GetClientAsync();
         var adminTask = userGuilds.HasAdministratorAsync(user, guildIdUlong);
         var dbReadTask = ReadGuildAsync(dbContextFactory, guildIdLong);
@@ -357,8 +356,7 @@ public static class GuildAdminEndpoints
 
     internal record Gw2FetchResult(Gw2FetchOutcome Outcome, Gw2GuildLookup? Lookup);
 
-    /// GW2 guild ids are GUIDs in 8-4-4-4-12 hex form. Pre-validating avoids a network
-    /// round-trip and prevents the negative cache from filling up with junk inputs.
+    // Avoid caching malformed GW2 guild ids as negative lookups.
     internal static bool IsValidGw2GuildId(string? id) =>
         !string.IsNullOrWhiteSpace(id) && Guid.TryParseExact(id.Trim(), "D", out _);
 

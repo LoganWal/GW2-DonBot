@@ -8,7 +8,7 @@ namespace DonBot.Services.GuildWarsServices;
 
 public sealed class FightLogService(IDataModelGenerationService dataModelGenerationService, IEntityService entityService) : IFightLogService
 {
-    // Kept within DiscordTable.MaxRowWidth so Discord doesn't wrap the last column on mobile.
+    // Kept within DiscordTable.MaxRowWidth for Discord mobile embeds.
     internal static readonly DiscordTable.Column[] EnemyColumns =
     [
         new("Class", 12),

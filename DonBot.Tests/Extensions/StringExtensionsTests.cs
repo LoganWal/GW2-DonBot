@@ -4,10 +4,6 @@ namespace DonBot.Tests.Extensions;
 
 public class StringExtensionsTests
 {
-    // -------------------------------------------------------------------------
-    // ClipAt
-    // -------------------------------------------------------------------------
-
     [Fact]
     public void ClipAt_StringShorterThanLimit_ReturnsOriginal()
     {
@@ -31,10 +27,6 @@ public class StringExtensionsTests
     {
         Assert.Equal(string.Empty, "abcdef".ClipAt(0));
     }
-
-    // -------------------------------------------------------------------------
-    // PadCenter
-    // -------------------------------------------------------------------------
 
     [Fact]
     public void PadCenter_OddPadding_BiasesLeftPadding()
@@ -64,10 +56,6 @@ public class StringExtensionsTests
         Assert.Equal("--ab--", "ab".PadCenter(6, '-'));
     }
 
-    // -------------------------------------------------------------------------
-    // FormatNumber(float, float reference)
-    // -------------------------------------------------------------------------
-
     [Fact]
     public void FormatNumber_FloatWithBillionReference_FormattedAsBillions()
     {
@@ -91,10 +79,6 @@ public class StringExtensionsTests
     {
         Assert.Equal("42.0", 42f.FormatNumber(100f));
     }
-
-    // -------------------------------------------------------------------------
-    // FormatNumber(float, asPerSec)
-    // -------------------------------------------------------------------------
 
     [Fact]
     public void FormatNumber_BillionsBranch()
@@ -132,19 +116,11 @@ public class StringExtensionsTests
         Assert.Equal("42.0/s", 42f.FormatNumber(asPerSec: true));
     }
 
-    // -------------------------------------------------------------------------
-    // FormatNumber(long)
-    // -------------------------------------------------------------------------
-
     [Fact]
     public void FormatNumber_Long_DelegatesToFloatOverload()
     {
         Assert.Equal("2.5M", 2_500_000L.FormatNumber());
     }
-
-    // -------------------------------------------------------------------------
-    // TimeToSeconds
-    // -------------------------------------------------------------------------
 
     [Fact]
     public void TimeToSeconds_PlainSeconds()

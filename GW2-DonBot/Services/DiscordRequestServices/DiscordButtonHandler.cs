@@ -23,8 +23,7 @@ public class DiscordButtonHandler(
     {
         var customId = buttonComponent.Data.CustomId;
 
-        // Fire-and-forget: frees the event dispatch thread while DeferAsync runs on the thread pool,
-        // well inside Discord's 3-second acknowledgement window.
+        // Keep the event dispatch thread inside Discord's 3-second acknowledgement window.
         if (customId.StartsWith(ButtonId.PostLogsWingmanYesPrefix))
         {
             _ = HandlePostLogsWingmanChoice(buttonComponent, customId, true);
@@ -203,7 +202,7 @@ public class DiscordButtonHandler(
         {
             var key = customId[ButtonId.DismissLogsPrefix.Length..];
 
-            // Peek first so we don't consume the state if the wrong user clicked.
+            // Do not consume the state until the uploader check passes.
             var state = pendingLogService.TryPeek(key);
             if (state == null)
             {
@@ -217,11 +216,9 @@ public class DiscordButtonHandler(
                 return;
             }
 
-            // Consume after the user check so a wrong-user click doesn't burn the state.
             pendingLogService.TryConsume(key);
 
-            // DeferAsync() with no ephemeral flag sends type 6 (DeferredUpdateMessage):
-            // silently ACKs the interaction without creating any visible response.
+            // Type 6 defer acknowledges the interaction without a visible response.
             await buttonComponent.DeferAsync();
             await buttonComponent.Message.DeleteAsync();
         }

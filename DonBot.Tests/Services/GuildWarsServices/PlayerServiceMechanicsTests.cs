@@ -103,7 +103,6 @@ public class PlayerServiceMechanicsTests
             new MechanicMap { Name = "First", PlayerMech = true },
             new MechanicMap { Name = "Second", PlayerMech = true }
         ]);
-        // Only one mechanic stat entry for two mechanics
         var phase = BuildPhaseWithMechanics([[6L]]);
 
         var players = Service.GetGw2Players(data, phase);
@@ -121,7 +120,6 @@ public class PlayerServiceMechanicsTests
             Players = [new ArcDpsPlayer { Acc = "Test.1234", Profession = "Guardian", Name = "TestChar", NotInSquad = false, Group = 1 }]
         }, new HealingEliteInsightDataModel(), new BarrierEliteInsightDataModel(), null, null, null);
 
-    // mechanicValues: one List<long> per mechanic slot (index matches possibleMechanics index)
     private static ArcDpsPhase BuildPhaseWithMechanics(List<List<long>> mechanicValues)
     {
         var playerMechanicStats = mechanicValues.Select(vals => (object)new JArray(vals)).ToList();

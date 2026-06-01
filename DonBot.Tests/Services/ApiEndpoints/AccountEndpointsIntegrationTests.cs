@@ -208,9 +208,7 @@ public class AccountEndpointsIntegrationTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("\"isNew\":false", body);
 
-        // DatabaseContext defaults to NoTracking, so the endpoint must use AsTracking() on the
-        // re-verify lookup for the in-place mutations to be persisted. This test guards against
-        // a regression where AsTracking is dropped.
+        // Re-verification must persist mutations despite DatabaseContext's NoTracking default.
         await using var verify = await host.DbFactory.CreateDbContextAsync();
         var stored = verify.GuildWarsAccount.Single();
         Assert.Equal("new-key", stored.GuildWarsApiKey);

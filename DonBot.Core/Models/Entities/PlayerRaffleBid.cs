@@ -14,4 +14,6 @@ public class PlayerRaffleBid
     public long DiscordId { get; init; }
 
     public decimal PointsSpent { get; set; }
+
+    public bool IsWinner { get; set; }
 }

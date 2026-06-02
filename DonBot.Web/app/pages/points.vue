@@ -44,22 +44,6 @@
           :disabled="!state.permissions.canCreateEventRaffle || hasRaffleType(1) || actionPending"
           @click="openCreate(1)"
         />
-        <Button
-          v-if="canShowReopen(0)"
-          label="Reopen Raffle"
-          icon="pi pi-undo"
-          severity="secondary"
-          :disabled="!state.permissions.canReopenRaffle || hasRaffleType(0) || actionPending"
-          @click="reopenRaffle(0)"
-        />
-        <Button
-          v-if="canShowReopen(1)"
-          label="Reopen Event"
-          icon="pi pi-undo"
-          severity="secondary"
-          :disabled="!state.permissions.canReopenEventRaffle || hasRaffleType(1) || actionPending"
-          @click="reopenRaffle(1)"
-        />
       </div>
 
       <Message v-if="!state.raffles.length" severity="secondary" :closable="false">
@@ -154,6 +138,66 @@
           </template>
         </Card>
       </div>
+
+      <section class="history-section">
+        <h2>Last Raffles</h2>
+        <div class="history-grid">
+          <Card v-for="pane in historyPanes" :key="pane.type" class="history-pane">
+            <template #title>
+              <div class="raffle-title">
+                <span>{{ pane.label }}</span>
+                <Button
+                  v-if="canShowReopen(pane.type)"
+                  label="Reopen"
+                  icon="pi pi-undo"
+                  severity="secondary"
+                  size="small"
+                  :disabled="!canReopen(pane.type) || actionPending"
+                  @click="reopenRaffle(pane.type)"
+                />
+              </div>
+            </template>
+            <template #content>
+              <div v-if="lastRaffle(pane.type)" class="history-body">
+                <p class="raffle-description">{{ lastRaffle(pane.type)?.description }}</p>
+                <div class="mini-stats">
+                  <div>
+                    <span>Total spent</span>
+                    <strong>{{ formatPoints(lastRaffle(pane.type)?.totalPoints ?? 0) }}</strong>
+                  </div>
+                  <div>
+                    <span>Entries</span>
+                    <strong>{{ lastRaffle(pane.type)?.bids.length ?? 0 }}</strong>
+                  </div>
+                </div>
+
+                <div class="history-group">
+                  <div class="section-label">Winners</div>
+                  <div v-if="!lastRaffle(pane.type)?.winners.length" class="empty-line">No winners recorded.</div>
+                  <div v-for="(winner, index) in lastRaffle(pane.type)?.winners ?? []" :key="winner.discordId" class="bid-row winner-history-row">
+                    <span class="bid-rank">#{{ index + 1 }}</span>
+                    <span class="bid-name">{{ winner.displayName }}</span>
+                    <strong>{{ formatPoints(winner.pointsSpent) }}</strong>
+                  </div>
+                </div>
+
+                <div class="history-group">
+                  <div class="section-label">Points Spent</div>
+                  <div v-if="!lastRaffle(pane.type)?.bids.length" class="empty-line">No points spent.</div>
+                  <div v-else class="history-scroll">
+                    <div v-for="bid in lastRaffle(pane.type)?.bids ?? []" :key="bid.discordId" class="bid-row history-bid-row">
+                      <span class="bid-name">{{ bid.displayName }}</span>
+                      <Tag v-if="bid.isWinner" severity="success" value="Winner" />
+                      <strong>{{ formatPoints(bid.pointsSpent) }}</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="empty-line">No completed {{ pane.label.toLowerCase() }} yet.</div>
+            </template>
+          </Card>
+        </div>
+      </section>
     </template>
 
     <Dialog v-model:visible="createVisible" modal :header="createType === 1 ? 'Create Event Raffle' : 'Create Raffle'" style="width: min(560px, 92vw);">
@@ -197,6 +241,7 @@ usePageTitle()
 
 type GuildOption = { guildId: string; guildName: string }
 type RaffleBid = { discordId: string; displayName: string; pointsSpent: number }
+type RaffleHistoryBid = RaffleBid & { isWinner: boolean }
 type Raffle = {
   id: number
   raffleType: number
@@ -208,11 +253,21 @@ type Raffle = {
   totalPoints: number
   topBidders: RaffleBid[]
 }
+type RaffleHistory = {
+  id: number
+  raffleType: number
+  type: string
+  description: string
+  totalPoints: number
+  winners: RaffleHistoryBid[]
+  bids: RaffleHistoryBid[]
+}
 type RaffleState = {
   guildId: string
   guildName: string
   account: { points: number; availablePoints: number } | null
   raffles: Raffle[]
+  lastRaffles: RaffleHistory[]
   permissions: {
     canEnterRaffle: boolean
     canEnterEventRaffle: boolean
@@ -233,6 +288,7 @@ type WinnerEvent = {
   raffleType: number
   type: string
   description: string
+  drawAtUtc?: string
   winners: RaffleBid[]
 }
 
@@ -262,6 +318,10 @@ const entryPoints = reactive<Record<number, number>>({})
 const editMessages = reactive<Record<number, string>>({})
 const eventWinnerCounts = reactive<Record<number, number>>({})
 const quickAmounts = [1, 50, 100, 1000]
+const historyPanes = [
+  { type: 0, label: 'Raffle' },
+  { type: 1, label: 'Event Raffle' },
+]
 
 let source: EventSource | null = null
 let countdownTimer: ReturnType<typeof setInterval> | null = null
@@ -272,6 +332,7 @@ const createDescription = ref('')
 const winnerVisible = ref(false)
 const winnerCountdown = ref(0)
 const winnerEvent = ref<WinnerEvent | null>(null)
+const winnerEventKey = ref<string | null>(null)
 
 const loadState = async () => {
   if (!selectedGuildId.value) {
@@ -350,6 +411,8 @@ onUnmounted(() => {
 
 const hasRaffleType = (type: number) => state.value?.raffles.some(r => r.raffleType === type) ?? false
 
+const lastRaffle = (type: number) => state.value?.lastRaffles.find(r => r.raffleType === type) ?? null
+
 const canShowReopen = (type: number) => {
   if (!state.value || hasRaffleType(type)) {
     return false
@@ -357,6 +420,15 @@ const canShowReopen = (type: number) => {
   return type === 1
     ? state.value.availability.hasPreviousEventRaffle
     : state.value.availability.hasPreviousRaffle
+}
+
+const canReopen = (type: number) => {
+  if (!state.value) {
+    return false
+  }
+  return type === 1
+    ? state.value.permissions.canReopenEventRaffle
+    : state.value.permissions.canReopenRaffle
 }
 
 const canEnter = (raffle: Raffle) => {
@@ -420,10 +492,11 @@ const enterRaffle = async (raffle: Raffle) => {
 
 const completeRaffle = async (raffle: Raffle, winnersCount: number) => {
   await runAction(async () => {
-    await api(`/api/raffles/${selectedGuildId.value}/complete`, {
+    const completed = await api(`/api/raffles/${selectedGuildId.value}/complete`, {
       method: 'POST',
       body: { raffleType: raffle.raffleType, winnersCount },
-    })
+    }) as WinnerEvent
+    startWinnerCountdown(completed)
     await loadState()
     toast.add({ severity: 'success', summary: 'Completed', detail: 'Raffle completed.', life: 2500 })
   }, 'Failed to complete raffle.')
@@ -467,18 +540,31 @@ function apiErrorMessage(e: any, fallback: string) {
 }
 
 const startWinnerCountdown = (event: WinnerEvent) => {
+  const key = `${event.raffleId}:${event.raffleType}:${event.drawAtUtc ?? ''}`
+  if (winnerEventKey.value === key) {
+    return
+  }
+
+  winnerEventKey.value = key
   winnerEvent.value = event
-  winnerCountdown.value = 5
   winnerVisible.value = true
   if (countdownTimer) {
     clearInterval(countdownTimer)
   }
-  countdownTimer = setInterval(() => {
-    winnerCountdown.value--
+
+  const parsedDrawAt = event.drawAtUtc ? Date.parse(event.drawAtUtc) : Number.NaN
+  const drawAt = Number.isFinite(parsedDrawAt) ? parsedDrawAt : Date.now() + 5000
+  const updateCountdown = () => {
+    winnerCountdown.value = Math.max(0, Math.ceil((drawAt - Date.now()) / 1000))
     if (winnerCountdown.value <= 0 && countdownTimer) {
       clearInterval(countdownTimer)
       countdownTimer = null
     }
+  }
+
+  updateCountdown()
+  countdownTimer = setInterval(() => {
+    updateCountdown()
   }, 1000)
 }
 
@@ -525,6 +611,21 @@ const confettiStyle = (i: number) => ({
 .raffle-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 1rem;
+}
+
+.history-section {
+  margin-top: 1.5rem;
+}
+
+.history-section h2 {
+  margin: 0 0 0.85rem;
+  font-size: 1.15rem;
+}
+
+.history-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
 }
 
@@ -588,6 +689,22 @@ const confettiStyle = (i: number) => ({
   gap: 0.45rem;
 }
 
+.history-body,
+.history-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.history-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  max-height: 260px;
+  overflow: auto;
+  padding-right: 0.25rem;
+}
+
 .bid-row,
 .winner-row {
   display: grid;
@@ -596,6 +713,14 @@ const confettiStyle = (i: number) => ({
   align-items: center;
   border-bottom: 1px solid var(--p-surface-border);
   padding-bottom: 0.45rem;
+}
+
+.history-bid-row {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.winner-history-row {
+  color: var(--p-primary-color);
 }
 
 .bid-rank {
@@ -690,7 +815,8 @@ const confettiStyle = (i: number) => ({
 }
 
 @media (max-width: 700px) {
-  .raffle-grid {
+  .raffle-grid,
+  .history-grid {
     grid-template-columns: 1fr;
   }
 

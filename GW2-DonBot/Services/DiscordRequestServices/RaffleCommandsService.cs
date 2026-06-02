@@ -29,13 +29,38 @@ public sealed class RaffleCommandsService(
             .WithButton("1000 Points", isEvent ? ButtonId.RaffleEvent1000 : ButtonId.Raffle1000, ButtonStyle.Danger)
             .WithButton("Random!", isEvent ? ButtonId.RaffleEventRandom : ButtonId.RaffleRandom, ButtonStyle.Success, row: 1);
 
-        var webAppBaseUrl = configuration["WebApp:BaseUrl"];
-        if (!string.IsNullOrWhiteSpace(webAppBaseUrl))
-        {
-            builder.WithButton("Open Raffle Page", style: ButtonStyle.Link, url: $"{webAppBaseUrl.TrimEnd('/')}/points?guild={guildId}", row: 1);
-        }
+        builder.WithButton("Open Raffle Page", style: ButtonStyle.Link, url: BuildRafflePageUrl(guildId), row: 1);
 
         return builder.Build();
+    }
+
+    private string BuildRafflePageUrl(long guildId)
+    {
+        var webAppBaseUrl = configuration["WebApp:BaseUrl"];
+        if (string.IsNullOrWhiteSpace(webAppBaseUrl))
+        {
+            webAppBaseUrl = configuration["Nuxt:BaseUrl"];
+        }
+        if (string.IsNullOrWhiteSpace(webAppBaseUrl))
+        {
+            webAppBaseUrl = "http://localhost:3000";
+        }
+
+        return $"{webAppBaseUrl.TrimEnd('/')}/points?guild={guildId}";
+    }
+
+    private async Task ResetRaffleWinners(int raffleId)
+    {
+        var winnerBids = await entityService.PlayerRaffleBid.GetWhereAsync(bid => bid.RaffleId == raffleId && bid.IsWinner);
+        foreach (var bid in winnerBids)
+        {
+            bid.IsWinner = false;
+        }
+
+        if (winnerBids.Count > 0)
+        {
+            await entityService.PlayerRaffleBid.UpdateRangeAsync(winnerBids);
+        }
     }
 
     public async Task CreateRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
@@ -572,7 +597,12 @@ public sealed class RaffleCommandsService(
         var builtMessage = message.Build();
 
         currentRaffle.IsActive = false;
+        foreach (var bid in currentRaffleBids)
+        {
+            bid.IsWinner = bid.DiscordId == winnerBid.DiscordId;
+        }
 
+        await entityService.PlayerRaffleBid.UpdateRangeAsync(currentRaffleBids);
         await entityService.Raffle.UpdateAsync(currentRaffle);
         await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: [builtMessage]);
         await command.FollowupAsync("Selected!", ephemeral: true);
@@ -639,6 +669,8 @@ public sealed class RaffleCommandsService(
                 topBidders.AppendLine($"<@{bidder.DiscordId}> ({accountNames}) - Bid: {bidder.PointsSpent} points");
             }
 
+            var remainingRaffleBids = currentRaffleBids.ToList();
+            var winningBids = new List<PlayerRaffleBid>();
             var winners = new List<Tuple<long, string, decimal>>();
             for (var i = 0; i < winnersCount; i++)
             {
@@ -646,7 +678,7 @@ public sealed class RaffleCommandsService(
                 var pickedBid = random.Next(1, totalBids);
 
                 var rollingTotal = 0m;
-                foreach (var currentRaffleBid in currentRaffleBids)
+                foreach (var currentRaffleBid in remainingRaffleBids)
                 {
                     rollingTotal += currentRaffleBid.PointsSpent;
                     if (pickedBid < rollingTotal)
@@ -660,9 +692,10 @@ public sealed class RaffleCommandsService(
                         }
 
                         totalBids -= Convert.ToInt32(currentRaffleBid.PointsSpent);
-                        currentRaffleBids.Remove(currentRaffleBid);
+                        remainingRaffleBids.Remove(currentRaffleBid);
                         var gw2Account = gw2Accounts.Where(s => s.DiscordId == account.DiscordId).ToList();
                         var accountNames = string.Join(", ", gw2Account.Where(s => !string.IsNullOrEmpty(s.GuildWarsAccountName)).Select(s => s.GuildWarsAccountName).ToList());
+                        winningBids.Add(currentRaffleBid);
                         winners.Add(new Tuple<long, string, decimal>(account.DiscordId, accountNames, currentRaffleBid.PointsSpent));
                         break;
                     }
@@ -711,6 +744,13 @@ public sealed class RaffleCommandsService(
             var builtMessage = message.Build();
 
             currentRaffle.IsActive = false;
+            var winnerDiscordIds = winningBids.Select(b => b.DiscordId).ToHashSet();
+            foreach (var bid in currentRaffleBids)
+            {
+                bid.IsWinner = winnerDiscordIds.Contains(bid.DiscordId);
+            }
+
+            await entityService.PlayerRaffleBid.UpdateRangeAsync(currentRaffleBids);
             await entityService.Raffle.UpdateAsync(currentRaffle);
             await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: [builtMessage]);
             await command.FollowupAsync("Raffle completed!", ephemeral: true);
@@ -762,6 +802,7 @@ public sealed class RaffleCommandsService(
         if (latestRaffle != null)
         {
             latestRaffle.IsActive = true;
+            await ResetRaffleWinners(latestRaffle.Id);
         }
         else
         {
@@ -858,6 +899,7 @@ public sealed class RaffleCommandsService(
         }
 
         latestRaffle.IsActive = true;
+        await ResetRaffleWinners(latestRaffle.Id);
 
         if (guild.AnnouncementChannelId == null)
         {

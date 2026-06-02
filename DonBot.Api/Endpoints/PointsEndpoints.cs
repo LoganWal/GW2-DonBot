@@ -47,6 +47,7 @@ public static class PointsEndpoints
         string GuildName,
         AccountDto? Account,
         IReadOnlyList<RaffleDto> Raffles,
+        IReadOnlyList<RaffleHistoryDto> LastRaffles,
         RafflePermissionsDto Permissions,
         RaffleAvailabilityDto Availability);
 
@@ -64,6 +65,17 @@ public static class PointsEndpoints
         IReadOnlyList<RaffleBidDto> TopBidders);
 
     public record RaffleBidDto(string DiscordId, string DisplayName, decimal PointsSpent);
+
+    public record RaffleHistoryDto(
+        int Id,
+        int RaffleType,
+        string Type,
+        string Description,
+        decimal TotalPoints,
+        IReadOnlyList<RaffleHistoryBidDto> Winners,
+        IReadOnlyList<RaffleHistoryBidDto> Bids);
+
+    public record RaffleHistoryBidDto(string DiscordId, string DisplayName, decimal PointsSpent, bool IsWinner);
 
     public record RafflePermissionsDto(
         bool CanEnterRaffle,
@@ -86,6 +98,14 @@ public static class PointsEndpoints
     public record CompleteRaffleDto(int RaffleType, int? WinnersCount);
 
     public record RaffleWinnerDto(string DiscordId, string DisplayName, decimal PointsSpent);
+
+    public record RaffleCompletedDto(
+        int RaffleId,
+        int RaffleType,
+        string Type,
+        string Description,
+        DateTimeOffset DrawAtUtc,
+        IReadOnlyList<RaffleWinnerDto> Winners);
 
     private static async Task<IResult> GetMyPoints(
         ClaimsPrincipal user,
@@ -222,14 +242,32 @@ public static class PointsEndpoints
                     await WriteEvent(httpContext, "state", state, ct);
                 }
 
-                var readTask = subscription.Reader.ReadAsync(ct).AsTask();
-                var delayTask = Task.Delay(pollInterval, ct);
-                var completed = await Task.WhenAny(readTask, delayTask);
-                if (completed == readTask)
+                while (subscription.Reader.TryRead(out var message))
                 {
-                    var message = await readTask;
                     await WriteEvent(httpContext, message.Name, message.Payload, ct);
-                    continue;
+                }
+
+                using var waitCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                var waitTask = subscription.Reader.WaitToReadAsync(waitCts.Token).AsTask();
+                var delayTask = Task.Delay(pollInterval, ct);
+                var completed = await Task.WhenAny(waitTask, delayTask);
+                if (completed == waitTask)
+                {
+                    if (await waitTask)
+                    {
+                        continue;
+                    }
+
+                    break;
+                }
+
+                await waitCts.CancelAsync();
+                try
+                {
+                    await waitTask;
+                }
+                catch (OperationCanceledException)
+                {
                 }
 
                 if (DateTime.UtcNow - lastHeartbeat >= heartbeatInterval)
@@ -338,6 +376,7 @@ public static class PointsEndpoints
         [FromServices] DiscordRestClientProvider clientProvider,
         [FromServices] IFooterService footerService,
         [FromServices] IConfiguration configuration,
+        HttpContext httpContext,
         CancellationToken ct)
     {
         if (await EnsureMemberAsync(user, guildId, userGuilds, ct) is { } denied)
@@ -392,7 +431,7 @@ public static class PointsEndpoints
         var sent = await channel.SendMessageAsync(
             text: BuildRaffleMention(guild),
             embeds: [await BuildRaffleEmbedAsync(raffle, guild.GuildId, footerService)],
-            components: BuildRaffleComponents(raffle.RaffleType, guildId, configuration));
+            components: BuildRaffleComponents(raffle.RaffleType, guildId, configuration, httpContext));
 
         raffle.MessageChannelId = (long)channel.Id;
         raffle.MessageId = (long)sent.Id;
@@ -443,6 +482,7 @@ public static class PointsEndpoints
         }
 
         var bids = await ctx.PlayerRaffleBid
+            .AsTracking()
             .Where(b => b.RaffleId == raffle.Id && b.PointsSpent > 0)
             .OrderByDescending(b => b.PointsSpent)
             .ToListAsync(ct);
@@ -452,6 +492,12 @@ public static class PointsEndpoints
         }
 
         var winners = PickWinners(bids, winnersCount);
+        var winnerDiscordIds = winners.Select(w => w.DiscordId).ToHashSet();
+        foreach (var bid in bids)
+        {
+            bid.IsWinner = winnerDiscordIds.Contains(bid.DiscordId);
+        }
+
         raffle.IsActive = false;
         await ctx.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
@@ -466,14 +512,13 @@ public static class PointsEndpoints
                 embeds: [await BuildRaffleResultEmbedAsync(raffle, guildId, winnerDtos, bids, footerService, ctx, ct)]);
         }
 
-        var payload = new
-        {
-            raffleId = raffle.Id,
-            raffleType = raffle.RaffleType,
-            type = RaffleTypeName(raffle.RaffleType),
-            description = raffle.Description ?? "",
-            winners = winnerDtos
-        };
+        var payload = new RaffleCompletedDto(
+            raffle.Id,
+            raffle.RaffleType,
+            RaffleTypeName(raffle.RaffleType),
+            raffle.Description ?? "",
+            DateTimeOffset.UtcNow.AddSeconds(5),
+            winnerDtos);
         eventHub.Publish(guildId, "completed", payload);
 
         return Results.Ok(payload);
@@ -489,6 +534,7 @@ public static class PointsEndpoints
         [FromServices] DiscordRestClientProvider clientProvider,
         [FromServices] IFooterService footerService,
         [FromServices] IConfiguration configuration,
+        HttpContext httpContext,
         CancellationToken ct)
     {
         if (await EnsureMemberAsync(user, guildId, userGuilds, ct) is { } denied)
@@ -536,11 +582,12 @@ public static class PointsEndpoints
 
         raffle.IsActive = true;
         raffle.CreatorDiscordId ??= discordId;
+        await ResetRaffleWinnersAsync(ctx, raffle.Id, ct);
 
         var sent = await channel.SendMessageAsync(
             text: BuildRaffleMention(guild),
             embeds: [await BuildRaffleEmbedAsync(raffle, guildId, footerService, reopened: true)],
-            components: BuildRaffleComponents(raffle.RaffleType, guildId, configuration));
+            components: BuildRaffleComponents(raffle.RaffleType, guildId, configuration, httpContext));
 
         raffle.MessageChannelId = (long)channel.Id;
         raffle.MessageId = (long)sent.Id;
@@ -559,6 +606,7 @@ public static class PointsEndpoints
         [FromServices] DiscordRestClientProvider clientProvider,
         [FromServices] IFooterService footerService,
         [FromServices] IConfiguration configuration,
+        HttpContext httpContext,
         CancellationToken ct)
     {
         if (await EnsureMemberAsync(user, guildId, userGuilds, ct) is { } denied)
@@ -594,7 +642,7 @@ public static class PointsEndpoints
         await ctx.SaveChangesAsync(ct);
 
         var guild = await ctx.Guild.FirstOrDefaultAsync(g => g.GuildId == guildId, ct);
-        await TryUpdateDiscordRaffleMessageAsync(raffle, guildId, clientProvider, footerService, configuration);
+        await TryUpdateDiscordRaffleMessageAsync(raffle, guildId, clientProvider, footerService, configuration, httpContext);
 
         return Results.Ok(await ToRaffleDtoAsync(ctx, raffle, discordId, guild?.GuildName, ct));
     }
@@ -632,11 +680,25 @@ public static class PointsEndpoints
             raffleDtos.Add(await ToRaffleDtoAsync(ctx, raffle, discordId, guild?.GuildName, ct));
         }
 
+        var lastRaffles = new List<RaffleHistoryDto>();
+        foreach (var raffleType in new[] { (int)RaffleTypeEnum.Normal, (int)RaffleTypeEnum.Event })
+        {
+            var lastRaffle = await ctx.Raffle
+                .Where(r => r.GuildId == guildId && r.RaffleType == raffleType && !r.IsActive)
+                .OrderByDescending(r => r.Id)
+                .FirstOrDefaultAsync(ct);
+            if (lastRaffle is not null)
+            {
+                lastRaffles.Add(await ToRaffleHistoryDtoAsync(ctx, lastRaffle, ct));
+            }
+        }
+
         return new RaffleStateDto(
             guildId.ToString(),
             guild?.GuildName ?? guildId.ToString(),
             account,
             raffleDtos,
+            lastRaffles,
             new RafflePermissionsDto(
                 await commandAccess.HasCommandAccessAsync(user, (ulong)guildId, "enter_raffle", ct),
                 await commandAccess.HasCommandAccessAsync(user, (ulong)guildId, "enter_event_raffle", ct),
@@ -677,6 +739,27 @@ public static class PointsEndpoints
             top);
     }
 
+    private static async Task<RaffleHistoryDto> ToRaffleHistoryDtoAsync(
+        DatabaseContext ctx,
+        Raffle raffle,
+        CancellationToken ct)
+    {
+        var bids = await ctx.PlayerRaffleBid
+            .Where(b => b.RaffleId == raffle.Id)
+            .OrderByDescending(b => b.PointsSpent)
+            .ToListAsync(ct);
+        var bidDtos = await BuildHistoryBidsAsync(ctx, bids, ct);
+
+        return new RaffleHistoryDto(
+            raffle.Id,
+            raffle.RaffleType,
+            RaffleTypeName(raffle.RaffleType),
+            raffle.Description ?? "",
+            bids.Sum(b => b.PointsSpent),
+            bidDtos.Where(b => b.IsWinner).ToList(),
+            bidDtos);
+    }
+
     private static async Task<IReadOnlyList<RaffleBidDto>> BuildTopBiddersAsync(
         DatabaseContext ctx,
         IReadOnlyList<PlayerRaffleBid> bids,
@@ -694,6 +777,22 @@ public static class PointsEndpoints
             .ToList();
     }
 
+    private static async Task<IReadOnlyList<RaffleHistoryBidDto>> BuildHistoryBidsAsync(
+        DatabaseContext ctx,
+        IReadOnlyList<PlayerRaffleBid> bids,
+        CancellationToken ct)
+    {
+        var ids = bids.Select(b => b.DiscordId).Distinct().ToList();
+        var namesByDiscordId = await GetGw2NamesByDiscordIdAsync(ctx, ids, ct);
+        return bids
+            .Select(b => new RaffleHistoryBidDto(
+                b.DiscordId.ToString(),
+                DisplayName(b.DiscordId, namesByDiscordId),
+                b.PointsSpent,
+                b.IsWinner))
+            .ToList();
+    }
+
     private static async Task<IReadOnlyList<RaffleWinnerDto>> BuildWinnerDtosAsync(
         DatabaseContext ctx,
         IReadOnlyList<PlayerRaffleBid> winners,
@@ -707,6 +806,18 @@ public static class PointsEndpoints
                 DisplayName(w.DiscordId, namesByDiscordId),
                 w.PointsSpent))
             .ToList();
+    }
+
+    private static async Task ResetRaffleWinnersAsync(DatabaseContext ctx, int raffleId, CancellationToken ct)
+    {
+        var winnerBids = await ctx.PlayerRaffleBid
+            .AsTracking()
+            .Where(b => b.RaffleId == raffleId && b.IsWinner)
+            .ToListAsync(ct);
+        foreach (var bid in winnerBids)
+        {
+            bid.IsWinner = false;
+        }
     }
 
     private static async Task<Dictionary<long, string>> GetGw2NamesByDiscordIdAsync(DatabaseContext ctx, IReadOnlyList<long> discordIds, CancellationToken ct)
@@ -836,7 +947,11 @@ public static class PointsEndpoints
         }.Build();
     }
 
-    private static MessageComponent BuildRaffleComponents(int raffleType, long guildId, IConfiguration configuration)
+    private static MessageComponent BuildRaffleComponents(
+        int raffleType,
+        long guildId,
+        IConfiguration configuration,
+        HttpContext? httpContext = null)
     {
         var isEvent = raffleType == (int)RaffleTypeEnum.Event;
         var builder = new ComponentBuilder()
@@ -847,13 +962,28 @@ public static class PointsEndpoints
             .WithButton("1000 Points", isEvent ? "Spend_Event_1000_Raffle" : "Spend_1000_Raffle", ButtonStyle.Danger)
             .WithButton("Random!", isEvent ? "Spend_Event_Random_Raffle" : "Spend_Random_Raffle", ButtonStyle.Success, row: 1);
 
-        var webAppBaseUrl = configuration["WebApp:BaseUrl"];
-        if (!string.IsNullOrWhiteSpace(webAppBaseUrl))
-        {
-            builder.WithButton("Open Raffle Page", style: ButtonStyle.Link, url: $"{webAppBaseUrl.TrimEnd('/')}/points?guild={guildId}", row: 1);
-        }
+        builder.WithButton("Open Raffle Page", style: ButtonStyle.Link, url: BuildRafflePageUrl(guildId, configuration, httpContext), row: 1);
 
         return builder.Build();
+    }
+
+    private static string BuildRafflePageUrl(long guildId, IConfiguration configuration, HttpContext? httpContext)
+    {
+        var webAppBaseUrl = configuration["WebApp:BaseUrl"];
+        if (string.IsNullOrWhiteSpace(webAppBaseUrl))
+        {
+            webAppBaseUrl = httpContext?.Request.Headers.Origin.FirstOrDefault();
+        }
+        if (string.IsNullOrWhiteSpace(webAppBaseUrl))
+        {
+            webAppBaseUrl = configuration["Nuxt:BaseUrl"];
+        }
+        if (string.IsNullOrWhiteSpace(webAppBaseUrl))
+        {
+            webAppBaseUrl = "http://localhost:3000";
+        }
+
+        return $"{webAppBaseUrl.TrimEnd('/')}/points?guild={guildId}";
     }
 
     private static async Task TryUpdateDiscordRaffleMessageAsync(
@@ -861,7 +991,8 @@ public static class PointsEndpoints
         long guildId,
         DiscordRestClientProvider clientProvider,
         IFooterService footerService,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        HttpContext? httpContext)
     {
         if (!raffle.MessageChannelId.HasValue || !raffle.MessageId.HasValue)
         {
@@ -884,7 +1015,7 @@ public static class PointsEndpoints
             await message.ModifyAsync(p =>
             {
                 p.Embed = embed;
-                p.Components = BuildRaffleComponents(raffle.RaffleType, guildId, configuration);
+                p.Components = BuildRaffleComponents(raffle.RaffleType, guildId, configuration, httpContext);
             });
         }
         catch

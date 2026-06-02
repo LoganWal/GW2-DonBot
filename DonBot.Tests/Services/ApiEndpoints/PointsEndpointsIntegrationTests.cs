@@ -5,6 +5,8 @@ using System.Text.Json;
 using DonBot.Api.Endpoints;
 using DonBot.Api.Services;
 using DonBot.Models.Entities;
+using DonBot.Services.GuildWarsServices.MessageGeneration;
+using DonBot.Services.SecretsServices;
 using DonBot.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,6 +46,30 @@ public class PointsEndpointsIntegrationTests
             => Task.FromResult(Allowed.Contains((guildId, commandName)));
     }
 
+    private sealed class FakeSecretService : ISecretService
+    {
+        public string FetchDonBotSqlConnectionString() => "";
+
+        public string FetchDonBotToken() => "test-token";
+
+        public string FetchDiscordClientId() => "test-client-id";
+
+        public string FetchDiscordClientSecret() => "test-client-secret";
+    }
+
+    private sealed class FakeFooterService : IFooterService
+    {
+        public Task<string> Generate(long guildId) => Task.FromResult("Test footer");
+
+        public void AddWidthSpacer(Discord.EmbedBuilder builder)
+        {
+        }
+
+        public void AddInviteLink(Discord.EmbedBuilder builder)
+        {
+        }
+    }
+
     private sealed class RaffleHost : IDisposable
     {
         public MinimalApiHost Inner { get; }
@@ -59,6 +85,9 @@ public class PointsEndpointsIntegrationTests
                 services.AddSingleton<IUserGuildsService>(membership);
                 services.AddSingleton<IDiscordCommandAccessService>(commandAccess);
                 services.AddSingleton<IRaffleEventHub, RaffleEventHub>();
+                services.AddSingleton<ISecretService, FakeSecretService>();
+                services.AddSingleton<DiscordRestClientProvider>();
+                services.AddSingleton<IFooterService, FakeFooterService>();
             });
             Inner.AuthenticateAs(TestDiscordId);
         }
@@ -225,7 +254,8 @@ public class PointsEndpointsIntegrationTests
                 new PlayerRaffleBid { RaffleId = 10, DiscordId = 203L, PointsSpent = 400m },
                 new PlayerRaffleBid { RaffleId = 10, DiscordId = 204L, PointsSpent = 300m },
                 new PlayerRaffleBid { RaffleId = 10, DiscordId = 205L, PointsSpent = 200m },
-                new PlayerRaffleBid { RaffleId = 10, DiscordId = 206L, PointsSpent = 100m });
+                new PlayerRaffleBid { RaffleId = 10, DiscordId = 206L, PointsSpent = 100m },
+                new PlayerRaffleBid { RaffleId = 11, DiscordId = 207L, PointsSpent = 70m, IsWinner = true });
             db.GuildWarsAccount.Add(new GuildWarsAccount
             {
                 GuildWarsAccountId = Guid.NewGuid(),
@@ -241,6 +271,7 @@ public class PointsEndpointsIntegrationTests
         var permissions = doc.GetProperty("permissions");
         var availability = doc.GetProperty("availability");
         var top = raffle.GetProperty("topBidders");
+        var lastRaffle = doc.GetProperty("lastRaffles")[0];
 
         Assert.Equal("42", doc.GetProperty("guildId").GetString());
         Assert.Equal("Raid Night", doc.GetProperty("guildName").GetString());
@@ -256,6 +287,11 @@ public class PointsEndpointsIntegrationTests
         Assert.Equal(5, top.GetArrayLength());
         Assert.Equal("201", top[0].GetProperty("discordId").GetString());
         Assert.Equal("Top.0001", top[0].GetProperty("displayName").GetString());
+        Assert.Equal(1, doc.GetProperty("lastRaffles").GetArrayLength());
+        Assert.Equal("Event", lastRaffle.GetProperty("type").GetString());
+        Assert.Equal(70m, lastRaffle.GetProperty("totalPoints").GetDecimal());
+        Assert.Equal("207", lastRaffle.GetProperty("winners")[0].GetProperty("discordId").GetString());
+        Assert.True(lastRaffle.GetProperty("bids")[0].GetProperty("isWinner").GetBoolean());
     }
 
     [Fact]
@@ -318,6 +354,55 @@ public class PointsEndpointsIntegrationTests
         var bid = await verifyDb.PlayerRaffleBid.FindAsync(7, TestDiscordId);
         Assert.Equal(100m, account!.AvailablePoints);
         Assert.Null(bid);
+    }
+
+    [Fact]
+    public async Task CompleteRaffle_WithCommandAccessReturnsWinnerPayloadAndClosesRaffle()
+    {
+        using var host = NewRaffleHost();
+        host.AllowMembership(42L);
+        host.AllowCommand(42L, "complete_raffle");
+        await using (var db = await host.DbFactory.CreateDbContextAsync())
+        {
+            db.Guild.Add(new Guild { GuildId = 42L, GuildName = "Raid Night" });
+            db.Raffle.Add(new Raffle
+            {
+                Id = 7,
+                GuildId = 42L,
+                IsActive = true,
+                RaffleType = 0,
+                Description = "Prize"
+            });
+            db.PlayerRaffleBid.Add(new PlayerRaffleBid
+            {
+                RaffleId = 7,
+                DiscordId = TestDiscordId,
+                PointsSpent = 20m
+            });
+            db.GuildWarsAccount.Add(new GuildWarsAccount
+            {
+                GuildWarsAccountId = Guid.NewGuid(),
+                DiscordId = TestDiscordId,
+                GuildWarsAccountName = "Player.1234"
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await host.Client.PostAsJsonAsync("/api/raffles/42/complete", new { raffleType = 0, winnersCount = 1 });
+        var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(7, doc.GetProperty("raffleId").GetInt32());
+        Assert.Equal("Normal", doc.GetProperty("type").GetString());
+        Assert.InRange((doc.GetProperty("drawAtUtc").GetDateTimeOffset() - DateTimeOffset.UtcNow).TotalSeconds, 0, 10);
+        Assert.Single(doc.GetProperty("winners").EnumerateArray());
+        Assert.Equal("123", doc.GetProperty("winners")[0].GetProperty("discordId").GetString());
+
+        await using var verifyDb = await host.DbFactory.CreateDbContextAsync();
+        var raffle = await verifyDb.Raffle.FindAsync(7);
+        Assert.False(raffle!.IsActive);
+        var bid = await verifyDb.PlayerRaffleBid.FindAsync(7, TestDiscordId);
+        Assert.True(bid!.IsWinner);
     }
 
     [Fact]

@@ -16,7 +16,7 @@ public sealed class PollingTasksService(
     IHttpClientFactory httpClientFactory)
     : IPollingTasksService, IDisposable
 {
-    // 8 tokens/sec stays safely below GW2's 600/min cap; burst of 8 allows a short initial burst
+    // 8 tokens/sec stays below GW2's 600/min cap.
     private readonly TokenBucketRateLimiter _gw2RateLimiter = new(new TokenBucketRateLimiterOptions
     {
         TokenLimit = 8,
@@ -27,8 +27,7 @@ public sealed class PollingTasksService(
         AutoReplenishment = true
     });
 
-    // Test seam: lets tests skip the retry/rate-limit waits without time-dependent flakes.
-    // Production code uses Task.Delay; tests substitute a no-op.
+    // Lets tests skip retry and rate-limit waits.
     internal Func<TimeSpan, Task> DelayAsync { get; set; } = Task.Delay;
 
     public void Dispose() => _gw2RateLimiter.Dispose();
@@ -47,9 +46,7 @@ public sealed class PollingTasksService(
         {
             var guildWars2Accounts = guildWarsAccounts.Where(s => s.DiscordId == account.DiscordId).ToList();
             var accountData = await FetchAccountData(guildWars2Accounts);
-            // Only record data when at least one GW2 account was fetched successfully.
-            // An empty list means all calls failed this cycle; omitting the entry keeps existing roles intact
-            // rather than stripping them on a transient API failure.
+            // Omit failed fetches so transient API failures do not strip existing roles.
             if (accountData.Count > 0)
             {
                 guildWars2Data[account.DiscordId] = accountData;
@@ -118,8 +115,7 @@ public sealed class PollingTasksService(
 
                     if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
                     {
-                        // Auth failure is permanent - key deleted or missing permissions. Null the key so
-                        // HandleGuildUsers strips roles and stops polling this account this cycle.
+                        // Auth failures are permanent, so clear the key and strip roles this cycle.
                         logger.LogWarning("GW2 API key for {GuildWarsAccountName} rejected with {StatusCode}: clearing key",
                             guildWarsAccount.GuildWarsAccountName?.Trim(), response.StatusCode);
                         guildWarsAccount.GuildWarsApiKey = null;
@@ -147,8 +143,7 @@ public sealed class PollingTasksService(
                         guildWarsAccount.GuildWarsAccountName?.Trim(), attempt);
                 }
 
-                // Exponential backoff with jitter for non-429 failures: ~1s, ~2s, ~4s
-                // Jitter avoids synchronized retry waves when many accounts hit the same outage
+                // Jitter avoids synchronized retry waves during GW2 API outages.
                 var backoffSeconds = Math.Pow(2, attempt - 1);
                 var jitter = Random.Shared.NextDouble() * backoffSeconds * 0.25;
                 await DelayAsync(TimeSpan.FromSeconds(backoffSeconds + jitter));

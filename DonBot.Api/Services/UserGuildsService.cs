@@ -16,12 +16,8 @@ public interface IUserGuildsService
     Task<bool> HasAdministratorAsync(ClaimsPrincipal user, ulong guildId, CancellationToken ct = default);
 }
 
-// Fetches the authenticated user's guild list from Discord via their OAuth
-// token (requires the `guilds` scope). One API call per user vs N bot-side
-// member-check calls, and rate limits are per-user instead of the bot's
-// shared global bucket. Result is cached for 5 minutes per user; on cache
-// miss or refresh, the access token is used to refetch. Returns null on
-// auth failure so callers can decide between empty list and error response.
+// Uses the user's OAuth guilds scope and caches Discord's response per user.
+// Auth failures return null so callers can choose the response shape.
 public sealed class UserGuildsService(
     IHttpClientFactory httpClientFactory,
     IMemoryCache cache) : IUserGuildsService

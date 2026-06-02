@@ -132,8 +132,7 @@ watch(guildOptions, (opts) => {
   ensureSelection(opts.map(g => g.guildId), opts[0]?.guildId ?? null)
 }, { immediate: true })
 
-// Discord snowflakes exceed Number.MAX_SAFE_INTEGER, so we must keep them as
-// strings end-to-end. Converting via Number() corrupts the last few digits.
+// Keep Discord snowflakes as strings to avoid JS precision loss.
 const guildIdStr = computed<string | null>(() => selectedGuildIdStr.value)
 
 const { report, pending: reportPending, reloadKey, refresh: refreshReport } = useLiveRaid(guildIdStr)
@@ -151,12 +150,12 @@ watch(report, (r, prev) => {
     selectedFightLogId.value = null
     return
   }
-  // Auto-select latest unless user manually picked one that's still present.
+  // Keep manual selection when it still exists.
   const hasSelection = selectedFightLogId.value && ids.includes(selectedFightLogId.value)
   if (!hasSelection) {
     selectedFightLogId.value = ids[ids.length - 1]!
   } else if (prev && r.reportId === prev.reportId) {
-    // Same report, new fight added: keep user's selection unless they're already on the newest.
+    // Follow new fights only when the user was already on the newest.
     const wasOnLatest = selectedFightLogId.value === prev.fightLogIds[prev.fightLogIds.length - 1]
     if (wasOnLatest) {
       selectedFightLogId.value = ids[ids.length - 1]!

@@ -22,7 +22,6 @@ public class DataModelGenerationServiceTests
     [Fact]
     public void GenerateFromHtml_MalformedScriptTag_ReturnsEmptyModel()
     {
-        // missing closing </script>
         var svc = NewService();
         var html = "<script>var _logData = { \"encounterID\": 1234 };";
 
@@ -34,7 +33,6 @@ public class DataModelGenerationServiceTests
     [Fact]
     public void GenerateFromHtml_ScriptWithLogDataButNoOtherSections_ParsesAndDefaultsExtensions()
     {
-        // _logData present, no _healingStatsExtension or _barrierStatsExtension
         var html = """
                    <html><script>var _logData = {"url":"placeholder","encounterID":1000};</script></html>
                    """;
@@ -42,9 +40,7 @@ public class DataModelGenerationServiceTests
 
         var result = svc.GenerateEliteInsightDataModelFromHtml(html, "https://b.dps.report/abc");
 
-        // URL is overwritten with the input url
         Assert.Equal("https://b.dps.report/abc", result.FightEliteInsightDataModel.Url);
-        // Healing/Barrier extensions default to new()
         Assert.NotNull(result.HealingEliteInsightDataModel);
         Assert.NotNull(result.BarrierEliteInsightDataModel);
     }

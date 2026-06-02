@@ -15,8 +15,7 @@ public sealed class RaidReportService(
     IWvWFightSummaryService wvWFightSummaryService,
     IConfiguration configuration) : IRaidReportService
 {
-    // Column layouts kept narrow (<= DiscordTable.MaxRowWidth) so Discord doesn't wrap the
-    // last column onto its own line in mobile code blocks.
+    // Kept within DiscordTable.MaxRowWidth for Discord mobile embeds.
     internal static readonly DiscordTable.Column[] SurvivabilityColumns =
     [
         new("Player", 13),
@@ -345,7 +344,6 @@ public sealed class RaidReportService(
         };
         async Task<EmbedFooterBuilder> Footer() => new() { Text = await footerService.Generate(guildId), IconUrl = "https://i.imgur.com/tQ4LD6H.png" };
 
-        // --- Fights Overview embed ---
         var fightsEmbed = new EmbedBuilder
         {
             Title = "Report (PvE)\n",
@@ -398,7 +396,6 @@ public sealed class RaidReportService(
 
         AddChunkedCodeFenceFields(fightsEmbed, "Fights Overview", DiscordTable.Header(FightsColumns), fightRows);
 
-        // --- Player Overview embed ---
         var playerEmbed = new EmbedBuilder
         {
             Color = color,
@@ -426,7 +423,6 @@ public sealed class RaidReportService(
 
         AddChunkedCodeFenceFields(playerEmbed, "Player Overview", DiscordTable.Header(PlayerColumns), playerLineByDmg.OrderByDescending(s => s.Item1).Select(t => t.Item2));
 
-        // --- Survivability + Mechanics embed ---
         var surviveEmbed = new EmbedBuilder
         {
             Color = color,
@@ -491,7 +487,6 @@ public sealed class RaidReportService(
             fightLogs = fightLogs.OrderBy(s => s.FightType).ThenBy(s => s.FightPhase).ThenByDescending(s => s.FightPercent).ToList();
         }
 
-        // Building the message via embeds
         var message = new EmbedBuilder
         {
             Title = $"{(isSuccessLogs ? "Success" : "Failed")} Report (PvE)\n",
@@ -507,7 +502,6 @@ public sealed class RaidReportService(
 
         for (var i = 0; i < fightLogs.Count; i += 12)
         {
-            // Process the current batch (from index 'i' to a maximum of 'i + 20')
             var currentBatch = fightLogs.GetRange(i, Math.Min(12, fightLogs.Count - i));
             var fightUrlOverview = string.Empty;
 
@@ -531,10 +525,8 @@ public sealed class RaidReportService(
             IconUrl = "https://i.imgur.com/tQ4LD6H.png"
         };
 
-        // Timestamp
         message.Timestamp = DateTime.Now;
 
-        // Building the message for use
         return message.Build();
     }
 }

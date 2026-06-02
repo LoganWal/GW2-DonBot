@@ -43,7 +43,6 @@ public class DiscordMessageHandler(
     {
         try
         {
-            // Skip non-webhook bot messages immediately (cheap fast-path).
             if (seenMessage.Author.IsBot && seenMessage.Source != MessageSource.Webhook)
             {
                 return;
@@ -60,9 +59,7 @@ public class DiscordMessageHandler(
                 guild = await entityService.Guild.GetFirstOrDefaultAsync(g => g.GuildId == (long)channel.Guild.Id);
             }
 
-            // Webhook messages are only processed when they arrive in the configured LogDropOff
-            // channel. Webhooks posting in other channels (e.g. an external auto-uploader bot)
-            // are ignored so the bot does not ping webhook users as if they were real people.
+            // Ignore webhooks outside the log drop-off channel so uploader bots are not pinged.
             if (seenMessage.Source == MessageSource.Webhook &&
                 seenMessage.Channel.Id != (ulong)(guild?.LogDropOffChannelId ?? 0))
             {
@@ -191,7 +188,6 @@ public class DiscordMessageHandler(
             return;
         }
 
-        // Embed path - auto-process as before
         if (urls.All(url => _seenUrls.Contains(url)))
         {
             logger.LogWarning("Already seen, not analysing or reporting: {url}", urlList);
@@ -288,8 +284,7 @@ public class DiscordMessageHandler(
         var urls = state.Urls;
         var guildId = state.GuildId;
 
-        // DeferAsync uses type 6 (DeferredUpdateMessage): no visible response, lets us delete
-        // the button prompt and manage our own public progress message.
+        // Type 6 defer has no visible response, so the prompt can be replaced by progress text.
         await interaction.DeferAsync();
         await interaction.Message.DeleteAsync();
 

@@ -5,7 +5,7 @@ const TITLES: Record<string, string> = {
   '/bests':       'Personal Bests',
   '/progression': 'Progression',
   '/leaderboard': 'Leaderboard',
-  '/points':      'Points & Raffles',
+  '/points':      'Raffles & Points',
   '/live-raid':   'Live Raid',
 }
 

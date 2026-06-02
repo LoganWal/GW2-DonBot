@@ -244,7 +244,7 @@ const hourOptions = Array.from({ length: 24 }, (_, h) => ({
   label: new Date(2024, 0, 1, h, 0).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }),
 }))
 
-// Stored Day/Hour are UTC weekday/hour. Convert to local for editing and back.
+// Convert stored UTC weekday and hour to local editing values.
 const utcDayHourToLocal = (utcDay: number, utcHour: number): { day: number; hour: number } => {
   const now = new Date()
   const candidate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), utcHour, 0, 0))
@@ -283,8 +283,7 @@ const deletingId = ref<number | null>(null)
 
 const channelName = (id: string) => context.value?.channels.find(c => c.id === id)?.name ?? id
 
-// Sort key for "Posts at": minutes-from-Sunday in local time so the column sorts
-// the way the user reads it.
+// Sort "Posts at" by local weekday and hour.
 const eventsForTable = computed(() => events.value.map(e => {
   const local = utcDayHourToLocal(e.day, e.hour)
   return { ...e, postSortKey: local.day * 1440 + local.hour * 60 }
@@ -326,7 +325,6 @@ const saving = ref(false)
 
 const startCreate = () => {
   editingId.value = null
-  // Default: next Monday at 19:00 local
   const def = new Date()
   def.setHours(19, 0, 0, 0)
   while (def.getDay() !== 1 || def.getTime() <= Date.now()) {

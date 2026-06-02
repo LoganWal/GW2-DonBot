@@ -138,8 +138,7 @@ public static class AuthEndpoints
 
     private static IResult HandleMe(ClaimsPrincipal user, HttpContext httpContext, IConfiguration configuration)
     {
-        // Reject pre-OAuth-guilds-scope JWTs so the frontend redirects to login and the user
-        // gets a token that carries the access token needed by user-guilds-based endpoints.
+        // Force old JWTs without the Discord guilds scope through login again.
         if (string.IsNullOrEmpty(user.FindFirst("discord_access_token")?.Value))
         {
             httpContext.Response.Cookies.Delete("donbot_token", new CookieOptions

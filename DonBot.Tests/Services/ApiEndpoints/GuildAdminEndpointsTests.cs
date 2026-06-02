@@ -6,10 +6,6 @@ namespace DonBot.Tests.Services.ApiEndpoints;
 
 public class GuildAdminEndpointsTests
 {
-    // -------------------------------------------------------------------------
-    // ParseOptionalLong
-    // -------------------------------------------------------------------------
-
     [Theory]
     [InlineData(null)]
     [InlineData("")]
@@ -31,10 +27,6 @@ public class GuildAdminEndpointsTests
         Assert.Throws<FormatException>(() => GuildAdminEndpoints.ParseOptionalLong("not-a-number"));
     }
 
-    // -------------------------------------------------------------------------
-    // NullIfEmpty
-    // -------------------------------------------------------------------------
-
     [Theory]
     [InlineData(null)]
     [InlineData("")]
@@ -50,10 +42,6 @@ public class GuildAdminEndpointsTests
         Assert.Equal("hello", GuildAdminEndpoints.NullIfEmpty("  hello  "));
     }
 
-    // -------------------------------------------------------------------------
-    // LongToString
-    // -------------------------------------------------------------------------
-
     [Fact]
     public void LongToString_Null_ReturnsNull()
     {
@@ -65,10 +53,6 @@ public class GuildAdminEndpointsTests
     {
         Assert.Equal("987654321098765", GuildAdminEndpoints.LongToString(987654321098765L));
     }
-
-    // -------------------------------------------------------------------------
-    // ValidateOptionalSnowflake
-    // -------------------------------------------------------------------------
 
     [Theory]
     [InlineData(null)]
@@ -104,10 +88,6 @@ public class GuildAdminEndpointsTests
         var validIds = new HashSet<ulong> { 100UL, 200UL };
         Assert.Null(GuildAdminEndpoints.ValidateOptionalSnowflake("200", validIds, "Field"));
     }
-
-    // -------------------------------------------------------------------------
-    // ToDto / ApplyDto round-trip
-    // -------------------------------------------------------------------------
 
     [Fact]
     public void ToDto_PopulatedGuild_StringifiesIdsAndCopiesFlags()
@@ -167,7 +147,6 @@ public class GuildAdminEndpointsTests
         Assert.Null(dto.RaidAlertChannelId);
         Assert.Null(dto.Gw2GuildMemberRoleId);
         Assert.Null(dto.Gw2SecondaryMemberRoleIds);
-        // entity defaults
         Assert.True(dto.AutoSubmitToWingman);
         Assert.True(dto.AutoAggregateLogs);
         Assert.False(dto.RaidAlertEnabled);
@@ -226,10 +205,6 @@ public class GuildAdminEndpointsTests
         Assert.Null(guild.Gw2GuildMemberRoleId);
     }
 
-    // -------------------------------------------------------------------------
-    // IsValidGw2GuildId
-    // -------------------------------------------------------------------------
-
     [Theory]
     [InlineData(null)]
     [InlineData("")]
@@ -251,10 +226,6 @@ public class GuildAdminEndpointsTests
     {
         Assert.True(GuildAdminEndpoints.IsValidGw2GuildId(input));
     }
-
-    // -------------------------------------------------------------------------
-    // CollectGw2GuildIds
-    // -------------------------------------------------------------------------
 
     private static GuildAdminEndpoints.GuildConfigDto BlankDto() =>
         GuildAdminEndpoints.ToDto(new Guild { GuildId = 1 });
@@ -293,10 +264,6 @@ public class GuildAdminEndpointsTests
 
         Assert.Equal(new[] { "shared", "other" }, ids);
     }
-
-    // -------------------------------------------------------------------------
-    // GetGw2GuildLookupCachedAsync caching behaviour
-    // -------------------------------------------------------------------------
 
     private static IMemoryCache NewCache() => new MemoryCache(new MemoryCacheOptions());
 
@@ -341,10 +308,6 @@ public class GuildAdminEndpointsTests
         Assert.Equal(1, calls);
     }
 
-    // -------------------------------------------------------------------------
-    // ValidateQuoteText
-    // -------------------------------------------------------------------------
-
     [Theory]
     [InlineData(null)]
     [InlineData("")]
@@ -378,10 +341,6 @@ public class GuildAdminEndpointsTests
         Assert.Null(GuildAdminEndpoints.ValidateQuoteText("hello world"));
     }
 
-    // -------------------------------------------------------------------------
-    // NormalizeRoleIdList
-    // -------------------------------------------------------------------------
-
     [Theory]
     [InlineData(null)]
     [InlineData("")]
@@ -403,10 +362,6 @@ public class GuildAdminEndpointsTests
         var result = GuildAdminEndpoints.NormalizeRoleIdList(" 100 , bad , 200, 100, 300 ");
         Assert.Equal("100,200,300", result);
     }
-
-    // -------------------------------------------------------------------------
-    // ValidateRoleIdList
-    // -------------------------------------------------------------------------
 
     [Theory]
     [InlineData(null)]
@@ -439,10 +394,6 @@ public class GuildAdminEndpointsTests
         Assert.NotNull(error);
         Assert.Contains("does not belong", error);
     }
-
-    // -------------------------------------------------------------------------
-    // ApplyDto: ScheduledEventManagerRoleIds normalization
-    // -------------------------------------------------------------------------
 
     [Fact]
     public void ApplyDto_ScheduledEventManagerRoleIds_NormalizedOnSave()
@@ -477,7 +428,6 @@ public class GuildAdminEndpointsTests
         Task<GuildAdminEndpoints.Gw2FetchResult> Fetcher()
         {
             calls++;
-            // first call transient, second call succeeds
             if (calls == 1) {
                 return Task.FromResult(new GuildAdminEndpoints.Gw2FetchResult(
                     GuildAdminEndpoints.Gw2FetchOutcome.Transient, null));

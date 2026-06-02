@@ -22,8 +22,7 @@ public sealed class WvWFightSummaryService(
 {
     private const int NameWidth = DiscordDisplayConstants.PlayerNameWidth;
 
-    // Column layouts kept within DiscordTable.MaxRowWidth so Discord doesn't wrap the last
-    // column onto its own line in mobile code blocks.
+    // Kept within DiscordTable.MaxRowWidth for Discord mobile embeds.
     internal static readonly DiscordTable.Column[] DamageColumns =
     [
         new("#", 2), new("Name", NameWidth),
@@ -61,8 +60,7 @@ public sealed class WvWFightSummaryService(
         new("Downs", 5, DiscordTable.Align.Right), new("Deaths", 6, DiscordTable.Align.Right)
     ];
 
-    // Builds the "name (Cls)" cell, clipping the name so the profession suffix always stays
-    // visible and the whole thing fits the Name column.
+    // Keep the profession suffix visible when clipping the name.
     private static string DisplayName(string name, string? profession)
     {
         var append = EliteInsightExtensions.GetClassAppend(profession);
@@ -133,7 +131,6 @@ public sealed class WvWFightSummaryService(
             }
         }
 
-        // Extract battleground name from the log name (last 15+ chars)
         var range = (int)MathF.Min(15, data.FightEliteInsightDataModel.LogName?.Length - 1 ?? 0)..;
         var rangeStart = range.Start.GetOffset(data.FightEliteInsightDataModel.LogName?.Length ?? 0);
         var rangeEnd = range.End.GetOffset(data.FightEliteInsightDataModel.LogName?.Length ?? 0);

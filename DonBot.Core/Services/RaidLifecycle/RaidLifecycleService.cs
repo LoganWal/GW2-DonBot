@@ -16,11 +16,8 @@ public sealed class RaidLifecycleService(IDbContextFactory<DatabaseContext> dbCo
             return new RaidOpenResult(RaidOpenOutcome.GuildNotConfigured, null);
         }
 
-        // Serializable transaction so two concurrent callers (Discord slash command + web)
-        // cannot both insert an open FightsReport for the same guild. On Postgres the
-        // loser sees a serialization-failure exception; we retry once which will then
-        // observe the just-inserted row and return AlreadyOpen. SQLite serializes
-        // writes via the connection lock so this is effectively a no-op in tests.
+        // Serializable isolation prevents two callers from opening the same guild raid.
+        // A conflicting insert is retried once so the new row can be observed.
         for (var attempt = 0; ; attempt++)
         {
             await using var tx = await ctx.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
@@ -75,9 +72,7 @@ public sealed class RaidLifecycleService(IDbContextFactory<DatabaseContext> dbCo
     {
         await using var ctx = await dbContextFactory.CreateDbContextAsync(ct);
 
-        // Prefer an open report (matches OpenRaidAsync's "already open" predicate so the
-        // live view and the slash command always agree on which raid is current). Fall
-        // back to the most recent closed report, with FightsReportId as a stable tiebreak.
+        // Open raids win over later closed reports.
         return await ctx.FightsReport
             .Where(r => r.GuildId == guildId)
             .OrderBy(r => r.FightsEnd == null ? 0 : 1)

@@ -20,7 +20,6 @@
     <ProgressSpinner v-if="pending" />
 
     <template v-else-if="data">
-      <!-- PvE Boards -->
       <template v-if="data.pve.length">
         <button class="section-toggle" @click="expanded.pveDamage = !expanded.pveDamage">
           <i :class="expanded.pveDamage ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="toggle-icon" />
@@ -88,7 +87,6 @@
         </template>
       </template>
 
-      <!-- WvW Boards -->
       <template v-if="data.wvw.length">
         <button class="section-toggle" @click="expanded.wvwDamage = !expanded.wvwDamage">
           <i :class="expanded.wvwDamage ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="toggle-icon" />

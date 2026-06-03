@@ -13,14 +13,12 @@ public sealed class GenericCommandsService(IEntityService entityService) : IGene
         var now = DateTime.UtcNow;
         var minutesSinceEven = (now.Hour % 2) * 60 + now.Minute;
 
-        // Pinata starts at :05, peaks around :23, considered over by :30
-        // minutesSinceEven: 0-4 = pre-event, 5-22 = live, 23-29 = dead, 30-119 = waiting
+        // Pinata runs every even hour: 0-4 pre-event, 5-22 live, 23-29 over, then waiting.
 
         string message;
 
         if (minutesSinceEven < 5)
         {
-            // :00 to :05 - panic trying to find a map before the event
             var minsUntilStart = 5 - minutesSinceEven;
             string[] preEventMessages =
             [
@@ -33,7 +31,6 @@ public sealed class GenericCommandsService(IEntityService entityService) : IGene
         }
         else if (minutesSinceEven < 23)
         {
-            // :05 to :23 - pinata is live, losing their mind trying to get into a map
             string[] liveMessages =
             [
                 "PINATA IS LIVE BRO!!! I'VE BEEN CLICKING JOIN MAP FOR 5 MINUTES STRAIGHT!!! WHY WON'T IT LET ME IN!!!",
@@ -45,7 +42,6 @@ public sealed class GenericCommandsService(IEntityService entityService) : IGene
         }
         else if (minutesSinceEven < 30)
         {
-            // :23 to :30 - pinata is dead, you missed it
             string[] deadMessages =
             [
                 "Bro... pinata is dead. You missed it. I missed it too. We don't talk about this.",
@@ -57,7 +53,6 @@ public sealed class GenericCommandsService(IEntityService entityService) : IGene
         }
         else
         {
-            // :30 to next :00 - chill, waiting for next event at :05 of the next even hour
             var minsUntilNext = 120 - minutesSinceEven + 5;
 
             if (minsUntilNext <= 10)

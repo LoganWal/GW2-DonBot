@@ -5,10 +5,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace DonBot.Tests.Services.GuildWarsServices.MessageGeneration;
 
-// Covers the content-dedupe regression: when a fight is uploaded by user A under
-// URL_A and later re-uploaded by user B under URL_B, FightLogDeduplication reuses
-// the existing FightLog row (still holding URL_A). GenerateSimpleReply must therefore
-// look up fights by FightLogId, not by the URLs the user posted in Discord.
+// Content-deduped replies must look up fights by resolved id, not posted URL.
 public class RaidReportSimpleReplyTests
 {
     private const long GuildId = 1;
@@ -70,10 +67,6 @@ public class RaidReportSimpleReplyTests
     [Fact]
     public async Task GenerateSimpleReply_FightsOverviewCountReflectsResolvedIds_NotPostedUrls()
     {
-        // Three fights in the DB; user posted three URLs but two were content-duplicates
-        // of fight ids 10 and 20 (their stored URLs are different). The summary pipeline
-        // resolves the posted URLs to ids [10, 20, 30]; the count in the Fights Overview
-        // embed should be 3.
         var fights = new List<FightLog>
         {
             MakeFight(10, "https://b.dps.report/different-from-what-user-posted-1"),
@@ -91,10 +84,8 @@ public class RaidReportSimpleReplyTests
         var (embeds, _) = await service.GenerateSimpleReply([10, 20, 30], GuildId);
 
         Assert.NotNull(embeds);
-        // Fights Overview embed is the first one in the PvE path; its last column is fight count
         var fightsOverviewField = embeds![0].Fields.FirstOrDefault(f => f.Name == "Fights Overview");
         Assert.NotEqual(default, fightsOverviewField);
-        // One row, three fights of the same type/mode
         Assert.Contains(" 3\n", fightsOverviewField.Value);
     }
 

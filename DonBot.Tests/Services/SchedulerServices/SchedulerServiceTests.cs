@@ -38,10 +38,6 @@ public class SchedulerServiceTests
             new DiscordSocketClient(),
             []);
 
-    // -------------------------------------------------------------------------
-    // GetNextEventTime - RepeatIntervalDays guard
-    // -------------------------------------------------------------------------
-
     [Fact]
     public void GetNextEventTime_RepeatIntervalDaysZero_ReturnsMaxValue()
     {
@@ -62,14 +58,9 @@ public class SchedulerServiceTests
         Assert.Equal(DateTime.MaxValue, result);
     }
 
-    // -------------------------------------------------------------------------
-    // GetNextEventTime - fire day is in the future this week
-    // -------------------------------------------------------------------------
-
     [Fact]
     public void GetNextEventTime_FireDayIsTomorrow_ReturnsTomorrow()
     {
-        // now = Friday; fire on Saturday (6) at 4am
         var ev = MakeWeeklyEvent(day: 6, hour: 4);
 
         var result = SchedulerService.GetNextEventTime(ev, Now);
@@ -85,7 +76,6 @@ public class SchedulerServiceTests
     [Fact]
     public void GetNextEventTime_FireDayIsInThreeDays_ReturnsCorrectDate()
     {
-        // now = Friday (5); fire on Monday (1)
         var ev = MakeWeeklyEvent(day: 1, hour: 8);
 
         var result = SchedulerService.GetNextEventTime(ev, Now);
@@ -95,14 +85,9 @@ public class SchedulerServiceTests
         Assert.True(result > Now);
     }
 
-    // -------------------------------------------------------------------------
-    // GetNextEventTime - fire day is today
-    // -------------------------------------------------------------------------
-
     [Fact]
     public void GetNextEventTime_FireDayIsToday_HourNotYetReached_ReturnsTodayAtHour()
     {
-        // now = Friday 10:00; fire on Friday (5) at 14:00
         var ev = MakeWeeklyEvent(day: 5, hour: 14);
 
         var result = SchedulerService.GetNextEventTime(ev, Now);
@@ -114,7 +99,6 @@ public class SchedulerServiceTests
     [Fact]
     public void GetNextEventTime_FireDayIsToday_HourAlreadyPassed_ReturnsNextWeek()
     {
-        // now = Friday 10:00; fire on Friday (5) at 04:00 - already passed today
         var ev = MakeWeeklyEvent(day: 5, hour: 4);
 
         var result = SchedulerService.GetNextEventTime(ev, Now);
@@ -127,7 +111,6 @@ public class SchedulerServiceTests
     [Fact]
     public void GetNextEventTime_FireDayIsToday_ExactlyAtFireTime_ReturnsNextWeek()
     {
-        // now = Friday 10:00; fire on Friday (5) at 10:00 exactly - not strictly greater, so next week
         var ev = MakeWeeklyEvent(day: 5, hour: 10);
 
         var result = SchedulerService.GetNextEventTime(ev, Now);
@@ -137,14 +120,9 @@ public class SchedulerServiceTests
         Assert.True(result > Now.AddDays(6));
     }
 
-    // -------------------------------------------------------------------------
-    // GetNextEventTime - fire day was earlier this week (next occurrence is next week)
-    // -------------------------------------------------------------------------
-
     [Fact]
     public void GetNextEventTime_FireDayWasEarlierThisWeek_ReturnsNextWeek()
     {
-        // now = Friday (5); fire on Tuesday (2) - Tuesday already passed this week
         var ev = MakeWeeklyEvent(day: 2, hour: 4);
 
         var result = SchedulerService.GetNextEventTime(ev, Now);
@@ -154,14 +132,9 @@ public class SchedulerServiceTests
         Assert.True(result > Now);
     }
 
-    // -------------------------------------------------------------------------
-    // GetNextEventTime - boundary hours
-    // -------------------------------------------------------------------------
-
     [Fact]
     public void GetNextEventTime_MidnightHour_ReturnsMidnightOnFireDay()
     {
-        // fire on Saturday at midnight UTC
         var ev = MakeWeeklyEvent(day: 6, hour: 0);
 
         var result = SchedulerService.GetNextEventTime(ev, Now);
@@ -181,14 +154,9 @@ public class SchedulerServiceTests
         Assert.Equal(DayOfWeek.Saturday, result.DayOfWeek);
     }
 
-    // -------------------------------------------------------------------------
-    // GetNextEventTime - Sunday (DayOfWeek = 0 boundary)
-    // -------------------------------------------------------------------------
-
     [Fact]
     public void GetNextEventTime_FireDaySunday_ReturnsNextSunday()
     {
-        // now = Friday (5); fire on Sunday (0)
         var ev = MakeWeeklyEvent(day: 0, hour: 12);
 
         var result = SchedulerService.GetNextEventTime(ev, Now);
@@ -198,18 +166,14 @@ public class SchedulerServiceTests
         Assert.True(result > Now);
     }
 
-    // -------------------------------------------------------------------------
-    // GetNextEventTime - result is always strictly in the future
-    // -------------------------------------------------------------------------
-
     [Theory]
-    [InlineData(0)]  // Sunday
-    [InlineData(1)]  // Monday
-    [InlineData(2)]  // Tuesday
-    [InlineData(3)]  // Wednesday
-    [InlineData(4)]  // Thursday
-    [InlineData(5)]  // Friday
-    [InlineData(6)]  // Saturday
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
     public void GetNextEventTime_AllDaysOfWeek_ResultIsAlwaysStrictlyInFuture(int day)
     {
         var ev = MakeWeeklyEvent(day: (short)day, hour: 10);
@@ -218,10 +182,6 @@ public class SchedulerServiceTests
 
         Assert.True(result > Now, $"Day={day}: expected result to be strictly after now but got {result}");
     }
-
-    // -------------------------------------------------------------------------
-    // FastForwardEventIfBehind - no-op cases
-    // -------------------------------------------------------------------------
 
     [Fact]
     public async Task FastForwardEventIfBehind_UtcEventTimeInFuture_NoChangeNoDbWrite()
@@ -263,10 +223,6 @@ public class SchedulerServiceTests
         Assert.Equal(0, entityService.FakeScheduledEvent.UpdateCallCount);
     }
 
-    // -------------------------------------------------------------------------
-    // FastForwardEventIfBehind - advances correctly
-    // -------------------------------------------------------------------------
-
     [Fact]
     public async Task FastForwardEventIfBehind_OneWeekBehind_AdvancesOneInterval()
     {
@@ -277,7 +233,7 @@ public class SchedulerServiceTests
 
         await service.FastForwardEventIfBehind(ev, Now);
 
-        // Now - 7 + 7 = Now, still <= Now, so advances again to Now + 7
+        // Equality still counts as behind, so one week behind advances twice.
         Assert.Equal(Now.AddDays(7), ev.UtcEventTime);
         Assert.True(ev.UtcEventTime > Now);
     }
@@ -292,7 +248,7 @@ public class SchedulerServiceTests
 
         await service.FastForwardEventIfBehind(ev, Now);
 
-        // Now - 14 → Now - 7 → Now (still <= Now) → Now + 7
+        // Now - 14 to Now - 7 to Now, then one more interval because equality is still behind.
         Assert.Equal(Now.AddDays(7), ev.UtcEventTime);
         Assert.True(ev.UtcEventTime > Now);
     }
@@ -329,7 +285,7 @@ public class SchedulerServiceTests
     {
         var entityService = new FakeEntityService();
         var service = BuildService(entityService);
-        // Day=5, interval=4: Now-4 → Now (still <=Now) → Now+4; two advances → Day=(5+4+4)%7=6
+        // Two advances land on day (5 + 4 + 4) % 7.
         var ev = new ScheduledEvent
         {
             ScheduledEventId = 1,
@@ -353,7 +309,7 @@ public class SchedulerServiceTests
     {
         var entityService = new FakeEntityService();
         var service = BuildService(entityService);
-        // Day=5, interval=4: Now-8 → Now-4 → Now (still <=Now) → Now+4; three advances → Day=(5+4+4+4)%7=3
+        // Three advances land on day (5 + 4 + 4 + 4) % 7.
         var ev = new ScheduledEvent
         {
             ScheduledEventId = 1,
@@ -371,10 +327,6 @@ public class SchedulerServiceTests
         Assert.Equal(3, ev.Day);
         Assert.True(ev.UtcEventTime > Now);
     }
-
-    // -------------------------------------------------------------------------
-    // FastForwardEventIfBehind - DB interaction
-    // -------------------------------------------------------------------------
 
     [Fact]
     public async Task FastForwardEventIfBehind_WhenAdvanced_CallsUpdateAsyncOnce()
@@ -398,10 +350,9 @@ public class SchedulerServiceTests
         var originalTime = Now.AddDays(-7);
         var ev = MakeWeeklyEvent(day: 5, hour: 4, utcEventTime: originalTime);
 
-        // Should not throw
         await service.FastForwardEventIfBehind(ev, Now);
 
-        // In-memory state is still correctly advanced (Now - 7 → Now → Now + 7, since == Now is still <= Now)
+        // Equality still counts as behind, so it advances one more interval.
         Assert.Equal(Now.AddDays(7), ev.UtcEventTime);
         Assert.True(ev.UtcEventTime > Now);
     }
@@ -419,10 +370,6 @@ public class SchedulerServiceTests
         Assert.Null(exception);
     }
 }
-
-// -----------------------------------------------------------------------------
-// Fakes
-// -----------------------------------------------------------------------------
 
 internal class FakeEntityService : IEntityService
 {

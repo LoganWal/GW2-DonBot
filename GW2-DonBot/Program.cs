@@ -20,7 +20,6 @@ builder.Services.AddSystemd();
 
 ServiceRegister.ConfigureServices(builder.Services);
 
-// Discord client singleton with required gateway intents
 builder.Services.AddSingleton(_ =>
 {
     var config = new DiscordSocketConfig

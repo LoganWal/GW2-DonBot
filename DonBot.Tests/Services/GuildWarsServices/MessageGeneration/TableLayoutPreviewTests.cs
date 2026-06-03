@@ -5,9 +5,7 @@ using Xunit.Abstractions;
 
 namespace DonBot.Tests.Services.GuildWarsServices.MessageGeneration;
 
-// Renders every report table's real column layout with realistic sample data so the formatting
-// can be eyeballed, and asserts no row exceeds DiscordTable.MaxRowWidth (the width at which
-// Discord's mobile code blocks wrap the last column onto its own line).
+// Checks real report table layouts against Discord's mobile code-block width.
 public class TableLayoutPreviewTests(ITestOutputHelper output)
 {
     [Fact]

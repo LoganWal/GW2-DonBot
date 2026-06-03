@@ -7,9 +7,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace DonBot.Tests.Services.DiscordRequestServices;
 
-// Guards the behaviour the user is most worried about: that polling never
-// nulls a user's GW2 API key on a transient failure. Only an explicit
-// 401/403 from the GW2 API is allowed to clear the key.
+// Transient GW2 API failures must not clear a stored key.
+// Only explicit 401/403 responses can clear it.
 public class PollingTasksServiceTests
 {
     private const string ValidApiKey = "AAAA-BBBB-CCCC-DDDD";
@@ -96,7 +95,7 @@ public class PollingTasksServiceTests
 
         await service.FetchAccountData([account]);
 
-        // Auth failures are permanent - confirm we break immediately rather than burning the retry budget
+        // Auth failures are permanent, so retries should stop immediately.
         Assert.Equal(1, handler.CallCount);
     }
 
@@ -192,7 +191,7 @@ public class PollingTasksServiceTests
     [Fact]
     public async Task FetchAccountData_404DoesNotClearApiKey()
     {
-        // 404 isn't expected from /v2/account but it shouldn't clear the key either
+        // /v2/account should not return 404, but it still should not clear the key.
         var account = MakeAccount();
         var handler = new StubHttpMessageHandler(
             Status(HttpStatusCode.NotFound),

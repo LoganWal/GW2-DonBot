@@ -31,7 +31,6 @@ public class RotationAnalysisServiceTests
     [Fact]
     public void AnalyzePlayerRotation_FewerThanFourCastsOfSameSkill_NotFlaggedTier1()
     {
-        // Only 3 casts of same skill: below MinCastCount (4)
         var rotation = Rotation((1, 1), (2, 1), (3, 1));
         var anomalies = RotationAnalysisService.AnalyzePlayerRotation(
             Account, Character, rotation, EmptySkillMap(), Url);
@@ -41,7 +40,6 @@ public class RotationAnalysisServiceTests
     [Fact]
     public void AnalyzePlayerRotation_AutoAttacksIgnored()
     {
-        // 5 perfectly-spaced casts of an auto-attack should NOT be flagged
         var rotation = Rotation((1, 1), (2, 1), (3, 1), (4, 1), (5, 1));
         var skillMap = SkillMap((1, "AA", true));
 
@@ -54,7 +52,7 @@ public class RotationAnalysisServiceTests
     [Fact]
     public void AnalyzePlayerRotation_FastChainSkills_BelowMinMeanInterval_NotFlagged()
     {
-        // 5 casts at 100ms intervals - mean 100ms below 500ms threshold (proc/chain), should NOT flag
+        // 100ms intervals are below the proc/chain threshold.
         var rotation = Rotation((1.0, 1), (1.1, 1), (1.2, 1), (1.3, 1), (1.4, 1));
         var anomalies = RotationAnalysisService.AnalyzePlayerRotation(
             Account, Character, rotation, EmptySkillMap(), Url);
@@ -64,7 +62,6 @@ public class RotationAnalysisServiceTests
     [Fact]
     public void AnalyzePlayerRotation_PerfectlySpacedSkill_FlaggedTier1()
     {
-        // 5 casts spaced exactly 1s apart -> CV = 0 -> flagged
         var rotation = Rotation((1, 5), (2, 5), (3, 5), (4, 5), (5, 5));
         var skillMap = SkillMap((5, "Suspect Skill", false));
 
@@ -83,7 +80,6 @@ public class RotationAnalysisServiceTests
     [Fact]
     public void AnalyzePlayerRotation_HumanIrregularSpacing_NotFlagged()
     {
-        // 5 casts with high variance: 1.0, 2.5, 3.1, 5.2, 6.0, CV well above 8%
         var rotation = Rotation((1.0, 5), (2.5, 5), (3.1, 5), (5.2, 5), (6.0, 5));
         var skillMap = SkillMap((5, "Skill", false));
 
@@ -107,8 +103,7 @@ public class RotationAnalysisServiceTests
     [Fact]
     public void AnalyzePlayerRotation_RepeatingThreeSkillCycleWithStableTiming_FlaggedTier2()
     {
-        // 3-skill rotation [1,2,3] repeated 4 times at 5s cycle, CV = 0
-        // Each cycle: skill 1 at start, 2 at +1s, 3 at +2s; cycle period 5s
+        // Stable 5s cycle with the same skill order each time.
         var casts = new List<(double, long)>();
         for (int cycle = 0; cycle < 4; cycle++)
         {
@@ -122,7 +117,7 @@ public class RotationAnalysisServiceTests
         var anomalies = RotationAnalysisService.AnalyzePlayerRotation(
             Account, Character, rotation, skillMap, Url);
 
-        // Tier 2 cycle anomaly should be present (Tier 1 may or may not also fire depending on intervals)
+        // Tier 1 may also fire depending on intervals.
         var cycleAnomaly = anomalies.FirstOrDefault(a => a.Description.Contains("Tier 2"));
         Assert.NotNull(cycleAnomaly);
         Assert.Equal("A > B > C", cycleAnomaly!.SkillName);
@@ -132,8 +127,7 @@ public class RotationAnalysisServiceTests
     [Fact]
     public void AnalyzePlayerRotation_RepeatingCycleWithJitteredTiming_NotFlaggedTier2()
     {
-        // Same sequence but cycle durations vary substantially -> Tier 2 should not flag
-        // Cycles: 5s, 7s, 5.5s, 8s
+        // Same sequence, but cycle durations vary substantially.
         var rotation = Rotation(
             (0, 1), (1, 2), (2, 3),
             (5, 1), (6, 2), (7, 3),

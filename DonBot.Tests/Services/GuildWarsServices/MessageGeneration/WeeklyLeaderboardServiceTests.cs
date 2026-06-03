@@ -5,11 +5,7 @@ using DonBot.Tests.Infrastructure;
 
 namespace DonBot.Tests.Services.GuildWarsServices.MessageGeneration;
 
-// Output-asserting coverage for the weekly leaderboard embeds (PvE, WvW, and the per-player
-// /gw2_my_rank embed). These are table-heavy, user-facing messages that previously had no test
-// exercising their produced embeds. Assertions focus on the embed shell (title, description,
-// field names, footer) and the empty-data fallbacks rather than exact formatted numbers, so they
-// stay robust while still catching dropped fields, renamed sections, or broken wiring.
+// Covers leaderboard embed shells without pinning exact numbers.
 public class WeeklyLeaderboardServiceTests
 {
     private const long GuildId = 1;
@@ -94,7 +90,7 @@ public class WeeklyLeaderboardServiceTests
         var entityService = SeededEntityService(out var guild);
         var svc = new WeeklyLeaderboardService(entityService, new FooterService(entityService));
 
-        // Alice is seeded with the strictly higher damage, so she ranks #1.
+        // Alice is seeded with higher damage, so rank order is deterministic.
         var embed = await svc.GetPlayerRanks(guild, ["Alice.1234"]);
 
         Assert.NotNull(embed);
@@ -133,10 +129,7 @@ public class WeeklyLeaderboardServiceTests
         Assert.Null(embed);
     }
 
-    // Seeds a guild (both leaderboards enabled), a footer quote, and recent WvW + PvE fights with
-    // player rows for two accounts. Alice is given strictly higher values than Bob so rank order is
-    // deterministic. PvE player-rank eligibility needs >= 6 fights per player, so six PvE fights are
-    // created.
+    // PvE player-rank eligibility needs at least six fights per player.
     private static InMemoryEntityService SeededEntityService(out Guild guild)
     {
         var entityService = new InMemoryEntityService();

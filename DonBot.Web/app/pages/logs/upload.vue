@@ -11,7 +11,6 @@
     </div>
 
     <div class="input-panels">
-      <!-- URL paste panel -->
       <div class="input-panel">
         <h2 class="panel-title"><i class="pi pi-link" /> Paste URLs</h2>
         <p class="panel-hint">Paste dps.report or wvw.report URLs, one per line.</p>
@@ -32,7 +31,6 @@
         />
       </div>
 
-      <!-- File upload panel -->
       <div class="input-panel">
         <h2 class="panel-title"><i class="pi pi-file" /> Upload .zevtc Files</h2>
         <p class="panel-hint">Drag and drop or click to select .zevtc combat log files.</p>
@@ -54,7 +52,6 @@
       </div>
     </div>
 
-    <!-- Active uploads -->
     <div v-if="uploads.length > 0" style="margin-top: 1.5rem;">
       <div class="uploads-header" @click="uploadsExpanded = !uploadsExpanded">
         <div style="display: flex; align-items: center; gap: 0.5rem;">
@@ -75,13 +72,11 @@
             <Tag :severity="statusSeverity(upload.status)" :value="statusLabel(upload.status)" />
           </div>
 
-          <!-- TUS transfer progress -->
           <template v-if="upload.status === 'transferring'">
             <ProgressBar :value="upload.uploadProgress" style="margin: 0.25rem 0;" />
             <div class="upload-card__message">Sending to server... {{ upload.uploadProgress }}%</div>
           </template>
 
-          <!-- Pipeline stages -->
           <div v-else class="upload-card__stages">
             <template v-for="stage in visibleStages(upload.sourceType)" :key="stage.key">
               <div class="stage-step" :class="stageClass(upload, stage.key)">
@@ -120,7 +115,6 @@
       </div>
     </div>
 
-    <!-- History -->
     <div v-if="historyTotal > 0 || history.length > 0" style="margin-top: 2rem;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
         <h2 style="font-size: 1.1rem; margin: 0;">Previous Uploads <span style="font-size: 0.8rem; font-weight: 400; color: var(--p-text-muted-color);">(last 24 hours)</span></h2>

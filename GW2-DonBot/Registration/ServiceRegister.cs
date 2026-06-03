@@ -18,7 +18,6 @@ public static class ServiceRegister
 {
     public static void ConfigureServices(IServiceCollection services)
     {
-        // Message Generation Services - Transient for stateless embed generation
         services.AddTransient<IFooterService, FooterService>();
         services.AddTransient<IPvEFightSummaryService, PvEFightSummaryService>();
         services.AddTransient<IWvWFightSummaryService, WvWFightSummaryService>();
@@ -26,7 +25,6 @@ public static class ServiceRegister
         services.AddTransient<IWeeklyLeaderboardService, WeeklyLeaderboardService>();
         services.AddTransient<IMessageGenerationService, MessageGenerationService>();
 
-        // Core Services - Scoped for per-request/operation services
         services.AddScoped<ISecretService, SecretServices>();
         services.AddScoped<IDataModelGenerationService, DataModelGenerationService>();
         services.AddScoped<IDiscordCore, DiscordCore>();
@@ -41,10 +39,8 @@ public static class ServiceRegister
         services.AddScoped<IFightLogService, FightLogService>();
         services.AddScoped<IRotationAnalysisService, RotationAnalysisService>();
 
-        // Singleton Services - Thread-safe, stateless services
         services.AddSingleton<IPendingLogService, PendingLogService>();
 
-        // Command Services - Transient for command handlers
         services.AddTransient<IGenericCommandsService, GenericCommandsService>();
         services.AddTransient<IVerifyCommandsService, VerifyCommandsService>();
         services.AddTransient<IPointsCommandsService, PointsCommandsService>();
@@ -52,23 +48,19 @@ public static class ServiceRegister
         services.AddTransient<IDiscordCommandService, DiscordCommandService>();
         services.AddTransient<ILeaderboardCommandsService, LeaderboardCommandsService>();
 
-        // Polling and API Services - Transient for operational services
-        // Singleton: holds a shared rate limiter that must persist across polling cycles
+        // Holds a shared rate limiter that must persist across polling cycles.
         services.AddSingleton<IPollingTasksService, PollingTasksService>();
         services.AddTransient<IDiscordApiService, DiscordApiService>();
 
-        // Scheduling
         services.AddSingleton<SchedulerService>();
         services.AddTransient<IScheduledEventHandler, RaidSignupEventHandler>();
         services.AddTransient<IScheduledEventHandler, WvwRaidSignupEventHandler>();
         services.AddTransient<IScheduledEventHandler, WvwLeaderboardEventHandler>();
         services.AddTransient<IScheduledEventHandler, PveLeaderboardEventHandler>();
 
-        // Database Services
         services.AddScoped(typeof(IDatabaseUpdateService<>), typeof(DatabaseUpdateService<>));
         services.AddScoped<IEntityService, EntityService>();
 
-        // DbContext Factory with connection string resolution
         services.AddDbContextFactory<DatabaseContext>((serviceProvider, options) =>
         {
             var secretService = serviceProvider.GetRequiredService<ISecretService>();
@@ -76,7 +68,6 @@ public static class ServiceRegister
             options.UseNpgsql(connectionString, o => o.MigrationsAssembly("DonBot"));
         });
 
-        // HttpClient Factory for HTTP requests with default configuration
         services.AddHttpClient();
     }
 }

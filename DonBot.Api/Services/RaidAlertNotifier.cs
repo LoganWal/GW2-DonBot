@@ -14,11 +14,8 @@ public interface IRaidNotifier
     Task PostRaidEndedAsync(FightsReport closedReport, CancellationToken ct = default);
 }
 
-// Mirrors the Discord slash-command side effects from RaidCommandCommandService:
-//   start → @everyone alert in RaidAlertChannelId
-//   stop  → raid report embeds (+ View on DonBot / Best Times buttons) in LogReportChannelId
-// Both are best-effort: failures are logged but never throw, so a misconfigured channel
-// or Discord outage can't undo a successful DB-side raid open/close.
+// Posts Discord notifications for raids started or stopped from the web app.
+// Failures are logged so Discord issues do not roll back DB changes.
 public sealed class RaidNotifier(
     IEntityService entityService,
     IMessageGenerationService messageGeneration,

@@ -75,26 +75,17 @@ public static class UploadEndpoints
                         var safeName = Path.GetFileName(filename);
                         var wingman = ctx.Metadata.TryGetValue("wingman", out var wm) &&
                             wm.GetString(Encoding.UTF8) == "true";
-                        long guildId = ctx.Metadata.TryGetValue("guildid", out var gid)
+                        var guildId = ctx.Metadata.TryGetValue("guildid", out var gid)
                             ? long.TryParse(gid.GetString(Encoding.UTF8), out var gidParsed)
                                 ? gidParsed
                                 : 0
                             : 0;
 
                         // Make sure user is part of guild they are uploading for
-                        if (ctx.HttpContext.User != null)
+                        var userGuildList = await guildService.GetForPrincipalAsync(ctx.HttpContext.User);
+                        if (userGuildList == null || userGuildList.First(guild => (long)guild.Id == guildId) == null)
                         {
-                            var userGuildList = await guildService.GetForPrincipalAsync(ctx.HttpContext.User);
-                            if (userGuildList == null || userGuildList.First(guild => (long)guild.Id == guildId) == null)
-                            {
-                                // User is not part of the guild they are trying to upload for
-                                //logger.LogWarning("User tried uploading a log for guild they are not in: {id}", uploadId);
-                                guildId = 0;
-                            }
-                        }
-                        else
-                        {
-                            //logger.LogWarning("User tried uploading a log for guild they are not in: {id}", uploadId);
+                            // User is not part of the guild they are trying to upload for
                             guildId = 0;
                         }
 

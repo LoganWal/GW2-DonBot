@@ -117,7 +117,7 @@ public sealed class SchedulerService(
 
         foreach (var (id, (scheduledEvent, _)) in dueEvents)
         {
-            // Mark as in-flight to prevent double-firing
+            // Prevent double-firing while the background task runs.
             _scheduledEvents[id] = (scheduledEvent, DateTime.MaxValue);
         }
 
@@ -136,8 +136,7 @@ public sealed class SchedulerService(
 
         try
         {
-            // UtcEventTime is the time shown in the message. Guard against it being stale
-            // (e.g. bot delayed between scheduling and firing, or DB out of sync).
+            // UtcEventTime is shown in messages, so advance stale rows before sending.
             var fireNow = DateTime.UtcNow;
             if (scheduledEvent.UtcEventTime <= fireNow)
             {

@@ -134,11 +134,7 @@ public sealed class RaidCommandCommandService(
         await command.FollowupAsync("Created!", ephemeral: true);
     }
 
-    /// <summary>
-    /// Returns the index of the message that should receive the Best Times button,
-    /// or null if no button should be added (i.e. no PvE embed in the list).
-    /// Always targets the last message in the list.
-    /// </summary>
+    /// <summary>Returns the last message index when any embed is PvE.</summary>
     public static int? BestTimesTargetIndex(IReadOnlyList<Embed> messages) =>
         messages.Count > 0 && messages.Any(m => m.Title?.Contains("PvE") == true)
             ? messages.Count - 1

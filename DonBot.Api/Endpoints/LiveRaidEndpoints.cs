@@ -87,8 +87,7 @@ public static class LiveRaidEndpoints
         return Results.Ok(new
         {
             reportId = report.FightsReportId,
-            // Discord snowflakes exceed JS Number.MAX_SAFE_INTEGER; serialize as string so the
-            // client doesn't truncate the last digits when parsing.
+            // Serialize Discord snowflakes as strings to avoid JS precision loss.
             guildId = report.GuildId.ToString(),
             fightsStart = report.FightsStart,
             fightsEnd = report.FightsEnd,
@@ -153,8 +152,7 @@ public static class LiveRaidEndpoints
         HttpContext httpContext,
         CancellationToken ct)
     {
-        // Combine the request-aborted token with the app's stopping token so app shutdown
-        // doesn't wait for Kestrel's drain timeout to tear down active SSE connections.
+        // Tear down active SSE connections promptly during app shutdown.
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, lifetime.ApplicationStopping);
         ct = linkedCts.Token;
 
@@ -230,11 +228,11 @@ public static class LiveRaidEndpoints
         }
         catch (OperationCanceledException)
         {
-            // Client disconnected or request aborted; exit cleanly.
+            // Expected when the client disconnects.
         }
         catch (IOException)
         {
-            // Underlying connection went away mid-write; nothing to do.
+            // Expected when the connection closes during a write.
         }
     }
 

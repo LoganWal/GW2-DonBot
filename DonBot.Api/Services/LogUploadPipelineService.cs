@@ -140,7 +140,6 @@ public sealed class LogUploadPipelineService : BackgroundService
 
         try
         {
-            // Stage: parsing (EI runs and uploads to dps.report)
             await UpdateStatus(ctx, upload, "parsing", ct);
             progress.Publish(uploadId, "parsing", "Running Elite Insights parser...");
 
@@ -183,7 +182,6 @@ public sealed class LogUploadPipelineService : BackgroundService
                 }
             }
 
-            // Stage: uploading - extract URL from EI stdout JSON, fallback to uploading ourselves
             await UpdateStatus(ctx, upload, "uploading", ct);
             progress.Publish(uploadId, "uploading", "Getting dps.report link...");
 
@@ -205,7 +203,6 @@ public sealed class LogUploadPipelineService : BackgroundService
                 FireAndForgetWingman(dpsReportUrl);
             }
 
-            // Stage: saving - fetch parsed model from dps.report, save to DB
             await UpdateStatus(ctx, upload, "saving", ct);
             progress.Publish(uploadId, "saving", "Saving log data...");
 
@@ -373,7 +370,7 @@ public sealed class LogUploadPipelineService : BackgroundService
             ctx.LogUpload.Update(upload);
             await ctx.SaveChangesAsync(ct);
         }
-        catch { /* best-effort */ }
+        catch { /* best effort */ }
     }
 
     private static async Task UpdateStatus(DatabaseContext ctx, LogUpload upload, string status, CancellationToken ct)
@@ -383,7 +380,7 @@ public sealed class LogUploadPipelineService : BackgroundService
         ctx.LogUpload.Update(upload);
         await ctx.SaveChangesAsync(ct);
     }
-
+    
     private async Task<long> SaveFightLogAsync(EliteInsightDataModel data, IPlayerService playerService, CancellationToken ct, long guildId = 0)
     {
         var fightPhase = data.FightEliteInsightDataModel.Phases?.Any() == true
@@ -656,7 +653,7 @@ public sealed class LogUploadPipelineService : BackgroundService
                 Directory.Delete(evtcDir, recursive: true);
             }
         }
-        catch { /* best-effort */ }
+        catch { /* best effort */ }
 
         try
         {
@@ -664,7 +661,7 @@ public sealed class LogUploadPipelineService : BackgroundService
                 Directory.Delete(jobOutputDir, recursive: true);
             }
         }
-        catch { /* best-effort */ }
+        catch { /* best effort */ }
     }
 
     private sealed class DpsReportUploadResult

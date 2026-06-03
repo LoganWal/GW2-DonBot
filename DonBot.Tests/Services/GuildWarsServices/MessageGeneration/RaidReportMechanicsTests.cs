@@ -5,8 +5,6 @@ namespace DonBot.Tests.Services.GuildWarsServices.MessageGeneration;
 
 public class RaidReportMechanicsTests
 {
-    // --- OrderedMechanicNames ---
-
     [Fact]
     public void OrderedMechanicNames_WhenEmpty_ReturnsEmpty()
     {
@@ -56,8 +54,6 @@ public class RaidReportMechanicsTests
         Assert.Equal("B", result[0]);
         Assert.Equal("A", result[1]);
     }
-
-    // --- MechanicAccountTotals ---
 
     [Fact]
     public void MechanicAccountTotals_WhenEmpty_ReturnsEmpty()

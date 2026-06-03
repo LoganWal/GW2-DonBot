@@ -46,12 +46,6 @@ const logoImgSrc = '/donbot.png'
 const logoImgError = ref(false)
 const route = useRoute()
 
-const { data: pointsData } = useAsyncData(
-  'sidebar-points',
-  () => user.value ? (api('/api/points/me') as Promise<any>).catch(() => null) : Promise.resolve(null),
-  { watch: [user] }
-)
-
 const { data: adminGuilds } = useAsyncData(
   'sidebar-admin-guilds',
   () => user.value ? (api('/api/admin/guilds') as Promise<any[]>).catch(() => []) : Promise.resolve([]),
@@ -64,8 +58,7 @@ const { data: schedulingGuilds } = useAsyncData(
   { watch: [user] }
 )
 
-// Warm the live-raid guilds cache so the page can read it instantly.
-// Same useAsyncData key as live-raid.vue so the page shares this result.
+// Share the live-raid guilds cache with the page.
 useLazyAsyncData(
   'live-raid-guilds',
   () => user.value
@@ -74,7 +67,6 @@ useLazyAsyncData(
   { watch: [user], default: () => [] }
 )
 
-const hasPoints = computed(() => (pointsData.value?.points ?? 0) > 0)
 const hasAdminGuilds = computed(() => (adminGuilds.value?.length ?? 0) > 0)
 const hasSchedulingGuilds = computed(() => (schedulingGuilds.value?.length ?? 0) > 0)
 
@@ -87,7 +79,7 @@ const allNavItems = [
   { label: 'Progression',   to: '/progression', icon: 'pi-chart-line' },
   { label: 'Mechanics',     to: '/mechanics',   icon: 'pi-shield' },
   { label: 'Leaderboard',   to: '/leaderboard', icon: 'pi-trophy' },
-  { label: 'Points',        to: '/points',      icon: 'pi-star',  hidden: computed(() => !hasPoints.value) },
+  { label: 'Raffles & Points', to: '/points',      icon: 'pi-star' },
   { label: 'Accounts',     to: '/verify',      icon: 'pi-link' },
   { label: 'Upload Logs',   to: '/logs/upload', icon: 'pi-upload' },
   { label: 'Scheduling',    to: '/scheduling',  icon: 'pi-calendar', hidden: computed(() => !hasSchedulingGuilds.value) },
@@ -121,7 +113,6 @@ const isActive = (to: string) =>
   width: 64px;
 }
 
-/* Logo */
 .sidebar-logo {
   height: 60px;
   display: flex;
@@ -178,7 +169,6 @@ const isActive = (to: string) =>
   width: 0;
 }
 
-/* Nav */
 .sidebar-nav {
   flex: 1;
   display: flex;
@@ -251,7 +241,6 @@ const isActive = (to: string) =>
   background: var(--p-primary-color);
 }
 
-/* Collapsed: hide toggle since user can't see it well; keep visible so they can reopen */
 /* noinspection CssUnusedSymbol */
 .app-sidebar.collapsed .sidebar-logo {
   justify-content: center;
@@ -263,7 +252,6 @@ const isActive = (to: string) =>
   display: none;
 }
 
-/* Mobile */
 @media (max-width: 768px) {
   .app-sidebar {
     width: 240px !important;

@@ -12,8 +12,7 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
     private const int TopN = 20;
     private const string AuthorIconUrl = "https://i.imgur.com/tQ4LD6H.png";
 
-    // Leaderboard rows kept within DiscordTable.MaxRowWidth so Discord doesn't wrap the last
-    // column onto its own line in mobile code blocks.
+    // Kept within DiscordTable.MaxRowWidth for Discord mobile embeds.
     private const int LeaderNameWidth = 20;
 
     internal static readonly DiscordTable.Column[] LeaderDamageColumns =
@@ -356,7 +355,7 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
         var columns = SimpleColumns("Avg Dist");
         var table = $"```{DiscordTable.Header(columns)}";
         var index = 1;
-        // Ascending order: lower distance = closer to tag = better; same threshold as per-fight view
+        // Lower distance is better; uses the same threshold as the per-fight view.
         var eligible = grouped
             .Where(g => g.Count() >= 10 && g.Any(s => s.DistanceFromTag is > 0 and < 1100))
             .OrderBy(g => g.Where(s => s.DistanceFromTag is > 0 and < 1100).Average(s => (double)s.DistanceFromTag))

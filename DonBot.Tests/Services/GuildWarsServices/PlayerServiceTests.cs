@@ -11,7 +11,6 @@ public class PlayerServiceTests
     [Fact]
     public void GetGw2Players_StabOnGroup_WhenStabilityAtStandardIndex_ReadsCorrectValue()
     {
-        // Standard API order: Stability at index 8
         var boons = StandardBoons();
         var stabValue = 16.0;
         var data = BuildData(boons);
@@ -26,7 +25,6 @@ public class PlayerServiceTests
     [Fact]
     public void GetGw2Players_StabOnGroup_WhenStabilityAtNonStandardIndex_ReadsFromCorrectIndex()
     {
-        // Stability at index 0 to verify dynamic index lookup
         var boons = new List<int> { Gw2BoonIds.Stability, 740, 725, Gw2BoonIds.Quickness, Gw2BoonIds.Alacrity, 717, 718, 726, 743, 719, 26980, 873 };
         var stabValue = 16.0;
         var data = BuildData(boons);
@@ -54,7 +52,6 @@ public class PlayerServiceTests
     [Fact]
     public void GetGw2Players_TotalQuick_WhenQuicknessAtNonStandardIndex_ReadsFromCorrectIndex()
     {
-        // Quickness at index 0 to verify dynamic index lookup
         var boons = new List<int> { Gw2BoonIds.Quickness, 740, 725, Gw2BoonIds.Alacrity, 717, 718, 726, 743, Gw2BoonIds.Stability, 719, 26980, 873 };
         var quickValue = 0.9;
         var data = BuildData(boons);
@@ -69,7 +66,6 @@ public class PlayerServiceTests
     [Fact]
     public void GetGw2Players_TotalAlac_WhenAlacAtNonStandardIndex_ReadsFromCorrectIndex()
     {
-        // Alacrity at index 0 to verify dynamic index lookup
         var boons = new List<int> { Gw2BoonIds.Alacrity, 740, 725, Gw2BoonIds.Quickness, 717, 718, 726, 743, Gw2BoonIds.Stability, 719, 26980, 873 };
         var alacValue = 0.75;
         var data = BuildData(boons);
@@ -84,9 +80,7 @@ public class PlayerServiceTests
     [Fact]
     public void GetGw2Players_TimeOfDeath_WhenAccountHasMultipleCharactersAndOnlySecondDied_RecordsDeathTime()
     {
-        // Regression: previously, when the first ArcDps player entry for an account had no death
-        // and a later entry for the same account did, the merge kept TimeOfDeath null.
-        // That dropped the death entirely, so downstream "first to die" picked the wrong player.
+        // Regression: death data can appear on a later character for the same account.
         var boons = StandardBoons();
         var data = new EliteInsightDataModel(
             new FightEliteInsightDataModel
@@ -157,13 +151,11 @@ public class PlayerServiceTests
             Players = [new ArcDpsPlayer { Acc = "Test.1234", Profession = "Guardian", Name = "TestChar", NotInSquad = false, Group = 1 }]
         }, new HealingEliteInsightDataModel(), new BarrierEliteInsightDataModel(), null, null, null);
 
-    // Builds boon gen data; all values 0 except at stabIndex
     private static List<List<double>> BoonData(int boonCount, int stabIndex, double stabValue) =>
         Enumerable.Range(0, boonCount)
             .Select(i => new List<double> { i == stabIndex ? stabValue : 0.0 })
             .ToList();
 
-    // Builds boon active stats data; all values 0 except at quickIndex/alacIndex
     private static List<List<double>> ActiveBoonData(int boonCount, int quickIndex = -1, double quickValue = 0, int alacIndex = -1, double alacValue = 0) =>
         Enumerable.Range(0, boonCount)
             .Select(i => new List<double> { i == quickIndex ? quickValue : i == alacIndex ? alacValue : 0.0 })

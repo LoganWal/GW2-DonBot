@@ -6,9 +6,8 @@ public static class MemoryCacheCoalesceExtensions
 {
     private static readonly object Gate = new();
 
-    // Stores the in-flight Task<T> in the cache so concurrent misses share one
-    // factory invocation. On failure the entry's TTL is shortened so callers
-    // can retry without waiting for the long positive TTL.
+    // Cache the active task so concurrent misses share one factory call.
+    // Failures use the shorter retry TTL.
     public static Task<T> GetOrCoalesceAsync<T>(
         this IMemoryCache cache,
         object key,

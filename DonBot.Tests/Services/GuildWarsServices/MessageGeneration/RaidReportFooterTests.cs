@@ -29,8 +29,7 @@ public class RaidReportFooterTests
         Assert.NotNull(embeds);
         Assert.True(embeds!.Count >= 3, $"Expected >= 3 embeds for PvE path, got {embeds.Count}");
 
-        // First three embeds are the PvE top aggregate (Fights / Player / Survivability);
-        // each must have its own distinct footer quote.
+        // PvE top aggregate embeds must each get a fresh footer quote.
         var topFooters = embeds.Take(3).Select(e => e.Footer?.Text).ToList();
         Assert.Equal(3, topFooters.Distinct().Count());
     }
@@ -38,18 +37,10 @@ public class RaidReportFooterTests
     [Fact]
     public async Task GenerateSimpleReply_LooksUpFightsByFightLogId_NotByUrl()
     {
-        // Regression: when a user posts a log whose content is a duplicate of a
-        // previously-uploaded fight (different URL, same fight content), the dedupe
-        // path reuses the existing FightLog row and the new URL is never stored. The
-        // raid reply report must still include that fight, so it has to look up by
-        // FightLogId (the resolved id from the summary call), not by the URL the
-        // user posted in Discord.
+        // Content dedupe keeps the original URL, so replies must use resolved fight ids.
         var footer = new SequenceFooterService();
         var report = MakeReport();
         var fights = MakeFights(FightTypesEnum.Cairn, count: 2, report);
-        // Simulate: original uploader posted "/originalA" and "/originalB"; the user
-        // who triggered this reply posted "/aliasA" and "/aliasB" - URLs the DB has
-        // never seen. The id-based lookup must still find both fights.
         var playerFights = MakePlayerFights(fights);
         var service = BuildService(footer, fights, playerFights);
 
@@ -78,7 +69,7 @@ public class RaidReportFooterTests
     [Fact]
     public async Task GenerateRaidAlert_HasAlertTitleDescriptionGoldColorAndInviteLink()
     {
-        // Real FooterService here (not the sequence stub) so AddInviteLink actually adds its field.
+        // Use the real FooterService so AddInviteLink adds its field.
         var footer = new FooterService(new InMemoryEntityService());
         var service = BuildService(footer, [], []);
 
@@ -88,7 +79,6 @@ public class RaidReportFooterTests
         Assert.Contains("GET IN HERE!", embed.Description);
         Assert.Equal((Color)System.Drawing.Color.Gold, embed.Color);
         Assert.NotNull(embed.Footer?.Text);
-        // AddInviteLink adds a field linking to the bot's OAuth invite URL.
         Assert.Contains(embed.Fields, f => f.Value.Contains("oauth2/authorize"));
     }
 
@@ -162,7 +152,7 @@ internal sealed class FakeWvWSummaryService(IFooterService footerService) : IWvW
 
     public async Task<Embed> GenerateMessage(bool advancedLog, int playerCount, List<Gw2Player> gw2Players, EmbedBuilder message, long guildId, StatTotals? statTotals = null)
     {
-        // Mirror real WvWFightSummaryService: footer is set here, overriding any caller-set footer.
+        // Match WvWFightSummaryService footer ownership.
         message.Footer = new EmbedFooterBuilder
         {
             Text = await footerService.Generate(guildId),

@@ -1,11 +1,6 @@
 const STORAGE_KEY = 'donbot.selectedGuildId'
 
-/**
- * Tracks the user's currently selected server across page refreshes.
- * Reads (priority): `?guild=` query param, then localStorage. Persists changes
- * to both. The URL query keeps the selection shareable; localStorage carries
- * it between unrelated pages.
- */
+/** Keeps the selected server in `?guild=` and localStorage. */
 export const useSelectedGuild = () => {
   const route = useRoute()
   const router = useRouter()
@@ -42,11 +37,7 @@ export const useSelectedGuild = () => {
     }
   })
 
-  /**
-   * Picks an initial selection from the available options when the dropdown
-   * loads. If the persisted/url id is in `availableIds`, keep it; otherwise
-   * fall back to `fallback` (typically the first option).
-   */
+  /** Keeps a saved selection only while it is still available. */
   const ensureSelection = (availableIds: string[], fallback: string | null) => {
     const current = selectedGuildId.value
     if (current && availableIds.includes(current)) {

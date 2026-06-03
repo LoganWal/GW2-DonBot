@@ -276,10 +276,7 @@ public static class SchedulingEndpoints
             return Results.NotFound();
         }
 
-        // ScheduledEvent has several init-only properties (EventType, Hour,
-        // RepeatIntervalDays, ChannelId). To avoid surprising in-memory caches in the
-        // running bot scheduler with mismatched updates, replace the row entirely:
-        // delete + reinsert preserves a single source of truth.
+        // Replace the row because scheduler fields are init-only and may be cached.
         var priorChannelId = existing.ChannelId;
         var priorMessageId = existing.MessageId;
 
@@ -288,9 +285,7 @@ public static class SchedulingEndpoints
         ctx.ScheduledEvent.Add(replacement);
         await ctx.SaveChangesAsync();
 
-        // If a signup message has already been posted, update its timestamp + body
-        // so the Discord post reflects the new schedule. Fail open: scheduling
-        // changes shouldn't be blocked by a missing/deleted message.
+        // Best effort sync for signup messages that were already posted.
         if (priorMessageId.HasValue && IsSignupEvent(replacement.EventType))
         {
             await TryUpdatePostedMessageAsync(

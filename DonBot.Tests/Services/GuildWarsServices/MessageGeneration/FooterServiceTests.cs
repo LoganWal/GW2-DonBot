@@ -16,8 +16,7 @@ public class FooterServiceTests
 
         var result = await svc.Generate(guildId: 1L);
 
-        // Discord hides the footer icon when the text is empty, so a single halfwidth Hangul-filler
-        // keeps the icon visible without pushing the timestamp away from it.
+        // Discord hides footer icons when text is empty.
         Assert.Equal("ﾠ", result);
     }
 
@@ -71,8 +70,7 @@ public class FooterServiceTests
 
         var field = Assert.Single(builder.Fields);
         var value = field.Value!.ToString()!;
-        // With no fields to attach to, the spacer is its own field: a run of halfwidth Hangul-filler
-        // (U+FFA0) sized to a max table row so the embed renders at full width on mobile.
+        // Halfwidth Hangul-filler keeps the embed full width on mobile.
         Assert.Equal(DiscordTable.MaxRowWidth - 3, value.Length);
         Assert.All(value, c => Assert.Equal('ﾠ', c));
         Assert.False(field.IsInline);
@@ -88,8 +86,7 @@ public class FooterServiceTests
 
         svc.AddWidthSpacer(builder);
 
-        // No extra field is added; the spacer is appended onto the last field's value on its own
-        // line so there's no empty name-line gap between the table and the spacer.
+        // Appending avoids an empty name-line gap between the table and spacer.
         var field = Assert.Single(builder.Fields);
         var expectedSpacer = new string('ﾠ', DiscordTable.MaxRowWidth - 3);
         Assert.Equal($"```table```\n{expectedSpacer}", field.Value!.ToString());

@@ -51,7 +51,6 @@ public class RaidReportServiceTests(ITestOutputHelper output)
         var header = rawLines[0].TrimStart('`'); // strip opening code fence
         var dataLines = rawLines.Skip(1).Where(l => l.Length > 0 && !l.StartsWith("```")).ToList();
 
-        // Find where each column header starts
         var resStart   = header.IndexOf("Res(s)", StringComparison.Ordinal);
         var dmgStart   = header.IndexOf("DmgTkn", StringComparison.Ordinal);
         var downsStart = header.IndexOf("Down", StringComparison.Ordinal);
@@ -75,8 +74,6 @@ public class RaidReportServiceTests(ITestOutputHelper output)
     [Fact]
     public void BuildSurvivabilityTable_WhenEachPlayerDiesFirstOnce_BothShowCountOfOne()
     {
-        // Fight 1: Alice dies at t=1000, Bob at t=5000 → Alice is first
-        // Fight 2: Bob dies at t=2000, Alice at t=8000 → Bob is first
         var logs = new List<PlayerFightLog>
         {
             new() { FightLogId = 1, GuildWarsAccountName = "Alice.1234", TimeOfDeath = 1000, DamageTaken = 10 },
@@ -99,7 +96,6 @@ public class RaidReportServiceTests(ITestOutputHelper output)
     [Fact]
     public void BuildSurvivabilityTable_WhenPlayerNeverDiesFirst_FirstColumnShowsZero()
     {
-        // Only fight: Alice dies first, Charlie never dies
         var logs = new List<PlayerFightLog>
         {
             new() { FightLogId = 1, GuildWarsAccountName = "Alice.1234",   TimeOfDeath = 1000, DamageTaken = 10 },
@@ -189,8 +185,7 @@ public class RaidReportServiceTests(ITestOutputHelper output)
     [Fact]
     public void BuildSurvivabilityTable_RowsStayWithinMobileWidth()
     {
-        // Wide values across every column - rows must still fit Discord's mobile code-block width
-        // so the last column doesn't wrap onto its own line.
+        // Rows must stay within Discord's mobile code-block width.
         var logs = Enumerable.Range(1, 10)
             .Select(i => new PlayerFightLog
             {
@@ -225,23 +220,19 @@ public class RaidReportServiceTests(ITestOutputHelper output)
         Assert.Contains("VeryLongAccou", dataLine);
     }
 
-    // Visual output: not a pass/fail assertion; prints to console for review
     [Fact]
     public void BuildSurvivabilityTable_WithRealisticData_PrintsFormattedTable()
     {
         var logs = new List<PlayerFightLog>
         {
-            // Fight 1
             new() { FightLogId = 1, GuildWarsAccountName = "Alice.1234",       ResurrectionTime = 5000,  DamageTaken = 120_000, TimesDowned = 2, TimeOfDeath = 3000  },
             new() { FightLogId = 1, GuildWarsAccountName = "Bob.5678",          ResurrectionTime = 0,     DamageTaken = 250_000, TimesDowned = 0, TimeOfDeath = 10000 },
             new() { FightLogId = 1, GuildWarsAccountName = "Charlie.0000",      ResurrectionTime = 12000, DamageTaken = 80_000,  TimesDowned = 4, TimeOfDeath = 1500  },
             new() { FightLogId = 1, GuildWarsAccountName = "DeeplyNested.1111", ResurrectionTime = 0,     DamageTaken = 310_000, TimesDowned = 0, TimeOfDeath = null  },
-            // Fight 2
             new() { FightLogId = 2, GuildWarsAccountName = "Alice.1234",       ResurrectionTime = 2000,  DamageTaken = 95_000,  TimesDowned = 1, TimeOfDeath = 8000  },
             new() { FightLogId = 2, GuildWarsAccountName = "Bob.5678",          ResurrectionTime = 7000,  DamageTaken = 175_000, TimesDowned = 1, TimeOfDeath = 2000  },
             new() { FightLogId = 2, GuildWarsAccountName = "Charlie.0000",      ResurrectionTime = 0,     DamageTaken = 60_000,  TimesDowned = 0, TimeOfDeath = null  },
             new() { FightLogId = 2, GuildWarsAccountName = "DeeplyNested.1111", ResurrectionTime = 0,     DamageTaken = 200_000, TimesDowned = 0, TimeOfDeath = null  },
-            // Fight 3
             new() { FightLogId = 3, GuildWarsAccountName = "Alice.1234",       ResurrectionTime = 0,     DamageTaken = 70_000,  TimesDowned = 0, TimeOfDeath = 500   },
             new() { FightLogId = 3, GuildWarsAccountName = "Bob.5678",          ResurrectionTime = 0,     DamageTaken = 190_000, TimesDowned = 0, TimeOfDeath = null  },
             new() { FightLogId = 3, GuildWarsAccountName = "Charlie.0000",      ResurrectionTime = 3000,  DamageTaken = 110_000, TimesDowned = 2, TimeOfDeath = 4000  },
@@ -279,8 +270,7 @@ public class RaidReportServiceTests(ITestOutputHelper output)
     [Fact]
     public void BuildSurvivabilityTable_WithLargeSquad_TotalContentExceedsDiscordFieldValueLimit()
     {
-        // 25-player squads produce ~1400 chars of row text - over the 1024-char per-field limit -
-        // which is why AddChunkedCodeFenceFields splits into multiple fields at 12 rows per chunk.
+        // Large squads exceed Discord's 1024-character field value limit.
         const int discordFieldValueLimit = 1024;
 
         var logs = Enumerable.Range(1, 25)

@@ -189,8 +189,7 @@ public class LiveRaidEndpointsIntegrationTests
     [Fact]
     public async Task GetLatestRaid_GuildIdSerializedAsString()
     {
-        // Discord snowflakes exceed Number.MAX_SAFE_INTEGER in JS, so the API must return
-        // guildId as a string. Otherwise the browser silently truncates the last digits.
+        // Return Discord snowflakes as strings to avoid JS precision loss.
         using var host = NewHost();
         var bigGuildId = 415441457151737870L;
         host.AllowMembership(bigGuildId);

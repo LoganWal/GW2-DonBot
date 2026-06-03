@@ -3,7 +3,6 @@
     <h1 class="page-title">GW2 Account Verification</h1>
 
     <div class="verify-grid">
-      <!-- Linked accounts -->
       <Card>
         <template #title>Linked Accounts</template>
         <template #content>
@@ -27,7 +26,6 @@
         </template>
       </Card>
 
-      <!-- Add account -->
       <Card>
         <template #title>Link a GW2 Account</template>
         <template #content>

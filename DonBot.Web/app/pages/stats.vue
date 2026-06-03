@@ -10,7 +10,6 @@
           <Tab v-if="stats.wvw" value="wvw">WvW</Tab>
         </TabList>
 
-        <!-- WvW Tab -->
         <TabPanel v-if="stats.wvw" value="wvw">
           <SectionTitle>Overview</SectionTitle>
           <div class="stat-grid">
@@ -76,7 +75,6 @@
           </div>
         </TabPanel>
 
-        <!-- PvE Tab -->
         <TabPanel v-if="stats.pve" value="pve">
           <SectionTitle>Player Overview</SectionTitle>
           <div class="stat-grid">

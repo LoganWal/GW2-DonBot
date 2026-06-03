@@ -21,7 +21,7 @@ public sealed class PvEFightSummaryService(
 {
     public async Task<(Embed Embed, string? WebAppUrl, long FightLogId)> GenerateSimple(EliteInsightDataModel data, long guildId)
     {
-        // Fire-and-forget; exceptions are intentionally swallowed to avoid disrupting the summary flow
+        // Runs in the background; failures must not block the summary.
         _ = Task.Run(async () =>
         {
             try

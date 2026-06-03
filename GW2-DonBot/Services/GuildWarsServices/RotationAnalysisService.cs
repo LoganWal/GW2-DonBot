@@ -6,15 +6,12 @@ namespace DonBot.Services.GuildWarsServices;
 
 public sealed class RotationAnalysisService(IEntityService entityService) : IRotationAnalysisService
 {
-    // CV-based single-skill detection
-    private const double CvThreshold = 0.08;         // flag if stddev/mean < 8%
-    private const double MinMeanIntervalMs = 500.0;  // ignore skills cast faster than 500ms on average (chains/procs)
-    private const int MinCastCount = 4;              // minimum casts needed to evaluate
-
-    // Repeating rotation cycle detection
-    private const int MinCycleLength = 3;            // minimum skills in a cycle
-    private const int MaxCycleLength = 8;            // maximum skills in a cycle
-    private const int MinCycleRepeats = 3;           // minimum consecutive full repeats to flag
+    private const double CvThreshold = 0.08;
+    private const double MinMeanIntervalMs = 500.0;
+    private const int MinCastCount = 4;
+    private const int MinCycleLength = 3;
+    private const int MaxCycleLength = 8;
+    private const int MinCycleRepeats = 3;
 
     public async Task AnalyzePlayerRotations(EliteInsightDataModel data)
     {
@@ -86,7 +83,7 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
 
         var anomalies = new List<RotationAnomaly>();
 
-        // Tier 1: flag skills whose inter-cast intervals have suspiciously low variance (CV < threshold)
+        // Tier 1: low-variance intervals for one skill.
         foreach (var (skillId, castTimes) in skillCasts)
         {
             if (castTimes.Count < MinCastCount) {
@@ -129,10 +126,7 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
             });
         }
 
-        // Tier 2: find the best repeating N-skill cycle and check whether its duration is also
-        // suspiciously consistent. A player can repeat the same rotation with natural timing
-        // variance (human) or with fixed timing (bot/macro). Tier 2 requires both sequence
-        // repetition AND low-variance cycle duration before flagging.
+        // Tier 2: repeated skill sequence with low-variance cycle duration.
         var sortedSkills = orderedSkills.OrderBy(s => s.Time).ToList();
         var skillIdSequence = sortedSkills.Select(s => s.SkillId).ToList();
         var skillTimeSequence = sortedSkills.Select(s => s.Time).ToList();
@@ -158,8 +152,7 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
         return anomalies;
     }
 
-    // Returns the highest-scoring repeating sequence (score = repeats x cycleLength) whose
-    // cycle duration CV is also below CvThreshold. Tries all lengths and starting positions.
+    // Tries each cycle length and start, then keeps the highest repeats x length score.
     private static CycleDetection? DetectRotationCycle(
         List<long> skillIds,
         List<double> skillTimes,
@@ -191,7 +184,7 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
                     continue;
                 }
 
-                // skillTimes are in seconds (EliteInsights format); convert to ms for consistency
+                // EliteInsights times are seconds; anomalies store milliseconds.
                 var cycleTimes = Enumerable.Range(0, repeats - 1)
                     .Select(r => (skillTimes[start + (r + 1) * cycleLen] - skillTimes[start + r * cycleLen]) * 1000.0)
                     .ToList();
@@ -208,7 +201,6 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
                     continue;
                 }
 
-                // Keep the candidate with the highest score (repeats x cycleLength)
                 if (best != null && repeats * cycleLen <= best.Repeats * best.CycleLength) {
                     continue;
                 }

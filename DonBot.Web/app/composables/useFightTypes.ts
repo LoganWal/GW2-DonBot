@@ -56,7 +56,6 @@ const SUPER_CATEGORIES: { label: string; groups: string[] }[] = [
 export const fightName = (type: number) => FIGHT_NAMES[type] ?? 'Unknown'
 export const fightGroup = (type: number) => FIGHT_TYPE_TO_GROUP[type] ?? 'Other'
 
-/** Grouped options for Select / MultiSelect (WvW first, then raid wings, strikes, fractals) */
 export const fightTypeGroupedOptions = [
   { label: 'WvW', items: [{ label: 'WvW', value: 0, group: 'WvW' }] },
   ...GROUPS.map(g => ({
@@ -65,7 +64,6 @@ export const fightTypeGroupedOptions = [
   })),
 ]
 
-/** Group an array of objects that have a fightType number field */
 export function groupByFightType<T extends { fightType: number }>(items: T[]): { label: string; items: T[] }[] {
   const order = ['WvW', 'Wing 1', 'Wing 2', 'Wing 3', 'Wing 4', 'Wing 5', 'Wing 6', 'Wing 7', 'Wing 8', 'Wing 9',
     'EoD Strikes', 'Core Strikes', 'SotO Strikes', 'Icebrood Strikes', 'Fractals', 'Golem', 'Other']
@@ -79,7 +77,6 @@ export function groupByFightType<T extends { fightType: number }>(items: T[]): {
   return order.filter(g => map.has(g)).map(g => ({ label: g, items: map.get(g)! }))
 }
 
-/** Group fight-type groups into WvW / Raids / Strikes / Fractals / Other super-categories */
 export function groupBySuperCategory<T extends { fightType: number }>(
   items: T[]
 ): { label: string; groups: { label: string; items: T[] }[] }[] {

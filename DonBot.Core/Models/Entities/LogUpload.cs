@@ -28,6 +28,8 @@ public class LogUpload
 
     public bool SubmitToWingman { get; set; } = true;
 
+    public long GuildId { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

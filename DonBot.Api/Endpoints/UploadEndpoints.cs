@@ -1,8 +1,16 @@
-using System.Security.Claims;
-using System.Text.RegularExpressions;
 using DonBot.Api.Services;
 using DonBot.Models.Entities;
 using Microsoft.EntityFrameworkCore;
+using Serilog.Core;
+using System.Net;
+using System.Security.Claims;
+using System.Text;
+using System.Text.RegularExpressions;
+using tusdotnet;
+using tusdotnet.Interfaces;
+using tusdotnet.Models;
+using tusdotnet.Models.Configuration;
+using tusdotnet.Stores;
 
 namespace DonBot.Api.Endpoints;
 
@@ -19,6 +27,145 @@ public static class UploadEndpoints
         group.MapGet("/stream/{id:long}", StreamProgress).AllowAnonymous();
         group.MapPost("/wingman/{id:long}", SubmitOneToWingman);
         group.MapPost("/wingman/bulk", SubmitBulkToWingman);
+
+        group.MapTus("/tus", async httpContext =>
+        {
+            var guildService = httpContext.RequestServices.GetRequiredService<IUserGuildsService>();
+            var storagePath = app.Configuration["Upload:StoragePath"] ?? "/tmp/donbot/uploads";
+            var tusTempPath = Path.Combine(storagePath, "tus-temp");
+            Directory.CreateDirectory(tusTempPath);
+
+            return new DefaultTusConfiguration
+            {
+                Store = new TusDiskStore(tusTempPath),
+                Events = new Events
+                {
+                    OnAuthorizeAsync = ctx =>
+                    {
+                        if (ctx.Intent == IntentType.GetOptions)
+                        {
+                            return Task.CompletedTask;
+                        }
+                        if (!(ctx.HttpContext.User.Identity?.IsAuthenticated ?? false))
+                        {
+                            ctx.FailRequest(HttpStatusCode.Unauthorized, "Unauthorized.");
+                        }
+                        return Task.CompletedTask;
+                    },
+                    OnBeforeCreateAsync = ctx =>
+                    {
+                        if (!ctx.Metadata.TryGetValue("filename", out var fn) ||
+                            !fn.GetString(Encoding.UTF8).EndsWith(".zevtc", StringComparison.OrdinalIgnoreCase))
+                        {
+                            ctx.FailRequest(HttpStatusCode.BadRequest, "Only .zevtc files are allowed.");
+                        }
+                        return Task.CompletedTask;
+                    },
+                    OnCreateCompleteAsync = async ctx =>
+                    {
+                        var discordIdStr = ctx.HttpContext.User.FindFirst("discord_id")?.Value;
+                        if (!long.TryParse(discordIdStr, out var discordId))
+                        {
+                            return;
+                        }
+
+                        var filename = ctx.Metadata.TryGetValue("filename", out var fn)
+                            ? fn.GetString(Encoding.UTF8)
+                            : "upload.zevtc";
+                        var safeName = Path.GetFileName(filename);
+                        var wingman = ctx.Metadata.TryGetValue("wingman", out var wm) &&
+                            wm.GetString(Encoding.UTF8) == "true";
+                        long guildId = ctx.Metadata.TryGetValue("guildid", out var gid)
+                            ? long.TryParse(gid.GetString(Encoding.UTF8), out var gidParsed)
+                                ? gidParsed
+                                : 0
+                            : 0;
+
+                        // Make sure user is part of guild they are uploading for
+                        if (ctx.HttpContext.User != null)
+                        {
+                            var userGuildList = await guildService.GetForPrincipalAsync(ctx.HttpContext.User);
+                            if (userGuildList == null || userGuildList.First(guild => (long)guild.Id == guildId) == null)
+                            {
+                                // User is not part of the guild they are trying to upload for
+                                //logger.LogWarning("User tried uploading a log for guild they are not in: {id}", uploadId);
+                                guildId = 0;
+                            }
+                        }
+                        else
+                        {
+                            //logger.LogWarning("User tried uploading a log for guild they are not in: {id}", uploadId);
+                            guildId = 0;
+                        }
+
+                        var dbFactory = ctx.HttpContext.RequestServices
+                            .GetRequiredService<IDbContextFactory<DatabaseContext>>();
+                        await using var db = await dbFactory.CreateDbContextAsync();
+
+                        var upload = new LogUpload
+                        {
+                            DiscordId = discordId,
+                            FileName = safeName,
+                            SourceType = "file",
+                            Status = "receiving",
+                            SubmitToWingman = wingman,
+                            GuildId = guildId,
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow
+                        };
+                        db.LogUpload.Add(upload);
+                        await db.SaveChangesAsync();
+
+                        ctx.HttpContext.RequestServices.GetRequiredService<TusFileMapping>()
+                            .Add(ctx.FileId, upload.LogUploadId);
+
+                        ctx.HttpContext.Response.Headers["X-Log-Upload-Id"] = upload.LogUploadId.ToString();
+                    },
+                    OnFileCompleteAsync = async ctx =>
+                    {
+                        var mapping = ctx.HttpContext.RequestServices.GetRequiredService<TusFileMapping>();
+                        if (!mapping.TryRemove(ctx.FileId, out var logUploadId))
+                        {
+                            return;
+                        }
+
+                        var storagePath2 = ctx.HttpContext.RequestServices
+                            .GetRequiredService<IConfiguration>()["Upload:StoragePath"] ?? "/tmp/donbot/uploads";
+
+                        var dbFactory = ctx.HttpContext.RequestServices
+                            .GetRequiredService<IDbContextFactory<DatabaseContext>>();
+                        await using var db = await dbFactory.CreateDbContextAsync();
+                        var upload = await db.LogUpload.FirstOrDefaultAsync(
+                            u => u.LogUploadId == logUploadId, ctx.CancellationToken);
+                        if (upload == null)
+                        {
+                            return;
+                        }
+
+                        var uploadDir = Path.Combine(storagePath2, logUploadId.ToString());
+                        Directory.CreateDirectory(uploadDir);
+
+                        var file = await ctx.GetFileAsync();
+                        await using (var content = await file.GetContentAsync(ctx.CancellationToken))
+                        await using (var dest = File.Create(Path.Combine(uploadDir, upload.FileName)))
+                            await content.CopyToAsync(dest, ctx.CancellationToken);
+
+                        if (ctx.Store is ITusTerminationStore terminationStore)
+                        {
+                            await terminationStore.DeleteFileAsync(ctx.FileId, ctx.CancellationToken);
+                        }
+
+                        upload.Status = "stored";
+                        upload.UpdatedAt = DateTime.UtcNow;
+                        db.LogUpload.Update(upload);
+                        await db.SaveChangesAsync();
+
+                        ctx.HttpContext.RequestServices.GetRequiredService<LogUploadPipelineService>()
+                            .Enqueue(logUploadId);
+                    }
+                }
+            };
+        });
     }
 
     private record SubmitUrlsRequest(List<string> Urls, bool Wingman = true);

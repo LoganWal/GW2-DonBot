@@ -82,11 +82,14 @@ public static class UploadEndpoints
                             : 0;
 
                         // Make sure user is part of guild they are uploading for
-                        var userGuildList = await guildService.GetForPrincipalAsync(ctx.HttpContext.User);
-                        if (userGuildList == null || userGuildList.First(guild => (long)guild.Id == guildId) == null)
+                        if (guildId != 0)
                         {
-                            // User is not part of the guild they are trying to upload for
-                            guildId = 0;
+                            var userGuildList = await guildService.GetForPrincipalAsync(ctx.HttpContext.User);
+                            if (userGuildList == null || !userGuildList.Any(guild => (long)guild.Id == guildId))
+                            {
+                                // User is not part of the guild they are trying to upload for
+                                guildId = 0;
+                            }
                         }
 
                         var dbFactory = ctx.HttpContext.RequestServices

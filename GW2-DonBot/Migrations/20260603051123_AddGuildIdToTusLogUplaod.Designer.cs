@@ -3,6 +3,7 @@ using System;
 using DonBot.Models.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DonBot.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    partial class DatabaseContextModelSnapshot : ModelSnapshot
+    [Migration("20260603051123_AddGuildIdToTusLogUplaod")]
+    partial class AddGuildIdToTusLogUplaod
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -482,9 +485,6 @@ namespace DonBot.Migrations
                         .HasColumnType("bigint")
                         .HasColumnOrder(1);
 
-                    b.Property<bool>("IsWinner")
-                        .HasColumnType("boolean");
-
                     b.Property<decimal>("PointsSpent")
                         .HasPrecision(16, 3)
                         .HasColumnType("numeric(16,3)");
@@ -502,9 +502,6 @@ namespace DonBot.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<long?>("CreatorDiscordId")
-                        .HasColumnType("bigint");
-
                     b.Property<string>("Description")
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)");
@@ -514,12 +511,6 @@ namespace DonBot.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
-
-                    b.Property<long?>("MessageChannelId")
-                        .HasColumnType("bigint");
-
-                    b.Property<long?>("MessageId")
-                        .HasColumnType("bigint");
 
                     b.Property<int>("RaffleType")
                         .HasColumnType("integer");

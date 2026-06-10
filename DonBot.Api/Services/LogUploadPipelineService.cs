@@ -1,15 +1,17 @@
+using Discord;
+using DonBot.Models.Entities;
+using DonBot.Models.Enums;
+using DonBot.Models.GuildWars2;
+using DonBot.Services;
+using DonBot.Services.GuildWarsServices;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
-using DonBot.Models.Entities;
-using DonBot.Models.Enums;
-using DonBot.Services;
-using DonBot.Models.GuildWars2;
-using DonBot.Services.GuildWarsServices;
-using Microsoft.EntityFrameworkCore;
 
 namespace DonBot.Api.Services;
 
@@ -214,7 +216,7 @@ public sealed class LogUploadPipelineService : BackgroundService
             {
                 model = await dataModelGenerationService.GenerateEliteInsightDataModelFromUrl(dpsReportUrl);
             }
-            var fightLogId = await SaveFightLogAsync(model, playerService, ct);
+            var fightLogId = await SaveFightLogAsync(model, playerService, ct, upload.GuildId);
 
             await FinalizeAsync(uploadId, dpsReportUrl, fightLogId, ct);
             progress.Publish(uploadId, "complete", "Done.", dpsReportUrl, fightLogId);
@@ -378,8 +380,8 @@ public sealed class LogUploadPipelineService : BackgroundService
         ctx.LogUpload.Update(upload);
         await ctx.SaveChangesAsync(ct);
     }
-
-    private async Task<long> SaveFightLogAsync(EliteInsightDataModel data, IPlayerService playerService, CancellationToken ct)
+    
+    private async Task<long> SaveFightLogAsync(EliteInsightDataModel data, IPlayerService playerService, CancellationToken ct, long guildId = 0)
     {
         var fightPhase = data.FightEliteInsightDataModel.Phases?.Any() == true
             ? data.FightEliteInsightDataModel.Phases[0]
@@ -406,11 +408,11 @@ public sealed class LogUploadPipelineService : BackgroundService
         }
 
         return data.FightEliteInsightDataModel.Wvw
-            ? await SaveWvWFightLogAsync(ctx, data, fightPhase, existing, playerService, ct)
-            : await SavePvEFightLogAsync(ctx, data, fightPhase, existing, playerService, ct);
+            ? await SaveWvWFightLogAsync(ctx, data, fightPhase, existing, playerService, ct, guildId)
+            : await SavePvEFightLogAsync(ctx, data, fightPhase, existing, playerService, ct, guildId);
     }
 
-    private async Task<long> SaveWvWFightLogAsync(DatabaseContext ctx, EliteInsightDataModel data, ArcDpsPhase fightPhase, FightLog? existing, IPlayerService playerService, CancellationToken ct)
+    private async Task<long> SaveWvWFightLogAsync(DatabaseContext ctx, EliteInsightDataModel data, ArcDpsPhase fightPhase, FightLog? existing, IPlayerService playerService, CancellationToken ct, long guildId = 0)
     {
         if (existing != null) {
             return existing.FightLogId;
@@ -431,7 +433,7 @@ public sealed class LogUploadPipelineService : BackgroundService
 
         var fightLog = new FightLog
         {
-            GuildId = 0,
+            GuildId = guildId,
             Url = data.FightEliteInsightDataModel.Url,
             FightType = (short)FightTypesEnum.WvW,
             FightStart = dateTimeStart,
@@ -457,7 +459,7 @@ public sealed class LogUploadPipelineService : BackgroundService
         return fightLog.FightLogId;
     }
 
-    private async Task<long> SavePvEFightLogAsync(DatabaseContext ctx, EliteInsightDataModel data, ArcDpsPhase fightPhase, FightLog? existing, IPlayerService playerService, CancellationToken ct)
+    private async Task<long> SavePvEFightLogAsync(DatabaseContext ctx, EliteInsightDataModel data, ArcDpsPhase fightPhase, FightLog? existing, IPlayerService playerService, CancellationToken ct, long guildId = 0)
     {
         if (existing != null) {
             return existing.FightLogId;
@@ -488,7 +490,7 @@ public sealed class LogUploadPipelineService : BackgroundService
 
         var fightLog = new FightLog
         {
-            GuildId = 0,
+            GuildId = guildId,
             Url = data.FightEliteInsightDataModel.Url,
             FightType = encounterType,
             FightStart = dateTimeStart,

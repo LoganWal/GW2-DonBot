@@ -47,7 +47,6 @@ public static class ApiServiceRegister
 
         services.AddSingleton<ILogUploadProgressService, LogUploadProgressService>();
         services.AddSingleton<LogUploadPipelineService>();
-        services.AddSingleton<TusFileMapping>();
         services.AddSingleton<DiscordRestClientProvider>();
         services.AddSingleton<IUserGuildsService, UserGuildsService>();
         services.AddSingleton<IDiscordCommandAccessService, DiscordCommandAccessService>();

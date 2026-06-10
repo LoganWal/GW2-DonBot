@@ -26,6 +26,9 @@ public class LogUpload
     [MaxLength(2000)]
     public string? ErrorMessage { get; set; }
 
+    [MaxLength(128)]
+    public string? TusFileId { get; set; }
+
     public bool SubmitToWingman { get; set; } = true;
 
     public long GuildId { get; set; }

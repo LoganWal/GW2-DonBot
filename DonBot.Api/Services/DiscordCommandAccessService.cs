@@ -63,7 +63,7 @@ public sealed class DiscordCommandAccessService(
             }
 
             var permissions = await command.GetCommandPermission();
-            return PermissionsAllow(permissions.Permissions, guildId, userId, member.RoleIds);
+            return PermissionsAllow(permissions?.Permissions, guildId, userId, member.RoleIds);
         }
         catch (Exception ex)
         {
@@ -95,12 +95,12 @@ public sealed class DiscordCommandAccessService(
     }
 
     internal static bool PermissionsAllow(
-        IReadOnlyCollection<ApplicationCommandPermission> permissions,
+        IReadOnlyCollection<ApplicationCommandPermission>? permissions,
         ulong guildId,
         ulong userId,
         IReadOnlyCollection<ulong> roleIds)
     {
-        if (permissions.Count == 0)
+        if (permissions is null || permissions.Count == 0)
         {
             return true;
         }

@@ -1,11 +1,10 @@
-using DonBot.Api.Services;
-using DonBot.Models.Entities;
-using Microsoft.EntityFrameworkCore;
-using Serilog.Core;
 using System.Net;
 using System.Security.Claims;
 using System.Text;
 using System.Text.RegularExpressions;
+using DonBot.Api.Services;
+using DonBot.Models.Entities;
+using Microsoft.EntityFrameworkCore;
 using tusdotnet;
 using tusdotnet.Interfaces;
 using tusdotnet.Models;
@@ -27,139 +26,237 @@ public static class UploadEndpoints
         group.MapGet("/stream/{id:long}", StreamProgress).AllowAnonymous();
         group.MapPost("/wingman/{id:long}", SubmitOneToWingman);
         group.MapPost("/wingman/bulk", SubmitBulkToWingman);
+        group.MapTus("/tus", _ => BuildTusConfigurationAsync(app));
+    }
 
-        group.MapTus("/tus", async httpContext =>
+    private static Task<DefaultTusConfiguration> BuildTusConfigurationAsync(WebApplication app)
+    {
+        var storagePath = app.Configuration["Upload:StoragePath"] ?? "/tmp/donbot/uploads";
+        var maxUploadBytes = app.Configuration.GetValue<long>("Upload:MaxRequestBytes", 1_073_741_824);
+        var tusTempPath = Path.Combine(storagePath, "tus-temp");
+        Directory.CreateDirectory(tusTempPath);
+
+        return Task.FromResult(new DefaultTusConfiguration
         {
-            var guildService = httpContext.RequestServices.GetRequiredService<IUserGuildsService>();
-            var storagePath = app.Configuration["Upload:StoragePath"] ?? "/tmp/donbot/uploads";
-            var tusTempPath = Path.Combine(storagePath, "tus-temp");
-            Directory.CreateDirectory(tusTempPath);
-
-            return new DefaultTusConfiguration
+            Store = new TusDiskStore(tusTempPath),
+            MaxAllowedUploadSizeInBytesLong = maxUploadBytes,
+            Events = new Events
             {
-                Store = new TusDiskStore(tusTempPath),
-                Events = new Events
+                OnAuthorizeAsync = AuthorizeTusRequestAsync,
+                OnBeforeCreateAsync = async ctx =>
                 {
-                    OnAuthorizeAsync = ctx =>
+                    if (!TryGetMetadataString(ctx.Metadata, "filename", out var filename) ||
+                        !filename.EndsWith(".zevtc", StringComparison.OrdinalIgnoreCase))
                     {
-                        if (ctx.Intent == IntentType.GetOptions)
-                        {
-                            return Task.CompletedTask;
-                        }
-                        if (!(ctx.HttpContext.User.Identity?.IsAuthenticated ?? false))
-                        {
-                            ctx.FailRequest(HttpStatusCode.Unauthorized, "Unauthorized.");
-                        }
-                        return Task.CompletedTask;
-                    },
-                    OnBeforeCreateAsync = ctx =>
-                    {
-                        if (!ctx.Metadata.TryGetValue("filename", out var fn) ||
-                            !fn.GetString(Encoding.UTF8).EndsWith(".zevtc", StringComparison.OrdinalIgnoreCase))
-                        {
-                            ctx.FailRequest(HttpStatusCode.BadRequest, "Only .zevtc files are allowed.");
-                        }
-                        return Task.CompletedTask;
-                    },
-                    OnCreateCompleteAsync = async ctx =>
-                    {
-                        var discordIdStr = ctx.HttpContext.User.FindFirst("discord_id")?.Value;
-                        if (!long.TryParse(discordIdStr, out var discordId))
-                        {
-                            return;
-                        }
-
-                        var filename = ctx.Metadata.TryGetValue("filename", out var fn)
-                            ? fn.GetString(Encoding.UTF8)
-                            : "upload.zevtc";
-                        var safeName = Path.GetFileName(filename);
-                        var wingman = ctx.Metadata.TryGetValue("wingman", out var wm) &&
-                            wm.GetString(Encoding.UTF8) == "true";
-                        var guildId = ctx.Metadata.TryGetValue("guildid", out var gid)
-                            ? long.TryParse(gid.GetString(Encoding.UTF8), out var gidParsed)
-                                ? gidParsed
-                                : 0
-                            : 0;
-
-                        // Make sure user is part of guild they are uploading for
-                        if (guildId != 0)
-                        {
-                            var userGuildList = await guildService.GetForPrincipalAsync(ctx.HttpContext.User);
-                            if (userGuildList == null || !userGuildList.Any(guild => (long)guild.Id == guildId))
-                            {
-                                // User is not part of the guild they are trying to upload for
-                                guildId = 0;
-                            }
-                        }
-
-                        var dbFactory = ctx.HttpContext.RequestServices
-                            .GetRequiredService<IDbContextFactory<DatabaseContext>>();
-                        await using var db = await dbFactory.CreateDbContextAsync();
-
-                        var upload = new LogUpload
-                        {
-                            DiscordId = discordId,
-                            FileName = safeName,
-                            SourceType = "file",
-                            Status = "receiving",
-                            SubmitToWingman = wingman,
-                            GuildId = guildId,
-                            CreatedAt = DateTime.UtcNow,
-                            UpdatedAt = DateTime.UtcNow
-                        };
-                        db.LogUpload.Add(upload);
-                        await db.SaveChangesAsync();
-
-                        ctx.HttpContext.RequestServices.GetRequiredService<TusFileMapping>()
-                            .Add(ctx.FileId, upload.LogUploadId);
-
-                        ctx.HttpContext.Response.Headers["X-Log-Upload-Id"] = upload.LogUploadId.ToString();
-                    },
-                    OnFileCompleteAsync = async ctx =>
-                    {
-                        var mapping = ctx.HttpContext.RequestServices.GetRequiredService<TusFileMapping>();
-                        if (!mapping.TryRemove(ctx.FileId, out var logUploadId))
-                        {
-                            return;
-                        }
-
-                        var storagePath2 = ctx.HttpContext.RequestServices
-                            .GetRequiredService<IConfiguration>()["Upload:StoragePath"] ?? "/tmp/donbot/uploads";
-
-                        var dbFactory = ctx.HttpContext.RequestServices
-                            .GetRequiredService<IDbContextFactory<DatabaseContext>>();
-                        await using var db = await dbFactory.CreateDbContextAsync();
-                        var upload = await db.LogUpload.FirstOrDefaultAsync(
-                            u => u.LogUploadId == logUploadId, ctx.CancellationToken);
-                        if (upload == null)
-                        {
-                            return;
-                        }
-
-                        var uploadDir = Path.Combine(storagePath2, logUploadId.ToString());
-                        Directory.CreateDirectory(uploadDir);
-
-                        var file = await ctx.GetFileAsync();
-                        await using (var content = await file.GetContentAsync(ctx.CancellationToken))
-                        await using (var dest = File.Create(Path.Combine(uploadDir, upload.FileName)))
-                            await content.CopyToAsync(dest, ctx.CancellationToken);
-
-                        if (ctx.Store is ITusTerminationStore terminationStore)
-                        {
-                            await terminationStore.DeleteFileAsync(ctx.FileId, ctx.CancellationToken);
-                        }
-
-                        upload.Status = "stored";
-                        upload.UpdatedAt = DateTime.UtcNow;
-                        db.LogUpload.Update(upload);
-                        await db.SaveChangesAsync();
-
-                        ctx.HttpContext.RequestServices.GetRequiredService<LogUploadPipelineService>()
-                            .Enqueue(logUploadId);
+                        ctx.FailRequest(HttpStatusCode.BadRequest, "Only .zevtc files are allowed.");
+                        return;
                     }
+
+                    var guildService = ctx.HttpContext.RequestServices.GetRequiredService<IUserGuildsService>();
+                    var guildResult = await ResolveTusGuildIdAsync(
+                        ctx.Metadata,
+                        ctx.HttpContext.User,
+                        guildService,
+                        ctx.CancellationToken);
+
+                    if (guildResult.FailureStatus is { } status)
+                    {
+                        ctx.FailRequest(status, guildResult.FailureMessage ?? "Invalid guild id.");
+                        return;
+                    }
+                },
+                OnCreateCompleteAsync = async ctx =>
+                {
+                    var discordIdStr = ctx.HttpContext.User.FindFirst("discord_id")?.Value;
+                    if (!long.TryParse(discordIdStr, out var discordId))
+                    {
+                        return;
+                    }
+
+                    var filename = TryGetMetadataString(ctx.Metadata, "filename", out var metadataFileName)
+                        ? metadataFileName
+                        : "upload.zevtc";
+                    var safeName = Path.GetFileName(filename);
+                    var wingman = TryGetMetadataString(ctx.Metadata, "wingman", out var wingmanRaw) &&
+                        string.Equals(wingmanRaw, "true", StringComparison.OrdinalIgnoreCase);
+
+                    var guildService = ctx.HttpContext.RequestServices.GetRequiredService<IUserGuildsService>();
+                    var guildResult = await ResolveTusGuildIdAsync(
+                        ctx.Metadata,
+                        ctx.HttpContext.User,
+                        guildService,
+                        ctx.CancellationToken);
+
+                    if (guildResult.FailureStatus is not null)
+                    {
+                        return;
+                    }
+
+                    var dbFactory = ctx.HttpContext.RequestServices
+                        .GetRequiredService<IDbContextFactory<DatabaseContext>>();
+                    await using var db = await dbFactory.CreateDbContextAsync(ctx.CancellationToken);
+
+                    var upload = new LogUpload
+                    {
+                        DiscordId = discordId,
+                        FileName = safeName,
+                        SourceType = "file",
+                        Status = "receiving",
+                        SubmitToWingman = wingman,
+                        GuildId = guildResult.GuildId,
+                        TusFileId = ctx.FileId,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    db.LogUpload.Add(upload);
+                    await db.SaveChangesAsync(ctx.CancellationToken);
+
+                    ctx.HttpContext.Response.Headers["X-Log-Upload-Id"] = upload.LogUploadId.ToString();
+                },
+                OnFileCompleteAsync = async ctx =>
+                {
+                    var uploadStoragePath = ctx.HttpContext.RequestServices
+                        .GetRequiredService<IConfiguration>()["Upload:StoragePath"] ?? "/tmp/donbot/uploads";
+
+                    var dbFactory = ctx.HttpContext.RequestServices
+                        .GetRequiredService<IDbContextFactory<DatabaseContext>>();
+                    await using var db = await dbFactory.CreateDbContextAsync(ctx.CancellationToken);
+                    var upload = await db.LogUpload.FirstOrDefaultAsync(
+                        u => u.TusFileId == ctx.FileId, ctx.CancellationToken);
+                    if (upload is null)
+                    {
+                        return;
+                    }
+
+                    var logUploadId = upload.LogUploadId;
+                    var uploadDir = Path.Combine(uploadStoragePath, logUploadId.ToString());
+                    Directory.CreateDirectory(uploadDir);
+
+                    var file = await ctx.GetFileAsync();
+                    await using (var content = await file.GetContentAsync(ctx.CancellationToken))
+                    await using (var dest = File.Create(Path.Combine(uploadDir, upload.FileName)))
+                    {
+                        await content.CopyToAsync(dest, ctx.CancellationToken);
+                    }
+
+                    if (ctx.Store is ITusTerminationStore terminationStore)
+                    {
+                        await terminationStore.DeleteFileAsync(ctx.FileId, ctx.CancellationToken);
+                    }
+
+                    upload.Status = "stored";
+                    upload.UpdatedAt = DateTime.UtcNow;
+                    db.LogUpload.Update(upload);
+                    await db.SaveChangesAsync(ctx.CancellationToken);
+
+                    ctx.HttpContext.RequestServices.GetRequiredService<LogUploadPipelineService>()
+                        .Enqueue(logUploadId);
                 }
-            };
+            }
         });
+    }
+
+    internal static async Task AuthorizeTusRequestAsync(AuthorizeContext ctx)
+    {
+        if (ctx.Intent == IntentType.GetOptions)
+        {
+            return;
+        }
+
+        if (!TryGetDiscordId(ctx.HttpContext.User, out var discordId))
+        {
+            ctx.FailRequest(HttpStatusCode.Unauthorized, "Unauthorized.");
+            return;
+        }
+
+        if (ctx.Intent == IntentType.CreateFile || ctx.Intent == IntentType.ConcatenateFiles)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(ctx.FileId))
+        {
+            ctx.FailRequest(HttpStatusCode.Forbidden, "You do not own this upload.");
+            return;
+        }
+
+        var dbFactory = ctx.HttpContext.RequestServices.GetRequiredService<IDbContextFactory<DatabaseContext>>();
+        if (!await IsTusUploadOwnerAsync(dbFactory, ctx.FileId, discordId, ctx.HttpContext.RequestAborted))
+        {
+            ctx.FailRequest(HttpStatusCode.Forbidden, "You do not own this upload.");
+        }
+    }
+
+    internal static async Task<bool> IsTusUploadOwnerAsync(
+        IDbContextFactory<DatabaseContext> dbFactory,
+        string tusFileId,
+        long discordId,
+        CancellationToken ct)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        return await db.LogUpload.AsNoTracking().AnyAsync(
+            u => u.TusFileId == tusFileId && u.DiscordId == discordId,
+            ct);
+    }
+
+    private static bool TryGetDiscordId(ClaimsPrincipal user, out long discordId)
+    {
+        if (!(user.Identity?.IsAuthenticated ?? false))
+        {
+            discordId = 0;
+            return false;
+        }
+
+        return long.TryParse(user.FindFirst("discord_id")?.Value, out discordId);
+    }
+
+    internal static async Task<TusGuildResolution> ResolveTusGuildIdAsync(
+        IReadOnlyDictionary<string, Metadata> metadata,
+        ClaimsPrincipal user,
+        IUserGuildsService guildService,
+        CancellationToken ct)
+    {
+        if (!TryGetMetadataString(metadata, "guildid", out var guildIdRaw) &&
+            !TryGetMetadataString(metadata, "guildId", out guildIdRaw))
+        {
+            return new TusGuildResolution(0);
+        }
+
+        if (!long.TryParse(guildIdRaw, out var guildId) || guildId <= 0)
+        {
+            return TusGuildResolution.Failed(HttpStatusCode.BadRequest, "Invalid guild id.");
+        }
+
+        var userGuildList = await guildService.GetForPrincipalAsync(user, ct);
+        if (userGuildList is null || !userGuildList.Any(guild => (long)guild.Id == guildId))
+        {
+            return TusGuildResolution.Failed(HttpStatusCode.Forbidden, "You are not a member of that guild.");
+        }
+
+        return new TusGuildResolution(guildId);
+    }
+
+    private static bool TryGetMetadataString(
+        IReadOnlyDictionary<string, Metadata> metadata,
+        string key,
+        out string value)
+    {
+        if (metadata.TryGetValue(key, out var metadataValue))
+        {
+            value = metadataValue.GetString(Encoding.UTF8);
+            return true;
+        }
+
+        value = string.Empty;
+        return false;
+    }
+
+    internal readonly record struct TusGuildResolution(
+        long GuildId,
+        HttpStatusCode? FailureStatus = null,
+        string? FailureMessage = null)
+    {
+        public static TusGuildResolution Failed(HttpStatusCode status, string message) => new(0, status, message);
     }
 
     private record SubmitUrlsRequest(List<string> Urls, bool Wingman = true);

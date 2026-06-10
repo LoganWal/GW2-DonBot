@@ -414,7 +414,9 @@ public sealed class LogUploadPipelineService : BackgroundService
 
     private async Task<long> SaveWvWFightLogAsync(DatabaseContext ctx, EliteInsightDataModel data, ArcDpsPhase fightPhase, FightLog? existing, IPlayerService playerService, CancellationToken ct, long guildId = 0)
     {
-        if (existing != null) {
+        if (existing != null)
+        {
+            await AttachGuildToExistingLogAsync(ctx, existing, guildId, ct);
             return existing.FightLogId;
         }
 
@@ -461,7 +463,9 @@ public sealed class LogUploadPipelineService : BackgroundService
 
     private async Task<long> SavePvEFightLogAsync(DatabaseContext ctx, EliteInsightDataModel data, ArcDpsPhase fightPhase, FightLog? existing, IPlayerService playerService, CancellationToken ct, long guildId = 0)
     {
-        if (existing != null) {
+        if (existing != null)
+        {
+            await AttachGuildToExistingLogAsync(ctx, existing, guildId, ct);
             return existing.FightLogId;
         }
 
@@ -536,6 +540,18 @@ public sealed class LogUploadPipelineService : BackgroundService
         }
 
         return fightLog.FightLogId;
+    }
+
+    private static async Task AttachGuildToExistingLogAsync(DatabaseContext ctx, FightLog existing, long guildId, CancellationToken ct)
+    {
+        if (guildId <= 0 || existing.GuildId != 0)
+        {
+            return;
+        }
+
+        existing.GuildId = guildId;
+        ctx.FightLog.Update(existing);
+        await ctx.SaveChangesAsync(ct);
     }
 
     private static DateTime ParseStart(string? dateStartString) =>

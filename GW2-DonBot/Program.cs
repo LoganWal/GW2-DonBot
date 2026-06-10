@@ -1,6 +1,7 @@
 using Discord;
 using Discord.WebSocket;
 using DonBot;
+using DonBot.Configuration;
 using DonBot.Controller.Discord;
 using DonBot.Models.Entities;
 using DonBot.Registration;
@@ -10,13 +11,14 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 
+RuntimeConfiguration.LoadEnvFile();
+
 var builder = Host.CreateApplicationBuilder(args);
-builder.Configuration.AddJsonFile("appsettings.user.json", optional: true, reloadOnChange: true);
+builder.Configuration.AddRuntimeConfiguration(args, reloadOnChange: true);
 
 builder.Services.AddSerilog((_, config) => config.ReadFrom.Configuration(builder.Configuration));
 
-builder.Services.AddWindowsService();
-builder.Services.AddSystemd();
+builder.Services.AddPortableHostLifetimes();
 
 ServiceRegister.ConfigureServices(builder.Services);
 

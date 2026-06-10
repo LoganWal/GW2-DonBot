@@ -232,9 +232,9 @@ Logs are also submitted to gw2wingman in the background after the dps.report URL
 
 ### Configuration
 
-**Docker**: copy `.env.example` to `.env` and fill in your values.
+**Docker or service deployment**: copy `.env.example` to `.env` and fill in your values, or set the same keys as real environment variables. For service installs, set `DONBOT_ENV_FILE` to an absolute `.env` path if the file is not beside the published app.
 
-**Local development**: copy the relevant `appsettings.example.json` to `appsettings.user.json` in the same directory. Both files are gitignored and loaded automatically at startup.
+**Local development**: use `.env`, or copy the relevant `appsettings.example.json` to `appsettings.user.json` in the same directory. These files are gitignored and loaded automatically at startup.
 
 - Bot: `GW2-DonBot/appsettings.example.json`
 - API: `DonBot.Api/appsettings.example.json`

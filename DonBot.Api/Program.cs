@@ -1,26 +1,14 @@
-using System.Net;
-using System.Text;
+using DonBot.Configuration;
 using DonBot.Api.Endpoints;
 using DonBot.Api.Registration;
-using DonBot.Api.Services;
-using DonBot.Models.Entities;
 using Microsoft.AspNetCore.Http.Features;
-using Microsoft.EntityFrameworkCore;
 using Serilog;
-using tusdotnet;
-using tusdotnet.Interfaces;
-using tusdotnet.Models;
-using tusdotnet.Models.Configuration;
-using tusdotnet.Stores;
 
-var envFile = Path.Combine(Directory.GetCurrentDirectory(), "..", ".env");
-if (File.Exists(envFile)) {
-    DotNetEnv.Env.Load(envFile);
-}
+RuntimeConfiguration.LoadEnvFile();
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Host.UseSystemd();
-builder.Configuration.AddJsonFile("appsettings.user.json", optional: true);
+builder.Configuration.AddRuntimeConfiguration(args, reloadOnChange: false);
+builder.Services.AddPortableHostLifetimes();
 builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
     .ReadFrom.Services(services));

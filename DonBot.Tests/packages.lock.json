@@ -833,6 +833,7 @@
         "dependencies": {
           "Discord.Net": "[3.19.1, )",
           "DonBot.Core": "[1.0.0, )",
+          "DotNetEnv": "[3.1.1, )",
           "Microsoft.EntityFrameworkCore": "[10.0.5, )",
           "Microsoft.EntityFrameworkCore.Relational": "[10.0.5, )",
           "Microsoft.Extensions.Configuration.Json": "[10.0.5, )",
@@ -853,6 +854,8 @@
           "DonBot.Core": "[1.0.0, )",
           "DotNetEnv": "[3.1.1, )",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.5, )",
+          "Microsoft.Extensions.Hosting.Systemd": "[10.0.5, )",
+          "Microsoft.Extensions.Hosting.WindowsServices": "[10.0.5, )",
           "Serilog.AspNetCore": "[10.0.0, )",
           "tusdotnet": "[2.11.1, )"
         }

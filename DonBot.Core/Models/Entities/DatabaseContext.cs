@@ -79,6 +79,10 @@ public sealed class DatabaseContext : DbContext
             .Property(fl => fl.FightPercent)
             .HasPrecision(6, 2);
 
+        modelBuilder.Entity<LogUpload>()
+            .HasIndex(lu => lu.TusFileId)
+            .IsUnique();
+
         modelBuilder.Entity<PlayerFightLog>()
             .Property(pfl => pfl.AlacDuration)
             .HasPrecision(6, 2);

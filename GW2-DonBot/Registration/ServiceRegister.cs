@@ -54,7 +54,6 @@ public static class ServiceRegister
 
         services.AddSingleton<SchedulerService>();
         services.AddTransient<IScheduledEventHandler, RaidSignupEventHandler>();
-        services.AddTransient<IScheduledEventHandler, WvwRaidSignupEventHandler>();
         services.AddTransient<IScheduledEventHandler, WvwLeaderboardEventHandler>();
         services.AddTransient<IScheduledEventHandler, PveLeaderboardEventHandler>();
 

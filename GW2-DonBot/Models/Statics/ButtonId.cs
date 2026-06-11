@@ -24,4 +24,6 @@ internal static class ButtonId
     public const string DismissLogsPrefix = "Dismiss_Logs_";
     public const string PostLogsWingmanYesPrefix = "Post_Logs_Wingman_Yes_";
     public const string PostLogsWingmanNoPrefix = "Post_Logs_Wingman_No_";
+
+    public const string ScheduledEventResponsePrefix = "Scheduled_Event_Response_";
 }

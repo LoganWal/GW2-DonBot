@@ -166,6 +166,22 @@ public class SchedulerServiceTests
         Assert.True(result > Now);
     }
 
+    [Fact]
+    public void IsScheduledForFireTime_SameDayAndHour_ReturnsTrue()
+    {
+        var ev = MakeWeeklyEvent(day: (short)Now.DayOfWeek, hour: (short)Now.Hour);
+
+        Assert.True(SchedulerService.IsScheduledForFireTime(ev, Now));
+    }
+
+    [Fact]
+    public void IsScheduledForFireTime_DifferentDayOrHour_ReturnsFalse()
+    {
+        var ev = MakeWeeklyEvent(day: (short)Now.DayOfWeek, hour: (short)(Now.Hour + 1));
+
+        Assert.False(SchedulerService.IsScheduledForFireTime(ev, Now));
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(1)]

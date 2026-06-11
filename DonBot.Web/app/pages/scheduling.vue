@@ -24,7 +24,7 @@
               option-label="name"
               option-value="guildId"
               placeholder="Select a server"
-              style="min-width: 320px;"
+              style="width: min(320px, 100%);"
             />
           </div>
         </template>
@@ -72,6 +72,19 @@
                   <span v-else>{{ data.message }}</span>
                 </template>
               </Column>
+              <Column header="Responses">
+                <template #body="{ data }">
+                  <div v-if="isSignupEvent(data.eventType)" class="response-chip-list">
+                    <Tag
+                      v-for="(option, index) in data.responseOptions"
+                      :key="`${data.scheduledEventId}-${index}`"
+                      :value="`${option.emoji} ${option.label}`"
+                      severity="secondary"
+                    />
+                  </div>
+                  <span v-else class="muted-sub">-</span>
+                </template>
+              </Column>
               <Column header="" style="width: 140px;">
                 <template #body="{ data }">
                   <div style="display: flex; gap: 0.4rem;">
@@ -86,7 +99,7 @@
       </template>
     </template>
 
-    <Dialog v-model:visible="dialogVisible" :header="editingId ? 'Edit scheduled event' : 'New scheduled event'" modal :style="{ width: '560px' }">
+    <Dialog v-model:visible="dialogVisible" :header="editingId ? 'Edit scheduled event' : 'New scheduled event'" modal :style="{ width: '720px', maxWidth: '94vw' }">
       <div v-if="form" class="form-grid">
         <div class="field">
           <label for="ev-type">Type</label>
@@ -175,6 +188,73 @@
             @change="onInsertRoleMention"
           />
         </div>
+        <div v-if="isSignupEvent(form.eventType)" class="field response-field">
+          <div class="response-options-title">
+            <label>Response buttons</label>
+            <Button
+              label="Add"
+              icon="pi pi-plus"
+              size="small"
+              severity="secondary"
+              outlined
+              :disabled="form.responseOptions.length >= maxResponseOptions"
+              @click="addResponseOption"
+            />
+          </div>
+          <div class="response-option-list">
+            <div v-for="(option, index) in form.responseOptions" :key="index" class="response-option-item">
+              <div class="response-option-row">
+                <InputText
+                  v-model="option.emoji"
+                  class="response-emoji-input"
+                  :maxlength="maxResponseEmojiLength"
+                  :aria-label="`Emoji for response ${index + 1}`"
+                  :invalid="!!option.emoji.trim() && !isValidResponseEmoji(option.emoji)"
+                />
+                <Button
+                  icon="pi pi-face-smile"
+                  size="small"
+                  severity="secondary"
+                  outlined
+                  :aria-label="`Pick emoji for response ${index + 1}`"
+                  @click="openEmojiPicker($event, index)"
+                />
+                <InputText
+                  v-model="option.label"
+                  class="response-label-input"
+                  :maxlength="maxResponseLabelLength"
+                  :aria-label="`Label for response ${index + 1}`"
+                />
+                <Button
+                  icon="pi pi-trash"
+                  size="small"
+                  severity="danger"
+                  outlined
+                  :disabled="form.responseOptions.length <= 1"
+                  :aria-label="`Remove response ${index + 1}`"
+                  @click="removeResponseOption(index)"
+                />
+              </div>
+              <small v-if="!!option.emoji.trim() && !isValidResponseEmoji(option.emoji)" class="field-error">
+                Use a Unicode emoji or a server emoji like &lt;:name:id&gt;.
+              </small>
+            </div>
+          </div>
+          <div class="muted-sub">{{ form.responseOptions.length }}/{{ maxResponseOptions }} buttons</div>
+        </div>
+        <Popover ref="emojiPopoverRef">
+          <div class="emoji-picker-grid">
+            <Button
+              v-for="emoji in commonResponseEmojis"
+              :key="emoji"
+              :label="emoji"
+              text
+              rounded
+              :aria-label="`Insert ${emoji}`"
+              @click="insertResponseEmoji(emoji)"
+            />
+          </div>
+        </Popover>
       </div>
       <template #footer>
         <Button label="Cancel" severity="secondary" :disabled="saving" @click="dialogVisible = false" />
@@ -194,7 +274,14 @@ const { confirmDelete } = useConfirmAction()
 type GuildSummary = { guildId: string; name: string; iconUrl: string | null }
 type Channel = { id: string; name: string }
 type Role = { id: string; name: string }
-type Context = { guildId: string; guildName: string; channels: Channel[]; roles: Role[] }
+type ResponseOption = { label: string; emoji: string }
+type Context = {
+  guildId: string
+  guildName: string
+  channels: Channel[]
+  roles: Role[]
+  defaultSignupResponseOptions: ResponseOption[]
+}
 type ScheduledEvent = {
   scheduledEventId: number
   eventType: number
@@ -203,6 +290,7 @@ type ScheduledEvent = {
   hour: number
   repeatIntervalDays: number
   message: string
+  responseOptions: ResponseOption[]
   utcEventTime: string
 }
 
@@ -214,18 +302,65 @@ type FormState = {
   localFireDate: Date | null
   repeatIntervalDays: number
   message: string
+  responseOptions: ResponseOption[]
 }
 
 const maxMessageLength = 256
+const maxResponseOptions = 10
+const maxResponseLabelLength = 80
+const maxResponseEmojiLength = 64
+
+const commonResponseEmojis = [
+  '✅', '❌', '🛠️', '⏰', '⚔️', '🛡️', '💚', '💛', '🔥', '❓',
+  '👍', '👎', '🙌', '👀', '🎯', '📣', '⭐', '🌙', '☀️', '🍕',
+]
 
 const eventTypeOptions = [
   { value: 0, label: 'Raid signup' },
-  { value: 4, label: 'WvW raid signup' },
   { value: 1, label: 'WvW leaderboard' },
   { value: 2, label: 'PvE leaderboard' },
 ]
 
 const eventTypeLabel = (t: number) => eventTypeOptions.find(o => o.value === t)?.label ?? `Type ${t}`
+
+const isSignupEvent = (eventType: number) => eventType === 0
+
+const defaultResponseOptions = (): ResponseOption[] => {
+  if (context.value?.defaultSignupResponseOptions?.length) {
+    return normalizeResponseOptions(context.value.defaultSignupResponseOptions)
+  }
+
+  return [
+    { label: 'Join', emoji: '✅' },
+    { label: "Can't Join", emoji: '❌' },
+    { label: 'Can Fill', emoji: '🛠️' },
+  ]
+}
+
+const normalizeResponseOptions = (options: ResponseOption[]): ResponseOption[] => options
+  .slice(0, maxResponseOptions)
+  .map(o => ({ label: o.label.trim(), emoji: o.emoji.trim() }))
+
+const responseOptionsMatch = (left: ResponseOption[], right: ResponseOption[]) => {
+  const a = normalizeResponseOptions(left)
+  const b = normalizeResponseOptions(right)
+  return a.length === b.length && a.every((option, index) => option.label === b[index]?.label && option.emoji === b[index]?.emoji)
+}
+
+const hasDuplicateResponseOptions = (options: ResponseOption[]) => {
+  const keys = normalizeResponseOptions(options)
+    .filter(o => o.label.length > 0 && o.emoji.length > 0)
+    .map(o => `${o.emoji} ${o.label}`.toLocaleLowerCase())
+  return new Set(keys).size !== keys.length
+}
+
+const customEmojiPattern = /^<a?:[A-Za-z0-9_]{2,32}:\d{17,20}>$/
+const unicodeEmojiPattern = /^\p{Extended_Pictographic}(?:[\uFE0E\uFE0F]|\p{Emoji_Modifier}|\u200D\p{Extended_Pictographic})*$/u
+
+const isValidResponseEmoji = (emoji: string) => {
+  const value = emoji.trim()
+  return customEmojiPattern.test(value) || unicodeEmojiPattern.test(value)
+}
 
 const minPickerDate = new Date()
 
@@ -338,6 +473,7 @@ const startCreate = () => {
     localFireDate: def,
     repeatIntervalDays: 7,
     message: '',
+    responseOptions: defaultResponseOptions(),
   }
   roleMentionPicker.value = null
   dialogVisible.value = true
@@ -354,6 +490,7 @@ const startEdit = (e: ScheduledEvent) => {
     localFireDate: new Date(e.utcEventTime),
     repeatIntervalDays: e.repeatIntervalDays,
     message: e.message ?? '',
+    responseOptions: e.responseOptions?.length ? normalizeResponseOptions(e.responseOptions) : defaultResponseOptions(),
   }
   roleMentionPicker.value = null
   dialogVisible.value = true
@@ -361,10 +498,35 @@ const startEdit = (e: ScheduledEvent) => {
 
 const canSave = computed(() => {
   if (!form.value) return false
+  const normalizedResponseOptions = normalizeResponseOptions(form.value.responseOptions)
+  const responseOptionsValid = !isSignupEvent(form.value.eventType)
+    || (normalizedResponseOptions.length >= 1
+      && normalizedResponseOptions.length <= maxResponseOptions
+      && normalizedResponseOptions.every(o =>
+        o.label.trim().length > 0
+        && o.label.trim().length <= maxResponseLabelLength
+        && o.emoji.trim().length > 0
+        && o.emoji.trim().length <= maxResponseEmojiLength
+        && isValidResponseEmoji(o.emoji))
+      && !hasDuplicateResponseOptions(normalizedResponseOptions))
+
   return !!form.value.channelId
     && !!form.value.localFireDate
     && form.value.localFireDate.getTime() > Date.now()
     && form.value.repeatIntervalDays >= 1 && form.value.repeatIntervalDays <= 365
+    && responseOptionsValid
+})
+
+watch(() => form.value?.eventType, (newType, oldType) => {
+  if (!form.value || newType === undefined || oldType === undefined) return
+  if (!isSignupEvent(newType)) return
+
+  const shouldReplace = !form.value.responseOptions.length
+    || (isSignupEvent(oldType) && responseOptionsMatch(form.value.responseOptions, defaultResponseOptions()))
+
+  if (shouldReplace) {
+    form.value.responseOptions = defaultResponseOptions()
+  }
 })
 
 const formatNext = (iso: string) => {
@@ -381,6 +543,30 @@ const formatPostTime = (utcDay: number, utcHour: number) => {
 
 const messageTextareaRef = ref<any>(null)
 const roleMentionPicker = ref<string | null>(null)
+const emojiPopoverRef = ref<any>(null)
+const emojiTargetIndex = ref<number | null>(null)
+
+const addResponseOption = () => {
+  if (!form.value || form.value.responseOptions.length >= maxResponseOptions) return
+  form.value.responseOptions.push({ label: '', emoji: '✅' })
+}
+
+const removeResponseOption = (index: number) => {
+  if (!form.value || form.value.responseOptions.length <= 1) return
+  form.value.responseOptions.splice(index, 1)
+}
+
+const openEmojiPicker = (event: MouseEvent, index: number) => {
+  emojiTargetIndex.value = index
+  emojiPopoverRef.value?.show(event)
+}
+
+const insertResponseEmoji = (emoji: string) => {
+  if (form.value && emojiTargetIndex.value !== null && form.value.responseOptions[emojiTargetIndex.value]) {
+    form.value.responseOptions[emojiTargetIndex.value].emoji = emoji
+  }
+  emojiPopoverRef.value?.hide()
+}
 
 const onInsertRoleMention = () => {
   const roleId = roleMentionPicker.value
@@ -426,17 +612,18 @@ const save = async () => {
     utcEventTime: form.value.localFireDate.toISOString(),
     repeatIntervalDays: form.value.repeatIntervalDays,
     message: form.value.message?.trim() || null,
+    responseOptions: isSignupEvent(form.value.eventType)
+      ? normalizeResponseOptions(form.value.responseOptions)
+      : [],
   }
   try {
     if (editingId.value) {
-      const updated = await api(`/api/scheduling/guilds/${selectedGuildId.value}/events/${editingId.value}`, {
+      await api(`/api/scheduling/guilds/${selectedGuildId.value}/events/${editingId.value}`, {
         method: 'PUT',
         body,
-      }) as ScheduledEvent
-      // Replaced row gets a new id (delete + insert on the server), so refetch.
+      })
       await loadEvents(selectedGuildId.value)
       toast.add({ severity: 'success', summary: 'Saved', detail: 'Scheduled event updated.', life: 2500 })
-      void updated
     } else {
       const created = await api(`/api/scheduling/guilds/${selectedGuildId.value}/events`, {
         method: 'POST',
@@ -501,6 +688,13 @@ const onDelete = async (e: ScheduledEvent) => {
   color: var(--p-text-muted-color);
 }
 
+.response-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  max-width: 320px;
+}
+
 .form-grid {
   display: flex;
   flex-direction: column;
@@ -533,6 +727,67 @@ const onDelete = async (e: ScheduledEvent) => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
+}
+
+.response-field {
+  gap: 0.5rem;
+}
+
+.response-options-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.response-option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.response-option-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.response-option-row {
+  display: grid;
+  grid-template-columns: 4.5rem 2.5rem minmax(0, 1fr) 2.5rem;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.response-emoji-input {
+  text-align: center;
+}
+
+.response-label-input {
+  min-width: 0;
+}
+
+.emoji-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 2.4rem);
+  gap: 0.2rem;
+}
+
+.field-error {
+  color: var(--p-red-500);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 640px) {
+  .guild-picker,
+  .response-options-title {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .response-option-row {
+    grid-template-columns: 4.5rem 2.5rem 1fr 2.5rem;
+  }
 }
 
 </style>

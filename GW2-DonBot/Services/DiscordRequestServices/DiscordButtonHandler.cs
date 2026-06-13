@@ -402,7 +402,7 @@ public class DiscordButtonHandler(
         }
 
         targetUsers = GetUserList(targetField);
-        targetUsers.Add(user.Mention);
+        targetUsers.Add(FormatUserLine(user));
         targetField.Value = FormatFieldValue(targetField.Name, targetUsers);
 
         await currentMessage.ModifyAsync(msg =>
@@ -430,9 +430,40 @@ public class DiscordButtonHandler(
             .ToList();
     }
 
+    internal static string FormatUserLine(string mention, string? username)
+    {
+        var cleanUsername = (username ?? string.Empty)
+            .Replace('\r', ' ')
+            .Replace('\n', ' ')
+            .Trim();
+
+        return string.IsNullOrWhiteSpace(cleanUsername)
+            ? mention
+            : $"{mention} ({cleanUsername})";
+    }
+
+    private static string FormatUserLine(IUser user) =>
+        FormatUserLine(user.Mention, user.Username);
+
+    internal static bool IsSameUserLine(string line, ulong userId, string? username)
+    {
+        var cleanLine = line.Trim();
+        return IsUserMentionLine(cleanLine, userId)
+               || (!string.IsNullOrWhiteSpace(username)
+                   && cleanLine.Equals(username, StringComparison.OrdinalIgnoreCase));
+    }
+
     private static bool IsSameUserLine(string line, IUser user) =>
-        line.Equals(user.Mention, StringComparison.Ordinal)
-        || line.Equals(user.Username, StringComparison.OrdinalIgnoreCase);
+        IsSameUserLine(line, user.Id, user.Username);
+
+    private static bool IsUserMentionLine(string line, ulong userId) =>
+        HasMentionPrefix(line, $"<@{userId}>")
+        || HasMentionPrefix(line, $"<@!{userId}>");
+
+    private static bool HasMentionPrefix(string line, string mention) =>
+        line.Equals(mention, StringComparison.Ordinal)
+        || line.StartsWith($"{mention} ", StringComparison.Ordinal)
+        || line.StartsWith($"{mention}(", StringComparison.Ordinal);
 
     private static async Task TryFollowupAsync(SocketMessageComponent buttonComponent, string message)
     {

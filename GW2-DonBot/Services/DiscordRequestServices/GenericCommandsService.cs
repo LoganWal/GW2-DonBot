@@ -1,5 +1,5 @@
 using Discord.WebSocket;
-using DonBot.Models.Entities;
+using DonBot.Core.Models.Entities;
 using DonBot.Services.DatabaseServices;
 
 namespace DonBot.Services.DiscordRequestServices;
@@ -13,7 +13,7 @@ public sealed class GenericCommandsService(IEntityService entityService) : IGene
         var now = DateTime.UtcNow;
         var minutesSinceEven = (now.Hour % 2) * 60 + now.Minute;
 
-        // Pinata runs every even hour: 0-4 pre-event, 5-22 live, 23-29 over, then waiting.
+        // runs every even hour: 0-4 pre-event, 5-22 live, 23-29 over, then waiting.
 
         string message;
 

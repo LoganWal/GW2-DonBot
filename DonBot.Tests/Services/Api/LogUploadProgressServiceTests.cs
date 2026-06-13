@@ -44,7 +44,8 @@ public class LogUploadProgressServiceTests
         var collectTask = Task.Run(async () =>
         {
             var collected = new List<string>();
-            while (await enumerator.MoveNextAsync()) {
+            while (await enumerator.MoveNextAsync())
+            {
                 collected.Add(enumerator.Current);
             }
             return collected;
@@ -101,7 +102,11 @@ public class LogUploadProgressServiceTests
     private static async Task<List<string>> CollectAsync(IAsyncEnumerable<string> source)
     {
         var list = new List<string>();
-        await foreach (var item in source) list.Add(item);
+        await foreach (var item in source)
+        {
+            list.Add(item);
+        }
+
         return list;
     }
 

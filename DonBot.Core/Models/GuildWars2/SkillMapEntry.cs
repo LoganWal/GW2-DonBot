@@ -1,6 +1,6 @@
 using Newtonsoft.Json;
 
-namespace DonBot.Models.GuildWars2;
+namespace DonBot.Core.Models.GuildWars2;
 
 public class SkillMapEntry
 {

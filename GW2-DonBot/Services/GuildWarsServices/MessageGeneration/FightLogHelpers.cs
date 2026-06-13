@@ -1,5 +1,5 @@
-using DonBot.Models.Entities;
-using DonBot.Models.GuildWars2;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.GuildWars2;
 using DonBot.Services.DatabaseServices;
 
 namespace DonBot.Services.GuildWarsServices.MessageGeneration;

@@ -1,8 +1,12 @@
 import {
   Chart,
   LineController,
+  BarController,
+  DoughnutController,
   LineElement,
   PointElement,
+  BarElement,
+  ArcElement,
   LinearScale,
   CategoryScale,
   Legend,
@@ -13,8 +17,12 @@ import {
 export default defineNuxtPlugin(() => {
   Chart.register(
     LineController,
+    BarController,
+    DoughnutController,
     LineElement,
     PointElement,
+    BarElement,
+    ArcElement,
     LinearScale,
     CategoryScale,
     Legend,

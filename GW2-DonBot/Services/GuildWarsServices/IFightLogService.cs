@@ -1,4 +1,4 @@
-﻿using Discord.WebSocket;
+using Discord.WebSocket;
 
 namespace DonBot.Services.GuildWarsServices;
 

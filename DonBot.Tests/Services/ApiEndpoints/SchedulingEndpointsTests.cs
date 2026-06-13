@@ -1,13 +1,13 @@
 using DonBot.Api.Endpoints;
-using DonBot.Models.Entities;
-using DonBot.Models.Enums;
-using DonBot.Models.Scheduling;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.Enums;
+using DonBot.Core.Models.Scheduling;
 
 namespace DonBot.Tests.Services.ApiEndpoints;
 
 public class SchedulingEndpointsTests
 {
-    private static readonly HashSet<ulong> Channels = new() { 100UL, 200UL };
+    private static readonly HashSet<ulong> Channels = [100UL, 200UL];
 
     private static SchedulingEndpoints.EventWriteDto ValidBody(
         short eventType = (short)ScheduledEventTypeEnum.RaidSignup,
@@ -256,7 +256,7 @@ public class SchedulingEndpointsTests
     public void ParseRoleIds_CsvWithJunk_FiltersAndDedupes()
     {
         var ids = SchedulingEndpoints.ParseRoleIds("100, 200 , abc, 100, , 300");
-        Assert.Equal(new HashSet<ulong> { 100UL, 200UL, 300UL }, ids);
+        Assert.Equal([100UL, 200UL, 300UL], ids);
     }
 
     [Fact]
@@ -283,6 +283,8 @@ public class SchedulingEndpointsTests
 
         Assert.Equal(7, dto.ScheduledEventId);
         Assert.Equal("12345", dto.ChannelId);
+        Assert.Equal(1, dto.Day);
+        Assert.Equal(19, dto.Hour);
         Assert.Equal(14, dto.RepeatIntervalDays);
         Assert.Equal(fire, dto.UtcEventTime);
         Assert.Equal("be there", dto.Message);
@@ -311,6 +313,6 @@ public class SchedulingEndpointsTests
         var dto = SchedulingEndpoints.ToDto(entity);
 
         Assert.Equal((short)ScheduledEventTypeEnum.RaidSignup, dto.EventType);
-        Assert.Equal(new[] { "Join", "Can't Join", "Will Be Late" }, dto.ResponseOptions.Select(o => o.Label));
+        Assert.Equal(["Join", "Can't Join", "Will Be Late"], dto.ResponseOptions.Select(o => o.Label));
     }
 }

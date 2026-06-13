@@ -3,7 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using DonBot.Api.Endpoints;
 using DonBot.Api.Services;
-using DonBot.Models.Entities;
+using DonBot.Core.Models.Entities;
 using DonBot.Tests.Infrastructure;
 using tusdotnet.Models;
 
@@ -13,7 +13,7 @@ public class UploadEndpointsTests
 {
     private sealed class FakeUserGuilds : IUserGuildsService
     {
-        public HashSet<ulong> GuildIds { get; } = new();
+        public HashSet<ulong> GuildIds { get; } = [];
 
         public Task<IReadOnlyList<DiscordUserGuild>?> GetUserGuildsAsync(ulong discordId, string accessToken, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<DiscordUserGuild>?>(BuildGuilds());

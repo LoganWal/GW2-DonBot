@@ -4,7 +4,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using DonBot.Api.Endpoints;
 using DonBot.Api.Services;
-using DonBot.Models.Entities;
+using DonBot.Core.Models.Entities;
 using DonBot.Services.GuildWarsServices.MessageGeneration;
 using DonBot.Services.SecretsServices;
 using DonBot.Tests.Infrastructure;
@@ -19,7 +19,7 @@ public class PointsEndpointsIntegrationTests
 
     private sealed class FakeUserGuilds : IUserGuildsService
     {
-        public HashSet<long> Allowed { get; } = new();
+        public HashSet<long> Allowed { get; } = [];
 
         private IReadOnlyList<DiscordUserGuild> Build() => Allowed
             .Select(id => new DiscordUserGuild((ulong)id, $"Guild{id}", null, false, 0))
@@ -40,7 +40,7 @@ public class PointsEndpointsIntegrationTests
 
     private sealed class FakeCommandAccessService : IDiscordCommandAccessService
     {
-        public HashSet<(ulong GuildId, string CommandName)> Allowed { get; } = new();
+        public HashSet<(ulong GuildId, string CommandName)> Allowed { get; } = [];
 
         public Task<bool> HasCommandAccessAsync(ClaimsPrincipal user, ulong guildId, string commandName, CancellationToken ct = default)
             => Task.FromResult(Allowed.Contains((guildId, commandName)));
@@ -72,9 +72,9 @@ public class PointsEndpointsIntegrationTests
 
     private sealed class RaffleHost : IDisposable
     {
-        public MinimalApiHost Inner { get; }
-        public FakeUserGuilds Membership { get; } = new();
-        public FakeCommandAccessService CommandAccess { get; } = new();
+        private MinimalApiHost Inner { get; }
+        private FakeUserGuilds Membership { get; } = new();
+        private FakeCommandAccessService CommandAccess { get; } = new();
 
         public RaffleHost()
         {
@@ -464,5 +464,38 @@ public class PointsEndpointsIntegrationTests
         Assert.Equal(3000, fights.GetProperty("totalDamage").GetInt64());
         Assert.Equal(5, fights.GetProperty("totalKills").GetInt64()); // wvw-only kills
         Assert.Equal(1, fights.GetProperty("totalDeaths").GetInt64());
+    }
+
+    [Fact]
+    public async Task GetDashboard_WithDays_FiltersAggregates()
+    {
+        using var host = NewHost();
+        var recentFightStart = DateTime.UtcNow.AddDays(-2);
+        await using (var db = await host.DbFactory.CreateDbContextAsync())
+        {
+            db.Account.Add(new Account { DiscordId = 123L });
+            db.GuildWarsAccount.Add(new GuildWarsAccount
+            {
+                GuildWarsAccountId = Guid.NewGuid(),
+                DiscordId = 123L,
+                GuildWarsAccountName = "Player.1234"
+            });
+            db.FightLog.AddRange(
+                new FightLog { FightLogId = 1, FightType = 1, FightDurationInMs = 60_000, FightStart = DateTime.UtcNow.AddDays(-45), Url = "old" },
+                new FightLog { FightLogId = 2, FightType = 1, FightDurationInMs = 60_000, FightStart = recentFightStart, Url = "recent" });
+            db.PlayerFightLog.AddRange(
+                new PlayerFightLog { PlayerFightLogId = 1, FightLogId = 1, GuildWarsAccountName = "Player.1234", CharacterName = "Old", Damage = 1000 },
+                new PlayerFightLog { PlayerFightLogId = 2, FightLogId = 2, GuildWarsAccountName = "Player.1234", CharacterName = "Recent", Damage = 2000 });
+            await db.SaveChangesAsync();
+        }
+        host.AuthenticateAs(123L);
+
+        var body = await host.Client.GetStringAsync("/api/dashboard?days=30");
+        var doc = JsonDocument.Parse(body);
+        var fights = doc.RootElement.GetProperty("fights");
+
+        Assert.Equal(1, fights.GetProperty("total").GetInt32());
+        Assert.Equal(2000, fights.GetProperty("totalDamage").GetInt64());
+        Assert.True(doc.RootElement.GetProperty("lastFightDate").GetDateTime() >= recentFightStart.AddSeconds(-1));
     }
 }

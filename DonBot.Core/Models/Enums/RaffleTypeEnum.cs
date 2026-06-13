@@ -1,4 +1,4 @@
-﻿namespace DonBot.Models.Enums;
+namespace DonBot.Core.Models.Enums;
 
 public enum RaffleTypeEnum
 {

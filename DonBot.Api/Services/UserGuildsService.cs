@@ -1,4 +1,3 @@
-using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text.Json;
@@ -29,7 +28,7 @@ public sealed class UserGuildsService(
     public Task<IReadOnlyList<DiscordUserGuild>?> GetUserGuildsAsync(ulong discordId, string accessToken, CancellationToken ct = default)
     {
         var key = $"user-guilds:{discordId}";
-        return cache.GetOrCoalesceAsync<IReadOnlyList<DiscordUserGuild>?>(key, CacheTtl, ErrorTtl, () => FetchAsync(accessToken, ct));
+        return cache.GetOrCoalesceAsync(key, CacheTtl, ErrorTtl, () => FetchAsync(accessToken, ct));
     }
 
     public Task<IReadOnlyList<DiscordUserGuild>?> GetForPrincipalAsync(ClaimsPrincipal user, CancellationToken ct = default)

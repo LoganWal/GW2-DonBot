@@ -1,4 +1,4 @@
-using DonBot.Models.GuildWars2;
+using DonBot.Core.Models.GuildWars2;
 using DonBot.Services.GuildWarsServices;
 using Newtonsoft.Json.Linq;
 

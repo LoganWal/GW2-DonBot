@@ -1,6 +1,6 @@
 using Discord;
 using Discord.Rest;
-using DonBot.Models.Entities;
+using DonBot.Core.Models.Entities;
 using DonBot.Models.Statics;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.DiscordRequestServices;

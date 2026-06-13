@@ -1,6 +1,6 @@
 using System.Net;
 using System.Text;
-using DonBot.Models.Entities;
+using DonBot.Core.Models.Entities;
 using DonBot.Services.DiscordRequestServices;
 using DonBot.Tests.Services.SchedulerServices;
 using Microsoft.Extensions.Logging.Abstractions;

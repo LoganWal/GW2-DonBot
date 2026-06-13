@@ -1,6 +1,6 @@
-using DonBot.Models.Entities;
-using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using DonBot.Core.Models.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace DonBot.Api.Endpoints;
 
@@ -133,9 +133,9 @@ public static class LeaderboardEndpoints
             .Select(g =>
             {
                 var fights = g.ToList();
-                var totalDmg = fights.Sum(f => (long)f.Damage);
-                var totalCleave = fights.Sum(f => (long)f.Cleave);
-                var totalHealing = fights.Sum(f => (long)f.Healing);
+                var totalDmg = fights.Sum(f => f.Damage);
+                var totalCleave = fights.Sum(f => f.Cleave);
+                var totalHealing = fights.Sum(f => f.Healing);
                 var totalDurationSec = fights.Sum(f => (double)f.FightDurationInMs) / 1000.0;
                 return new
                 {

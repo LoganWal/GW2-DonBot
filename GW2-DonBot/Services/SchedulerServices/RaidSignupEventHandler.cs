@@ -1,6 +1,6 @@
 using Discord.WebSocket;
-using DonBot.Models.Entities;
-using DonBot.Models.Enums;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.Enums;
 using Microsoft.Extensions.Logging;
 
 namespace DonBot.Services.SchedulerServices;

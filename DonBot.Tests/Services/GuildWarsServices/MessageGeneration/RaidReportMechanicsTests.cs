@@ -1,4 +1,4 @@
-using DonBot.Models.Entities;
+using DonBot.Core.Models.Entities;
 using DonBot.Services.GuildWarsServices.MessageGeneration;
 
 namespace DonBot.Tests.Services.GuildWarsServices.MessageGeneration;

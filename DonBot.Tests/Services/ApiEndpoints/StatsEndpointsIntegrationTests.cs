@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using DonBot.Api.Endpoints;
-using DonBot.Models.Entities;
+using DonBot.Core.Models.Entities;
 using DonBot.Tests.Infrastructure;
 
 namespace DonBot.Tests.Services.ApiEndpoints;

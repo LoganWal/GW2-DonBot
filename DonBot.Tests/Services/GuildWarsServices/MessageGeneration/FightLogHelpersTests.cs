@@ -26,7 +26,7 @@ public class FightLogHelpersTests
     [Fact]
     public void GetLogSource_HostIsLowercased()
     {
-        // Uri normalises the host to lowercase regardless of input casing
+        // Uri normal the host to lowercase regardless of input casing
         Assert.Equal("b.dps.report", FightLogHelpers.GetLogSource("https://B.DPS.REPORT/abc"));
     }
 }

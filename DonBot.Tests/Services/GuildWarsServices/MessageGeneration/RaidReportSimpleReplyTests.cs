@@ -1,5 +1,5 @@
-using DonBot.Models.Entities;
-using DonBot.Models.Enums;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.Enums;
 using DonBot.Services.GuildWarsServices.MessageGeneration;
 using Microsoft.Extensions.Configuration;
 
@@ -19,7 +19,7 @@ public class RaidReportSimpleReplyTests
         var (embeds, _) = await service.GenerateSimpleReply([42], GuildId);
 
         Assert.NotNull(embeds);
-        Assert.NotEmpty(embeds!);
+        Assert.NotEmpty(embeds);
     }
 
     [Fact]
@@ -61,7 +61,7 @@ public class RaidReportSimpleReplyTests
         var (embeds, _) = await service.GenerateSimpleReply([1, 999], GuildId);
 
         Assert.NotNull(embeds);
-        Assert.NotEmpty(embeds!);
+        Assert.NotEmpty(embeds);
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public class RaidReportSimpleReplyTests
         var (embeds, _) = await service.GenerateSimpleReply([10, 20, 30], GuildId);
 
         Assert.NotNull(embeds);
-        var fightsOverviewField = embeds![0].Fields.FirstOrDefault(f => f.Name == "Fights Overview");
+        var fightsOverviewField = embeds[0].Fields.FirstOrDefault(f => f.Name == "Fights Overview");
         Assert.NotEqual(default, fightsOverviewField);
         Assert.Contains(" 3\n", fightsOverviewField.Value);
     }

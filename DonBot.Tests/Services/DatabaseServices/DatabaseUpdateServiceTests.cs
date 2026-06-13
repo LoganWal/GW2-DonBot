@@ -1,4 +1,4 @@
-using DonBot.Models.Entities;
+using DonBot.Core.Models.Entities;
 using DonBot.Services.DatabaseServices;
 using DonBot.Tests.Infrastructure;
 
@@ -16,7 +16,7 @@ public class DatabaseUpdateServiceTests
 
         await svc.AddAsync(new Guild { GuildId = 1L, GuildName = "Test" });
 
-        using var ctx = db.NewContext();
+        await using var ctx = db.NewContext();
         var stored = ctx.Guild.Single();
         Assert.Equal("Test", stored.GuildName);
     }
@@ -33,7 +33,7 @@ public class DatabaseUpdateServiceTests
             new Guild { GuildId = 3L, GuildName = "C" }
         ]);
 
-        using var ctx = db.NewContext();
+        await using var ctx = db.NewContext();
         Assert.Equal(3, ctx.Guild.Count());
     }
 
@@ -81,7 +81,7 @@ public class DatabaseUpdateServiceTests
         var match = await svc.GetFirstOrDefaultAsync(g => g.GuildName == "B");
 
         Assert.NotNull(match);
-        Assert.Equal(2L, match!.GuildId);
+        Assert.Equal(2L, match.GuildId);
     }
 
     [Fact]
@@ -117,7 +117,7 @@ public class DatabaseUpdateServiceTests
         stored!.GuildName = "New";
         await svc.UpdateAsync(stored);
 
-        using var ctx = db.NewContext();
+        await using var ctx = db.NewContext();
         Assert.Equal("New", ctx.Guild.Single().GuildName);
     }
 
@@ -132,12 +132,13 @@ public class DatabaseUpdateServiceTests
         ]);
 
         var all = await svc.GetAllAsync();
-        foreach (var g in all) {
+        foreach (var g in all)
+        {
             g.GuildName = "Updated";
         }
         await svc.UpdateRangeAsync(all);
 
-        using var ctx = db.NewContext();
+        await using var ctx = db.NewContext();
         Assert.All(ctx.Guild.ToList(), g => Assert.Equal("Updated", g.GuildName));
     }
 

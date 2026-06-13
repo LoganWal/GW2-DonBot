@@ -1,6 +1,6 @@
 using Discord;
+using DonBot.Core.Models.Entities;
 using DonBot.Extensions;
-using DonBot.Models.Entities;
 using DonBot.Services.GuildWarsServices.MessageGeneration;
 using DonBot.Tests.Infrastructure;
 

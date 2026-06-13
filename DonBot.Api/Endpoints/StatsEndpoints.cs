@@ -1,7 +1,7 @@
-using DonBot.Models.Entities;
-using DonBot.Models.Enums;
-using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.Enums;
+using Microsoft.EntityFrameworkCore;
 
 namespace DonBot.Api.Endpoints;
 
@@ -49,7 +49,7 @@ public static class StatsEndpoints
             .ToListAsync();
 
         var typeById = fightMeta.ToDictionary(x => x.FightLogId, x => x.FightType);
-        var durationById = fightMeta.ToDictionary(x => x.FightLogId, x => (long)x.FightDurationInMs);
+        var durationById = fightMeta.ToDictionary(x => x.FightLogId, x => x.FightDurationInMs);
 
         var wvwLogs = playerLogs
             .Where(p => typeById.TryGetValue(p.FightLogId, out var t) && t == (short)FightTypesEnum.WvW)
@@ -272,25 +272,25 @@ public static class StatsEndpoints
     private static object BuildWvwBests(
         List<PlayerFightLog> logs,
         Dictionary<long, (short FightType, DateTime FightStart, long FightDurationInMs)> meta) => new
-    {
-        damage = Best(logs, p => p.Damage, meta),
-        damagePerSecond = BestPerSecond(logs, p => p.Damage, meta),
-        kills = Best(logs, p => p.Kills, meta),
-        killsPerSecond = BestPerSecond(logs, p => p.Kills, meta),
-        downs = Best(logs, p => p.Downs, meta),
-        downsPerSecond = BestPerSecond(logs, p => p.Downs, meta),
-        downContribution = Best(logs, p => p.DamageDownContribution, meta),
-        downContributionPerSecond = BestPerSecond(logs, p => p.DamageDownContribution, meta),
-        cleanses = Best(logs, p => p.Cleanses, meta),
-        cleansesPerSecond = BestPerSecond(logs, p => p.Cleanses, meta),
-        strips = Best(logs, p => p.Strips, meta),
-        stripsPerSecond = BestPerSecond(logs, p => p.Strips, meta),
-        healing = Best(logs, p => p.Healing, meta),
-        healingPerSecond = BestPerSecond(logs, p => p.Healing, meta),
-        barrierGenerated = Best(logs, p => p.BarrierGenerated, meta),
-        stabOnGroup = Best(logs, p => p.StabGenOnGroup, meta),
-        stabOffGroup = Best(logs, p => p.StabGenOffGroup, meta),
-    };
+        {
+            damage = Best(logs, p => p.Damage, meta),
+            damagePerSecond = BestPerSecond(logs, p => p.Damage, meta),
+            kills = Best(logs, p => p.Kills, meta),
+            killsPerSecond = BestPerSecond(logs, p => p.Kills, meta),
+            downs = Best(logs, p => p.Downs, meta),
+            downsPerSecond = BestPerSecond(logs, p => p.Downs, meta),
+            downContribution = Best(logs, p => p.DamageDownContribution, meta),
+            downContributionPerSecond = BestPerSecond(logs, p => p.DamageDownContribution, meta),
+            cleanses = Best(logs, p => p.Cleanses, meta),
+            cleansesPerSecond = BestPerSecond(logs, p => p.Cleanses, meta),
+            strips = Best(logs, p => p.Strips, meta),
+            stripsPerSecond = BestPerSecond(logs, p => p.Strips, meta),
+            healing = Best(logs, p => p.Healing, meta),
+            healingPerSecond = BestPerSecond(logs, p => p.Healing, meta),
+            barrierGenerated = Best(logs, p => p.BarrierGenerated, meta),
+            stabOnGroup = Best(logs, p => p.StabGenOnGroup, meta),
+            stabOffGroup = Best(logs, p => p.StabGenOffGroup, meta),
+        };
 
     private static async Task<IResult> GetMyProgression(
         ClaimsPrincipal user,
@@ -328,20 +328,24 @@ public static class StatsEndpoints
             .Where(fl => fightLogIds.Contains(fl.FightLogId) && fl.FightType == fightType);
 
         if (!string.IsNullOrEmpty(startDateTime) &&
-            DateTime.TryParse(startDateTime, null, System.Globalization.DateTimeStyles.RoundtripKind, out var startDt)) {
+            DateTime.TryParse(startDateTime, null, System.Globalization.DateTimeStyles.RoundtripKind, out var startDt))
+        {
             fightMetaQuery = fightMetaQuery.Where(fl => fl.FightStart >= startDt);
         }
 
         if (!string.IsNullOrEmpty(endDateTime) &&
-            DateTime.TryParse(endDateTime, null, System.Globalization.DateTimeStyles.RoundtripKind, out var endDt)) {
+            DateTime.TryParse(endDateTime, null, System.Globalization.DateTimeStyles.RoundtripKind, out var endDt))
+        {
             fightMetaQuery = fightMetaQuery.Where(fl => fl.FightStart <= endDt);
         }
 
-        if (isSuccess.HasValue) {
+        if (isSuccess.HasValue)
+        {
             fightMetaQuery = fightMetaQuery.Where(fl => fl.IsSuccess == isSuccess.Value);
         }
 
-        if (fightMode.HasValue) {
+        if (fightMode.HasValue)
+        {
             fightMetaQuery = fightMetaQuery.Where(fl => fl.FightMode == fightMode.Value);
         }
 
@@ -350,7 +354,6 @@ public static class StatsEndpoints
             .OrderBy(fl => fl.FightStart)
             .ToListAsync();
 
-        var metaById = fightMeta.ToDictionary(f => f.FightLogId);
         var playerLogById = playerLogs
             .GroupBy(p => p.FightLogId)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.Damage).First());
@@ -383,7 +386,7 @@ public static class StatsEndpoints
 
                 if (isWvW)
                 {
-                    return (object)new
+                    return new
                     {
                         fightLogId = f.FightLogId,
                         date = f.FightStart,
@@ -435,105 +438,106 @@ public static class StatsEndpoints
     private static object BuildPveBests(
         List<PlayerFightLog> logs,
         Dictionary<long, (short FightType, DateTime FightStart, long FightDurationInMs)> meta) => new
-    {
-        damage = Best(logs, p => p.Damage, meta),
-        damagePerSecond = BestPerSecond(logs, p => p.Damage, meta),
-        cleave = Best(logs, p => p.Cleave, meta),
-        cleavePerSecond = BestPerSecond(logs, p => p.Cleave, meta),
-        healing = Best(logs, p => p.Healing, meta),
-        healingPerSecond = BestPerSecond(logs, p => p.Healing, meta),
-        cleanses = Best(logs, p => p.Cleanses, meta),
-        barrierGenerated = Best(logs, p => p.BarrierGenerated, meta),
-    };
+        {
+            damage = Best(logs, p => p.Damage, meta),
+            damagePerSecond = BestPerSecond(logs, p => p.Damage, meta),
+            cleave = Best(logs, p => p.Cleave, meta),
+            cleavePerSecond = BestPerSecond(logs, p => p.Cleave, meta),
+            healing = Best(logs, p => p.Healing, meta),
+            healingPerSecond = BestPerSecond(logs, p => p.Healing, meta),
+            cleanses = Best(logs, p => p.Cleanses, meta),
+            barrierGenerated = Best(logs, p => p.BarrierGenerated, meta),
+        };
 
     private static async Task<IResult> GetMechanicsOverview(
     ClaimsPrincipal user,
     IDbContextFactory<DatabaseContext> dbContextFactory)
-{
-    var discordIdStr = user.FindFirst("discord_id")?.Value;
-    if (!long.TryParse(discordIdStr, out var discordId)) {
-        return Results.Unauthorized();
-    }
-
-    await using var context = await dbContextFactory.CreateDbContextAsync();
-
-    var gw2Names = await context.GuildWarsAccount
-        .Where(a => a.DiscordId == discordId)
-        .Select(a => a.GuildWarsAccountName)
-        .ToListAsync();
-
-    var playerLogs = await context.PlayerFightLog
-        .Where(pfl => gw2Names.Contains(pfl.GuildWarsAccountName))
-        .Select(pfl => new { pfl.PlayerFightLogId, pfl.FightLogId })
-        .ToListAsync();
-
-    var fightLogIds = playerLogs.Select(p => p.FightLogId).Distinct().ToList();
-
-    var fightTypeById = await context.FightLog
-        .Where(fl => fightLogIds.Contains(fl.FightLogId) && fl.FightType != 0)
-        .Select(fl => new { fl.FightLogId, fl.FightType })
-        .ToDictionaryAsync(fl => fl.FightLogId, fl => (int)fl.FightType);
-
-    var pvePlayerLogIds = playerLogs
-        .Where(p => fightTypeById.ContainsKey(p.FightLogId))
-        .Select(p => p.PlayerFightLogId)
-        .ToList();
-
-    var playerLogIdToFightType = playerLogs
-        .Where(p => fightTypeById.ContainsKey(p.FightLogId))
-        .ToDictionary(p => p.PlayerFightLogId, p => fightTypeById[p.FightLogId]);
-
-    var playerLogIdToFightLogId = playerLogs
-        .Where(p => fightTypeById.ContainsKey(p.FightLogId))
-        .ToDictionary(p => p.PlayerFightLogId, p => p.FightLogId);
-
-    var mechanics = await context.PlayerFightLogMechanic
-        .Where(m => pvePlayerLogIds.Contains(m.PlayerFightLogId) && m.MechanicCount > 0)
-        .ToListAsync();
-
-    var perRunValues = mechanics
-        .GroupBy(m => (m.PlayerFightLogId, m.MechanicName))
-        .Select(g => new
+    {
+        var discordIdStr = user.FindFirst("discord_id")?.Value;
+        if (!long.TryParse(discordIdStr, out var discordId))
         {
-            fightType = playerLogIdToFightType[g.Key.PlayerFightLogId],
-            fightLogId = playerLogIdToFightLogId[g.Key.PlayerFightLogId],
-            mechanicName = g.Key.MechanicName,
-            count = g.Sum(m => m.MechanicCount),
-        })
-        .ToList();
+            return Results.Unauthorized();
+        }
 
-    var result = perRunValues
-        .GroupBy(x => (x.fightType, x.mechanicName))
-        .Select(g =>
-        {
-            var ordered = g.OrderBy(x => x.count).ToList();
-            var mid = ordered.Count / 2;
-            var median = ordered.Count % 2 == 0
-                ? (ordered[mid - 1].count + ordered[mid].count) / 2L
-                : ordered[mid].count;
-            var maxEntry = ordered[^1];
-            return new
+        await using var context = await dbContextFactory.CreateDbContextAsync();
+
+        var gw2Names = await context.GuildWarsAccount
+            .Where(a => a.DiscordId == discordId)
+            .Select(a => a.GuildWarsAccountName)
+            .ToListAsync();
+
+        var playerLogs = await context.PlayerFightLog
+            .Where(pfl => gw2Names.Contains(pfl.GuildWarsAccountName))
+            .Select(pfl => new { pfl.PlayerFightLogId, pfl.FightLogId })
+            .ToListAsync();
+
+        var fightLogIds = playerLogs.Select(p => p.FightLogId).Distinct().ToList();
+
+        var fightTypeById = await context.FightLog
+            .Where(fl => fightLogIds.Contains(fl.FightLogId) && fl.FightType != 0)
+            .Select(fl => new { fl.FightLogId, fl.FightType })
+            .ToDictionaryAsync(fl => fl.FightLogId, fl => (int)fl.FightType);
+
+        var pvePlayerLogIds = playerLogs
+            .Where(p => fightTypeById.ContainsKey(p.FightLogId))
+            .Select(p => p.PlayerFightLogId)
+            .ToList();
+
+        var playerLogIdToFightType = playerLogs
+            .Where(p => fightTypeById.ContainsKey(p.FightLogId))
+            .ToDictionary(p => p.PlayerFightLogId, p => fightTypeById[p.FightLogId]);
+
+        var playerLogIdToFightLogId = playerLogs
+            .Where(p => fightTypeById.ContainsKey(p.FightLogId))
+            .ToDictionary(p => p.PlayerFightLogId, p => p.FightLogId);
+
+        var mechanics = await context.PlayerFightLogMechanic
+            .Where(m => pvePlayerLogIds.Contains(m.PlayerFightLogId) && m.MechanicCount > 0)
+            .ToListAsync();
+
+        var perRunValues = mechanics
+            .GroupBy(m => (m.PlayerFightLogId, m.MechanicName))
+            .Select(g => new
             {
-                fightType = g.Key.fightType,
-                mechanicName = g.Key.mechanicName,
-                max = maxEntry.count,
-                maxFightLogId = maxEntry.fightLogId,
-                avg = Math.Round(g.Average(x => (double)x.count), 1),
-                median,
-            };
-        })
-        .GroupBy(x => x.fightType)
-        .Select(g => new
-        {
-            fightType = g.Key,
-            mechanics = g.OrderByDescending(m => m.max)
-                .Select(m => new { m.mechanicName, m.max, m.maxFightLogId, m.avg, m.median })
-                .ToList(),
-        })
-        .Where(g => g.mechanics.Count > 0)
-        .OrderBy(g => g.fightType)
-        .ToList();
+                fightType = playerLogIdToFightType[g.Key.PlayerFightLogId],
+                fightLogId = playerLogIdToFightLogId[g.Key.PlayerFightLogId],
+                mechanicName = g.Key.MechanicName,
+                count = g.Sum(m => m.MechanicCount),
+            })
+            .ToList();
 
-    return Results.Ok(result);
+        var result = perRunValues
+            .GroupBy(x => (x.fightType, x.mechanicName))
+            .Select(g =>
+            {
+                var ordered = g.OrderBy(x => x.count).ToList();
+                var mid = ordered.Count / 2;
+                var median = ordered.Count % 2 == 0
+                    ? (ordered[mid - 1].count + ordered[mid].count) / 2L
+                    : ordered[mid].count;
+                var maxEntry = ordered[^1];
+                return new
+                {
+                    g.Key.fightType,
+                    g.Key.mechanicName,
+                    max = maxEntry.count,
+                    maxFightLogId = maxEntry.fightLogId,
+                    avg = Math.Round(g.Average(x => (double)x.count), 1),
+                    median,
+                };
+            })
+            .GroupBy(x => x.fightType)
+            .Select(g => new
+            {
+                fightType = g.Key,
+                mechanics = g.OrderByDescending(m => m.max)
+                    .Select(m => new { m.mechanicName, m.max, m.maxFightLogId, m.avg, m.median })
+                    .ToList(),
+            })
+            .Where(g => g.mechanics.Count > 0)
+            .OrderBy(g => g.fightType)
+            .ToList();
+
+        return Results.Ok(result);
     }
 }

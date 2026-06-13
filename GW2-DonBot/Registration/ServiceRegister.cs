@@ -1,6 +1,6 @@
-﻿using DonBot.Controller.Discord;
+using DonBot.Controller.Discord;
+using DonBot.Core.Models.Entities;
 using DonBot.Core.Services.RaidLifecycle;
-using DonBot.Models.Entities;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.DiscordRequestServices;
 using DonBot.Services.DiscordServices;

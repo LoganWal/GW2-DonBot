@@ -1,12 +1,9 @@
 using System.Security.Claims;
-using Discord;
-using Discord.Rest;
 using DonBot.Api.Services;
+using DonBot.Core.Models.Entities;
 using DonBot.Models.Apis.GuildWars2Api;
-using DonBot.Models.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
 namespace DonBot.Api.Endpoints;
@@ -26,22 +23,6 @@ public static class GuildAdminEndpoints
         group.MapPut("/guilds/{guildId}/quotes/{quoteId}", UpdateQuote);
         group.MapDelete("/guilds/{guildId}/quotes/{quoteId}", DeleteQuote);
     }
-
-    public record QuoteDto(long QuoteId, string Quote);
-
-    public record QuoteWriteDto(string Quote);
-
-    internal const int MaxQuoteLength = 1000;
-
-    public record Gw2GuildDto(string Id, string Name, string? Tag);
-
-    public record MyGw2GuildsResponse(bool HasAccount, IReadOnlyList<Gw2GuildDto> Guilds);
-
-    public record GuildSummaryDto(string GuildId, string Name, string? IconUrl);
-
-    public record ChannelDto(string Id, string Name);
-
-    public record RoleDto(string Id, string Name);
 
     public record GuildConfigDto(
         string? LogDropOffChannelId,
@@ -67,13 +48,13 @@ public static class GuildAdminEndpoints
         string? PveLeaderboardChannelId,
         string? ScheduledEventManagerRoleIds);
 
-    public record GuildConfigResponse(
-        string GuildId,
-        string GuildName,
-        GuildConfigDto Config,
-        IReadOnlyList<ChannelDto> Channels,
-        IReadOnlyList<RoleDto> Roles,
-        IReadOnlyList<Gw2GuildDto> Gw2GuildNames);
+    internal const int MaxQuoteLength = 1000;
+
+    internal record Gw2GuildLookup(string Name, string? Tag);
+
+    internal enum Gw2FetchOutcome { Found, NotFound, Transient }
+
+    internal record Gw2FetchResult(Gw2FetchOutcome Outcome, Gw2GuildLookup? Lookup);
 
     private static readonly TimeSpan AdminGuildsCacheTtl = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan Gw2GuildNameCacheTtl = TimeSpan.FromHours(24);
@@ -85,7 +66,8 @@ public static class GuildAdminEndpoints
         IMemoryCache cache)
     {
         var discordId = user.FindFirst("discord_id")?.Value;
-        if (string.IsNullOrEmpty(discordId)) {
+        if (string.IsNullOrEmpty(discordId))
+        {
             return Results.Unauthorized();
         }
 
@@ -93,8 +75,9 @@ public static class GuildAdminEndpoints
         var cached = await cache.GetOrCoalesceAsync(cacheKey, AdminGuildsCacheTtl, TimeSpan.FromSeconds(10), async () =>
         {
             var userGuildList = await userGuilds.GetForPrincipalAsync(user);
-            if (userGuildList is null) {
-                return new List<GuildSummaryDto>();
+            if (userGuildList is null)
+            {
+                return [];
             }
 
             await using var context = await dbContextFactory.CreateDbContextAsync();
@@ -121,7 +104,8 @@ public static class GuildAdminEndpoints
         IHttpClientFactory httpClientFactory,
         ILogger<DiscordRestClientProvider> logger)
     {
-        if (!ulong.TryParse(guildId, out var guildIdUlong)) {
+        if (!ulong.TryParse(guildId, out var guildIdUlong))
+        {
             return Results.BadRequest("Invalid guild id.");
         }
         var guildIdLong = (long)guildIdUlong;
@@ -130,13 +114,15 @@ public static class GuildAdminEndpoints
         var adminTask = userGuilds.HasAdministratorAsync(user, guildIdUlong);
         var dbReadTask = ReadGuildAsync(dbContextFactory, guildIdLong);
 
-        if (!await adminTask) {
+        if (!await adminTask)
+        {
             return Results.Forbid();
         }
 
         var client = await clientTask;
         var botGuild = await client.GetGuildAsync(guildIdUlong);
-        if (botGuild is null) {
+        if (botGuild is null)
+        {
             return Results.NotFound("Bot is not in that guild.");
         }
 
@@ -196,17 +182,20 @@ public static class GuildAdminEndpoints
         IHttpClientFactory httpClientFactory,
         ILogger<DiscordRestClientProvider> logger)
     {
-        if (!ulong.TryParse(guildId, out var guildIdUlong)) {
+        if (!ulong.TryParse(guildId, out var guildIdUlong))
+        {
             return Results.BadRequest("Invalid guild id.");
         }
 
-        if (!await userGuilds.HasAdministratorAsync(user, guildIdUlong)) {
+        if (!await userGuilds.HasAdministratorAsync(user, guildIdUlong))
+        {
             return Results.Forbid();
         }
 
         var client = await clientProvider.GetClientAsync();
         var botGuild = await client.GetGuildAsync(guildIdUlong);
-        if (botGuild is null) {
+        if (botGuild is null)
+        {
             return Results.NotFound("Bot is not in that guild.");
         }
 
@@ -223,7 +212,8 @@ public static class GuildAdminEndpoints
             ?? ValidateOptionalSnowflake(dto.WvwLeaderboardChannelId, validChannelIds, nameof(dto.WvwLeaderboardChannelId))
             ?? ValidateOptionalSnowflake(dto.PveLeaderboardChannelId, validChannelIds, nameof(dto.PveLeaderboardChannelId));
 
-        if (channelError is not null) {
+        if (channelError is not null)
+        {
             return Results.BadRequest(channelError);
         }
 
@@ -231,19 +221,22 @@ public static class GuildAdminEndpoints
             ?? ValidateOptionalSnowflake(dto.DiscordSecondaryMemberRoleId, validRoleIds, nameof(dto.DiscordSecondaryMemberRoleId))
             ?? ValidateOptionalSnowflake(dto.DiscordVerifiedRoleId, validRoleIds, nameof(dto.DiscordVerifiedRoleId));
 
-        if (roleError is not null) {
+        if (roleError is not null)
+        {
             return Results.BadRequest(roleError);
         }
 
         var managerRoleError = ValidateRoleIdList(dto.ScheduledEventManagerRoleIds, validRoleIds, nameof(dto.ScheduledEventManagerRoleIds));
-        if (managerRoleError is not null) {
+        if (managerRoleError is not null)
+        {
             return Results.BadRequest(managerRoleError);
         }
 
         var gw2Ids = CollectGw2GuildIds(dto);
         var gw2Names = await ResolveGw2GuildNamesAsync(gw2Ids, cache, httpClientFactory, logger);
-        var unresolved = gw2Ids.Where(id => !gw2Names.Any(n => n.Id == id)).ToList();
-        if (unresolved.Count > 0) {
+        var unresolved = gw2Ids.Where(id => gw2Names.All(n => n.Id != id)).ToList();
+        if (unresolved.Count > 0)
+        {
             return Results.BadRequest($"Unknown GW2 guild id(s): {string.Join(", ", unresolved)}.");
         }
 
@@ -270,7 +263,8 @@ public static class GuildAdminEndpoints
         IHttpClientFactory httpClientFactory,
         ILogger<DiscordRestClientProvider> logger)
     {
-        if (!TryGetDiscordId(user, out var discordIdUlong)) {
+        if (!TryGetDiscordId(user, out var discordIdUlong))
+        {
             return Results.Unauthorized();
         }
         var discordId = (long)discordIdUlong;
@@ -282,7 +276,8 @@ public static class GuildAdminEndpoints
             .Select(g => g.GuildWarsGuilds)
             .ToListAsync();
 
-        if (accounts.Count == 0) {
+        if (accounts.Count == 0)
+        {
             return Results.Ok(new MyGw2GuildsResponse(false, []));
         }
 
@@ -300,10 +295,12 @@ public static class GuildAdminEndpoints
     internal static List<string> CollectGw2GuildIds(GuildConfigDto dto)
     {
         var ids = new List<string>();
-        if (!string.IsNullOrWhiteSpace(dto.Gw2GuildMemberRoleId)) {
+        if (!string.IsNullOrWhiteSpace(dto.Gw2GuildMemberRoleId))
+        {
             ids.Add(dto.Gw2GuildMemberRoleId.Trim());
         }
-        if (!string.IsNullOrWhiteSpace(dto.Gw2SecondaryMemberRoleIds)) {
+        if (!string.IsNullOrWhiteSpace(dto.Gw2SecondaryMemberRoleIds))
+        {
             ids.AddRange(dto.Gw2SecondaryMemberRoleIds
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
         }
@@ -316,12 +313,14 @@ public static class GuildAdminEndpoints
         IHttpClientFactory httpClientFactory,
         ILogger<DiscordRestClientProvider> logger)
     {
-        if (string.IsNullOrWhiteSpace(name)) {
+        if (string.IsNullOrWhiteSpace(name))
+        {
             return Results.Ok(Array.Empty<Gw2GuildDto>());
         }
 
         var trimmed = name.Trim();
-        if (trimmed.Length < 3) {
+        if (trimmed.Length < 3)
+        {
             return Results.BadRequest("Search term must be at least 3 characters.");
         }
 
@@ -330,13 +329,15 @@ public static class GuildAdminEndpoints
             var client = httpClientFactory.CreateClient("gw2-api");
             var url = $"https://api.guildwars2.com/v2/guild/search?name={Uri.EscapeDataString(trimmed)}";
             var response = await client.GetAsync(url);
-            if (!response.IsSuccessStatusCode) {
+            if (!response.IsSuccessStatusCode)
+            {
                 return Results.Ok(Array.Empty<Gw2GuildDto>());
             }
 
             var json = await response.Content.ReadAsStringAsync();
             var ids = JsonConvert.DeserializeObject<string[]>(json) ?? [];
-            if (ids.Length == 0) {
+            if (ids.Length == 0)
+            {
                 return Results.Ok(Array.Empty<Gw2GuildDto>());
             }
 
@@ -350,17 +351,11 @@ public static class GuildAdminEndpoints
         }
     }
 
-    internal record Gw2GuildLookup(string Name, string? Tag);
-
-    internal enum Gw2FetchOutcome { Found, NotFound, Transient }
-
-    internal record Gw2FetchResult(Gw2FetchOutcome Outcome, Gw2GuildLookup? Lookup);
-
     // Avoid caching malformed GW2 guild ids as negative lookups.
     internal static bool IsValidGw2GuildId(string? id) =>
         !string.IsNullOrWhiteSpace(id) && Guid.TryParseExact(id.Trim(), "D", out _);
 
-    internal static async Task<IReadOnlyList<Gw2GuildDto>> ResolveGw2GuildNamesAsync(
+    private static async Task<IReadOnlyList<Gw2GuildDto>> ResolveGw2GuildNamesAsync(
         IEnumerable<string> ids,
         IMemoryCache cache,
         IHttpClientFactory httpClientFactory,
@@ -368,7 +363,8 @@ public static class GuildAdminEndpoints
     {
         var lookups = ids.Distinct().Select(async id =>
         {
-            if (!IsValidGw2GuildId(id)) {
+            if (!IsValidGw2GuildId(id))
+            {
                 return null;
             }
             var info = await GetGw2GuildLookupCachedAsync(id, cache, () => FetchGw2GuildAsync(id, httpClientFactory, logger));
@@ -384,7 +380,8 @@ public static class GuildAdminEndpoints
         Func<Task<Gw2FetchResult>> fetcher)
     {
         var key = $"gw2-guild-name:{id}";
-        if (cache.TryGetValue<Gw2GuildLookup?>(key, out var cached)) {
+        if (cache.TryGetValue<Gw2GuildLookup?>(key, out var cached))
+        {
             return cached;
         }
 
@@ -412,16 +409,19 @@ public static class GuildAdminEndpoints
         {
             var client = httpClientFactory.CreateClient("gw2-api");
             var response = await client.GetAsync($"https://api.guildwars2.com/v2/guild/{id}");
-            if (response.StatusCode == System.Net.HttpStatusCode.NotFound) {
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
                 return new Gw2FetchResult(Gw2FetchOutcome.NotFound, null);
             }
-            if (!response.IsSuccessStatusCode) {
+            if (!response.IsSuccessStatusCode)
+            {
                 return new Gw2FetchResult(Gw2FetchOutcome.Transient, null);
             }
 
             var json = await response.Content.ReadAsStringAsync();
             var data = JsonConvert.DeserializeObject<GuildWars2GuildDataModel>(json);
-            if (string.IsNullOrEmpty(data?.Name)) {
+            if (string.IsNullOrEmpty(data?.Name))
+            {
                 return new Gw2FetchResult(Gw2FetchOutcome.NotFound, null);
             }
             return new Gw2FetchResult(Gw2FetchOutcome.Found, new Gw2GuildLookup(data.Name, data.Tag));
@@ -493,7 +493,8 @@ public static class GuildAdminEndpoints
 
     internal static string? NormalizeRoleIdList(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value)) {
+        if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
         }
         var ids = value
@@ -506,13 +507,16 @@ public static class GuildAdminEndpoints
 
     internal static string? ValidateOptionalSnowflake(string? value, HashSet<ulong> validIds, string fieldName)
     {
-        if (string.IsNullOrWhiteSpace(value)) {
+        if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
         }
-        if (!ulong.TryParse(value, out var parsed)) {
+        if (!ulong.TryParse(value, out var parsed))
+        {
             return $"{fieldName} is not a valid id.";
         }
-        if (!validIds.Contains(parsed)) {
+        if (!validIds.Contains(parsed))
+        {
             return $"{fieldName} does not belong to this guild.";
         }
         return null;
@@ -520,15 +524,18 @@ public static class GuildAdminEndpoints
 
     internal static string? ValidateRoleIdList(string? value, HashSet<ulong> validIds, string fieldName)
     {
-        if (string.IsNullOrWhiteSpace(value)) {
+        if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
         }
         foreach (var part in value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            if (!ulong.TryParse(part, out var parsed)) {
+            if (!ulong.TryParse(part, out var parsed))
+            {
                 return $"{fieldName} contains an invalid id.";
             }
-            if (!validIds.Contains(parsed)) {
+            if (!validIds.Contains(parsed))
+            {
                 return $"{fieldName} contains a role that does not belong to this guild.";
             }
         }
@@ -537,10 +544,12 @@ public static class GuildAdminEndpoints
 
     internal static string? ValidateQuoteText(string? quote)
     {
-        if (string.IsNullOrWhiteSpace(quote)) {
+        if (string.IsNullOrWhiteSpace(quote))
+        {
             return "Quote cannot be empty.";
         }
-        if (quote.Length > MaxQuoteLength) {
+        if (quote.Length > MaxQuoteLength)
+        {
             return $"Quote must be {MaxQuoteLength} characters or fewer.";
         }
         return null;
@@ -552,10 +561,12 @@ public static class GuildAdminEndpoints
         IUserGuildsService userGuilds,
         IDbContextFactory<DatabaseContext> dbContextFactory)
     {
-        if (!ulong.TryParse(guildId, out var guildIdUlong)) {
+        if (!ulong.TryParse(guildId, out var guildIdUlong))
+        {
             return Results.BadRequest("Invalid guild id.");
         }
-        if (!await userGuilds.HasAdministratorAsync(user, guildIdUlong)) {
+        if (!await userGuilds.HasAdministratorAsync(user, guildIdUlong))
+        {
             return Results.Forbid();
         }
 
@@ -576,16 +587,19 @@ public static class GuildAdminEndpoints
         IUserGuildsService userGuilds,
         IDbContextFactory<DatabaseContext> dbContextFactory)
     {
-        if (!ulong.TryParse(guildId, out var guildIdUlong)) {
+        if (!ulong.TryParse(guildId, out var guildIdUlong))
+        {
             return Results.BadRequest("Invalid guild id.");
         }
-        if (!await userGuilds.HasAdministratorAsync(user, guildIdUlong)) {
+        if (!await userGuilds.HasAdministratorAsync(user, guildIdUlong))
+        {
             return Results.Forbid();
         }
 
         var trimmed = body.Quote?.Trim() ?? string.Empty;
         var error = ValidateQuoteText(trimmed);
-        if (error is not null) {
+        if (error is not null)
+        {
             return Results.BadRequest(error);
         }
 
@@ -605,16 +619,19 @@ public static class GuildAdminEndpoints
         IUserGuildsService userGuilds,
         IDbContextFactory<DatabaseContext> dbContextFactory)
     {
-        if (!ulong.TryParse(guildId, out var guildIdUlong)) {
+        if (!ulong.TryParse(guildId, out var guildIdUlong))
+        {
             return Results.BadRequest("Invalid guild id.");
         }
-        if (!await userGuilds.HasAdministratorAsync(user, guildIdUlong)) {
+        if (!await userGuilds.HasAdministratorAsync(user, guildIdUlong))
+        {
             return Results.Forbid();
         }
 
         var trimmed = body.Quote?.Trim() ?? string.Empty;
         var error = ValidateQuoteText(trimmed);
-        if (error is not null) {
+        if (error is not null)
+        {
             return Results.BadRequest(error);
         }
 
@@ -622,7 +639,8 @@ public static class GuildAdminEndpoints
         await using var ctx = await dbContextFactory.CreateDbContextAsync();
         var quote = await ctx.GuildQuote.AsTracking()
             .FirstOrDefaultAsync(q => q.GuildQuoteId == quoteId && q.GuildId == guildIdLong);
-        if (quote is null) {
+        if (quote is null)
+        {
             return Results.NotFound();
         }
 
@@ -638,10 +656,12 @@ public static class GuildAdminEndpoints
         IUserGuildsService userGuilds,
         IDbContextFactory<DatabaseContext> dbContextFactory)
     {
-        if (!ulong.TryParse(guildId, out var guildIdUlong)) {
+        if (!ulong.TryParse(guildId, out var guildIdUlong))
+        {
             return Results.BadRequest("Invalid guild id.");
         }
-        if (!await userGuilds.HasAdministratorAsync(user, guildIdUlong)) {
+        if (!await userGuilds.HasAdministratorAsync(user, guildIdUlong))
+        {
             return Results.Forbid();
         }
 
@@ -649,7 +669,8 @@ public static class GuildAdminEndpoints
         await using var ctx = await dbContextFactory.CreateDbContextAsync();
         var quote = await ctx.GuildQuote.AsTracking()
             .FirstOrDefaultAsync(q => q.GuildQuoteId == quoteId && q.GuildId == guildIdLong);
-        if (quote is null) {
+        if (quote is null)
+        {
             return Results.NotFound();
         }
 
@@ -665,4 +686,82 @@ public static class GuildAdminEndpoints
         return ulong.TryParse(raw, out discordId);
     }
 
+    // ASP.NET Core model binding and System.Text.Json use these DTO members implicitly.
+    // ReSharper disable ClassNeverInstantiated.Local
+    // ReSharper disable UnusedAutoPropertyAccessor.Local
+    // ReSharper disable UnusedMember.Local
+    private sealed class QuoteDto(long quoteId, string quote)
+    {
+        public long QuoteId { get; } = quoteId;
+
+        public string Quote { get; } = quote;
+    }
+
+    private sealed class QuoteWriteDto
+    {
+        public string? Quote { get; init; }
+    }
+
+    private sealed class Gw2GuildDto(string id, string name, string? tag)
+    {
+        public string Id { get; } = id;
+
+        public string Name { get; } = name;
+
+        public string? Tag { get; } = tag;
+    }
+
+    private sealed class MyGw2GuildsResponse(bool hasAccount, IReadOnlyList<Gw2GuildDto> guilds)
+    {
+        public bool HasAccount { get; } = hasAccount;
+
+        public IReadOnlyList<Gw2GuildDto> Guilds { get; } = guilds;
+    }
+
+    private sealed class GuildSummaryDto(string guildId, string name, string? iconUrl)
+    {
+        public string GuildId { get; } = guildId;
+
+        public string Name { get; } = name;
+
+        public string? IconUrl { get; } = iconUrl;
+    }
+
+    private sealed class ChannelDto(string id, string name)
+    {
+        public string Id { get; } = id;
+
+        public string Name { get; } = name;
+    }
+
+    private sealed class RoleDto(string id, string name)
+    {
+        public string Id { get; } = id;
+
+        public string Name { get; } = name;
+    }
+
+    private sealed class GuildConfigResponse(
+        string guildId,
+        string guildName,
+        GuildConfigDto config,
+        IReadOnlyList<ChannelDto> channels,
+        IReadOnlyList<RoleDto> roles,
+        IReadOnlyList<Gw2GuildDto> gw2GuildNames)
+    {
+        public string GuildId { get; } = guildId;
+
+        public string GuildName { get; } = guildName;
+
+        public GuildConfigDto Config { get; } = config;
+
+        public IReadOnlyList<ChannelDto> Channels { get; } = channels;
+
+        public IReadOnlyList<RoleDto> Roles { get; } = roles;
+
+        public IReadOnlyList<Gw2GuildDto> Gw2GuildNames { get; } = gw2GuildNames;
+    }
+    // ReSharper restore UnusedMember.Local
+    // ReSharper restore UnusedAutoPropertyAccessor.Local
+    // ReSharper restore ClassNeverInstantiated.Local
 }

@@ -1,5 +1,5 @@
-using DonBot.Models.Entities;
-using DonBot.Services;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Services;
 using DonBot.Tests.Infrastructure;
 
 namespace DonBot.Tests.Services;
@@ -47,7 +47,7 @@ public class FightLogDeduplicationTests
         using var db = new SqliteTestDb();
         MakeFightLog(db, fightType: 1, playerNames: ["A.1234"]);
 
-        using var ctx = db.NewContext();
+        await using var ctx = db.NewContext();
         var match = await FightLogDeduplication.FindByContentAsync(
             ctx, fightType: 99, FightStart, ["A.1234"]);
 
@@ -60,7 +60,7 @@ public class FightLogDeduplicationTests
         using var db = new SqliteTestDb();
         MakeFightLog(db, playerNames: ["A.1234"]);
 
-        using var ctx = db.NewContext();
+        await using var ctx = db.NewContext();
         var match = await FightLogDeduplication.FindByContentAsync(
             ctx, FightType, FightStart.AddSeconds(10), ["A.1234"]);
 
@@ -73,12 +73,12 @@ public class FightLogDeduplicationTests
         using var db = new SqliteTestDb();
         var existing = MakeFightLog(db, playerNames: ["A.1234"]);
 
-        using var ctx = db.NewContext();
+        await using var ctx = db.NewContext();
         var match = await FightLogDeduplication.FindByContentAsync(
             ctx, FightType, FightStart.AddSeconds(1), ["A.1234"]);
 
         Assert.NotNull(match);
-        Assert.Equal(existing.FightLogId, match!.FightLogId);
+        Assert.Equal(existing.FightLogId, match.FightLogId);
     }
 
     [Fact]
@@ -88,7 +88,7 @@ public class FightLogDeduplicationTests
         using var db = new SqliteTestDb();
         MakeFightLog(db, playerNames: []);
 
-        using var ctx = db.NewContext();
+        await using var ctx = db.NewContext();
         var match = await FightLogDeduplication.FindByContentAsync(
             ctx, FightType, FightStart, ["A.1234"]);
 
@@ -102,12 +102,12 @@ public class FightLogDeduplicationTests
         using var db = new SqliteTestDb();
         var existing = MakeFightLog(db, playerNames: ["A.1234", "B.5678"]);
 
-        using var ctx = db.NewContext();
+        await using var ctx = db.NewContext();
         var match = await FightLogDeduplication.FindByContentAsync(
             ctx, FightType, FightStart, ["A.1234", "B.5678", "C.9999"]);
 
         Assert.NotNull(match);
-        Assert.Equal(existing.FightLogId, match!.FightLogId);
+        Assert.Equal(existing.FightLogId, match.FightLogId);
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public class FightLogDeduplicationTests
         using var db = new SqliteTestDb();
         MakeFightLog(db, playerNames: ["A.1234", "B.5678"]);
 
-        using var ctx = db.NewContext();
+        await using var ctx = db.NewContext();
         var match = await FightLogDeduplication.FindByContentAsync(
             ctx, FightType, FightStart, ["A.1234"]);
 
@@ -129,12 +129,12 @@ public class FightLogDeduplicationTests
         using var db = new SqliteTestDb();
         var existing = MakeFightLog(db, playerNames: ["Alice.1234"]);
 
-        using var ctx = db.NewContext();
+        await using var ctx = db.NewContext();
         var match = await FightLogDeduplication.FindByContentAsync(
             ctx, FightType, FightStart, ["alice.1234"]);
 
         Assert.NotNull(match);
-        Assert.Equal(existing.FightLogId, match!.FightLogId);
+        Assert.Equal(existing.FightLogId, match.FightLogId);
     }
 
     [Fact]
@@ -143,12 +143,12 @@ public class FightLogDeduplicationTests
         using var db = new SqliteTestDb();
         var existing = MakeFightLog(db, playerNames: ["A.1234"]);
 
-        using var ctx = db.NewContext();
+        await using var ctx = db.NewContext();
         var match = await FightLogDeduplication.FindByContentAsync(
             ctx, FightType, FightStart, ["A.1234"]);
 
         Assert.NotNull(match);
-        Assert.Equal(existing.FightLogId, match!.FightLogId);
+        Assert.Equal(existing.FightLogId, match.FightLogId);
     }
 
     [Fact]
@@ -157,7 +157,7 @@ public class FightLogDeduplicationTests
         using var db = new SqliteTestDb();
         MakeFightLog(db, playerNames: ["A.1234"]);
 
-        using var ctx = db.NewContext();
+        await using var ctx = db.NewContext();
         var match = await FightLogDeduplication.FindByContentAsync(
             ctx, FightType, FightStart.AddSeconds(-2), ["A.1234"]);
 

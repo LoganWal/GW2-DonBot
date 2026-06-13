@@ -1,28 +1,26 @@
-using Discord;
-using DonBot.Models.Entities;
-using DonBot.Models.Enums;
-using DonBot.Models.GuildWars2;
-using DonBot.Services;
-using DonBot.Services.GuildWarsServices;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.Enums;
+using DonBot.Core.Models.GuildWars2;
+using DonBot.Core.Services;
+using DonBot.Services.GuildWarsServices;
+using Microsoft.EntityFrameworkCore;
 
 namespace DonBot.Api.Services;
 
 public sealed class LogUploadPipelineService : BackgroundService
 {
-    private readonly ILogUploadProgressService progress;
-    private readonly IDbContextFactory<DatabaseContext> dbContextFactory;
-    private readonly IServiceScopeFactory scopeFactory;
-    private readonly IHttpClientFactory httpClientFactory;
-    private readonly IConfiguration configuration;
-    private readonly ILogger<LogUploadPipelineService> logger;
+    private readonly ILogUploadProgressService _progress;
+    private readonly IDbContextFactory<DatabaseContext> _dbContextFactory;
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<LogUploadPipelineService> _logger;
 
     private static readonly Regex DpsReportUrlPattern =
         new(@"https?://(b\.dps|dps|wvw)\.report/\S+", RegexOptions.Compiled);
@@ -38,13 +36,13 @@ public sealed class LogUploadPipelineService : BackgroundService
         IConfiguration configuration,
         ILogger<LogUploadPipelineService> logger)
     {
-        this.progress = progress;
-        this.dbContextFactory = dbContextFactory;
-        this.scopeFactory = scopeFactory;
-        this.httpClientFactory = httpClientFactory;
-        this.configuration = configuration;
-        this.logger = logger;
-        var concurrency = configuration.GetValue<int>("Upload:MaxConcurrentProcessing", 3);
+        this._progress = progress;
+        this._dbContextFactory = dbContextFactory;
+        this._scopeFactory = scopeFactory;
+        this._httpClientFactory = httpClientFactory;
+        this._configuration = configuration;
+        this._logger = logger;
+        var concurrency = configuration.GetValue("Upload:MaxConcurrentProcessing", 3);
         _concurrency = new SemaphoreSlim(concurrency, concurrency);
     }
 
@@ -67,29 +65,32 @@ public sealed class LogUploadPipelineService : BackgroundService
     {
         try
         {
-            await using var scope = scopeFactory.CreateAsyncScope();
+            await using var scope = _scopeFactory.CreateAsyncScope();
             var dataModelGenerationService = scope.ServiceProvider.GetRequiredService<IDataModelGenerationService>();
             var playerService = scope.ServiceProvider.GetRequiredService<IPlayerService>();
 
-            await using var ctx = await dbContextFactory.CreateDbContextAsync(ct);
+            await using var ctx = await _dbContextFactory.CreateDbContextAsync(ct);
             var upload = await ctx.LogUpload.FirstOrDefaultAsync(u => u.LogUploadId == uploadId, ct);
-            if (upload == null) {
+            if (upload == null)
+            {
                 return;
             }
 
-            if (upload.SourceType == "url") {
+            if (upload.SourceType == "url")
+            {
                 await ProcessUrlUploadAsync(ctx, upload, dataModelGenerationService, playerService, ct);
             }
-            else {
+            else
+            {
                 await ProcessFileUploadAsync(ctx, upload, dataModelGenerationService, playerService, ct);
             }
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Upload pipeline failed for upload {id}", uploadId);
+            _logger.LogError(ex, "Upload pipeline failed for upload {id}", uploadId);
             await MarkFailedAsync(uploadId, ex.Message, ct);
-            progress.Publish(uploadId, "failed", ex.Message);
-            progress.Complete(uploadId);
+            _progress.Publish(uploadId, "failed", ex.Message);
+            _progress.Complete(uploadId);
         }
     }
 
@@ -102,38 +103,39 @@ public sealed class LogUploadPipelineService : BackgroundService
         if (existingLog != null)
         {
             await FinalizeAsync(uploadId, url, existingLog.FightLogId, ct);
-            progress.Publish(uploadId, "complete", "Already saved.", url, existingLog.FightLogId);
-            progress.Complete(uploadId);
+            _progress.Publish(uploadId, "complete", "Already saved.", url, existingLog.FightLogId);
+            _progress.Complete(uploadId);
             return;
         }
 
         await UpdateStatus(ctx, upload, "parsing", ct);
-        progress.Publish(uploadId, "parsing", "Fetching log from URL...");
+        _progress.Publish(uploadId, "parsing", "Fetching log from URL...");
 
         var model = await dataModelGenerationService.GenerateEliteInsightDataModelFromUrl(url);
 
         await UpdateStatus(ctx, upload, "saving", ct);
-        progress.Publish(uploadId, "saving", "Saving log data...");
+        _progress.Publish(uploadId, "saving", "Saving log data...");
 
         var fightLogId = await SaveFightLogAsync(model, playerService, ct);
 
-        if (upload.SubmitToWingman) {
+        if (upload.SubmitToWingman)
+        {
             FireAndForgetWingman(url);
         }
 
         await FinalizeAsync(uploadId, url, fightLogId, ct);
-        progress.Publish(uploadId, "complete", "Done.", url, fightLogId);
-        progress.Complete(uploadId);
+        _progress.Publish(uploadId, "complete", "Done.", url, fightLogId);
+        _progress.Complete(uploadId);
     }
 
     private async Task ProcessFileUploadAsync(DatabaseContext ctx, LogUpload upload, IDataModelGenerationService dataModelGenerationService, IPlayerService playerService, CancellationToken ct)
     {
         var uploadId = upload.LogUploadId;
-        var storagePath = configuration["Upload:StoragePath"] ?? "/tmp/donbot/uploads";
-        var eiDllPath = configuration["EliteInsights:DllPath"]
+        var storagePath = _configuration["Upload:StoragePath"] ?? "/tmp/donbot/uploads";
+        var eiDllPath = _configuration["EliteInsights:DllPath"]
             ?? throw new InvalidOperationException("EliteInsights:DllPath is not configured.");
-        var eiOutputBasePath = configuration["EliteInsights:OutputBasePath"] ?? "/tmp/donbot/ei-output";
-        var dpsReportToken = configuration["DpsReport:UserToken"] ?? string.Empty;
+        var eiOutputBasePath = _configuration["EliteInsights:OutputBasePath"] ?? "/tmp/donbot/ei-output";
+        var dpsReportToken = _configuration["DpsReport:UserToken"] ?? string.Empty;
 
         var evtcPath = Path.Combine(storagePath, uploadId.ToString(), upload.FileName);
         var jobOutputDir = Path.Combine(eiOutputBasePath, uploadId.ToString());
@@ -141,7 +143,7 @@ public sealed class LogUploadPipelineService : BackgroundService
         try
         {
             await UpdateStatus(ctx, upload, "parsing", ct);
-            progress.Publish(uploadId, "parsing", "Running Elite Insights parser...");
+            _progress.Publish(uploadId, "parsing", "Running Elite Insights parser...");
 
             Directory.CreateDirectory(jobOutputDir);
             var tempConfigPath = Path.Combine(jobOutputDir, "ei.conf");
@@ -153,7 +155,8 @@ public sealed class LogUploadPipelineService : BackgroundService
                 UploadToDPSReports=true
                 SaveOutTrace=true
                 """;
-            if (!string.IsNullOrEmpty(dpsReportToken)) {
+            if (!string.IsNullOrEmpty(dpsReportToken))
+            {
                 configContent += $"\nDPSReportUserToken={dpsReportToken}";
             }
             await File.WriteAllTextAsync(tempConfigPath, configContent, ct);
@@ -177,13 +180,14 @@ public sealed class LogUploadPipelineService : BackgroundService
                 eiStdout = await proc.StandardOutput.ReadToEndAsync(ct);
                 var eiStderr = await proc.StandardError.ReadToEndAsync(ct);
                 await proc.WaitForExitAsync(ct);
-                if (proc.ExitCode != 0) {
-                    logger.LogWarning("EI CLI exited {code} for upload {id}: {err}", proc.ExitCode, uploadId, eiStderr);
+                if (proc.ExitCode != 0)
+                {
+                    _logger.LogWarning("EI CLI exited {code} for upload {id}: {err}", proc.ExitCode, uploadId, eiStderr);
                 }
             }
 
             await UpdateStatus(ctx, upload, "uploading", ct);
-            progress.Publish(uploadId, "uploading", "Getting dps.report link...");
+            _progress.Publish(uploadId, "uploading", "Getting dps.report link...");
 
             var eiResult = ParseEiStdout(eiStdout);
             var htmlPath = eiResult?.GeneratedFiles?.FirstOrDefault(f => f.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
@@ -194,17 +198,19 @@ public sealed class LogUploadPipelineService : BackgroundService
                 ?? ExtractDpsReportUrlFromLogFiles(jobOutputDir)
                 ?? await FallbackUploadToDpsReportAsync(evtcPath, upload.FileName, dpsReportToken, ct);
 
-            if (dpsReportUrl == null) {
+            if (dpsReportUrl == null)
+            {
                 throw new InvalidOperationException("Could not get a dps.report URL from EI output or direct upload.");
             }
 
-            progress.Publish(uploadId, "uploading", "Got dps.report link.", dpsReportUrl);
-            if (upload.SubmitToWingman) {
+            _progress.Publish(uploadId, "uploading", "Got dps.report link.", dpsReportUrl);
+            if (upload.SubmitToWingman)
+            {
                 FireAndForgetWingman(dpsReportUrl);
             }
 
             await UpdateStatus(ctx, upload, "saving", ct);
-            progress.Publish(uploadId, "saving", "Saving log data...");
+            _progress.Publish(uploadId, "saving", "Saving log data...");
 
             EliteInsightDataModel model;
             if (htmlPath != null && File.Exists(htmlPath))
@@ -219,8 +225,8 @@ public sealed class LogUploadPipelineService : BackgroundService
             var fightLogId = await SaveFightLogAsync(model, playerService, ct, upload.GuildId);
 
             await FinalizeAsync(uploadId, dpsReportUrl, fightLogId, ct);
-            progress.Publish(uploadId, "complete", "Done.", dpsReportUrl, fightLogId);
-            progress.Complete(uploadId);
+            _progress.Publish(uploadId, "complete", "Done.", dpsReportUrl, fightLogId);
+            _progress.Complete(uploadId);
         }
         finally
         {
@@ -233,7 +239,8 @@ public sealed class LogUploadPipelineService : BackgroundService
         var line = stdout.Split('\n')
             .Select(l => l.Trim())
             .FirstOrDefault(l => l.StartsWith("Processed - {"));
-        if (line == null) {
+        if (line == null)
+        {
             return null;
         }
 
@@ -252,7 +259,8 @@ public sealed class LogUploadPipelineService : BackgroundService
         foreach (var logFile in Directory.GetFiles(outputDir, "*.log"))
         {
             var url = ExtractDpsReportUrl(File.ReadAllText(logFile));
-            if (url != null) {
+            if (url != null)
+            {
                 return url;
             }
         }
@@ -262,21 +270,21 @@ public sealed class LogUploadPipelineService : BackgroundService
     private sealed class EiProcessedResult
     {
         [JsonPropertyName("generatedFiles")]
-        public List<string>? GeneratedFiles { get; set; }
+        public List<string>? GeneratedFiles { get; init; }
 
         [JsonPropertyName("dpsReportLink")]
-        public string? DpsReportLink { get; set; }
+        public string? DpsReportLink { get; init; }
 
         [JsonPropertyName("dpsReportUploadTentative")]
-        public bool DpsReportUploadTentative { get; set; }
+        public bool DpsReportUploadTentative { get; init; }
 
         [JsonPropertyName("dpsReportUploadFailed")]
-        public bool DpsReportUploadFailed { get; set; }
+        public bool DpsReportUploadFailed { get; init; }
     }
 
     private async Task<string?> FallbackUploadToDpsReportAsync(string filePath, string fileName, string userToken, CancellationToken ct)
     {
-        logger.LogInformation("EI did not output a dps.report URL, falling back to direct upload for {file}", fileName);
+        _logger.LogInformation("EI did not output a dps.report URL, falling back to direct upload for {file}", fileName);
 
         var uploadUrl = string.IsNullOrEmpty(userToken)
             ? "https://dps.report/uploadContent?json=1&generator=ei"
@@ -291,13 +299,13 @@ public sealed class LogUploadPipelineService : BackgroundService
                 using var form = new MultipartFormDataContent();
                 form.Add(new StreamContent(fileStream), "file", fileName);
 
-                var client = httpClientFactory.CreateClient();
+                var client = _httpClientFactory.CreateClient();
                 client.Timeout = TimeSpan.FromMinutes(5);
                 var response = await client.PostAsync(uploadUrl, form, ct);
 
                 if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests && attempt < delays.Length)
                 {
-                    logger.LogWarning("dps.report rate limited for {file}, retrying in {s}s (attempt {a}/{t})", fileName, delays[attempt], attempt + 1, delays.Length);
+                    _logger.LogWarning("dps.report rate limited for {file}, retrying in {s}s (attempt {a}/{t})", fileName, delays[attempt], attempt + 1, delays.Length);
                     await Task.Delay(TimeSpan.FromSeconds(delays[attempt]), ct);
                     continue;
                 }
@@ -308,12 +316,12 @@ public sealed class LogUploadPipelineService : BackgroundService
             }
             catch (Exception ex) when (attempt < delays.Length && ex is not OperationCanceledException)
             {
-                logger.LogWarning(ex, "Fallback dps.report upload failed for {file} (attempt {a}/{t}), retrying in {s}s", fileName, attempt + 1, delays.Length, delays[attempt]);
+                _logger.LogWarning(ex, "Fallback dps.report upload failed for {file} (attempt {a}/{t}), retrying in {s}s", fileName, attempt + 1, delays.Length, delays[attempt]);
                 await Task.Delay(TimeSpan.FromSeconds(delays[attempt]), ct);
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Fallback dps.report upload failed for {file}", fileName);
+                _logger.LogWarning(ex, "Fallback dps.report upload failed for {file}", fileName);
                 return null;
             }
         }
@@ -329,22 +337,23 @@ public sealed class LogUploadPipelineService : BackgroundService
         {
             try
             {
-                var client = httpClientFactory.CreateClient();
+                var client = _httpClientFactory.CreateClient();
                 var wingmanUrl = $"https://gw2wingman.nevermindcreations.de/api/importLogQueued?link={Uri.EscapeDataString(dpsReportUrl)}";
                 await client.GetAsync(wingmanUrl);
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Wingman fire-and-forget failed for {url}", dpsReportUrl);
+                _logger.LogWarning(ex, "Wingman fire-and-forget failed for {url}", dpsReportUrl);
             }
         });
     }
 
     private async Task FinalizeAsync(long uploadId, string? dpsReportUrl, long? fightLogId, CancellationToken ct)
     {
-        await using var ctx = await dbContextFactory.CreateDbContextAsync(ct);
+        await using var ctx = await _dbContextFactory.CreateDbContextAsync(ct);
         var upload = await ctx.LogUpload.FirstOrDefaultAsync(u => u.LogUploadId == uploadId, ct);
-        if (upload == null) {
+        if (upload == null)
+        {
             return;
         }
         upload.Status = "complete";
@@ -359,9 +368,10 @@ public sealed class LogUploadPipelineService : BackgroundService
     {
         try
         {
-            await using var ctx = await dbContextFactory.CreateDbContextAsync(ct);
+            await using var ctx = await _dbContextFactory.CreateDbContextAsync(ct);
             var upload = await ctx.LogUpload.FirstOrDefaultAsync(u => u.LogUploadId == uploadId, ct);
-            if (upload == null) {
+            if (upload == null)
+            {
                 return;
             }
             upload.Status = "failed";
@@ -380,19 +390,20 @@ public sealed class LogUploadPipelineService : BackgroundService
         ctx.LogUpload.Update(upload);
         await ctx.SaveChangesAsync(ct);
     }
-    
+
     private async Task<long> SaveFightLogAsync(EliteInsightDataModel data, IPlayerService playerService, CancellationToken ct, long guildId = 0)
     {
         var fightPhase = data.FightEliteInsightDataModel.Phases?.Any() == true
             ? data.FightEliteInsightDataModel.Phases[0]
             : new ArcDpsPhase();
 
-        await using var ctx = await dbContextFactory.CreateDbContextAsync(ct);
+        await using var ctx = await _dbContextFactory.CreateDbContextAsync(ct);
 
         var url = data.FightEliteInsightDataModel.Url;
         FightLog? existing = null;
 
-        if (!string.IsNullOrEmpty(url)) {
+        if (!string.IsNullOrEmpty(url))
+        {
             existing = await ctx.FightLog.FirstOrDefaultAsync(f => f.Url == url, ct);
         }
 
@@ -665,7 +676,8 @@ public sealed class LogUploadPipelineService : BackgroundService
         try
         {
             var evtcDir = evtcPath != null ? Path.GetDirectoryName(evtcPath) : null;
-            if (evtcDir != null && Directory.Exists(evtcDir)) {
+            if (evtcDir != null && Directory.Exists(evtcDir))
+            {
                 Directory.Delete(evtcDir, recursive: true);
             }
         }
@@ -673,7 +685,8 @@ public sealed class LogUploadPipelineService : BackgroundService
 
         try
         {
-            if (jobOutputDir != null && Directory.Exists(jobOutputDir)) {
+            if (jobOutputDir != null && Directory.Exists(jobOutputDir))
+            {
                 Directory.Delete(jobOutputDir, recursive: true);
             }
         }
@@ -683,6 +696,6 @@ public sealed class LogUploadPipelineService : BackgroundService
     private sealed class DpsReportUploadResult
     {
         [JsonPropertyName("permalink")]
-        public string? Permalink { get; set; }
+        public string? Permalink { get; init; }
     }
 }

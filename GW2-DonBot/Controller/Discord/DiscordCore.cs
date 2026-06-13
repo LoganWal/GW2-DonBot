@@ -1,11 +1,11 @@
 using Discord;
 using Discord.WebSocket;
-using DonBot.Models.Entities;
+using DonBot.Core.Models.Entities;
 using DonBot.Services.DatabaseServices;
-using DonBot.Services.LoggingServices;
-using DonBot.Services.SchedulerServices;
 using DonBot.Services.DiscordRequestServices;
 using DonBot.Services.DiscordServices;
+using DonBot.Services.LoggingServices;
+using DonBot.Services.SchedulerServices;
 using DonBot.Services.SecretsServices;
 using Microsoft.Extensions.Logging;
 

@@ -1,4 +1,4 @@
-using DonBot.Models.Entities;
+using DonBot.Core.Models.Entities;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 

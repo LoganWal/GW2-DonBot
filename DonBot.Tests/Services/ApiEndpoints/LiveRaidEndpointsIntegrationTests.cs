@@ -3,8 +3,8 @@ using System.Security.Claims;
 using System.Text.Json;
 using DonBot.Api.Endpoints;
 using DonBot.Api.Services;
+using DonBot.Core.Models.Entities;
 using DonBot.Core.Services.RaidLifecycle;
-using DonBot.Models.Entities;
 using DonBot.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,7 +17,7 @@ public class LiveRaidEndpointsIntegrationTests
 
     private sealed class FakeUserGuilds : IUserGuildsService
     {
-        public HashSet<long> Allowed { get; } = new();
+        public HashSet<long> Allowed { get; } = [];
 
         private IReadOnlyList<DiscordUserGuild> Build() => Allowed
             .Select(id => new DiscordUserGuild((ulong)id, $"Guild{id}", null, false, 0))
@@ -57,8 +57,8 @@ public class LiveRaidEndpointsIntegrationTests
     private sealed class TestHost : IDisposable
     {
         public MinimalApiHost Inner { get; }
-        public FakeUserGuilds Membership { get; } = new();
         public NoopRaidNotifier RaidNotifier { get; } = new();
+        private FakeUserGuilds Membership { get; } = new();
 
         public TestHost()
         {
@@ -76,7 +76,7 @@ public class LiveRaidEndpointsIntegrationTests
         }
 
         public IDbContextFactory<DatabaseContext> DbFactory => Inner.DbFactory;
-        public System.Net.Http.HttpClient Client => Inner.Client;
+        public HttpClient Client => Inner.Client;
 
         public void AllowMembership(params long[] guildIds)
         {

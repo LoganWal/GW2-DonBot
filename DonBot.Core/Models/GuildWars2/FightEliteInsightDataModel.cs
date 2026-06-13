@@ -1,15 +1,15 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace DonBot.Models.GuildWars2;
+namespace DonBot.Core.Models.GuildWars2;
 
 public class FightEliteInsightDataModel
 {
     [JsonProperty("url")]
     public string Url { get; set; } = string.Empty;
-    
+
     [JsonProperty("boons")]
-    public List<int> Boons { get; set; } = new();
+    public List<int> Boons { get; set; } = [];
 
     [JsonProperty("targets")]
     public List<ArcDpsTarget>? Targets { get; set; }
@@ -149,7 +149,7 @@ public class ArcDpsPhase
     [JsonProperty("encounterDuration")]
     public string EncounterDuration { get; set; } = string.Empty;
 }
-    
+
 public class BuffsStatContainer
 {
     [JsonProperty("boonStats")]
@@ -195,7 +195,7 @@ public class ArcDpsPlayer
 public class ArcsDpsPlayerDetails
 {
     [JsonProperty("deathRecap")]
-    public List<DeathRecap> DeathRecap { get; set; } = new();
+    public List<DeathRecap> DeathRecap { get; set; } = [];
 
     [JsonProperty("rotation")]
     public List<List<List<double>>>? Rotation { get; set; }
@@ -277,10 +277,12 @@ public class DefStatConverter : JsonConverter<DefStat>
 
     public override void WriteJson(JsonWriter writer, DefStat value, JsonSerializer serializer)
     {
-        if (value.String != null) {
+        if (value.String != null)
+        {
             writer.WriteValue(value.String);
         }
-        else {
+        else
+        {
             writer.WriteValue(value.Double);
         }
     }

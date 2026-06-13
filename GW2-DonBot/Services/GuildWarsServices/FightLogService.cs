@@ -1,6 +1,6 @@
-﻿using Discord.WebSocket;
+using Discord.WebSocket;
+using DonBot.Core.Models.Enums;
 using DonBot.Extensions;
-using DonBot.Models.Enums;
 using DonBot.Models.Statics;
 using DonBot.Services.DatabaseServices;
 

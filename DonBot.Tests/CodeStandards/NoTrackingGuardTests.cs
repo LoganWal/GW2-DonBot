@@ -28,13 +28,15 @@ public class NoTrackingGuardTests
         foreach (var root in ScanRoots)
         {
             var path = Path.Combine(repoRoot, root);
-            if (!Directory.Exists(path)) {
+            if (!Directory.Exists(path))
+            {
                 continue;
             }
 
             foreach (var file in Directory.EnumerateFiles(path, "*.cs", SearchOption.AllDirectories))
             {
-                if (file.Contains("/bin/") || file.Contains("/obj/") || file.Contains("/Migrations/")) {
+                if (file.Contains("/bin/") || file.Contains("/obj/") || file.Contains("/Migrations/"))
+                {
                     continue;
                 }
 
@@ -63,7 +65,7 @@ public class NoTrackingGuardTests
             dir = dir.Parent;
         }
         Assert.NotNull(dir);
-        return dir!.FullName;
+        return dir.FullName;
     }
 
     private static IEnumerable<(string Name, string Body)> ExtractMethods(string source)
@@ -73,19 +75,26 @@ public class NoTrackingGuardTests
         while (i < source.Length)
         {
             var openParen = source.IndexOf('(', i);
-            if (openParen < 0) {
+            if (openParen < 0)
+            {
                 yield break;
             }
 
             var identEnd = openParen;
-            while (identEnd > 0 && char.IsWhiteSpace(source[identEnd - 1])) {
+            while (identEnd > 0 && char.IsWhiteSpace(source[identEnd - 1]))
+            {
                 identEnd--;
             }
             var identStart = identEnd;
-            while (identStart > 0 && (char.IsLetterOrDigit(source[identStart - 1]) || source[identStart - 1] == '_')) {
+            while (identStart > 0 && (char.IsLetterOrDigit(source[identStart - 1]) || source[identStart - 1] == '_'))
+            {
                 identStart--;
             }
-            if (identStart == identEnd) { i = openParen + 1; continue; }
+            if (identStart == identEnd)
+            {
+                i = openParen + 1;
+                continue;
+            }
 
             var name = source[identStart..identEnd];
 
@@ -93,29 +102,57 @@ public class NoTrackingGuardTests
             var j = openParen;
             for (; j < source.Length; j++)
             {
-                if (source[j] == '(') {
+                if (source[j] == '(')
+                {
                     depth++;
                 }
-                else if (source[j] == ')') { depth--; if (depth == 0) { j++; break; } }
+                else if (source[j] == ')')
+                {
+                    depth--;
+                    if (depth == 0)
+                    {
+                        j++;
+                        break;
+                    }
+                }
             }
-            if (depth != 0) { i = openParen + 1; continue; }
+            if (depth != 0)
+            {
+                i = openParen + 1;
+                continue;
+            }
 
-            while (j < source.Length && (char.IsWhiteSpace(source[j]) || char.IsLetter(source[j]) || source[j] == ',' || source[j] == ':' || source[j] == '<' || source[j] == '>')) {
+            while (j < source.Length && (char.IsWhiteSpace(source[j]) || char.IsLetter(source[j]) || source[j] == ',' || source[j] == ':' || source[j] == '<' || source[j] == '>'))
+            {
                 j++;
             }
 
-            if (j >= source.Length || source[j] != '{') { i = openParen + 1; continue; }
+            if (j >= source.Length || source[j] != '{')
+            {
+                i = openParen + 1;
+                continue;
+            }
 
             var bodyStart = j;
             var braceDepth = 0;
             for (; j < source.Length; j++)
             {
-                if (source[j] == '{') {
+                if (source[j] == '{')
+                {
                     braceDepth++;
                 }
-                else if (source[j] == '}') { braceDepth--; if (braceDepth == 0) { j++; break; } }
+                else if (source[j] == '}')
+                {
+                    braceDepth--;
+                    if (braceDepth == 0)
+                    {
+                        j++;
+                        break;
+                    }
+                }
             }
-            if (braceDepth != 0) {
+            if (braceDepth != 0)
+            {
                 yield break;
             }
 
@@ -133,45 +170,47 @@ public class NoTrackingGuardTests
             {
                 idx += queryMethod.Length;
 
-                var lineStart = body.LastIndexOf('\n', idx);
-                if (lineStart < 0) {
-                    lineStart = 0;
-                }
-                var line = body[lineStart..idx];
-
                 var stmtStart = body.LastIndexOf(';', idx);
-                if (stmtStart < 0) {
+                if (stmtStart < 0)
+                {
                     stmtStart = 0;
                 }
                 var statement = body[stmtStart..idx];
 
-                if (statement.Contains(".Select(") || statement.Contains(".AsTracking()")) {
+                if (statement.Contains(".Select(") || statement.Contains(".AsTracking()"))
+                {
                     continue;
                 }
 
                 var varKeyword = statement.IndexOf("var ", StringComparison.Ordinal);
-                if (varKeyword < 0) {
+                if (varKeyword < 0)
+                {
                     continue;
                 }
                 var nameStart = varKeyword + 4;
                 var nameEnd = nameStart;
-                while (nameEnd < statement.Length && (char.IsLetterOrDigit(statement[nameEnd]) || statement[nameEnd] == '_')) {
+                while (nameEnd < statement.Length && (char.IsLetterOrDigit(statement[nameEnd]) || statement[nameEnd] == '_'))
+                {
                     nameEnd++;
                 }
-                if (nameEnd == nameStart) {
+                if (nameEnd == nameStart)
+                {
                     continue;
                 }
                 var varName = statement[nameStart..nameEnd];
 
                 var rest = body[idx..];
-                if (!System.Text.RegularExpressions.Regex.IsMatch(rest, $@"\b{System.Text.RegularExpressions.Regex.Escape(varName)}\.[A-Z][A-Za-z0-9_]*\s*=")) {
+                if (!System.Text.RegularExpressions.Regex.IsMatch(rest, $@"\b{System.Text.RegularExpressions.Regex.Escape(varName)}\.[A-Z][A-Za-z0-9_]*\s*="))
+                {
                     continue;
                 }
-                if (!rest.Contains("SaveChangesAsync")) {
+                if (!rest.Contains("SaveChangesAsync"))
+                {
                     continue;
                 }
 
-                if (System.Text.RegularExpressions.Regex.IsMatch(rest, $@"\.(Update|Attach)\(\s*{System.Text.RegularExpressions.Regex.Escape(varName)}\s*\)")) {
+                if (System.Text.RegularExpressions.Regex.IsMatch(rest, $@"\.(Update|Attach)\(\s*{System.Text.RegularExpressions.Regex.Escape(varName)}\s*\)"))
+                {
                     continue;
                 }
 

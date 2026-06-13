@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace DonBot.Models.Entities;
+namespace DonBot.Core.Models.Entities;
 
 public class Guild
 {

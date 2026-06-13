@@ -1,8 +1,8 @@
-using DonBot.Models.Entities;
+using System.Security.Claims;
+using DonBot.Core.Models.Entities;
+using DonBot.Models.Apis.GuildWars2Api;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
-using System.Security.Claims;
-using DonBot.Models.Apis.GuildWars2Api;
 
 namespace DonBot.Api.Endpoints;
 
@@ -16,8 +16,6 @@ public static class AccountEndpoints
         group.MapGet("/gw2", GetGw2Accounts);
     }
 
-    private record VerifyRequest(string ApiKey);
-
     private static async Task<IResult> VerifyGw2Key(
         VerifyRequest request,
         ClaimsPrincipal user,
@@ -25,18 +23,21 @@ public static class AccountEndpoints
         IHttpClientFactory httpClientFactory)
     {
         var discordIdStr = user.FindFirst("discord_id")?.Value;
-        if (!long.TryParse(discordIdStr, out var discordId)) {
+        if (!long.TryParse(discordIdStr, out var discordId))
+        {
             return Results.Unauthorized();
         }
 
-        if (string.IsNullOrWhiteSpace(request.ApiKey)) {
+        if (string.IsNullOrWhiteSpace(request.ApiKey))
+        {
             return Results.BadRequest("API key is required.");
         }
 
         var client = httpClientFactory.CreateClient();
         var response = await client.GetAsync($"https://api.guildwars2.com/v2/account/?access_token={request.ApiKey}");
 
-        if (!response.IsSuccessStatusCode) {
+        if (!response.IsSuccessStatusCode)
+        {
             return Results.BadRequest("Invalid GW2 API key.");
         }
 
@@ -88,11 +89,13 @@ public static class AccountEndpoints
         IDbContextFactory<DatabaseContext> dbContextFactory)
     {
         var discordIdStr = user.FindFirst("discord_id")?.Value;
-        if (!long.TryParse(discordIdStr, out var discordId)) {
+        if (!long.TryParse(discordIdStr, out var discordId))
+        {
             return Results.Unauthorized();
         }
 
-        if (!Guid.TryParse(accountId, out var accountGuid)) {
+        if (!Guid.TryParse(accountId, out var accountGuid))
+        {
             return Results.BadRequest("Invalid account ID.");
         }
 
@@ -101,7 +104,8 @@ public static class AccountEndpoints
         var account = await context.GuildWarsAccount
             .FirstOrDefaultAsync(g => g.DiscordId == discordId && g.GuildWarsAccountId == accountGuid);
 
-        if (account == null) {
+        if (account == null)
+        {
             return Results.NotFound();
         }
 
@@ -116,7 +120,8 @@ public static class AccountEndpoints
         IDbContextFactory<DatabaseContext> dbContextFactory)
     {
         var discordIdStr = user.FindFirst("discord_id")?.Value;
-        if (!long.TryParse(discordIdStr, out var discordId)) {
+        if (!long.TryParse(discordIdStr, out var discordId))
+        {
             return Results.Unauthorized();
         }
 
@@ -129,4 +134,14 @@ public static class AccountEndpoints
 
         return Results.Ok(accounts);
     }
+
+    // ASP.NET Core model binding instantiates this request DTO.
+    // ReSharper disable ClassNeverInstantiated.Local
+    // ReSharper disable UnusedAutoPropertyAccessor.Local
+    private sealed class VerifyRequest
+    {
+        public string? ApiKey { get; init; }
+    }
+    // ReSharper restore UnusedAutoPropertyAccessor.Local
+    // ReSharper restore ClassNeverInstantiated.Local
 }

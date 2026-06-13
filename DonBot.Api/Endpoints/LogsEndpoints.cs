@@ -1,9 +1,9 @@
-using DonBot.Models.Entities;
-using DonBot.Models.Enums;
-using DonBot.Services.GuildWarsServices;
-using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.Enums;
+using DonBot.Services.GuildWarsServices;
+using Microsoft.EntityFrameworkCore;
 
 namespace DonBot.Api.Endpoints;
 
@@ -20,14 +20,13 @@ public static class LogsEndpoints
         group.MapGet("/{id:long}", GetLog);
     }
 
-    private record LogIdsRequest(List<long> LogIds);
-
     private static async Task<IResult> SubmitToWingman(
         LogIdsRequest request,
         IDbContextFactory<DatabaseContext> dbContextFactory,
         IHttpClientFactory httpClientFactory)
     {
-        if (request?.LogIds == null || request.LogIds.Count == 0)
+        List<long> logIds = request.LogIds ?? [];
+        if (logIds.Count == 0)
         {
             return Results.BadRequest("No log IDs provided.");
         }
@@ -35,7 +34,7 @@ public static class LogsEndpoints
         await using var context = await dbContextFactory.CreateDbContextAsync();
 
         var logs = await context.FightLog
-            .Where(fl => request.LogIds.Contains(fl.FightLogId) && fl.FightType != 0 && fl.Url != null && fl.Url != string.Empty)
+            .Where(fl => logIds.Contains(fl.FightLogId) && fl.FightType != 0 && fl.Url != string.Empty)
             .Select(fl => new { fl.FightLogId, fl.Url })
             .ToListAsync();
 
@@ -72,7 +71,8 @@ public static class LogsEndpoints
         IDbContextFactory<DatabaseContext> dbContextFactory,
         IDataModelGenerationService dataModelGenerationService)
     {
-        if (request?.LogIds == null || request.LogIds.Count == 0)
+        List<long> logIds = request.LogIds ?? [];
+        if (logIds.Count == 0)
         {
             return Results.BadRequest("No log IDs provided.");
         }
@@ -80,9 +80,8 @@ public static class LogsEndpoints
         await using var context = await dbContextFactory.CreateDbContextAsync();
 
         var logs = await context.FightLog
-            .Where(fl => request.LogIds.Contains(fl.FightLogId)
+            .Where(fl => logIds.Contains(fl.FightLogId)
                 && fl.FightType == (short)FightTypesEnum.WvW
-                && fl.Url != null
                 && fl.Url != string.Empty)
             .Select(fl => new { fl.FightLogId, fl.Url })
             .ToListAsync();
@@ -98,12 +97,12 @@ public static class LogsEndpoints
             await throttle.WaitAsync();
             try
             {
-                var data = await dataModelGenerationService.GenerateEliteInsightDataModelFromUrl(log.Url!);
-                return data.FightEliteInsightDataModel.Targets ?? new();
+                var data = await dataModelGenerationService.GenerateEliteInsightDataModelFromUrl(log.Url);
+                return data.FightEliteInsightDataModel.Targets ?? [];
             }
             catch
             {
-                return new();
+                return [];
             }
             finally
             {
@@ -144,14 +143,12 @@ public static class LogsEndpoints
         });
     }
 
-    private record AggregateLogsRequest(List<long> LogIds);
-
     private static async Task<IResult> AggregateLogs(
-        AggregateLogsRequest request,
+        LogIdsRequest request,
         IDbContextFactory<DatabaseContext> dbContextFactory)
     {
-        var logIds = request?.LogIds;
-        if (logIds == null || logIds.Count == 0)
+        List<long> logIds = request.LogIds ?? [];
+        if (logIds.Count == 0)
         {
             return Results.BadRequest("No log IDs provided.");
         }
@@ -478,11 +475,13 @@ public static class LogsEndpoints
             query = query.Where(fl => fl.FightStart <= endDt);
         }
 
-        if (isSuccess.HasValue) {
+        if (isSuccess.HasValue)
+        {
             query = query.Where(fl => fl.IsSuccess == isSuccess.Value);
         }
 
-        if (fightMode.HasValue) {
+        if (fightMode.HasValue)
+        {
             query = query.Where(fl => fl.FightMode == fightMode.Value);
         }
 
@@ -562,4 +561,14 @@ public static class LogsEndpoints
 
         return Results.Ok(new { log, players = playerLogs, mechanics = mechanicLogs });
     }
+
+    // ASP.NET Core model binding instantiates this request DTO.
+    // ReSharper disable ClassNeverInstantiated.Local
+    // ReSharper disable UnusedAutoPropertyAccessor.Local
+    private sealed class LogIdsRequest
+    {
+        public List<long>? LogIds { get; init; }
+    }
+    // ReSharper restore UnusedAutoPropertyAccessor.Local
+    // ReSharper restore ClassNeverInstantiated.Local
 }

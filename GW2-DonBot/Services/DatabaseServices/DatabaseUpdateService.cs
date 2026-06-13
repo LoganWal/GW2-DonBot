@@ -1,6 +1,6 @@
-﻿using DonBot.Models.Entities;
-using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
+using DonBot.Core.Models.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace DonBot.Services.DatabaseServices;
 

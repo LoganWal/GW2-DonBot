@@ -1,4 +1,4 @@
-﻿namespace DonBot.Models.Statics;
+namespace DonBot.Models.Statics;
 
 internal static class ButtonId
 {

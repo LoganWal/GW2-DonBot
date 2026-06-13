@@ -1,5 +1,5 @@
 using Discord;
-using DonBot.Models.GuildWars2;
+using DonBot.Core.Models.GuildWars2;
 
 namespace DonBot.Services.GuildWarsServices.MessageGeneration;
 

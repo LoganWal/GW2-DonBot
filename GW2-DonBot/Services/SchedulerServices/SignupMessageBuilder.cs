@@ -1,8 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
 using Discord;
-using DonBot.Models.Entities;
-using DonBot.Models.Scheduling;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.Scheduling;
 using DonBot.Models.Statics;
 
 namespace DonBot.Services.SchedulerServices;
@@ -49,15 +49,12 @@ internal static class SignupMessageBuilder
                 option.Label,
                 customId: $"{ButtonId.ScheduledEventResponsePrefix}{scheduledEvent.ScheduledEventId}_{i}_{FieldKey(option)}",
                 style: GetButtonStyle(i),
-                emote: ParseEmoji(option.Emoji),
+                emote: ParseEmoji(option.Emoji ?? string.Empty),
                 row: i / 5);
         }
 
         return builder.Build();
     }
-
-    public static IReadOnlyList<ScheduledEventResponseOption> GetOptions(ScheduledEvent scheduledEvent) =>
-        ScheduledEventResponseOptions.ForEvent(scheduledEvent.EventType, scheduledEvent.ResponseOptionsJson);
 
     public static string FieldKey(ScheduledEventResponseOption option) =>
         FieldKey(ScheduledEventResponseOptions.FieldName(option));
@@ -150,4 +147,7 @@ internal static class SignupMessageBuilder
             return null;
         }
     }
+
+    private static IReadOnlyList<ScheduledEventResponseOption> GetOptions(ScheduledEvent scheduledEvent) =>
+        ScheduledEventResponseOptions.ForEvent(scheduledEvent.EventType, scheduledEvent.ResponseOptionsJson);
 }

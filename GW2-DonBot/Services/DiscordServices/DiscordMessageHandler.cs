@@ -1,8 +1,8 @@
 using Discord;
 using Discord.WebSocket;
-using DonBot.Models.Entities;
-using DonBot.Models.Enums;
-using DonBot.Models.GuildWars2;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.Enums;
+using DonBot.Core.Models.GuildWars2;
 using DonBot.Models.Statics;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.DiscordRequestServices;
@@ -213,7 +213,6 @@ public class DiscordMessageHandler(
             }
         }
 
-        MessageComponent? buttonBuilder = null;
         foreach (var eliteInsightDataModel in dataList)
         {
             if (_seenUrls.Contains(eliteInsightDataModel.FightEliteInsightDataModel.Url))
@@ -223,6 +222,7 @@ public class DiscordMessageHandler(
             }
 
             Embed message;
+            MessageComponent? buttonBuilder;
             if (eliteInsightDataModel.FightEliteInsightDataModel.Wvw)
             {
                 if (guild.AdvanceLogReportChannelId != null)
@@ -243,7 +243,8 @@ public class DiscordMessageHandler(
                 var (wvwMessage, wvwWebAppUrl, _) = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, false, guild, client);
                 message = wvwMessage;
                 var cb = new ComponentBuilder().WithButton("Know My Enemy", ButtonId.KnowMyEnemy);
-                if (wvwWebAppUrl != null) {
+                if (wvwWebAppUrl != null)
+                {
                     cb.WithButton("View on DonBot", style: ButtonStyle.Link, url: wvwWebAppUrl);
                 }
                 buttonBuilder = cb.Build();
@@ -361,8 +362,16 @@ public class DiscordMessageHandler(
                 {
                     var cb = new ComponentBuilder();
                     var hasButton = false;
-                    if (i == messages.Count - 1 && replyWebAppUrl != null) { cb.WithButton("View on DonBot", style: ButtonStyle.Link, url: replyWebAppUrl); hasButton = true; }
-                    if (i == bestTimesIndex && bestTimesButtonId != null) { cb.WithButton("Best Times", bestTimesButtonId); hasButton = true; }
+                    if (i == messages.Count - 1 && replyWebAppUrl != null)
+                    {
+                        cb.WithButton("View on DonBot", style: ButtonStyle.Link, url: replyWebAppUrl);
+                        hasButton = true;
+                    }
+                    if (i == bestTimesIndex && bestTimesButtonId != null)
+                    {
+                        cb.WithButton("Best Times", bestTimesButtonId);
+                        hasButton = true;
+                    }
                     await interaction.Channel.SendMessageAsync(embeds: [messages[i]], components: hasButton ? cb.Build() : null);
                 }
             }
@@ -377,7 +386,8 @@ public class DiscordMessageHandler(
                 var (wvwMsg, wvwUrl, _) = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, false, guild, client);
                 singleMessage = wvwMsg;
                 var cb = new ComponentBuilder().WithButton("Know My Enemy", ButtonId.KnowMyEnemy);
-                if (wvwUrl != null) {
+                if (wvwUrl != null)
+                {
                     cb.WithButton("View on DonBot", style: ButtonStyle.Link, url: wvwUrl);
                 }
                 singleButtonBuilder = cb.Build();
@@ -386,7 +396,8 @@ public class DiscordMessageHandler(
             {
                 var (pveMsg, pveUrl, _) = await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, guildId);
                 singleMessage = pveMsg;
-                if (pveUrl != null) {
+                if (pveUrl != null)
+                {
                     singleButtonBuilder = new ComponentBuilder().WithButton("View on DonBot", style: ButtonStyle.Link, url: pveUrl).Build();
                 }
             }

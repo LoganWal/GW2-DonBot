@@ -14,10 +14,10 @@ public static class DiscordTable
         Right
     }
 
-    public readonly record struct Column(string Header, int Width, Align Align = Align.Left);
+    public readonly record struct Column(string Label, int Width, Align Align = Align.Left);
 
     public static string Header(IReadOnlyList<Column> columns) =>
-        Compose(columns, columns.Select(c => c.Header).ToArray());
+        Compose(columns, columns.Select(c => c.Label).ToArray());
 
     public static string Row(IReadOnlyList<Column> columns, params string[] cells) =>
         Compose(columns, cells);
@@ -33,7 +33,7 @@ public static class DiscordTable
                 builder.Append(' ', gaps[i - 1]);
             }
 
-            var text = i < cells.Count ? cells[i] ?? string.Empty : string.Empty;
+            var text = i < cells.Count ? cells[i] : string.Empty;
             var column = columns[i];
 
             // Clip text columns, but leave right-aligned numeric values intact.

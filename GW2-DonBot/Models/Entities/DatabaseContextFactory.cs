@@ -1,8 +1,8 @@
+using DonBot.Core.Models.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using DonBot.Models.Entities;
 
-namespace DonBot.DesignTime;
+namespace DonBot.Models.Entities;
 
 public class DatabaseContextFactory : IDesignTimeDbContextFactory<DatabaseContext>
 {

@@ -1,26 +1,25 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using DonBot.Models.Entities;
-using DonBot.Models.GuildWars2;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.GuildWars2;
 using DonBot.Services.GuildWarsServices;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
 
 namespace DonBot.Tests.Infrastructure;
 
 /// Minimal in-process API host for endpoint tests.
 internal sealed class MinimalApiHost : IDisposable
 {
-    public const string JwtKey = "test-jwt-signing-key-must-be-at-least-256-bits-long-for-hmac-sha256!!";
+    private const string JwtKey = "test-jwt-signing-key-must-be-at-least-256-bits-long-for-hmac-sha256!!";
 
     private readonly SqliteConnection _connection;
     private readonly TestServer _server;
@@ -81,27 +80,13 @@ internal sealed class MinimalApiHost : IDisposable
 
         mapEndpoints(app);
 
-        ((IHost)app).Start();
+        app.Start();
         _server = app.GetTestServer();
         Client = _server.CreateClient();
     }
 
     public IDbContextFactory<DatabaseContext> DbFactory =>
         _server.Services.GetRequiredService<IDbContextFactory<DatabaseContext>>();
-
-    public string CreateJwt(long discordId)
-    {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(JwtKey));
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-        var token = new JwtSecurityToken(
-            claims: [
-                new Claim("discord_id", discordId.ToString()),
-                new Claim("discord_access_token", "test-access-token")
-            ],
-            expires: DateTime.UtcNow.AddHours(1),
-            signingCredentials: creds);
-        return new JwtSecurityTokenHandler().WriteToken(token);
-    }
 
     public void AuthenticateAs(long discordId)
     {
@@ -128,5 +113,19 @@ internal sealed class MinimalApiHost : IDisposable
 
         public EliteInsightDataModel GenerateEliteInsightDataModelFromHtml(string html, string url) =>
             new();
+    }
+
+    private string CreateJwt(long discordId)
+    {
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(JwtKey));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var token = new JwtSecurityToken(
+            claims: [
+                new Claim("discord_id", discordId.ToString()),
+                new Claim("discord_access_token", "test-access-token")
+            ],
+            expires: DateTime.UtcNow.AddHours(1),
+            signingCredentials: creds);
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }

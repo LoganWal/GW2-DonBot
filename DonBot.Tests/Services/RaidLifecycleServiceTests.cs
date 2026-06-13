@@ -1,5 +1,5 @@
+using DonBot.Core.Models.Entities;
 using DonBot.Core.Services.RaidLifecycle;
-using DonBot.Models.Entities;
 using DonBot.Tests.Infrastructure;
 
 namespace DonBot.Tests.Services;
@@ -142,7 +142,7 @@ public class RaidLifecycleServiceTests
         var result = await svc.GetLatestRaidAsync(42L);
 
         Assert.NotNull(result);
-        Assert.Equal(latestId, result!.FightsReportId);
+        Assert.Equal(latestId, result.FightsReportId);
     }
 
     [Fact]
@@ -168,7 +168,7 @@ public class RaidLifecycleServiceTests
         var result = await svc.GetLatestRaidAsync(42L);
 
         Assert.NotNull(result);
-        Assert.Equal(openId, result!.FightsReportId);
+        Assert.Equal(openId, result.FightsReportId);
         Assert.Null(result.FightsEnd);
     }
 

@@ -4,7 +4,7 @@ namespace DonBot.Api.Services;
 
 public static class MemoryCacheCoalesceExtensions
 {
-    private static readonly object Gate = new();
+    private static readonly Lock Gate = new();
 
     // Cache the active task so concurrent misses share one factory call.
     // Failures use the shorter retry TTL.
@@ -22,7 +22,7 @@ public static class MemoryCacheCoalesceExtensions
 
         lock (Gate)
         {
-            if (cache.TryGetValue<Task<T>>(key, out existing) && existing is not null)
+            if (cache.TryGetValue(key, out existing) && existing is not null)
             {
                 return existing;
             }

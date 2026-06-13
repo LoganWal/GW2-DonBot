@@ -1,5 +1,5 @@
-using DonBot.Models.Entities;
-using DonBot.Models.GuildWars2;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.GuildWars2;
 using DonBot.Services.DatabaseServices;
 
 namespace DonBot.Services.GuildWarsServices;
@@ -27,7 +27,8 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
 
         foreach (var player in data.FightEliteInsightDataModel.Players)
         {
-            if (player.Acc == null || player.Name == null || player.Details?.Rotation == null || player.NotInSquad) {
+            if (player.Acc == null || player.Name == null || player.Details?.Rotation == null || player.NotInSquad)
+            {
                 continue;
             }
 
@@ -53,7 +54,8 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
         Dictionary<string, SkillMapEntry> skillMap,
         string fightUrl)
     {
-        if (rotation.Count == 0 || rotation[0].Count == 0) {
+        if (rotation.Count == 0 || rotation[0].Count == 0)
+        {
             return [];
         }
 
@@ -62,18 +64,21 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
 
         foreach (var skill in rotation[0])
         {
-            if (skill.Count < 2) {
+            if (skill.Count < 2)
+            {
                 continue;
             }
 
             var castTime = skill[0];
             var skillId = (long)skill[1];
 
-            if (skillMap.TryGetValue($"s{skillId}", out var entry) && entry.IsAutoAttack) {
+            if (skillMap.TryGetValue($"s{skillId}", out var entry) && entry.IsAutoAttack)
+            {
                 continue;
             }
 
-            if (!skillCasts.ContainsKey(skillId)) {
+            if (!skillCasts.ContainsKey(skillId))
+            {
                 skillCasts[skillId] = [];
             }
 
@@ -86,7 +91,8 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
         // Tier 1: low-variance intervals for one skill.
         foreach (var (skillId, castTimes) in skillCasts)
         {
-            if (castTimes.Count < MinCastCount) {
+            if (castTimes.Count < MinCastCount)
+            {
                 continue;
             }
 
@@ -96,14 +102,16 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
                 .ToList();
 
             var mean = intervals.Average();
-            if (mean < MinMeanIntervalMs) {
+            if (mean < MinMeanIntervalMs)
+            {
                 continue;
             }
 
             var stdDev = Math.Sqrt(intervals.Average(x => Math.Pow(x - mean, 2)));
             var cv = stdDev / mean;
 
-            if (cv >= CvThreshold) {
+            if (cv >= CvThreshold)
+            {
                 continue;
             }
 
@@ -158,7 +166,8 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
         List<double> skillTimes,
         Dictionary<string, SkillMapEntry> skillMap)
     {
-        if (skillIds.Count < MinCycleLength * MinCycleRepeats) {
+        if (skillIds.Count < MinCycleLength * MinCycleRepeats)
+        {
             return null;
         }
 
@@ -174,13 +183,15 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
                 while (start + (repeats + 1) * cycleLen <= skillIds.Count)
                 {
                     var next = skillIds.GetRange(start + repeats * cycleLen, cycleLen);
-                    if (!window.SequenceEqual(next)) {
+                    if (!window.SequenceEqual(next))
+                    {
                         break;
                     }
                     repeats++;
                 }
 
-                if (repeats < MinCycleRepeats) {
+                if (repeats < MinCycleRepeats)
+                {
                     continue;
                 }
 
@@ -189,7 +200,8 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
                     .Select(r => (skillTimes[start + (r + 1) * cycleLen] - skillTimes[start + r * cycleLen]) * 1000.0)
                     .ToList();
 
-                if (!cycleTimes.Any()) {
+                if (!cycleTimes.Any())
+                {
                     continue;
                 }
 
@@ -197,11 +209,13 @@ public sealed class RotationAnalysisService(IEntityService entityService) : IRot
                 var cycleStdDev = Math.Sqrt(cycleTimes.Average(x => Math.Pow(x - avgCycleTime, 2)));
                 var cycleCv = cycleStdDev / avgCycleTime;
 
-                if (cycleCv >= CvThreshold) {
+                if (cycleCv >= CvThreshold)
+                {
                     continue;
                 }
 
-                if (best != null && repeats * cycleLen <= best.Repeats * best.CycleLength) {
+                if (best != null && repeats * cycleLen <= best.Repeats * best.CycleLength)
+                {
                     continue;
                 }
 

@@ -2,9 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using DonBot.Api.Endpoints;
-using DonBot.Models.Entities;
+using DonBot.Core.Models.Entities;
 using DonBot.Tests.Infrastructure;
-using Microsoft.EntityFrameworkCore;
 
 namespace DonBot.Tests.Services.ApiEndpoints;
 

@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
-namespace DonBot.Models.Entities;
+namespace DonBot.Core.Models.Entities;
 
 public sealed class DatabaseContext : DbContext
 {

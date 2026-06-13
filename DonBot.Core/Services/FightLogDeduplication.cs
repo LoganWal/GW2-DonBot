@@ -1,7 +1,7 @@
-using DonBot.Models.Entities;
+using DonBot.Core.Models.Entities;
 using Microsoft.EntityFrameworkCore;
 
-namespace DonBot.Services;
+namespace DonBot.Core.Services;
 
 public static class FightLogDeduplication
 {
@@ -18,7 +18,8 @@ public static class FightLogDeduplication
             f.FightStart >= fightStart - window &&
             f.FightStart <= fightStart + window, ct);
 
-        if (contentMatch == null) {
+        if (contentMatch == null)
+        {
             return null;
         }
 
@@ -28,7 +29,7 @@ public static class FightLogDeduplication
             .ToListAsync(ct);
 
         var newNames = playerAccountNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        return existingNames.Count > 0 && existingNames.All(n => newNames.Contains(n))
+        return existingNames.Count > 0 && existingNames.All(newNames.Contains)
             ? contentMatch
             : null;
     }

@@ -1,16 +1,16 @@
 using System.Text.Json;
-using DonBot.Models.Enums;
+using DonBot.Core.Models.Enums;
 
-namespace DonBot.Models.Scheduling;
+namespace DonBot.Core.Models.Scheduling;
 
-public sealed record ScheduledEventResponseOption(string Label, string Emoji);
+public sealed record ScheduledEventResponseOption(string? Label, string? Emoji);
 
 public static class ScheduledEventResponseOptions
 {
     public const int MaxCount = 10;
-    public const int MaxLabelLength = 80;
-    public const int MaxEmojiLength = 64;
-    public const int MaxJsonLength = 4000;
+    private const int MaxLabelLength = 80;
+    private const int MaxEmojiLength = 64;
+    private const int MaxJsonLength = 4000;
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -46,7 +46,7 @@ public static class ScheduledEventResponseOptions
         };
 
     public static IReadOnlyList<ScheduledEventResponseOption> Normalize(
-        IEnumerable<ScheduledEventResponseOption>? options)
+        IEnumerable<ScheduledEventResponseOption?>? options)
     {
         if (options is null)
         {
@@ -62,10 +62,10 @@ public static class ScheduledEventResponseOptions
             .ToList();
     }
 
-    public static string Serialize(IEnumerable<ScheduledEventResponseOption>? options) =>
+    public static string Serialize(IEnumerable<ScheduledEventResponseOption?>? options) =>
         JsonSerializer.Serialize(Normalize(options), JsonOptions);
 
-    public static string SerializeForEventType(short eventType, IEnumerable<ScheduledEventResponseOption>? options)
+    public static string SerializeForEventType(short eventType, IEnumerable<ScheduledEventResponseOption?>? options)
     {
         if (!IsSignupEvent(eventType))
         {

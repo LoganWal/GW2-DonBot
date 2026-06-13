@@ -1,13 +1,13 @@
+using System.Text;
 using Discord;
 using Discord.WebSocket;
-using DonBot.Models.Entities;
-using DonBot.Models.Enums;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.Enums;
 using DonBot.Models.Statics;
-using Microsoft.Extensions.Logging;
-using System.Text;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.GuildWarsServices.MessageGeneration;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace DonBot.Services.DiscordRequestServices;
 
@@ -320,7 +320,8 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        if (!command.GuildId.HasValue) {
+        if (!command.GuildId.HasValue)
+        {
             await command.FollowupAsync("Failed to create raffle, make sure to use this command within a discord server.", ephemeral: true);
             return;
         }
@@ -625,8 +626,8 @@ public sealed class RaffleCommandsService(
         SocketGuildUser? guildUser;
         try
         {
-            guildUser = command.GuildId != null 
-                ? discordClient.GetGuild(command.GuildId.Value).GetUser(command.User.Id) 
+            guildUser = command.GuildId != null
+                ? discordClient.GetGuild(command.GuildId.Value).GetUser(command.User.Id)
                 : throw new Exception("No GuildId");
         }
         catch (Exception ex)
@@ -955,7 +956,7 @@ public sealed class RaffleCommandsService(
         var guild = await entityService.Guild.GetFirstOrDefaultAsync(g => g.GuildId == (long)guildUser.Guild.Id);
         if (guild == null)
         {
-            await command.FollowupAsync("This message does not appear to be a part of a server, are you messaging in a server where the bot is running?", ephemeral:true);
+            await command.FollowupAsync("This message does not appear to be a part of a server, are you messaging in a server where the bot is running?", ephemeral: true);
             return;
         }
 

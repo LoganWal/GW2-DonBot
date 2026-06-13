@@ -7,10 +7,9 @@ public sealed class SecretServices(IConfiguration configuration) : ISecretServic
     private string GetRequired(string key)
     {
         var value = configuration[key] ?? Environment.GetEnvironmentVariable(key);
-        if (string.IsNullOrEmpty(value)) {
-            throw new InvalidOperationException($"'{key}' is not configured. Set it in appsettings.user.json or the .env file.");
-        }
-        return value;
+        return string.IsNullOrEmpty(value)
+            ? throw new InvalidOperationException($"'{key}' is not configured. Set it in appsettings.user.json or the .env file.")
+            : value;
     }
 
     public string FetchDonBotSqlConnectionString() => GetRequired("DonBotSqlConnectionString");

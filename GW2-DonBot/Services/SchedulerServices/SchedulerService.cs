@@ -1,9 +1,8 @@
 using System.Collections.Concurrent;
-using Discord;
 using Discord.WebSocket;
-using DonBot.Models.Entities;
-using DonBot.Models.Enums;
-using DonBot.Models.Scheduling;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.Enums;
+using DonBot.Core.Models.Scheduling;
 using DonBot.Services.DatabaseServices;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;

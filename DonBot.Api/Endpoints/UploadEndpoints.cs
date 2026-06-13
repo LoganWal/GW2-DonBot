@@ -3,7 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.RegularExpressions;
 using DonBot.Api.Services;
-using DonBot.Models.Entities;
+using DonBot.Core.Models.Entities;
 using Microsoft.EntityFrameworkCore;
 using tusdotnet;
 using tusdotnet.Interfaces;
@@ -15,9 +15,6 @@ namespace DonBot.Api.Endpoints;
 
 public static class UploadEndpoints
 {
-    private static readonly Regex DpsReportUrlPattern =
-        new(@"^https?://(b\.dps|dps|wvw)\.report/\S+$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
     public static void MapUploadEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/upload").RequireAuthorization();
@@ -28,6 +25,9 @@ public static class UploadEndpoints
         group.MapPost("/wingman/bulk", SubmitBulkToWingman);
         group.MapTus("/tus", _ => BuildTusConfigurationAsync(app));
     }
+
+    private static readonly Regex DpsReportUrlPattern =
+        new(@"^https?://(b\.dps|dps|wvw)\.report/\S+$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static Task<DefaultTusConfiguration> BuildTusConfigurationAsync(WebApplication app)
     {
@@ -62,7 +62,6 @@ public static class UploadEndpoints
                     if (guildResult.FailureStatus is { } status)
                     {
                         ctx.FailRequest(status, guildResult.FailureMessage ?? "Invalid guild id.");
-                        return;
                     }
                 },
                 OnCreateCompleteAsync = async ctx =>
@@ -156,37 +155,6 @@ public static class UploadEndpoints
         });
     }
 
-    internal static async Task AuthorizeTusRequestAsync(AuthorizeContext ctx)
-    {
-        if (ctx.Intent == IntentType.GetOptions)
-        {
-            return;
-        }
-
-        if (!TryGetDiscordId(ctx.HttpContext.User, out var discordId))
-        {
-            ctx.FailRequest(HttpStatusCode.Unauthorized, "Unauthorized.");
-            return;
-        }
-
-        if (ctx.Intent == IntentType.CreateFile || ctx.Intent == IntentType.ConcatenateFiles)
-        {
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(ctx.FileId))
-        {
-            ctx.FailRequest(HttpStatusCode.Forbidden, "You do not own this upload.");
-            return;
-        }
-
-        var dbFactory = ctx.HttpContext.RequestServices.GetRequiredService<IDbContextFactory<DatabaseContext>>();
-        if (!await IsTusUploadOwnerAsync(dbFactory, ctx.FileId, discordId, ctx.HttpContext.RequestAborted))
-        {
-            ctx.FailRequest(HttpStatusCode.Forbidden, "You do not own this upload.");
-        }
-    }
-
     internal static async Task<bool> IsTusUploadOwnerAsync(
         IDbContextFactory<DatabaseContext> dbFactory,
         string tusFileId,
@@ -228,7 +196,7 @@ public static class UploadEndpoints
         }
 
         var userGuildList = await guildService.GetForPrincipalAsync(user, ct);
-        if (userGuildList is null || !userGuildList.Any(guild => (long)guild.Id == guildId))
+        if (userGuildList is null || userGuildList.All(guild => (long)guild.Id != guildId))
         {
             return TusGuildResolution.Failed(HttpStatusCode.Forbidden, "You are not a member of that guild.");
         }
@@ -259,8 +227,6 @@ public static class UploadEndpoints
         public static TusGuildResolution Failed(HttpStatusCode status, string message) => new(0, status, message);
     }
 
-    private record SubmitUrlsRequest(List<string> Urls, bool Wingman = true);
-
     private static async Task<IResult> SubmitUrls(
         SubmitUrlsRequest request,
         ClaimsPrincipal user,
@@ -268,21 +234,25 @@ public static class UploadEndpoints
         LogUploadPipelineService pipeline)
     {
         var discordIdStr = user.FindFirst("discord_id")?.Value;
-        if (!long.TryParse(discordIdStr, out var discordId)) {
+        if (!long.TryParse(discordIdStr, out var discordId))
+        {
             return Results.Unauthorized();
         }
 
-        if (request?.Urls == null || request.Urls.Count == 0) {
+        var urls = request.Urls ?? [];
+        if (urls.Length == 0)
+        {
             return Results.BadRequest("No URLs provided.");
         }
 
-        var validUrls = request.Urls
+        var validUrls = urls
             .Select(u => u.Trim())
             .Where(u => DpsReportUrlPattern.IsMatch(u))
             .Distinct()
             .ToList();
 
-        if (validUrls.Count == 0) {
+        if (validUrls.Count == 0)
+        {
             return Results.BadRequest("No valid dps.report or wvw.report URLs provided.");
         }
 
@@ -340,16 +310,19 @@ public static class UploadEndpoints
         LogUploadPipelineService pipeline)
     {
         var discordIdStr = user.FindFirst("discord_id")?.Value;
-        if (!long.TryParse(discordIdStr, out var discordId)) {
+        if (!long.TryParse(discordIdStr, out var discordId))
+        {
             return Results.Unauthorized();
         }
 
         await using var ctx = await dbContextFactory.CreateDbContextAsync();
         var upload = await ctx.LogUpload.FirstOrDefaultAsync(u => u.LogUploadId == id && u.DiscordId == discordId);
-        if (upload == null) {
+        if (upload == null)
+        {
             return Results.NotFound();
         }
-        if (string.IsNullOrEmpty(upload.DpsReportUrl)) {
+        if (string.IsNullOrEmpty(upload.DpsReportUrl))
+        {
             return Results.BadRequest("No dps.report URL available.");
         }
 
@@ -363,7 +336,8 @@ public static class UploadEndpoints
         LogUploadPipelineService pipeline)
     {
         var discordIdStr = user.FindFirst("discord_id")?.Value;
-        if (!long.TryParse(discordIdStr, out var discordId)) {
+        if (!long.TryParse(discordIdStr, out var discordId))
+        {
             return Results.Unauthorized();
         }
 
@@ -375,7 +349,8 @@ public static class UploadEndpoints
             .Select(u => u.DpsReportUrl!)
             .ToListAsync();
 
-        foreach (var url in uploads) {
+        foreach (var url in uploads)
+        {
             pipeline.SubmitToWingman(url);
         }
 
@@ -389,7 +364,8 @@ public static class UploadEndpoints
         int pageSize = 20)
     {
         var discordIdStr = user.FindFirst("discord_id")?.Value;
-        if (!long.TryParse(discordIdStr, out var discordId)) {
+        if (!long.TryParse(discordIdStr, out var discordId))
+        {
             return Results.Unauthorized();
         }
 
@@ -422,4 +398,47 @@ public static class UploadEndpoints
 
         return Results.Ok(new { total, page, pageSize, items });
     }
+
+    private static async Task AuthorizeTusRequestAsync(AuthorizeContext ctx)
+    {
+        if (ctx.Intent == IntentType.GetOptions)
+        {
+            return;
+        }
+
+        if (!TryGetDiscordId(ctx.HttpContext.User, out var discordId))
+        {
+            ctx.FailRequest(HttpStatusCode.Unauthorized, "Unauthorized.");
+            return;
+        }
+
+        if (ctx.Intent == IntentType.CreateFile || ctx.Intent == IntentType.ConcatenateFiles)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(ctx.FileId))
+        {
+            ctx.FailRequest(HttpStatusCode.Forbidden, "You do not own this upload.");
+            return;
+        }
+
+        var dbFactory = ctx.HttpContext.RequestServices.GetRequiredService<IDbContextFactory<DatabaseContext>>();
+        if (!await IsTusUploadOwnerAsync(dbFactory, ctx.FileId, discordId, ctx.HttpContext.RequestAborted))
+        {
+            ctx.FailRequest(HttpStatusCode.Forbidden, "You do not own this upload.");
+        }
+    }
+
+    // ASP.NET Core model binding instantiates this request DTO.
+    // ReSharper disable ClassNeverInstantiated.Local
+    // ReSharper disable UnusedAutoPropertyAccessor.Local
+    private sealed class SubmitUrlsRequest
+    {
+        public string[]? Urls { get; init; }
+
+        public bool Wingman { get; init; } = true;
+    }
+    // ReSharper restore UnusedAutoPropertyAccessor.Local
+    // ReSharper restore ClassNeverInstantiated.Local
 }

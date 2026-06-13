@@ -1,6 +1,6 @@
-using DonBot.Configuration;
 using DonBot.Api.Endpoints;
 using DonBot.Api.Registration;
+using DonBot.Configuration;
 using Microsoft.AspNetCore.Http.Features;
 using Serilog;
 

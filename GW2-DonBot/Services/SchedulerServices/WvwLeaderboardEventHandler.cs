@@ -1,7 +1,7 @@
 using Discord;
 using Discord.WebSocket;
-using DonBot.Models.Entities;
-using DonBot.Models.Enums;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.Enums;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.GuildWarsServices.MessageGeneration;
 using Microsoft.Extensions.Logging;
@@ -33,13 +33,16 @@ public sealed class WvwLeaderboardEventHandler(
 
         var messages = await channel.GetMessagesAsync().FlattenAsync();
         var recentMessages = messages.Where(m => (DateTimeOffset.UtcNow - m.CreatedAt).TotalDays < 14).ToList();
-        if (recentMessages.Count > 0) {
+        if (recentMessages.Count > 0)
+        {
             await channel.DeleteMessagesAsync(recentMessages);
         }
 
         var embeds = await weeklyLeaderboardService.GenerateWvW(guildEntity);
-        if (embeds != null) {
-            foreach (var embed in embeds) {
+        if (embeds != null)
+        {
+            foreach (var embed in embeds)
+            {
                 await channel.SendMessageAsync(embeds: [embed]);
             }
         }

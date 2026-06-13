@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 
 namespace DonBot.Services.DiscordServices;
 
-/// Extracts dps.report URLs and rewrites Wingman log URLs for the parser.
+/// Extracts dps report URLs and rewrites Wingman log URLs for the parser.
 public static partial class LogUrlExtractor
 {
     [GeneratedRegex(@"https://(?:b\.dps|wvw|dps)\.report/\S+")]
@@ -16,7 +16,8 @@ public static partial class LogUrlExtractor
 
     public static List<string> ExtractFromText(string content)
     {
-        if (string.IsNullOrEmpty(content)) {
+        if (string.IsNullOrEmpty(content))
+        {
             return [];
         }
 

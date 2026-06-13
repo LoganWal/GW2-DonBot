@@ -1,7 +1,6 @@
 using Discord;
 using Discord.WebSocket;
 using DonBot.Core.Services.RaidLifecycle;
-using DonBot.Models.Entities;
 using DonBot.Models.Statics;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.GuildWarsServices;
@@ -49,7 +48,7 @@ public sealed class RaidCommandCommandService(
         }
 
         var guild = await entityService.Guild.GetFirstOrDefaultAsync(s => s.GuildId == guildId);
-        if (guild != null && guild.RaidAlertEnabled)
+        if (guild is { RaidAlertEnabled: true })
         {
             if (guild.RaidAlertChannelId == null)
             {
@@ -126,8 +125,16 @@ public sealed class RaidCommandCommandService(
         {
             var cb = new ComponentBuilder();
             var hasButton = false;
-            if (i == messages.Count - 1 && raidWebAppUrl != null) { cb.WithButton("View on DonBot", style: ButtonStyle.Link, url: raidWebAppUrl); hasButton = true; }
-            if (i == bestTimesIndex && bestTimesButtonId != null) { cb.WithButton("Best Times", bestTimesButtonId); hasButton = true; }
+            if (i == messages.Count - 1 && raidWebAppUrl != null)
+            {
+                cb.WithButton("View on DonBot", style: ButtonStyle.Link, url: raidWebAppUrl);
+                hasButton = true;
+            }
+            if (i == bestTimesIndex && bestTimesButtonId != null)
+            {
+                cb.WithButton("Best Times", bestTimesButtonId);
+                hasButton = true;
+            }
             await targetChannel.SendMessageAsync(embeds: [messages[i]], components: hasButton ? cb.Build() : null);
         }
 

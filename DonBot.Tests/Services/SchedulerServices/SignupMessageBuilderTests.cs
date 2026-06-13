@@ -1,7 +1,7 @@
 using Discord;
-using DonBot.Models.Entities;
-using DonBot.Models.Enums;
-using DonBot.Models.Scheduling;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.Enums;
+using DonBot.Core.Models.Scheduling;
 using DonBot.Services.SchedulerServices;
 
 namespace DonBot.Tests.Services.SchedulerServices;

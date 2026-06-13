@@ -1,6 +1,7 @@
+using System.Text;
 using DonBot.Api.Services;
+using DonBot.Core.Models.Entities;
 using DonBot.Core.Services.RaidLifecycle;
-using DonBot.Models.Entities;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.GuildWarsServices;
 using DonBot.Services.GuildWarsServices.MessageGeneration;
@@ -8,7 +9,6 @@ using DonBot.Services.SecretsServices;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using System.Text;
 
 namespace DonBot.Api.Registration;
 

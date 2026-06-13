@@ -12,15 +12,15 @@ internal sealed class DiscordCoreHostedService(IDiscordCore discordCore, ILogger
     public Task StartAsync(CancellationToken cancellationToken)
     {
         logger.LogInformation("DiscordCoreHostedService starting");
-        
+
         _stoppingCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _executingTask = discordCore.MainAsync(_stoppingCts.Token);
-        
+
         if (_executingTask.IsCompleted)
         {
             return _executingTask;
         }
-        
+
         logger.LogInformation("DiscordCoreHostedService started");
         return Task.CompletedTask;
     }
@@ -28,7 +28,7 @@ internal sealed class DiscordCoreHostedService(IDiscordCore discordCore, ILogger
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         logger.LogInformation("DiscordCoreHostedService stopping");
-        
+
         if (_executingTask is null)
         {
             return;

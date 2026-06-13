@@ -1,4 +1,4 @@
-﻿namespace DonBot.Extensions;
+namespace DonBot.Extensions;
 
 public static class EliteInsightExtensions
 {

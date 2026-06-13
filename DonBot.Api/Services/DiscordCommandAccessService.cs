@@ -78,8 +78,7 @@ public sealed class DiscordCommandAccessService(
         return cache.GetOrCoalesceAsync(key, CommandCacheTtl, TimeSpan.FromSeconds(5), async () =>
         {
             var commands = await guild.GetApplicationCommandsAsync();
-            return commands.OfType<RestGuildCommand>()
-                .FirstOrDefault(c => string.Equals(c.Name, commandName, StringComparison.Ordinal));
+            return commands.FirstOrDefault(c => string.Equals(c.Name, commandName, StringComparison.Ordinal));
         });
     }
 

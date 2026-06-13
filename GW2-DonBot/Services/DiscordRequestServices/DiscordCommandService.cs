@@ -1,6 +1,6 @@
-﻿using Discord.WebSocket;
-using DonBot.Models.Entities;
-using DonBot.Models.Enums;
+using Discord.WebSocket;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.Enums;
 using DonBot.Services.DatabaseServices;
 
 namespace DonBot.Services.DiscordRequestServices;
@@ -146,80 +146,86 @@ public sealed class DiscordCommandService(IEntityService entityService) : IDisco
                 break;
 
             case "wvw_leaderboard_enabled":
-            {
-                var enabled = (bool)option.Value;
-                guild.WvwLeaderboardEnabled = enabled;
-                var existing = await entityService.ScheduledEvent.GetFirstOrDefaultAsync(e =>
-                    e.GuildId == guild.GuildId && e.EventType == (short)ScheduledEventTypeEnum.WvwLeaderboard);
-                if (enabled)
                 {
-                    if (existing == null && guild.WvwLeaderboardChannelId.HasValue) {
-                        await entityService.ScheduledEvent.AddAsync(BuildLeaderboardEvent(guild.GuildId, guild.WvwLeaderboardChannelId.Value, ScheduledEventTypeEnum.WvwLeaderboard));
+                    var enabled = (bool)option.Value;
+                    guild.WvwLeaderboardEnabled = enabled;
+                    var existing = await entityService.ScheduledEvent.GetFirstOrDefaultAsync(e =>
+                        e.GuildId == guild.GuildId && e.EventType == (short)ScheduledEventTypeEnum.WvwLeaderboard);
+                    if (enabled)
+                    {
+                        if (existing == null && guild.WvwLeaderboardChannelId.HasValue)
+                        {
+                            await entityService.ScheduledEvent.AddAsync(BuildLeaderboardEvent(guild.GuildId, guild.WvwLeaderboardChannelId.Value, ScheduledEventTypeEnum.WvwLeaderboard));
+                        }
                     }
+                    else if (existing != null)
+                    {
+                        await entityService.ScheduledEvent.DeleteAsync(existing);
+                    }
+                    break;
                 }
-                else if (existing != null)
-                {
-                    await entityService.ScheduledEvent.DeleteAsync(existing);
-                }
-                break;
-            }
 
             case "wvw_leaderboard_channel":
-            {
-                if (option.Value is not SocketTextChannel wvwLeaderboardChannel)
                 {
-                    await command.FollowupAsync("Please provide a valid text channel.", ephemeral: true);
-                    return;
+                    if (option.Value is not SocketTextChannel wvwLeaderboardChannel)
+                    {
+                        await command.FollowupAsync("Please provide a valid text channel.", ephemeral: true);
+                        return;
+                    }
+                    guild.WvwLeaderboardChannelId = (long)wvwLeaderboardChannel.Id;
+                    var existing = await entityService.ScheduledEvent.GetFirstOrDefaultAsync(e =>
+                        e.GuildId == guild.GuildId && e.EventType == (short)ScheduledEventTypeEnum.WvwLeaderboard);
+                    if (existing != null)
+                    {
+                        await entityService.ScheduledEvent.DeleteAsync(existing);
+                    }
+                    if (guild.WvwLeaderboardEnabled)
+                    {
+                        await entityService.ScheduledEvent.AddAsync(BuildLeaderboardEvent(guild.GuildId, (long)wvwLeaderboardChannel.Id, ScheduledEventTypeEnum.WvwLeaderboard));
+                    }
+                    break;
                 }
-                guild.WvwLeaderboardChannelId = (long)wvwLeaderboardChannel.Id;
-                var existing = await entityService.ScheduledEvent.GetFirstOrDefaultAsync(e =>
-                    e.GuildId == guild.GuildId && e.EventType == (short)ScheduledEventTypeEnum.WvwLeaderboard);
-                if (existing != null) {
-                    await entityService.ScheduledEvent.DeleteAsync(existing);
-                }
-                if (guild.WvwLeaderboardEnabled) {
-                    await entityService.ScheduledEvent.AddAsync(BuildLeaderboardEvent(guild.GuildId, (long)wvwLeaderboardChannel.Id, ScheduledEventTypeEnum.WvwLeaderboard));
-                }
-                break;
-            }
 
             case "pve_leaderboard_enabled":
-            {
-                var enabled = (bool)option.Value;
-                guild.PveLeaderboardEnabled = enabled;
-                var existing = await entityService.ScheduledEvent.GetFirstOrDefaultAsync(e =>
-                    e.GuildId == guild.GuildId && e.EventType == (short)ScheduledEventTypeEnum.PveLeaderboard);
-                if (enabled)
                 {
-                    if (existing == null && guild.PveLeaderboardChannelId.HasValue) {
-                        await entityService.ScheduledEvent.AddAsync(BuildLeaderboardEvent(guild.GuildId, guild.PveLeaderboardChannelId.Value, ScheduledEventTypeEnum.PveLeaderboard));
+                    var enabled = (bool)option.Value;
+                    guild.PveLeaderboardEnabled = enabled;
+                    var existing = await entityService.ScheduledEvent.GetFirstOrDefaultAsync(e =>
+                        e.GuildId == guild.GuildId && e.EventType == (short)ScheduledEventTypeEnum.PveLeaderboard);
+                    if (enabled)
+                    {
+                        if (existing == null && guild.PveLeaderboardChannelId.HasValue)
+                        {
+                            await entityService.ScheduledEvent.AddAsync(BuildLeaderboardEvent(guild.GuildId, guild.PveLeaderboardChannelId.Value, ScheduledEventTypeEnum.PveLeaderboard));
+                        }
                     }
+                    else if (existing != null)
+                    {
+                        await entityService.ScheduledEvent.DeleteAsync(existing);
+                    }
+                    break;
                 }
-                else if (existing != null)
-                {
-                    await entityService.ScheduledEvent.DeleteAsync(existing);
-                }
-                break;
-            }
 
             case "pve_leaderboard_channel":
-            {
-                if (option.Value is not SocketTextChannel pveLeaderboardChannel)
                 {
-                    await command.FollowupAsync("Please provide a valid text channel.", ephemeral: true);
-                    return;
+                    if (option.Value is not SocketTextChannel pveLeaderboardChannel)
+                    {
+                        await command.FollowupAsync("Please provide a valid text channel.", ephemeral: true);
+                        return;
+                    }
+                    guild.PveLeaderboardChannelId = (long)pveLeaderboardChannel.Id;
+                    var existing = await entityService.ScheduledEvent.GetFirstOrDefaultAsync(e =>
+                        e.GuildId == guild.GuildId && e.EventType == (short)ScheduledEventTypeEnum.PveLeaderboard);
+                    if (existing != null)
+                    {
+                        await entityService.ScheduledEvent.DeleteAsync(existing);
+                    }
+                    if (guild.PveLeaderboardEnabled)
+                    {
+                        await entityService.ScheduledEvent.AddAsync(BuildLeaderboardEvent(guild.GuildId, (long)pveLeaderboardChannel.Id, ScheduledEventTypeEnum.PveLeaderboard));
+                    }
+                    break;
                 }
-                guild.PveLeaderboardChannelId = (long)pveLeaderboardChannel.Id;
-                var existing = await entityService.ScheduledEvent.GetFirstOrDefaultAsync(e =>
-                    e.GuildId == guild.GuildId && e.EventType == (short)ScheduledEventTypeEnum.PveLeaderboard);
-                if (existing != null) {
-                    await entityService.ScheduledEvent.DeleteAsync(existing);
-                }
-                if (guild.PveLeaderboardEnabled) {
-                    await entityService.ScheduledEvent.AddAsync(BuildLeaderboardEvent(guild.GuildId, (long)pveLeaderboardChannel.Id, ScheduledEventTypeEnum.PveLeaderboard));
-                }
-                break;
-            }
 
             default:
                 await command.FollowupAsync("Unknown configuration option.", ephemeral: true);
@@ -234,7 +240,8 @@ public sealed class DiscordCommandService(IEntityService entityService) : IDisco
     {
         var now = DateTime.UtcNow;
         var daysUntilMonday = ((int)DayOfWeek.Monday - (int)now.DayOfWeek + 7) % 7;
-        if (daysUntilMonday == 0) {
+        if (daysUntilMonday == 0)
+        {
             daysUntilMonday = 7;
         }
         var nextMonday = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0, DateTimeKind.Utc).AddDays(daysUntilMonday);

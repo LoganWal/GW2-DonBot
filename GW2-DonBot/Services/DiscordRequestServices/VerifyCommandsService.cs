@@ -1,7 +1,7 @@
 using Discord;
 using Discord.WebSocket;
+using DonBot.Core.Models.Entities;
 using DonBot.Models.Apis.GuildWars2Api;
-using DonBot.Models.Entities;
 using DonBot.Services.DatabaseServices;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -149,7 +149,8 @@ public sealed class VerifyCommandsService(IEntityService entityService, ILogger<
             $"Deverify unnecessary! No account data found for: `{command.User}`";
 
         var guilds = await entityService.Guild.GetAllAsync();
-        if (command.GuildId == null) {
+        if (command.GuildId == null)
+        {
             await command.FollowupAsync("Failed to deverify, make sure you asking withing a discord server.", ephemeral: true);
             return;
         }
@@ -184,7 +185,8 @@ public sealed class VerifyCommandsService(IEntityService entityService, ILogger<
         try
         {
             var response = await httpClientFactory.CreateClient().GetAsync($"https://api.guildwars2.com/v2/guild/{guildId}");
-            if (!response.IsSuccessStatusCode) {
+            if (!response.IsSuccessStatusCode)
+            {
                 return null;
             }
             var json = await response.Content.ReadAsStringAsync();

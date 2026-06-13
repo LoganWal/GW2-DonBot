@@ -1,5 +1,5 @@
-using DonBot.Models.Entities;
-using DonBot.Models.Enums;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.Enums;
 using DonBot.Services.GuildWarsServices.MessageGeneration;
 using DonBot.Tests.Infrastructure;
 
@@ -20,7 +20,7 @@ public class WeeklyLeaderboardServiceTests
         var embed = await svc.GeneratePvE(guild);
 
         Assert.NotNull(embed);
-        Assert.StartsWith("PvE Weekly Leaderboard", embed!.Title);
+        Assert.StartsWith("PvE Weekly Leaderboard", embed.Title);
         Assert.Contains("Week of", embed.Description);
         var fieldNames = embed.Fields.Select(f => f.Name).ToList();
         Assert.Contains("DPS", fieldNames);
@@ -51,7 +51,7 @@ public class WeeklyLeaderboardServiceTests
         var embeds = await svc.GenerateWvW(guild);
 
         Assert.NotNull(embeds);
-        Assert.Equal(2, embeds!.Count);
+        Assert.Equal(2, embeds.Count);
 
         Assert.StartsWith("WvW Weekly Leaderboard", embeds[0].Title);
         var firstFields = embeds[0].Fields.Select(f => f.Name).ToList();
@@ -94,7 +94,7 @@ public class WeeklyLeaderboardServiceTests
         var embed = await svc.GetPlayerRanks(guild, ["Alice.1234"]);
 
         Assert.NotNull(embed);
-        Assert.StartsWith("Your Weekly Rankings", embed!.Title);
+        Assert.StartsWith("Your Weekly Rankings", embed.Title);
         var fieldNames = embed.Fields.Select(f => f.Name).ToList();
         Assert.Contains("WvW", fieldNames);
         Assert.Contains("PvE", fieldNames);

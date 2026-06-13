@@ -1,7 +1,7 @@
-﻿using Discord;
+using Discord;
 using Discord.WebSocket;
-using DonBot.Models.Entities;
-using DonBot.Models.GuildWars2;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.GuildWars2;
 
 namespace DonBot.Services.GuildWarsServices;
 

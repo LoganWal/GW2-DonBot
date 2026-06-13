@@ -1,9 +1,9 @@
 using System.Globalization;
 using Discord;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.Enums;
+using DonBot.Core.Models.GuildWars2;
 using DonBot.Extensions;
-using DonBot.Models.Entities;
-using DonBot.Models.Enums;
-using DonBot.Models.GuildWars2;
 using DonBot.Services.DatabaseServices;
 using Microsoft.Extensions.Configuration;
 
@@ -106,7 +106,7 @@ public sealed class RaidReportService(
 
         return message.Build();
     }
-    
+
     internal static Gw2Player AggregatePlayerFights(IGrouping<string, PlayerFightLog> groupedPlayerFight)
     {
         var playersFights = groupedPlayerFight.ToList();
@@ -201,7 +201,7 @@ public sealed class RaidReportService(
         var fightLogIds = fights.Select(f => f.FightLogId).ToList();
         var playerFights = await entityService.PlayerFightLog.GetWhereAsync(s => fightLogIds.Contains(s.FightLogId));
         var playerFightLogIds = playerFights.Select(p => p.PlayerFightLogId).ToList();
-        var mechanics = await entityService.PlayerFightLogMechanic.GetWhereAsync(m => playerFightLogIds.Contains(m.PlayerFightLogId));
+        await entityService.PlayerFightLogMechanic.GetWhereAsync(m => playerFightLogIds.Contains(m.PlayerFightLogId));
 
         var groupedPlayerFights = playerFights.GroupBy(s => s.GuildWarsAccountName).OrderByDescending(s => s.Sum(d => d.Damage)).ToList();
         var groupedFights = fights.GroupBy(f => f.FightType).OrderBy(f => f.Key).ToList();
@@ -228,7 +228,7 @@ public sealed class RaidReportService(
         }
         else
         {
-            messages.AddRange(await GeneratePvERaidReport(durationString, groupedFights, groupedPlayerFights, fights, mechanics.ToList(), guildId));
+            messages.AddRange(await GeneratePvERaidReport(durationString, groupedFights, groupedPlayerFights, fights, guildId));
             var successLogs = await GeneratePvERaidLogReport(durationString, fights, true, guildId);
             if (successLogs != null)
             {
@@ -333,7 +333,7 @@ public sealed class RaidReportService(
         return await wvWFightSummaryService.GenerateMessage(advancedLog, 10, gw2Players, message, guildId, statTotals);
     }
 
-    private async Task<List<Embed>> GeneratePvERaidReport(string durationString, List<IGrouping<short, FightLog>> groupedFights, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights, List<PlayerFightLogMechanic> mechanics, long guildId)
+    private async Task<List<Embed>> GeneratePvERaidReport(string durationString, List<IGrouping<short, FightLog>> groupedFights, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights, long guildId)
     {
         var color = (Color)System.Drawing.Color.FromArgb(195, 0, 101);
         var author = new EmbedAuthorBuilder

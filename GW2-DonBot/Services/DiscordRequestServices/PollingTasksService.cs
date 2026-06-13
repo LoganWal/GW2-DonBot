@@ -1,12 +1,12 @@
-using Discord.WebSocket;
-using DonBot.Models.Apis.GuildWars2Api;
-using DonBot.Models.Entities;
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Threading.RateLimiting;
+using Discord.WebSocket;
+using DonBot.Core.Models.Entities;
+using DonBot.Models.Apis.GuildWars2Api;
 using DonBot.Services.DatabaseServices;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 
 namespace DonBot.Services.DiscordRequestServices;
 
@@ -28,7 +28,7 @@ public sealed class PollingTasksService(
     });
 
     // Lets tests skip retry and rate-limit waits.
-    internal Func<TimeSpan, Task> DelayAsync { get; set; } = Task.Delay;
+    internal Func<TimeSpan, Task> DelayAsync { get; init; } = Task.Delay;
 
     public void Dispose() => _gw2RateLimiter.Dispose();
 
@@ -242,7 +242,7 @@ public sealed class PollingTasksService(
     {
         var userGuilds = accountData.SelectMany(s => s.Guilds).ToList();
         var inPrimary = guildId != null && userGuilds.Contains(guildId);
-        var inSecondary = secondaryGuildIds.Any(g => userGuilds.Contains(g));
+        var inSecondary = secondaryGuildIds.Any(userGuilds.Contains);
 
         var roles = user.Roles.Select(s => s.Id).ToList();
 

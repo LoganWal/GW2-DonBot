@@ -1,6 +1,6 @@
-﻿using DonBot.Extensions;
-using DonBot.Models.Entities;
-using DonBot.Models.GuildWars2;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.GuildWars2;
+using DonBot.Extensions;
 using DonBot.Models.Statics;
 using DonBot.Services.DatabaseServices;
 using Newtonsoft.Json.Linq;
@@ -66,7 +66,7 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
             var defStats = fightPhase.DefStats?.Count >= playerIndex + 1 ? fightPhase.DefStats[playerIndex] : null;
             var offensiveStatsTargets = fightPhase.OffensiveStatsTargets?.Count >= playerIndex + 1 ? fightPhase.OffensiveStatsTargets[playerIndex] : null;
             var playerDetails = data.FightEliteInsightDataModel.Players[playerIndex].Details;
-            
+
             var boons = fightPhase.BuffsStatContainer.BoonActiveStats?.Count >= playerIndex + 1 ? fightPhase.BuffsStatContainer.BoonActiveStats[playerIndex].Data : null;
             var mechanics = fightPhase.MechanicStats?.Count >= playerIndex + 1 ? fightPhase.MechanicStats[playerIndex] : null;
 
@@ -185,11 +185,13 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
             for (var mechIndex = 0; mechIndex < possibleMechanics.Count; mechIndex++)
             {
                 var mechanic = possibleMechanics[mechIndex];
-                if (string.IsNullOrEmpty(mechanic.Name) || mechanics == null || mechIndex >= mechanics.Count) {
+                if (string.IsNullOrEmpty(mechanic.Name) || mechanics == null || mechIndex >= mechanics.Count)
+                {
                     continue;
                 }
                 var value = (mechanics[mechIndex] as JArray)?.Select(s => (long)s).FirstOrDefault() ?? 0;
-                if (value <= 0) {
+                if (value <= 0)
+                {
                     continue;
                 }
                 existingPlayer.Mechanics.TryGetValue(mechanic.Name, out var existing);
@@ -203,7 +205,7 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
             {
                 continue;
             }
-            
+
             player.StabOnGroup /= count;
             player.StabOffGroup /= count;
             player.DistanceFromTag /= count;
@@ -238,7 +240,7 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
         {
             secondsOfFight = (int)duration.TotalSeconds;
         }
-                    
+
         var currentDateTimeUtc = DateTime.UtcNow;
         foreach (var account in accounts)
         {

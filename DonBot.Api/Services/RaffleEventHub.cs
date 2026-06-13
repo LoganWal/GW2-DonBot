@@ -37,7 +37,7 @@ public interface IRaffleEventHub
 
 public sealed class RaffleEventHub : IRaffleEventHub
 {
-    private readonly object _gate = new();
+    private readonly Lock _gate = new();
     private readonly Dictionary<long, List<Channel<RaffleStreamEvent>>> _subscribers = new();
 
     public RaffleEventSubscription Subscribe(long guildId)

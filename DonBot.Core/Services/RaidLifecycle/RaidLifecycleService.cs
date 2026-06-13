@@ -1,5 +1,5 @@
 using System.Data;
-using DonBot.Models.Entities;
+using DonBot.Core.Models.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace DonBot.Core.Services.RaidLifecycle;

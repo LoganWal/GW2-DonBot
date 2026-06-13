@@ -1,5 +1,5 @@
+using DonBot.Core.Models.Entities;
 using DonBot.Extensions;
-using DonBot.Models.Entities;
 using DonBot.Services.GuildWarsServices.MessageGeneration;
 using Xunit.Abstractions;
 
@@ -32,7 +32,7 @@ public class RaidReportServiceTests(ITestOutputHelper output)
         Assert.Contains("Down", header);
         Assert.Contains("1st", header);
     }
-    
+
     [Fact]
     public void BuildSurvivabilityTable_WithMultiplePlayers_DataColumnsAlignWithHeader()
     {
@@ -51,18 +51,18 @@ public class RaidReportServiceTests(ITestOutputHelper output)
         var header = rawLines[0].TrimStart('`'); // strip opening code fence
         var dataLines = rawLines.Skip(1).Where(l => l.Length > 0 && !l.StartsWith("```")).ToList();
 
-        var resStart   = header.IndexOf("Res(s)", StringComparison.Ordinal);
-        var dmgStart   = header.IndexOf("DmgTkn", StringComparison.Ordinal);
+        var resStart = header.IndexOf("Res(s)", StringComparison.Ordinal);
+        var dmgStart = header.IndexOf("DmgTkn", StringComparison.Ordinal);
         var downsStart = header.IndexOf("Down", StringComparison.Ordinal);
         var firstStart = header.IndexOf("1st", StringComparison.Ordinal);
 
-        Assert.True(resStart > 0,   "Res(s) column header not found");
-        Assert.True(dmgStart > 0,   "DmgTkn column header not found");
+        Assert.True(resStart > 0, "Res(s) column header not found");
+        Assert.True(dmgStart > 0, "DmgTkn column header not found");
         Assert.True(downsStart > 0, "Down column header not found");
         Assert.True(firstStart > 0, "1st column header not found");
 
-        Assert.True(resStart < dmgStart,     "Res(s) must come before DmgTkn");
-        Assert.True(dmgStart < downsStart,   "DmgTkn must come before Down");
+        Assert.True(resStart < dmgStart, "Res(s) must come before DmgTkn");
+        Assert.True(dmgStart < downsStart, "DmgTkn must come before Down");
         Assert.True(downsStart < firstStart, "Down must come before 1st");
 
         foreach (var dataLine in dataLines)
@@ -70,7 +70,7 @@ public class RaidReportServiceTests(ITestOutputHelper output)
             Assert.True(dataLine.Length >= firstStart, $"Data row is shorter than First column position: '{dataLine}'");
         }
     }
-    
+
     [Fact]
     public void BuildSurvivabilityTable_WhenEachPlayerDiesFirstOnce_BothShowCountOfOne()
     {
@@ -85,7 +85,7 @@ public class RaidReportServiceTests(ITestOutputHelper output)
         var table = RaidReportService.BuildSurvivabilityTable(Group(logs));
 
         var aliceLine = table.Split('\n').FirstOrDefault(l => l.TrimStart().StartsWith("Alice.1234"));
-        var bobLine   = table.Split('\n').FirstOrDefault(l => l.TrimStart().StartsWith("Bob.5678"));
+        var bobLine = table.Split('\n').FirstOrDefault(l => l.TrimStart().StartsWith("Bob.5678"));
 
         Assert.NotNull(aliceLine);
         Assert.NotNull(bobLine);
@@ -147,7 +147,7 @@ public class RaidReportServiceTests(ITestOutputHelper output)
         Assert.NotNull(aliceLine);
         Assert.EndsWith("3", aliceLine.TrimEnd());
     }
-    
+
     [Fact]
     public void BuildSurvivabilityTable_WithMultiplePlayers_OrderedAscendingByResurrectionTime()
     {
@@ -165,11 +165,11 @@ public class RaidReportServiceTests(ITestOutputHelper output)
             .ToList();
 
         Assert.Equal(3, dataLines.Count);
-        Assert.Contains("LowRes",  dataLines[0]);
-        Assert.Contains("MidRes",  dataLines[1]);
+        Assert.Contains("LowRes", dataLines[0]);
+        Assert.Contains("MidRes", dataLines[1]);
         Assert.Contains("HighRes", dataLines[2]);
     }
-    
+
     [Fact]
     public void BuildSurvivabilityTable_WithResurrectionTime_ConvertedFromMillisecondsToSeconds()
     {
@@ -249,7 +249,7 @@ public class RaidReportServiceTests(ITestOutputHelper output)
 
         Assert.True(true);
     }
-    
+
     [Fact]
     public void BuildSurvivabilityTable_WithLargeSquad_ProducesOneDataRowPerPlayer()
     {

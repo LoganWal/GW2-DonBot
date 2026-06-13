@@ -1,7 +1,7 @@
 using System.Linq.Expressions;
 using Discord.WebSocket;
-using DonBot.Models.Entities;
-using DonBot.Models.Enums;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.Enums;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.SchedulerServices;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -360,8 +360,13 @@ public class SchedulerServiceTests
     [Fact]
     public async Task FastForwardEventIfBehind_DbUpdateThrows_InMemoryStateIsStillCorrect()
     {
-        var entityService = new FakeEntityService();
-        entityService.FakeScheduledEvent.ThrowOnUpdate = new InvalidOperationException("db exploded");
+        var entityService = new FakeEntityService
+        {
+            FakeScheduledEvent =
+            {
+                ThrowOnUpdate = new InvalidOperationException("db exploded")
+            }
+        };
         var service = BuildService(entityService);
         var originalTime = Now.AddDays(-7);
         var ev = MakeWeeklyEvent(day: 5, hour: 4, utcEventTime: originalTime);
@@ -376,8 +381,13 @@ public class SchedulerServiceTests
     [Fact]
     public async Task FastForwardEventIfBehind_DbUpdateThrows_DoesNotPropagateException()
     {
-        var entityService = new FakeEntityService();
-        entityService.FakeScheduledEvent.ThrowOnUpdate = new Exception("db is down");
+        var entityService = new FakeEntityService
+        {
+            FakeScheduledEvent =
+            {
+                ThrowOnUpdate = new Exception("db is down")
+            }
+        };
         var service = BuildService(entityService);
         var ev = MakeWeeklyEvent(day: 5, hour: 4, utcEventTime: Now.AddDays(-7));
 

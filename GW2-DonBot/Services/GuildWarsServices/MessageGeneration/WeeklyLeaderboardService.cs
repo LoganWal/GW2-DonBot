@@ -1,8 +1,8 @@
 using System.Globalization;
 using Discord;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.Enums;
 using DonBot.Extensions;
-using DonBot.Models.Entities;
-using DonBot.Models.Enums;
 using DonBot.Services.DatabaseServices;
 
 namespace DonBot.Services.GuildWarsServices.MessageGeneration;
@@ -44,14 +44,16 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
             f.FightStart >= cutoff &&
             f.FightType == (short)FightTypesEnum.WvW);
 
-        if (fights.Count == 0) {
+        if (fights.Count == 0)
+        {
             return null;
         }
 
         var fightIds = fights.Select(f => f.FightLogId).ToList();
         var playerFights = await entityService.PlayerFightLog.GetWhereAsync(pf => fightIds.Contains(pf.FightLogId));
 
-        if (playerFights.Count == 0) {
+        if (playerFights.Count == 0)
+        {
             return null;
         }
 
@@ -108,14 +110,16 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
             f.FightType != (short)FightTypesEnum.WvW &&
             f.FightType != (short)FightTypesEnum.Unkn);
 
-        if (fights.Count == 0) {
+        if (fights.Count == 0)
+        {
             return null;
         }
 
         var fightIds = fights.Select(f => f.FightLogId).ToList();
         var playerFights = await entityService.PlayerFightLog.GetWhereAsync(pf => fightIds.Contains(pf.FightLogId));
 
-        if (playerFights.Count == 0) {
+        if (playerFights.Count == 0)
+        {
             return null;
         }
 
@@ -179,32 +183,32 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
                 wvwRanks.AppendLine("```");
                 wvwRanks.AppendLine($"{"Metric",-16} {"Rank",-8} Value");
 
-                AppendRank(wvwRanks, accountNames,"Damage", grouped, total,
+                AppendRank(wvwRanks, accountNames, "Damage", grouped, total,
                     g => g.Sum(s => s.Damage),
                     v => ((long)v).FormatNumber());
-                AppendRank(wvwRanks, accountNames,"Down Contrib", grouped, total,
+                AppendRank(wvwRanks, accountNames, "Down Contrib", grouped, total,
                     g => g.Sum(s => s.DamageDownContribution),
                     v => ((long)v).FormatNumber());
-                AppendRank(wvwRanks, accountNames,"Cleanses", grouped, total,
+                AppendRank(wvwRanks, accountNames, "Cleanses", grouped, total,
                     g => g.Sum(s => s.Cleanses),
                     v => ((long)v).ToString(CultureInfo.InvariantCulture));
-                AppendRank(wvwRanks, accountNames,"Strips", grouped, total,
+                AppendRank(wvwRanks, accountNames, "Strips", grouped, total,
                     g => g.Sum(s => s.Strips),
                     v => ((long)v).ToString(CultureInfo.InvariantCulture));
-                AppendRank(wvwRanks, accountNames,"Healing", grouped, total,
+                AppendRank(wvwRanks, accountNames, "Healing", grouped, total,
                     g => g.Sum(s => s.Healing),
                     v => ((long)v).FormatNumber());
-                AppendRank(wvwRanks, accountNames,"Barrier", grouped, total,
+                AppendRank(wvwRanks, accountNames, "Barrier", grouped, total,
                     g => g.Sum(s => s.BarrierGenerated),
                     v => ((long)v).FormatNumber());
-                AppendRank(wvwRanks, accountNames,"Times Downed", grouped, total,
+                AppendRank(wvwRanks, accountNames, "Times Downed", grouped, total,
                     g => g.Sum(s => s.TimesDowned),
                     v => ((long)v).ToString(CultureInfo.InvariantCulture),
                     ascending: true);
-                AppendRank(wvwRanks, accountNames,"Dmg Taken", grouped, total,
+                AppendRank(wvwRanks, accountNames, "Dmg Taken", grouped, total,
                     g => g.Sum(s => s.DamageTaken),
                     v => ((long)v).FormatNumber());
-                AppendRank(wvwRanks, accountNames,"Kills", grouped, total,
+                AppendRank(wvwRanks, accountNames, "Kills", grouped, total,
                     g => g.Sum(s => s.Kills),
                     v => ((long)v).ToString(CultureInfo.InvariantCulture));
 
@@ -245,27 +249,27 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
                 pveRanks.AppendLine("```");
                 pveRanks.AppendLine($"{"Metric",-16} {"Rank",-8} Value");
 
-                AppendRank(pveRanks, accountNames,"DPS", grouped, total,
+                AppendRank(pveRanks, accountNames, "DPS", grouped, total,
                     g =>
                     {
                         var totalSec = Math.Max(g.Sum(pf => fightDurations.GetValueOrDefault(pf.FightLogId, 1)) / 1000f, 1f);
                         return g.Sum(pf => pf.Damage) / totalSec;
                     },
                     v => ((float)v).FormatNumber(true));
-                AppendRank(pveRanks, accountNames,"Cleave DPS", grouped, total,
+                AppendRank(pveRanks, accountNames, "Cleave DPS", grouped, total,
                     g =>
                     {
                         var totalSec = Math.Max(g.Sum(pf => fightDurations.GetValueOrDefault(pf.FightLogId, 1)) / 1000f, 1f);
                         return g.Sum(pf => pf.Cleave) / totalSec;
                     },
                     v => ((float)v).FormatNumber(true));
-                AppendRank(pveRanks, accountNames,"Res Time", grouped, total,
+                AppendRank(pveRanks, accountNames, "Res Time", grouped, total,
                     g => Math.Round(g.Average(s => s.ResurrectionTime) / 1000.0, 3),
                     v => v.ToString("F3", CultureInfo.InvariantCulture));
-                AppendRank(pveRanks, accountNames,"Dmg Taken", grouped, total,
+                AppendRank(pveRanks, accountNames, "Dmg Taken", grouped, total,
                     g => (long)Math.Round(g.Average(s => (double)s.DamageTaken), 0),
                     v => ((long)v).FormatNumber());
-                AppendRank(pveRanks, accountNames,"Times Downed", grouped, total,
+                AppendRank(pveRanks, accountNames, "Times Downed", grouped, total,
                     g => Math.Round(g.Average(s => (double)s.TimesDowned), 2),
                     v => v.ToString("F2", CultureInfo.InvariantCulture),
                     ascending: true);
@@ -276,7 +280,8 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
             }
         }
 
-        if (!hasAnyData) {
+        if (!hasAnyData)
+        {
             return null;
         }
 

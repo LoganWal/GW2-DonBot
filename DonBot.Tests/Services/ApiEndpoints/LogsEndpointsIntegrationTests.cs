@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using DonBot.Api.Endpoints;
-using DonBot.Models.Entities;
+using DonBot.Core.Models.Entities;
 using DonBot.Tests.Infrastructure;
 
 namespace DonBot.Tests.Services.ApiEndpoints;
@@ -223,6 +223,18 @@ public class LogsEndpointsIntegrationTests
         using var host = NewHost();
         host.AuthenticateAs(123L);
         var response = await host.Client.PostAsJsonAsync("/api/logs/aggregate", new { LogIds = Array.Empty<long>() });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("/api/logs/aggregate")]
+    [InlineData("/api/logs/know-my-enemy")]
+    [InlineData("/api/logs/wingman")]
+    public async Task LogIdActions_NullIds_Return400(string endpoint)
+    {
+        using var host = NewHost();
+        host.AuthenticateAs(123L);
+        var response = await host.Client.PostAsJsonAsync(endpoint, new { LogIds = (long[]?)null });
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 

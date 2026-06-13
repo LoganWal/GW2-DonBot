@@ -1,4 +1,4 @@
-﻿namespace DonBot.Controller.Discord;
+namespace DonBot.Controller.Discord;
 
 public interface IDiscordCore
 {

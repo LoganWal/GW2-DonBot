@@ -1,9 +1,9 @@
 using System.Linq.Expressions;
 using Discord;
 using Discord.WebSocket;
-using DonBot.Models.Entities;
-using DonBot.Models.Enums;
-using DonBot.Models.GuildWars2;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.Enums;
+using DonBot.Core.Models.GuildWars2;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.GuildWarsServices.MessageGeneration;
 using DonBot.Tests.Infrastructure;
@@ -27,7 +27,7 @@ public class RaidReportFooterTests
         var (embeds, _) = await service.Generate(report, GuildId);
 
         Assert.NotNull(embeds);
-        Assert.True(embeds!.Count >= 3, $"Expected >= 3 embeds for PvE path, got {embeds.Count}");
+        Assert.True(embeds.Count >= 3, $"Expected >= 3 embeds for PvE path, got {embeds.Count}");
 
         // PvE top aggregate embeds must each get a fresh footer quote.
         var topFooters = embeds.Take(3).Select(e => e.Footer?.Text).ToList();
@@ -47,7 +47,7 @@ public class RaidReportFooterTests
         var (embeds, _) = await service.GenerateSimpleReply(fights.Select(f => f.FightLogId).ToList(), GuildId);
 
         Assert.NotNull(embeds);
-        Assert.NotEmpty(embeds!);
+        Assert.NotEmpty(embeds);
     }
 
     [Fact]
@@ -62,7 +62,7 @@ public class RaidReportFooterTests
         var (embeds, _) = await service.Generate(report, GuildId);
 
         Assert.NotNull(embeds);
-        Assert.Equal(2, embeds!.Count);
+        Assert.Equal(2, embeds.Count);
         Assert.NotEqual(embeds[0].Footer?.Text, embeds[1].Footer?.Text);
     }
 

@@ -12,11 +12,10 @@ public class RuntimeConfigurationTests
 
         try
         {
-            File.WriteAllLines(path, new[]
-            {
+            File.WriteAllLines(path, [
                 $"{key}=first",
                 $"{key}=second"
-            });
+            ]);
 
             var loaded = RuntimeConfiguration.LoadEnvFileFromPath(path);
 
@@ -42,10 +41,9 @@ public class RuntimeConfigurationTests
         try
         {
             Environment.SetEnvironmentVariable(key, "existing");
-            File.WriteAllLines(path, new[]
-            {
+            File.WriteAllLines(path, [
                 $"{key}=from-file"
-            });
+            ]);
 
             var loaded = RuntimeConfiguration.LoadEnvFileFromPath(path);
 

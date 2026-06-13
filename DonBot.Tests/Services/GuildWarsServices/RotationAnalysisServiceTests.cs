@@ -1,4 +1,4 @@
-using DonBot.Models.GuildWars2;
+using DonBot.Core.Models.GuildWars2;
 using DonBot.Services.GuildWarsServices;
 
 namespace DonBot.Tests.Services.GuildWarsServices;
@@ -120,7 +120,7 @@ public class RotationAnalysisServiceTests
         // Tier 1 may also fire depending on intervals.
         var cycleAnomaly = anomalies.FirstOrDefault(a => a.Description.Contains("Tier 2"));
         Assert.NotNull(cycleAnomaly);
-        Assert.Equal("A > B > C", cycleAnomaly!.SkillName);
+        Assert.Equal("A > B > C", cycleAnomaly.SkillName);
         Assert.Equal(4, cycleAnomaly.ConsecutiveCasts);
     }
 

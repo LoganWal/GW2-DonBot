@@ -4,8 +4,8 @@ using System.Text.Json;
 using Discord;
 using Discord.Rest;
 using DonBot.Api.Services;
-using DonBot.Models.Entities;
-using DonBot.Models.Enums;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.Enums;
 using DonBot.Services.GuildWarsServices.MessageGeneration;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,11 +15,6 @@ namespace DonBot.Api.Endpoints;
 
 public static class PointsEndpoints
 {
-    private const int MaxRaffleDescriptionLength = 4000;
-    private static readonly TimeSpan GuildListCacheTtl = TimeSpan.FromSeconds(60);
-    private static readonly TimeSpan GuildListErrorTtl = TimeSpan.FromSeconds(5);
-    private static readonly JsonSerializerOptions SseJsonOptions = new(JsonSerializerDefaults.Web);
-
     public static void MapPointsEndpoints(this WebApplication app)
     {
         var pointsGroup = app.MapGroup("/api/points").RequireAuthorization();
@@ -40,72 +35,172 @@ public static class PointsEndpoints
         dashboardGroup.MapGet("/", GetDashboard);
     }
 
-    public record GuildSummaryDto(string GuildId, string GuildName);
+    private const int MaxRaffleDescriptionLength = 4000;
 
-    public record RaffleStateDto(
-        string GuildId,
-        string GuildName,
-        AccountDto? Account,
-        IReadOnlyList<RaffleDto> Raffles,
-        IReadOnlyList<RaffleHistoryDto> LastRaffles,
-        RafflePermissionsDto Permissions,
-        RaffleAvailabilityDto Availability);
+    private static readonly TimeSpan GuildListCacheTtl = TimeSpan.FromSeconds(60);
 
-    public record AccountDto(decimal Points, decimal AvailablePoints);
+    private static readonly TimeSpan GuildListErrorTtl = TimeSpan.FromSeconds(5);
 
-    public record RaffleDto(
-        int Id,
-        int RaffleType,
-        string Type,
-        string Description,
-        bool IsActive,
-        bool CanEdit,
-        decimal UserBid,
-        decimal TotalPoints,
-        IReadOnlyList<RaffleBidDto> TopBidders);
+    private static readonly JsonSerializerOptions SseJsonOptions = new(JsonSerializerDefaults.Web);
 
-    public record RaffleBidDto(string DiscordId, string DisplayName, decimal PointsSpent);
+    // ASP.NET Core model binding and System.Text.Json use these DTO members implicitly.
+    // ReSharper disable ClassNeverInstantiated.Local
+    // ReSharper disable UnusedAutoPropertyAccessor.Local
+    // ReSharper disable UnusedMember.Local
+    private sealed class GuildSummaryDto(string guildId, string guildName)
+    {
+        public string GuildId { get; } = guildId;
+        public string GuildName { get; } = guildName;
+    }
 
-    public record RaffleHistoryDto(
-        int Id,
-        int RaffleType,
-        string Type,
-        string Description,
-        decimal TotalPoints,
-        IReadOnlyList<RaffleHistoryBidDto> Winners,
-        IReadOnlyList<RaffleHistoryBidDto> Bids);
+    private sealed class RaffleStateDto(
+        string guildId,
+        string guildName,
+        AccountDto? account,
+        IReadOnlyList<RaffleDto> raffles,
+        IReadOnlyList<RaffleHistoryDto> lastRaffles,
+        RafflePermissionsDto permissions,
+        RaffleAvailabilityDto availability)
+    {
+        public string GuildId { get; } = guildId;
+        public string GuildName { get; } = guildName;
+        public AccountDto? Account { get; } = account;
+        public IReadOnlyList<RaffleDto> Raffles { get; } = raffles;
+        public IReadOnlyList<RaffleHistoryDto> LastRaffles { get; } = lastRaffles;
+        public RafflePermissionsDto Permissions { get; } = permissions;
+        public RaffleAvailabilityDto Availability { get; } = availability;
+    }
 
-    public record RaffleHistoryBidDto(string DiscordId, string DisplayName, decimal PointsSpent, bool IsWinner);
+    private sealed class AccountDto(decimal points, decimal availablePoints)
+    {
+        public decimal Points { get; } = points;
+        public decimal AvailablePoints { get; } = availablePoints;
+    }
 
-    public record RafflePermissionsDto(
-        bool CanEnterRaffle,
-        bool CanEnterEventRaffle,
-        bool CanCreateRaffle,
-        bool CanCreateEventRaffle,
-        bool CanCompleteRaffle,
-        bool CanCompleteEventRaffle,
-        bool CanReopenRaffle,
-        bool CanReopenEventRaffle);
+    private sealed class RaffleDto(
+        int id,
+        int raffleType,
+        string type,
+        string description,
+        bool isActive,
+        bool canEdit,
+        decimal userBid,
+        decimal totalPoints,
+        IReadOnlyList<RaffleBidDto> topBidders)
+    {
+        public int Id { get; } = id;
+        public int RaffleType { get; } = raffleType;
+        public string Type { get; } = type;
+        public string Description { get; } = description;
+        public bool IsActive { get; } = isActive;
+        public bool CanEdit { get; } = canEdit;
+        public decimal UserBid { get; } = userBid;
+        public decimal TotalPoints { get; } = totalPoints;
+        public IReadOnlyList<RaffleBidDto> TopBidders { get; } = topBidders;
+    }
 
-    public record RaffleAvailabilityDto(
-        bool HasPreviousRaffle,
-        bool HasPreviousEventRaffle);
+    private sealed class RaffleBidDto(string discordId, string displayName, decimal pointsSpent)
+    {
+        public string DiscordId { get; } = discordId;
+        public string DisplayName { get; } = displayName;
+        public decimal PointsSpent { get; } = pointsSpent;
+    }
 
-    public record EnterRaffleDto(int RaffleId, int Points);
+    private sealed class RaffleHistoryDto(
+        int id,
+        int raffleType,
+        string type,
+        string description,
+        decimal totalPoints,
+        IReadOnlyList<RaffleHistoryBidDto> winners,
+        IReadOnlyList<RaffleHistoryBidDto> bids)
+    {
+        public int Id { get; } = id;
+        public int RaffleType { get; } = raffleType;
+        public string Type { get; } = type;
+        public string Description { get; } = description;
+        public decimal TotalPoints { get; } = totalPoints;
+        public IReadOnlyList<RaffleHistoryBidDto> Winners { get; } = winners;
+        public IReadOnlyList<RaffleHistoryBidDto> Bids { get; } = bids;
+    }
 
-    public record RaffleWriteDto(int RaffleType, string? Description);
+    private sealed class RaffleHistoryBidDto(string discordId, string displayName, decimal pointsSpent, bool isWinner)
+    {
+        public string DiscordId { get; } = discordId;
+        public string DisplayName { get; } = displayName;
+        public decimal PointsSpent { get; } = pointsSpent;
+        public bool IsWinner { get; } = isWinner;
+    }
 
-    public record CompleteRaffleDto(int RaffleType, int? WinnersCount);
+    private sealed class RafflePermissionsDto(
+        bool canEnterRaffle,
+        bool canEnterEventRaffle,
+        bool canCreateRaffle,
+        bool canCreateEventRaffle,
+        bool canCompleteRaffle,
+        bool canCompleteEventRaffle,
+        bool canReopenRaffle,
+        bool canReopenEventRaffle)
+    {
+        public bool CanEnterRaffle { get; } = canEnterRaffle;
+        public bool CanEnterEventRaffle { get; } = canEnterEventRaffle;
+        public bool CanCreateRaffle { get; } = canCreateRaffle;
+        public bool CanCreateEventRaffle { get; } = canCreateEventRaffle;
+        public bool CanCompleteRaffle { get; } = canCompleteRaffle;
+        public bool CanCompleteEventRaffle { get; } = canCompleteEventRaffle;
+        public bool CanReopenRaffle { get; } = canReopenRaffle;
+        public bool CanReopenEventRaffle { get; } = canReopenEventRaffle;
+    }
 
-    public record RaffleWinnerDto(string DiscordId, string DisplayName, decimal PointsSpent);
+    private sealed class RaffleAvailabilityDto(bool hasPreviousRaffle, bool hasPreviousEventRaffle)
+    {
+        public bool HasPreviousRaffle { get; } = hasPreviousRaffle;
+        public bool HasPreviousEventRaffle { get; } = hasPreviousEventRaffle;
+    }
 
-    public record RaffleCompletedDto(
-        int RaffleId,
-        int RaffleType,
-        string Type,
-        string Description,
-        DateTimeOffset DrawAtUtc,
-        IReadOnlyList<RaffleWinnerDto> Winners);
+    private sealed class EnterRaffleDto
+    {
+        public int RaffleId { get; set; }
+        public int Points { get; set; }
+    }
+
+    private sealed class RaffleWriteDto
+    {
+        public int RaffleType { get; set; }
+        public string? Description { get; set; }
+    }
+
+    private sealed class CompleteRaffleDto
+    {
+        public int RaffleType { get; set; }
+        public int? WinnersCount { get; set; }
+    }
+
+    private sealed class RaffleWinnerDto(string discordId, string displayName, decimal pointsSpent)
+    {
+        public string DiscordId { get; } = discordId;
+        public string DisplayName { get; } = displayName;
+        public decimal PointsSpent { get; } = pointsSpent;
+    }
+
+    private sealed class RaffleCompletedDto(
+        int raffleId,
+        int raffleType,
+        string type,
+        string description,
+        DateTimeOffset drawAtUtc,
+        IReadOnlyList<RaffleWinnerDto> winners)
+    {
+        public int RaffleId { get; } = raffleId;
+        public int RaffleType { get; } = raffleType;
+        public string Type { get; } = type;
+        public string Description { get; } = description;
+        public DateTimeOffset DrawAtUtc { get; } = drawAtUtc;
+        public IReadOnlyList<RaffleWinnerDto> Winners { get; } = winners;
+    }
+    // ReSharper restore UnusedMember.Local
+    // ReSharper restore UnusedAutoPropertyAccessor.Local
+    // ReSharper restore ClassNeverInstantiated.Local
 
     private static async Task<IResult> GetMyPoints(
         ClaimsPrincipal user,
@@ -168,7 +263,7 @@ public static class PointsEndpoints
             var userGuildList = await userGuilds.GetForPrincipalAsync(user);
             if (userGuildList is null)
             {
-                return new List<GuildSummaryDto>();
+                return [];
             }
 
             var userGuildIds = userGuildList.Select(g => (long)g.Id).ToHashSet();
@@ -505,7 +600,7 @@ public static class PointsEndpoints
         var guild = await ctx.Guild.FirstOrDefaultAsync(g => g.GuildId == guildId, ct);
         var channel = await ResolveAnnouncementChannelAsync(guild, clientProvider);
         var winnerDtos = await BuildWinnerDtosAsync(ctx, winners, ct);
-        if (guild != null && channel != null)
+        if (guild is not null && channel is not null)
         {
             await channel.SendMessageAsync(
                 text: BuildRaffleMention(guild),
@@ -606,6 +701,7 @@ public static class PointsEndpoints
         [FromServices] DiscordRestClientProvider clientProvider,
         [FromServices] IFooterService footerService,
         [FromServices] IConfiguration configuration,
+        [FromServices] ILoggerFactory loggerFactory,
         HttpContext httpContext,
         CancellationToken ct)
     {
@@ -641,10 +737,16 @@ public static class PointsEndpoints
         raffle.Description = description;
         await ctx.SaveChangesAsync(ct);
 
-        var guild = await ctx.Guild.FirstOrDefaultAsync(g => g.GuildId == guildId, ct);
-        await TryUpdateDiscordRaffleMessageAsync(raffle, guildId, clientProvider, footerService, configuration, httpContext);
+        await TryUpdateDiscordRaffleMessageAsync(
+            raffle,
+            guildId,
+            clientProvider,
+            footerService,
+            configuration,
+            httpContext,
+            loggerFactory.CreateLogger("DonBot.Api.Endpoints.PointsEndpoints"));
 
-        return Results.Ok(await ToRaffleDtoAsync(ctx, raffle, discordId, guild?.GuildName, ct));
+        return Results.Ok(await ToRaffleDtoAsync(ctx, raffle, discordId, ct));
     }
 
     private static async Task<RaffleStateDto> BuildRaffleStateAsync(
@@ -677,7 +779,7 @@ public static class PointsEndpoints
         var raffleDtos = new List<RaffleDto>();
         foreach (var raffle in activeRaffles)
         {
-            raffleDtos.Add(await ToRaffleDtoAsync(ctx, raffle, discordId, guild?.GuildName, ct));
+            raffleDtos.Add(await ToRaffleDtoAsync(ctx, raffle, discordId, ct));
         }
 
         var lastRaffles = new List<RaffleHistoryDto>();
@@ -717,7 +819,6 @@ public static class PointsEndpoints
         DatabaseContext ctx,
         Raffle raffle,
         long discordId,
-        string? guildName,
         CancellationToken ct)
     {
         var bids = await ctx.PlayerRaffleBid
@@ -772,7 +873,7 @@ public static class PointsEndpoints
         return selected
             .Select(b => new RaffleBidDto(
                 b.DiscordId.ToString(),
-                DisplayName(b.DiscordId, namesByDiscordId),
+                BuildDisplayName(b.DiscordId, namesByDiscordId),
                 b.PointsSpent))
             .ToList();
     }
@@ -787,7 +888,7 @@ public static class PointsEndpoints
         return bids
             .Select(b => new RaffleHistoryBidDto(
                 b.DiscordId.ToString(),
-                DisplayName(b.DiscordId, namesByDiscordId),
+                BuildDisplayName(b.DiscordId, namesByDiscordId),
                 b.PointsSpent,
                 b.IsWinner))
             .ToList();
@@ -803,7 +904,7 @@ public static class PointsEndpoints
         return winners
             .Select(w => new RaffleWinnerDto(
                 w.DiscordId.ToString(),
-                DisplayName(w.DiscordId, namesByDiscordId),
+                BuildDisplayName(w.DiscordId, namesByDiscordId),
                 w.PointsSpent))
             .ToList();
     }
@@ -834,7 +935,7 @@ public static class PointsEndpoints
                 g => string.Join(", ", g.Select(a => a.GuildWarsAccountName).Take(2)));
     }
 
-    private static string DisplayName(long discordId, IReadOnlyDictionary<long, string> gw2Names) =>
+    private static string BuildDisplayName(long discordId, IReadOnlyDictionary<long, string> gw2Names) =>
         gw2Names.TryGetValue(discordId, out var names) && !string.IsNullOrWhiteSpace(names)
             ? names
             : $"Discord {discordId}";
@@ -992,7 +1093,8 @@ public static class PointsEndpoints
         DiscordRestClientProvider clientProvider,
         IFooterService footerService,
         IConfiguration configuration,
-        HttpContext? httpContext)
+        HttpContext? httpContext,
+        ILogger logger)
     {
         if (!raffle.MessageChannelId.HasValue || !raffle.MessageId.HasValue)
         {
@@ -1018,20 +1120,26 @@ public static class PointsEndpoints
                 p.Components = BuildRaffleComponents(raffle.RaffleType, guildId, configuration, httpContext);
             });
         }
-        catch
+        catch (Exception ex)
         {
+            logger.LogWarning(
+                ex,
+                "Failed to update Discord raffle message {MessageId} in channel {ChannelId} for guild {GuildId}.",
+                raffle.MessageId,
+                raffle.MessageChannelId,
+                guildId);
         }
     }
 
     private static async Task<RestTextChannel?> ResolveAnnouncementChannelAsync(Guild? guild, DiscordRestClientProvider clientProvider)
     {
-        if (guild?.AnnouncementChannelId == null)
+        if (guild is not { AnnouncementChannelId: { } announcementChannelId })
         {
             return null;
         }
 
         var client = await clientProvider.GetClientAsync();
-        return await client.GetChannelAsync((ulong)guild.AnnouncementChannelId.Value) as RestTextChannel;
+        return await client.GetChannelAsync((ulong)announcementChannelId) as RestTextChannel;
     }
 
     private static EmbedAuthorBuilder DonBotAuthor() => new()
@@ -1098,7 +1206,8 @@ public static class PointsEndpoints
 
     private static async Task<IResult> GetDashboard(
         ClaimsPrincipal user,
-        IDbContextFactory<DatabaseContext> dbContextFactory)
+        IDbContextFactory<DatabaseContext> dbContextFactory,
+        int? days = null)
     {
         if (!TryGetDiscordId(user, out var discordId))
         {
@@ -1116,6 +1225,7 @@ public static class PointsEndpoints
         var gw2Names = gw2Accounts
             .Select(a => a.GuildWarsAccountName)
             .Where(n => n != null)
+            .Select(n => n!)
             .ToList();
 
         if (gw2Names.Count == 0)
@@ -1123,10 +1233,22 @@ public static class PointsEndpoints
             return Results.Ok(new { account, gw2Accounts, lastFightDate = (DateTime?)null, fights = (object?)null });
         }
 
-        var joined = from pfl in context.PlayerFightLog
-                     join fl in context.FightLog on pfl.FightLogId equals fl.FightLogId
-                     where gw2Names.Contains(pfl.GuildWarsAccountName)
-                     select new { Pfl = pfl, fl.FightType, fl.FightStart };
+        var joinedBase = from pfl in context.PlayerFightLog
+                         join fl in context.FightLog on pfl.FightLogId equals fl.FightLogId
+                         where gw2Names.Contains(pfl.GuildWarsAccountName)
+                         select new { Pfl = pfl, fl.FightType, fl.FightStart };
+
+        var lastFightDate = await joinedBase
+            .GroupBy(_ => 1)
+            .Select(g => (DateTime?)g.Max(x => x.FightStart))
+            .FirstOrDefaultAsync();
+
+        var joined = joinedBase;
+        if (days is > 0)
+        {
+            var since = DateTime.UtcNow.AddDays(-days.Value);
+            joined = joined.Where(x => x.FightStart >= since);
+        }
 
         var totals = await joined
             .GroupBy(_ => 1)
@@ -1143,14 +1265,13 @@ public static class PointsEndpoints
                 TotalStrips = g.Sum(x => x.Pfl.Strips),
                 TotalDownContribution = g.Sum(x => x.FightType == 0 ? x.Pfl.DamageDownContribution : 0L),
                 AvgQuickness = g.Average(x => (double)x.Pfl.QuicknessDuration),
-                AvgAlac = g.Average(x => (double)x.Pfl.AlacDuration),
-                LastFightDate = (DateTime?)g.Max(x => x.FightStart)
+                AvgAlac = g.Average(x => (double)x.Pfl.AlacDuration)
             })
             .FirstOrDefaultAsync();
 
         if (totals is null)
         {
-            return Results.Ok(new { account, gw2Accounts, lastFightDate = (DateTime?)null, fights = (object?)null });
+            return Results.Ok(new { account, gw2Accounts, lastFightDate, fights = (object?)null });
         }
 
         var bestDamageFight = await joined
@@ -1164,8 +1285,8 @@ public static class PointsEndpoints
             .Select(x => new { fightLogId = x.Pfl.FightLogId, kills = x.Pfl.Kills })
             .FirstOrDefaultAsync();
 
-        var characterCount = await joined
-            .Where(x => x.Pfl.CharacterName != null && x.Pfl.CharacterName != "")
+        var characterCount = await joinedBase
+            .Where(x => x.Pfl.CharacterName != "")
             .Select(x => x.Pfl.CharacterName)
             .Distinct()
             .CountAsync();
@@ -1188,6 +1309,6 @@ public static class PointsEndpoints
             bestKillsFight
         };
 
-        return Results.Ok(new { account, gw2Accounts, lastFightDate = totals.LastFightDate, fights, characterCount });
+        return Results.Ok(new { account, gw2Accounts, lastFightDate, fights, characterCount });
     }
 }

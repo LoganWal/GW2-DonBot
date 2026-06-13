@@ -1,8 +1,8 @@
 using System.Security.Claims;
 using System.Text.Json;
 using DonBot.Api.Services;
+using DonBot.Core.Models.Entities;
 using DonBot.Core.Services.RaidLifecycle;
-using DonBot.Models.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -23,7 +23,16 @@ public static class LiveRaidEndpoints
         group.MapPost("/{guildId:long}/stop", StopRaid);
     }
 
-    private record GuildListItem(string guildId, string guildName);
+    // System.Text.Json uses these response DTO members implicitly.
+    // ReSharper disable UnusedAutoPropertyAccessor.Local
+    // ReSharper disable UnusedMember.Local
+    private sealed class GuildListItem(string guildId, string guildName)
+    {
+        public string GuildId { get; } = guildId;
+        public string GuildName { get; } = guildName;
+    }
+    // ReSharper restore UnusedMember.Local
+    // ReSharper restore UnusedAutoPropertyAccessor.Local
 
     private static readonly TimeSpan GuildListCacheTtl = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan GuildListErrorTtl = TimeSpan.FromSeconds(5);
@@ -46,17 +55,26 @@ public static class LiveRaidEndpoints
             var userGuildList = await userGuilds.GetForPrincipalAsync(user);
             if (userGuildList is null)
             {
-                return new List<GuildListItem>();
+                return [];
             }
 
             var userGuildIds = userGuildList.Select(g => (long)g.Id).ToHashSet();
 
             await using var ctx = await dbContextFactory.CreateDbContextAsync();
+            var guildIdsWithReports = ctx.FightsReport
+                .Where(r => r.GuildId > 0)
+                .Select(r => r.GuildId)
+                .Distinct();
+
             return await ctx.Guild
-                .Where(g => userGuildIds.Contains(g.GuildId)
-                    && ctx.FightsReport.Any(r => r.GuildId == g.GuildId && r.GuildId > 0))
-                .OrderBy(g => g.GuildName)
-                .Select(g => new GuildListItem(g.GuildId.ToString(), g.GuildName ?? g.GuildId.ToString()))
+                .Join(
+                    guildIdsWithReports,
+                    guild => guild.GuildId,
+                    reportGuildId => reportGuildId,
+                    (guild, _) => guild)
+                .Where(guild => userGuildIds.Contains(guild.GuildId))
+                .OrderBy(guild => guild.GuildName)
+                .Select(guild => new GuildListItem(guild.GuildId.ToString(), guild.GuildName ?? guild.GuildId.ToString()))
                 .ToListAsync();
         });
 
@@ -132,7 +150,7 @@ public static class LiveRaidEndpoints
                 .Where(v => v.HasValue)
                 .Select(v => v!.Value)
                 .ToHashSet();
-            fightLogIds = reportFightIds.Where(id => requested.Contains(id)).ToList();
+            fightLogIds = reportFightIds.Where(requested.Contains).ToList();
             if (fightLogIds.Count == 0)
             {
                 return Results.NotFound();
@@ -232,7 +250,7 @@ public static class LiveRaidEndpoints
         }
         catch (IOException)
         {
-            // Expected when the connection closes during a write.
+            // Expected when the connection closes while writing.
         }
     }
 
@@ -287,7 +305,7 @@ public static class LiveRaidEndpoints
         }
 
         var result = await raidLifecycle.CloseRaidAsync(guildId);
-        if (result.Outcome == RaidCloseOutcome.Closed && result.Report != null)
+        if (result is { Outcome: RaidCloseOutcome.Closed, Report: not null })
         {
             await raidNotifier.PostRaidEndedAsync(result.Report);
         }

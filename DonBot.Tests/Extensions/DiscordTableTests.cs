@@ -34,7 +34,7 @@ public class DiscordTableTests
 
         // Gap widths vary to keep rows within Discord's mobile code-block width.
         Assert.StartsWith("Bob".PadRight(6), row);
-        Assert.EndsWith($"{"10".PadLeft(5)}{new string(' ', RowGap(Columns, 1))}{"2".PadLeft(4)}", row);
+        Assert.EndsWith($"{"10",5}{new string(' ', RowGap(Columns, 1))}{"2",4}", row);
     }
 
     [Fact]
@@ -54,7 +54,7 @@ public class DiscordTableTests
 
         // Left-aligned final columns trim their trailing padding.
         var gap = RowGap(columns, 0);
-        Assert.Equal($"{"x".PadRight(3)}{new string(' ', gap)}y", row);
+        Assert.Equal($"{"x",-3}{new string(' ', gap)}y", row);
     }
 
     // Mirrors DiscordTable.GapWidths.

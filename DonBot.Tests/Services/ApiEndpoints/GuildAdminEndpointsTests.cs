@@ -1,5 +1,5 @@
 using DonBot.Api.Endpoints;
-using DonBot.Models.Entities;
+using DonBot.Core.Models.Entities;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace DonBot.Tests.Services.ApiEndpoints;
@@ -211,7 +211,7 @@ public class GuildAdminEndpointsTests
     [InlineData("   ")]
     [InlineData("not-a-guid")]
     [InlineData("123")]
-    // braced/parenthesised forms are rejected; only the dashed "D" format is valid
+    // braced/parenthesized forms are rejected; only the dashed "D" format is valid
     [InlineData("{4BBB52AA-D768-4FC6-8EDE-C299F2822F0F}")]
     public void IsValidGw2GuildId_Invalid_ReturnsFalse(string? input)
     {
@@ -369,7 +369,7 @@ public class GuildAdminEndpointsTests
     [InlineData("   ")]
     public void ValidateRoleIdList_NullOrWhitespace_ReturnsNull(string? input)
     {
-        Assert.Null(GuildAdminEndpoints.ValidateRoleIdList(input, new HashSet<ulong> { 1UL }, "Field"));
+        Assert.Null(GuildAdminEndpoints.ValidateRoleIdList(input, [1UL], "Field"));
     }
 
     [Fact]
@@ -382,7 +382,7 @@ public class GuildAdminEndpointsTests
     [Fact]
     public void ValidateRoleIdList_NonNumericEntry_ReturnsError()
     {
-        var error = GuildAdminEndpoints.ValidateRoleIdList("100,abc", new HashSet<ulong> { 100UL }, "ScheduledEventManagerRoleIds");
+        var error = GuildAdminEndpoints.ValidateRoleIdList("100,abc", [100UL], "ScheduledEventManagerRoleIds");
         Assert.NotNull(error);
         Assert.Contains("invalid id", error);
     }
@@ -390,7 +390,7 @@ public class GuildAdminEndpointsTests
     [Fact]
     public void ValidateRoleIdList_EntryNotInGuild_ReturnsError()
     {
-        var error = GuildAdminEndpoints.ValidateRoleIdList("100,999", new HashSet<ulong> { 100UL }, "ScheduledEventManagerRoleIds");
+        var error = GuildAdminEndpoints.ValidateRoleIdList("100,999", [100UL], "ScheduledEventManagerRoleIds");
         Assert.NotNull(error);
         Assert.Contains("does not belong", error);
     }
@@ -428,7 +428,8 @@ public class GuildAdminEndpointsTests
         Task<GuildAdminEndpoints.Gw2FetchResult> Fetcher()
         {
             calls++;
-            if (calls == 1) {
+            if (calls == 1)
+            {
                 return Task.FromResult(new GuildAdminEndpoints.Gw2FetchResult(
                     GuildAdminEndpoints.Gw2FetchOutcome.Transient, null));
             }

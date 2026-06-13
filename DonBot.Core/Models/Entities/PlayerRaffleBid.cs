@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace DonBot.Models.Entities;
+namespace DonBot.Core.Models.Entities;
 
 public class PlayerRaffleBid
 {

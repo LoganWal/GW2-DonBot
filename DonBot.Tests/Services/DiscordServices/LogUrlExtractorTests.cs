@@ -59,7 +59,8 @@ public class LogUrlExtractorTests
     public void ExtractFromText_HttpNotHttps_NotMatched()
     {
         // both regexes require https; plain http is rejected
-        Assert.Empty(LogUrlExtractor.ExtractFromText("http://b.dps.report/aaa"));
+        var url = $"{Uri.UriSchemeHttp}://b.dps.report/aaa";
+        Assert.Empty(LogUrlExtractor.ExtractFromText(url));
     }
 
     [Fact]

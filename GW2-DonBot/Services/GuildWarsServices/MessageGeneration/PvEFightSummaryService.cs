@@ -1,13 +1,13 @@
+using System.Globalization;
 using Discord;
+using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.Enums;
+using DonBot.Core.Models.GuildWars2;
+using DonBot.Core.Services;
 using DonBot.Extensions;
-using DonBot.Models.Entities;
-using DonBot.Models.Enums;
-using DonBot.Models.GuildWars2;
-using Microsoft.Extensions.Configuration;
-using DonBot.Services;
 using DonBot.Services.DatabaseServices;
 using Microsoft.EntityFrameworkCore;
-using System.Globalization;
+using Microsoft.Extensions.Configuration;
 
 namespace DonBot.Services.GuildWarsServices.MessageGeneration;
 

@@ -3,18 +3,8 @@
     <h1 class="page-title">Progression</h1>
 
     <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.5rem;">
-      <Select
+      <FightTypeSelect
         v-model="selectedFightType"
-        :options="fightTypeGroupedOptions"
-        option-group-label="label"
-        option-group-children="items"
-        option-label="label"
-        option-value="value"
-        placeholder="Select fight type"
-        filter
-        :filter-fields="['label', 'group']"
-        scroll-height="400px"
-        style="min-width: 240px;"
         @change="load(true)"
       />
       <template v-if="selectedFightType !== null && !isWvWFight">
@@ -171,7 +161,6 @@
 </template>
 
 <script setup lang="ts">
-import { fightTypeGroupedOptions } from '~/composables/useFightTypes'
 import { successFilterOptions, difficultyFilterOptions, type SuccessFilter, type DifficultyFilter } from '~/composables/useLogFilters'
 
 definePageMeta({ middleware: 'auth' })

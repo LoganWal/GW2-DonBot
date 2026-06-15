@@ -11,7 +11,8 @@ internal static class SignupMessageBuilder
 {
     public static string BuildContent(ScheduledEvent scheduledEvent)
     {
-        var utcEventTime = DateTime.SpecifyKind(scheduledEvent.UtcEventTime, DateTimeKind.Utc);
+        var messageEventTime = scheduledEvent.PostedEventTime ?? scheduledEvent.UtcEventTime;
+        var utcEventTime = DateTime.SpecifyKind(messageEventTime, DateTimeKind.Utc);
         var unixTimestamp = new DateTimeOffset(utcEventTime, TimeSpan.Zero).ToUnixTimeSeconds();
         return $"<t:{unixTimestamp}:f>\n{scheduledEvent.Message}";
     }

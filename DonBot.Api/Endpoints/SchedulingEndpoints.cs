@@ -372,6 +372,7 @@ public static class SchedulingEndpoints
         if (!newIsSignup)
         {
             scheduledEvent.MessageId = null;
+            scheduledEvent.PostedEventTime = null;
             await ctx.SaveChangesAsync();
 
             if (!await TryDeletePostedMessageAsync(clientProvider, guildId, priorChannelId, priorMessageId))
@@ -863,6 +864,7 @@ public static class SchedulingEndpoints
         short EventType,
         long ChannelId,
         long? MessageId,
+        DateTime? PostedEventTime,
         short Day,
         short Hour,
         DateTime UtcEventTime,
@@ -876,6 +878,7 @@ public static class SchedulingEndpoints
                 scheduledEvent.EventType,
                 scheduledEvent.ChannelId,
                 scheduledEvent.MessageId,
+                scheduledEvent.PostedEventTime,
                 scheduledEvent.Day,
                 scheduledEvent.Hour,
                 scheduledEvent.UtcEventTime,
@@ -892,6 +895,7 @@ public static class SchedulingEndpoints
             scheduledEvent.EventType = EventType;
             scheduledEvent.ChannelId = ChannelId;
             scheduledEvent.MessageId = MessageId;
+            scheduledEvent.PostedEventTime = PostedEventTime;
             scheduledEvent.Day = Day;
             scheduledEvent.Hour = Hour;
             scheduledEvent.UtcEventTime = UtcEventTime;

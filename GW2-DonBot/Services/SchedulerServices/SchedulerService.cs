@@ -24,6 +24,7 @@ public sealed class SchedulerService(
         short EventType,
         long ChannelId,
         long? MessageId,
+        DateTime? PostedEventTime,
         short Day,
         short Hour,
         DateTime UtcEventTime,
@@ -38,6 +39,7 @@ public sealed class SchedulerService(
                 scheduledEvent.EventType,
                 scheduledEvent.ChannelId,
                 scheduledEvent.MessageId,
+                scheduledEvent.PostedEventTime,
                 scheduledEvent.Day,
                 scheduledEvent.Hour,
                 scheduledEvent.UtcEventTime,
@@ -51,6 +53,7 @@ public sealed class SchedulerService(
             && EventType == scheduledEvent.EventType
             && ChannelId == scheduledEvent.ChannelId
             && MessageId == scheduledEvent.MessageId
+            && PostedEventTime == scheduledEvent.PostedEventTime
             && Day == scheduledEvent.Day
             && Hour == scheduledEvent.Hour
             && UtcEventTime == scheduledEvent.UtcEventTime
@@ -219,7 +222,7 @@ public sealed class SchedulerService(
 
             var preFireSnapshot = ScheduledEventSnapshot.Capture(scheduledEvent);
 
-            // UtcEventTime is shown in messages, so advance stale rows before sending.
+            // The current occurrence is shown in the posted message, so advance stale rows before sending.
             var fireNow = DateTime.UtcNow;
             if (scheduledEvent.UtcEventTime <= fireNow)
             {
@@ -227,6 +230,8 @@ public sealed class SchedulerService(
                     scheduledEvent.ScheduledEventId, scheduledEvent.UtcEventTime);
                 AdvanceEventIfBehind(scheduledEvent, fireNow);
             }
+
+            scheduledEvent.PostedEventTime = scheduledEvent.UtcEventTime;
 
             var handlerEventType = (ScheduledEventTypeEnum)ScheduledEventResponseOptions.ToCurrentEventType(scheduledEvent.EventType);
             var handler = eventHandlers.FirstOrDefault(h => h.EventType == handlerEventType);
@@ -266,6 +271,7 @@ public sealed class SchedulerService(
             }
 
             currentBeforeSave.MessageId = scheduledEvent.MessageId;
+            currentBeforeSave.PostedEventTime = scheduledEvent.PostedEventTime;
             currentBeforeSave.UtcEventTime = scheduledEvent.UtcEventTime.AddDays(currentBeforeSave.RepeatIntervalDays);
             currentBeforeSave.Day = (short)((scheduledEvent.Day + currentBeforeSave.RepeatIntervalDays) % 7);
             await entityService.ScheduledEvent.UpdateAsync(currentBeforeSave);
@@ -318,6 +324,7 @@ public sealed class SchedulerService(
         || cached.GuildId != current.GuildId
         || cached.ChannelId != current.ChannelId
         || cached.MessageId != current.MessageId
+        || cached.PostedEventTime != current.PostedEventTime
         || cached.Day != current.Day
         || cached.Hour != current.Hour
         || cached.UtcEventTime != current.UtcEventTime

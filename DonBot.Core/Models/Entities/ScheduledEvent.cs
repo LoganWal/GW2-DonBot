@@ -23,6 +23,8 @@ public class ScheduledEvent
 
     public long? MessageId { get; set; }
 
+    public DateTime? PostedEventTime { get; set; }
+
     public DateTime UtcEventTime { get; set; }
 
     public short EventType { get; set; }

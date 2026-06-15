@@ -9,6 +9,37 @@ namespace DonBot.Tests.Services.SchedulerServices;
 public sealed class SignupMessageBuilderTests
 {
     [Fact]
+    public void BuildContent_PostedEventTimeExists_UsesPostedEventTime()
+    {
+        var scheduledEvent = new ScheduledEvent
+        {
+            UtcEventTime = new DateTime(2026, 6, 22, 12, 0, 0, DateTimeKind.Utc),
+            PostedEventTime = new DateTime(2026, 6, 15, 12, 0, 0, DateTimeKind.Utc),
+            Message = "Monday Prog"
+        };
+
+        var content = SignupMessageBuilder.BuildContent(scheduledEvent);
+
+        var expectedTimestamp = new DateTimeOffset(scheduledEvent.PostedEventTime.Value, TimeSpan.Zero).ToUnixTimeSeconds();
+        Assert.StartsWith($"<t:{expectedTimestamp}:f>", content);
+    }
+
+    [Fact]
+    public void BuildContent_PostedEventTimeMissing_UsesUtcEventTime()
+    {
+        var scheduledEvent = new ScheduledEvent
+        {
+            UtcEventTime = new DateTime(2026, 6, 22, 12, 0, 0, DateTimeKind.Utc),
+            Message = "Monday Prog"
+        };
+
+        var content = SignupMessageBuilder.BuildContent(scheduledEvent);
+
+        var expectedTimestamp = new DateTimeOffset(scheduledEvent.UtcEventTime, TimeSpan.Zero).ToUnixTimeSeconds();
+        Assert.StartsWith($"<t:{expectedTimestamp}:f>", content);
+    }
+
+    [Fact]
     public void BuildEmbed_WithExistingLegacyFields_PreservesRosterValues()
     {
         var existingEmbed = new EmbedBuilder()

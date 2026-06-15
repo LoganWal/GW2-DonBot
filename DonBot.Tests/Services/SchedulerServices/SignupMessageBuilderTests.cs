@@ -63,6 +63,47 @@ public sealed class SignupMessageBuilderTests
         Assert.Equal("<@1>\n\n**Total: 1**", updatedEmbed.Fields.Single(f => f.Name == "✅ Join").Value);
         Assert.Equal("<@2>\n\n**Total: 1**", updatedEmbed.Fields.Single(f => f.Name == "🛠️ Can Fill").Value);
         Assert.Equal("<@3>\n\n**Total: 1**", updatedEmbed.Fields.Single(f => f.Name == "❌ Can't Join").Value);
+        Assert.Equal("**Total: 3**", updatedEmbed.Fields.Single(f => f.Name == SignupMessageBuilder.TotalResponsesFieldName).Value);
+    }
+
+    [Fact]
+    public void BuildEmbed_WithoutResponses_AddsZeroOverallTotal()
+    {
+        var scheduledEvent = new ScheduledEvent
+        {
+            EventType = (short)ScheduledEventTypeEnum.RaidSignup,
+            ResponseOptionsJson = ScheduledEventResponseOptions.Serialize([
+                new ScheduledEventResponseOption("Join", "✅"),
+                new ScheduledEventResponseOption("Can't Join", "❌")
+            ])
+        };
+
+        var embed = SignupMessageBuilder.BuildEmbed(scheduledEvent);
+
+        Assert.Equal("No one has joined yet.\n\n**Total: 0**", embed.Fields.Single(f => f.Name == "✅ Join").Value);
+        Assert.Equal("No one has declined yet.\n\n**Total: 0**", embed.Fields.Single(f => f.Name == "❌ Can't Join").Value);
+        Assert.Equal("**Total: 0**", embed.Fields.Single(f => f.Name == SignupMessageBuilder.TotalResponsesFieldName).Value);
+    }
+
+    [Fact]
+    public void BuildEmbed_WithExistingEmptyLegacyField_AddsZeroFieldTotal()
+    {
+        var existingEmbed = new EmbedBuilder()
+            .WithTitle("Event Roster")
+            .AddField("✅ Roster", "No one has joined yet.")
+            .Build();
+        var scheduledEvent = new ScheduledEvent
+        {
+            EventType = (short)ScheduledEventTypeEnum.RaidSignup,
+            ResponseOptionsJson = ScheduledEventResponseOptions.Serialize([
+                new ScheduledEventResponseOption("Join", "✅")
+            ])
+        };
+
+        var updatedEmbed = SignupMessageBuilder.BuildEmbed(scheduledEvent, existingEmbed);
+
+        Assert.Equal("No one has joined yet.\n\n**Total: 0**", updatedEmbed.Fields.Single(f => f.Name == "✅ Join").Value);
+        Assert.Equal("**Total: 0**", updatedEmbed.Fields.Single(f => f.Name == SignupMessageBuilder.TotalResponsesFieldName).Value);
     }
 
     [Fact]

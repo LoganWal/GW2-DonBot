@@ -9,6 +9,8 @@ namespace DonBot.Services.SchedulerServices;
 
 internal static class SignupMessageBuilder
 {
+    public const string TotalResponsesFieldName = "Total Responses";
+
     public static string BuildContent(ScheduledEvent scheduledEvent)
     {
         var messageEventTime = scheduledEvent.PostedEventTime ?? scheduledEvent.UtcEventTime;
@@ -30,11 +32,14 @@ internal static class SignupMessageBuilder
         foreach (var option in GetOptions(scheduledEvent))
         {
             var fieldName = ScheduledEventResponseOptions.FieldName(option);
-            var value = FindPreservedFieldValue(fieldName, existingFields, consumedExistingFieldIndexes)
-                ?? GetDefaultFieldValue(fieldName);
+            var preservedValue = FindPreservedFieldValue(fieldName, existingFields, consumedExistingFieldIndexes);
+            var value = preservedValue is null
+                ? GetDefaultFieldValue(fieldName)
+                : NormalizeFieldValue(fieldName, preservedValue);
             embed.AddField(fieldName, value);
         }
 
+        UpdateTotalResponsesField(embed);
         return embed.Build();
     }
 
@@ -66,7 +71,20 @@ internal static class SignupMessageBuilder
         return Convert.ToHexString(bytes)[..12].ToLowerInvariant();
     }
 
-    public static string GetDefaultFieldValue(string fieldName) => fieldName switch
+    public static string GetDefaultFieldValue(string fieldName) =>
+        FormatResponseFieldValue(fieldName, []);
+
+    public static string FormatResponseFieldValue(string fieldName, IReadOnlyCollection<string> users)
+    {
+        if (users.Count == 0)
+        {
+            return $"{GetDefaultResponseText(fieldName)}\n\n**Total: 0**";
+        }
+
+        return string.Join('\n', users) + $"\n\n**Total: {users.Count}**";
+    }
+
+    private static string GetDefaultResponseText(string fieldName) => fieldName switch
     {
         "✅ Join" => "No one has joined yet.",
         "✅ Roster" => "No one has joined yet.",
@@ -76,6 +94,47 @@ internal static class SignupMessageBuilder
         "⏰ Will Be Late" => "No one will be late.",
         _ => "No responses yet."
     };
+
+    public static bool IsTotalResponsesField(string fieldName) =>
+        string.Equals(fieldName, TotalResponsesFieldName, StringComparison.Ordinal);
+
+    public static List<string> GetResponseUserList(EmbedFieldBuilder field)
+    {
+        if (IsTotalResponsesField(field.Name))
+        {
+            return [];
+        }
+
+        var fieldValue = field.Value as string ?? string.Empty;
+        return fieldValue
+            .Split('\n')
+            .Where(line => !string.IsNullOrWhiteSpace(line) &&
+                           !line.StartsWith("**Total:") &&
+                           !GetDefaultResponseText(field.Name).Equals(line))
+            .ToList();
+    }
+
+    public static void UpdateTotalResponsesField(EmbedBuilder embed)
+    {
+        for (var i = embed.Fields.Count - 1; i >= 0; i--)
+        {
+            if (IsTotalResponsesField(embed.Fields[i].Name))
+            {
+                embed.Fields.RemoveAt(i);
+            }
+        }
+
+        var total = embed.Fields.Sum(field => GetResponseUserList(field).Count);
+        embed.AddField(TotalResponsesFieldName, $"**Total: {total}**");
+    }
+
+    private static string NormalizeFieldValue(string fieldName, string fieldValue)
+    {
+        var field = new EmbedFieldBuilder()
+            .WithName(fieldName)
+            .WithValue(fieldValue);
+        return FormatResponseFieldValue(fieldName, GetResponseUserList(field));
+    }
 
     private static string? FindPreservedFieldValue(
         string fieldName,

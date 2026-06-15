@@ -345,12 +345,16 @@ public class DiscordButtonHandler(
         int fieldIndex,
         string? fieldKey)
     {
+        var responseFields = fields
+            .Where(f => !SignupMessageBuilder.IsTotalResponsesField(f.Name))
+            .ToList();
+
         if (!string.IsNullOrWhiteSpace(fieldKey))
         {
-            return fields.FirstOrDefault(f => SignupMessageBuilder.FieldKey(f.Name) == fieldKey);
+            return responseFields.FirstOrDefault(f => SignupMessageBuilder.FieldKey(f.Name) == fieldKey);
         }
 
-        return fieldIndex < fields.Count ? fields[fieldIndex] : null;
+        return fieldIndex < responseFields.Count ? responseFields[fieldIndex] : null;
     }
 
     private async Task ApplyEventButton(
@@ -389,7 +393,7 @@ public class DiscordButtonHandler(
             return;
         }
 
-        foreach (var field in embedBuilder.Fields)
+        foreach (var field in embedBuilder.Fields.Where(f => !SignupMessageBuilder.IsTotalResponsesField(f.Name)))
         {
             var userList = GetUserList(field);
             var newUserList = userList.Where(line => !IsSameUserLine(line, user)).ToList();
@@ -403,6 +407,7 @@ public class DiscordButtonHandler(
         targetUsers = GetUserList(targetField);
         targetUsers.Add(FormatUserLine(user));
         targetField.Value = FormatFieldValue(targetField.Name, targetUsers);
+        SignupMessageBuilder.UpdateTotalResponsesField(embedBuilder);
 
         await currentMessage.ModifyAsync(msg =>
         {
@@ -420,13 +425,7 @@ public class DiscordButtonHandler(
 
     private static List<string> GetUserList(EmbedFieldBuilder field)
     {
-        var fieldValue = field.Value as string ?? string.Empty;
-        return fieldValue
-            .Split('\n')
-            .Where(line => !string.IsNullOrWhiteSpace(line) &&
-                           !line.StartsWith("**Total:") &&
-                           !GetDefaultFieldValue(field.Name).Equals(line))
-            .ToList();
+        return SignupMessageBuilder.GetResponseUserList(field);
     }
 
     internal static string FormatUserLine(string mention, string? username)
@@ -477,15 +476,5 @@ public class DiscordButtonHandler(
     }
 
     private static string FormatFieldValue(string fieldName, List<string> users)
-    {
-        if (users.Count == 0)
-        {
-            return GetDefaultFieldValue(fieldName);
-        }
-
-        return string.Join('\n', users) + $"\n\n**Total: {users.Count}**";
-    }
-
-    private static string GetDefaultFieldValue(string fieldName) =>
-        SignupMessageBuilder.GetDefaultFieldValue(fieldName);
+        => SignupMessageBuilder.FormatResponseFieldValue(fieldName, users);
 }

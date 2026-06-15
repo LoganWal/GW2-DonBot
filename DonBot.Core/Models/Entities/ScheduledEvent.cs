@@ -25,9 +25,13 @@ public class ScheduledEvent
 
     public DateTime? PostedEventTime { get; set; }
 
+    public DateTime? LastNotificationEventTime { get; set; }
+
     public DateTime UtcEventTime { get; set; }
 
     public short EventType { get; set; }
 
     public short RepeatIntervalDays { get; set; } = 7;
+
+    public short NotificationMinutesBeforeStart { get; set; } = 15;
 }

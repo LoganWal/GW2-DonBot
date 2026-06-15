@@ -83,6 +83,10 @@ public sealed class DatabaseContext : DbContext
             .HasIndex(lu => lu.TusFileId)
             .IsUnique();
 
+        modelBuilder.Entity<ScheduledEvent>()
+            .Property(se => se.NotificationMinutesBeforeStart)
+            .HasDefaultValue((short)15);
+
         modelBuilder.Entity<PlayerFightLog>()
             .Property(pfl => pfl.AlacDuration)
             .HasPrecision(6, 2);

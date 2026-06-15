@@ -33,7 +33,8 @@ public static class SchedulingEndpoints
         short RepeatIntervalDays,
         string Message,
         IReadOnlyList<ScheduledEventResponseOption> ResponseOptions,
-        DateTime UtcEventTime);
+        DateTime UtcEventTime,
+        short NotificationMinutesBeforeStart);
 
     public record EventWriteDto(
         short EventType,
@@ -43,9 +44,12 @@ public static class SchedulingEndpoints
         DateTime UtcEventTime,
         short RepeatIntervalDays,
         string? Message,
-        IReadOnlyList<ScheduledEventResponseOption>? ResponseOptions = null);
+        IReadOnlyList<ScheduledEventResponseOption>? ResponseOptions = null,
+        short NotificationMinutesBeforeStart = DefaultNotificationMinutesBeforeStart);
 
     internal const int MaxMessageLength = 256;
+    internal const short DefaultNotificationMinutesBeforeStart = 15;
+    internal const short MaxNotificationMinutesBeforeStart = 10080;
 
     private static readonly TimeSpan AccessCacheTtl = TimeSpan.FromSeconds(60);
 
@@ -250,6 +254,7 @@ public static class SchedulingEndpoints
             Day = body.Day,
             Hour = body.Hour,
             RepeatIntervalDays = body.RepeatIntervalDays,
+            NotificationMinutesBeforeStart = body.NotificationMinutesBeforeStart,
             Message = (body.Message ?? string.Empty).Trim(),
             ResponseOptionsJson = ScheduledEventResponseOptions.SerializeForEventType(body.EventType, body.ResponseOptions),
             UtcEventTime = utc
@@ -264,6 +269,7 @@ public static class SchedulingEndpoints
         entity.Day = body.Day;
         entity.Hour = body.Hour;
         entity.RepeatIntervalDays = body.RepeatIntervalDays;
+        entity.NotificationMinutesBeforeStart = body.NotificationMinutesBeforeStart;
         entity.Message = (body.Message ?? string.Empty).Trim();
         entity.ResponseOptionsJson = responseOptionsJson;
         entity.UtcEventTime = utc;
@@ -676,6 +682,10 @@ public static class SchedulingEndpoints
         {
             return "Repeat interval must be 1-365 days.";
         }
+        if (body.NotificationMinutesBeforeStart < 1 || body.NotificationMinutesBeforeStart > MaxNotificationMinutesBeforeStart)
+        {
+            return $"Notification lead time must be 1-{MaxNotificationMinutesBeforeStart} minutes.";
+        }
         if (!ulong.TryParse(body.ChannelId, out var channelParsed) || !validChannelIds.Contains(channelParsed))
         {
             return "Channel does not belong to this guild.";
@@ -740,7 +750,8 @@ public static class SchedulingEndpoints
             e.RepeatIntervalDays,
             e.Message,
             responseOptions,
-            e.UtcEventTime);
+            e.UtcEventTime,
+            e.NotificationMinutesBeforeStart);
     }
 
     internal static HashSet<ulong> ParseRoleIds(string? csv)
@@ -865,10 +876,12 @@ public static class SchedulingEndpoints
         long ChannelId,
         long? MessageId,
         DateTime? PostedEventTime,
+        DateTime? LastNotificationEventTime,
         short Day,
         short Hour,
         DateTime UtcEventTime,
         short RepeatIntervalDays,
+        short NotificationMinutesBeforeStart,
         string Message,
         string ResponseOptionsJson)
     {
@@ -879,10 +892,12 @@ public static class SchedulingEndpoints
                 scheduledEvent.ChannelId,
                 scheduledEvent.MessageId,
                 scheduledEvent.PostedEventTime,
+                scheduledEvent.LastNotificationEventTime,
                 scheduledEvent.Day,
                 scheduledEvent.Hour,
                 scheduledEvent.UtcEventTime,
                 scheduledEvent.RepeatIntervalDays,
+                scheduledEvent.NotificationMinutesBeforeStart,
                 scheduledEvent.Message,
                 scheduledEvent.ResponseOptionsJson);
 
@@ -896,10 +911,12 @@ public static class SchedulingEndpoints
             scheduledEvent.ChannelId = ChannelId;
             scheduledEvent.MessageId = MessageId;
             scheduledEvent.PostedEventTime = PostedEventTime;
+            scheduledEvent.LastNotificationEventTime = LastNotificationEventTime;
             scheduledEvent.Day = Day;
             scheduledEvent.Hour = Hour;
             scheduledEvent.UtcEventTime = UtcEventTime;
             scheduledEvent.RepeatIntervalDays = RepeatIntervalDays;
+            scheduledEvent.NotificationMinutesBeforeStart = NotificationMinutesBeforeStart;
             scheduledEvent.Message = Message;
             scheduledEvent.ResponseOptionsJson = ResponseOptionsJson;
         }

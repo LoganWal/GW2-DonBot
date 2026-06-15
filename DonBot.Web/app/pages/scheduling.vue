@@ -234,6 +234,10 @@
                   :aria-label="`Remove response ${index + 1}`"
                   @click="removeResponseOption(index)"
                 />
+                <label class="notify-toggle" :for="`notify-response-${index}`">
+                  <ToggleSwitch v-model="option.notify" :input-id="`notify-response-${index}`" />
+                  <span>Notify</span>
+                </label>
               </div>
               <small v-if="!!option.emoji.trim() && !isValidResponseEmoji(option.emoji)" class="field-error">
                 Use a Unicode emoji or a server emoji like &lt;:name:id&gt;.
@@ -241,6 +245,18 @@
             </div>
           </div>
           <div class="muted-sub">{{ form.responseOptions.length }}/{{ maxResponseOptions }} buttons</div>
+          <Divider />
+          <div class="field notification-time-field">
+            <label for="ev-notify-before">Notify before event (minutes)</label>
+            <InputNumber
+              id="ev-notify-before"
+              v-model="form.notificationMinutesBeforeStart"
+              :min="1"
+              :max="maxNotificationMinutesBeforeStart"
+              show-buttons
+              fluid
+            />
+          </div>
         </div>
         <Popover ref="emojiPopoverRef">
           <div class="emoji-picker-grid">
@@ -274,7 +290,7 @@ const { confirmDelete } = useConfirmAction()
 type GuildSummary = { guildId: string; name: string; iconUrl: string | null }
 type Channel = { id: string; name: string }
 type Role = { id: string; name: string }
-type ResponseOption = { label: string; emoji: string }
+type ResponseOption = { label: string; emoji: string; notify?: boolean }
 type Context = {
   guildId: string
   guildName: string
@@ -292,6 +308,7 @@ type ScheduledEvent = {
   message: string
   responseOptions: ResponseOption[]
   utcEventTime: string
+  notificationMinutesBeforeStart: number
 }
 
 type FormState = {
@@ -303,12 +320,15 @@ type FormState = {
   repeatIntervalDays: number
   message: string
   responseOptions: ResponseOption[]
+  notificationMinutesBeforeStart: number
 }
 
 const maxMessageLength = 256
 const maxResponseOptions = 10
 const maxResponseLabelLength = 80
 const maxResponseEmojiLength = 64
+const defaultNotificationMinutesBeforeStart = 15
+const maxNotificationMinutesBeforeStart = 10080
 
 const commonResponseEmojis = [
   '✅', '❌', '🛠️', '⏰', '⚔️', '🛡️', '💚', '💛', '🔥', '❓',
@@ -339,12 +359,15 @@ const defaultResponseOptions = (): ResponseOption[] => {
 
 const normalizeResponseOptions = (options: ResponseOption[]): ResponseOption[] => options
   .slice(0, maxResponseOptions)
-  .map(o => ({ label: o.label.trim(), emoji: o.emoji.trim() }))
+  .map(o => ({ label: o.label.trim(), emoji: o.emoji.trim(), notify: !!o.notify }))
 
 const responseOptionsMatch = (left: ResponseOption[], right: ResponseOption[]) => {
   const a = normalizeResponseOptions(left)
   const b = normalizeResponseOptions(right)
-  return a.length === b.length && a.every((option, index) => option.label === b[index]?.label && option.emoji === b[index]?.emoji)
+  return a.length === b.length && a.every((option, index) =>
+    option.label === b[index]?.label
+    && option.emoji === b[index]?.emoji
+    && option.notify === !!b[index]?.notify)
 }
 
 const hasDuplicateResponseOptions = (options: ResponseOption[]) => {
@@ -474,6 +497,7 @@ const startCreate = () => {
     repeatIntervalDays: 7,
     message: '',
     responseOptions: defaultResponseOptions(),
+    notificationMinutesBeforeStart: defaultNotificationMinutesBeforeStart,
   }
   roleMentionPicker.value = null
   dialogVisible.value = true
@@ -491,6 +515,7 @@ const startEdit = (e: ScheduledEvent) => {
     repeatIntervalDays: e.repeatIntervalDays,
     message: e.message ?? '',
     responseOptions: e.responseOptions?.length ? normalizeResponseOptions(e.responseOptions) : defaultResponseOptions(),
+    notificationMinutesBeforeStart: e.notificationMinutesBeforeStart || defaultNotificationMinutesBeforeStart,
   }
   roleMentionPicker.value = null
   dialogVisible.value = true
@@ -514,6 +539,8 @@ const canSave = computed(() => {
     && !!form.value.localFireDate
     && form.value.localFireDate.getTime() > Date.now()
     && form.value.repeatIntervalDays >= 1 && form.value.repeatIntervalDays <= 365
+    && form.value.notificationMinutesBeforeStart >= 1
+    && form.value.notificationMinutesBeforeStart <= maxNotificationMinutesBeforeStart
     && responseOptionsValid
 })
 
@@ -548,7 +575,7 @@ const emojiTargetIndex = ref<number | null>(null)
 
 const addResponseOption = () => {
   if (!form.value || form.value.responseOptions.length >= maxResponseOptions) return
-  form.value.responseOptions.push({ label: '', emoji: '✅' })
+  form.value.responseOptions.push({ label: '', emoji: '✅', notify: false })
 }
 
 const removeResponseOption = (index: number) => {
@@ -615,6 +642,7 @@ const save = async () => {
     responseOptions: isSignupEvent(form.value.eventType)
       ? normalizeResponseOptions(form.value.responseOptions)
       : [],
+    notificationMinutesBeforeStart: form.value.notificationMinutesBeforeStart,
   }
   try {
     if (editingId.value) {
@@ -754,7 +782,7 @@ const onDelete = async (e: ScheduledEvent) => {
 
 .response-option-row {
   display: grid;
-  grid-template-columns: 4.5rem 2.5rem minmax(0, 1fr) 2.5rem;
+  grid-template-columns: 4.5rem 2.5rem minmax(0, 1fr) 2.5rem auto;
   gap: 0.45rem;
   align-items: center;
 }
@@ -765,6 +793,15 @@ const onDelete = async (e: ScheduledEvent) => {
 
 .response-label-input {
   min-width: 0;
+}
+
+.notify-toggle {
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.notification-time-field {
+  max-width: 18rem;
 }
 
 .emoji-picker-grid {
@@ -787,6 +824,11 @@ const onDelete = async (e: ScheduledEvent) => {
 
   .response-option-row {
     grid-template-columns: 4.5rem 2.5rem 1fr 2.5rem;
+  }
+
+  .notify-toggle {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
   }
 }
 

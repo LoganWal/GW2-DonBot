@@ -1,7 +1,9 @@
 using System.Linq.Expressions;
+using Discord;
 using Discord.WebSocket;
 using DonBot.Core.Models.Entities;
 using DonBot.Core.Models.Enums;
+using DonBot.Core.Models.Scheduling;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.SchedulerServices;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -394,6 +396,104 @@ public class SchedulerServiceTests
         var exception = await Record.ExceptionAsync(() => service.FastForwardEventIfBehind(ev, Now));
 
         Assert.Null(exception);
+    }
+
+    [Fact]
+    public void ShouldCheckSignupNotification_WhenReminderWindowOpen_ReturnsTrue()
+    {
+        var eventTime = Now.AddMinutes(15);
+        var ev = MakeWeeklyEvent(day: 5, hour: 4, utcEventTime: Now.AddDays(7));
+        ev.MessageId = 333;
+        ev.PostedEventTime = eventTime;
+        ev.NotificationMinutesBeforeStart = 15;
+        ev.ResponseOptionsJson = ScheduledEventResponseOptions.Serialize([
+            new ScheduledEventResponseOption("Join", "✅", true)
+        ]);
+
+        Assert.True(SchedulerService.ShouldCheckSignupNotification(ev, Now));
+    }
+
+    [Fact]
+    public void ShouldCheckSignupNotification_WhenNoResponseTypesSelected_ReturnsTrue()
+    {
+        var ev = MakeWeeklyEvent(day: 5, hour: 4, utcEventTime: Now.AddDays(7));
+        ev.MessageId = 333;
+        ev.PostedEventTime = Now.AddMinutes(15);
+        ev.NotificationMinutesBeforeStart = 15;
+        ev.ResponseOptionsJson = ScheduledEventResponseOptions.Serialize([
+            new ScheduledEventResponseOption("Join", "✅", false)
+        ]);
+
+        Assert.True(SchedulerService.ShouldCheckSignupNotification(ev, Now));
+    }
+
+    [Fact]
+    public void ShouldCheckSignupNotification_WhenOccurrenceAlreadyNotified_ReturnsFalse()
+    {
+        var eventTime = Now.AddMinutes(15);
+        var ev = MakeWeeklyEvent(day: 5, hour: 4, utcEventTime: Now.AddDays(7));
+        ev.MessageId = 333;
+        ev.PostedEventTime = eventTime;
+        ev.LastNotificationEventTime = eventTime;
+        ev.NotificationMinutesBeforeStart = 15;
+        ev.ResponseOptionsJson = ScheduledEventResponseOptions.Serialize([
+            new ScheduledEventResponseOption("Join", "✅", true)
+        ]);
+
+        Assert.False(SchedulerService.ShouldCheckSignupNotification(ev, Now));
+    }
+
+    [Fact]
+    public void HasSignupNotificationResponseTypes_WhenNoResponseTypesSelected_ReturnsFalse()
+    {
+        var ev = MakeWeeklyEvent(day: 5, hour: 4, utcEventTime: Now.AddDays(7));
+        ev.ResponseOptionsJson = ScheduledEventResponseOptions.Serialize([
+            new ScheduledEventResponseOption("Join", "✅", false),
+            new ScheduledEventResponseOption("Can Fill", "🛠️", false)
+        ]);
+
+        Assert.False(SchedulerService.HasSignupNotificationResponseTypes(ev));
+    }
+
+    [Fact]
+    public void GetSignupNotificationLines_GroupsByResponseTypeAndSortsNames()
+    {
+        var ev = MakeWeeklyEvent(day: 5, hour: 4, utcEventTime: Now.AddDays(7));
+        ev.ResponseOptionsJson = ScheduledEventResponseOptions.Serialize([
+            new ScheduledEventResponseOption("Join", "✅", true),
+            new ScheduledEventResponseOption("Can Fill", "🛠️", true),
+            new ScheduledEventResponseOption("Can't Join", "❌", false)
+        ]);
+        var embed = new EmbedBuilder()
+            .AddField("✅ Join", "<@1> (Zed)\n<@!2> (Amy)\n\n**Total: 2**")
+            .AddField("🛠️ Can Fill", "<@4> (Bea)\n\n**Total: 1**")
+            .AddField("❌ Can't Join", "<@3> (Three)\n\n**Total: 1**")
+            .AddField(SignupMessageBuilder.TotalResponsesFieldName, "**Total: 4**")
+            .Build();
+
+        var notificationLines = SchedulerService.GetSignupNotificationLines(ev, embed);
+
+        Assert.Equal([
+            "✅ Join - Amy (<@!2>)",
+            "✅ Join - Zed (<@1>)",
+            "🛠️ Can Fill - Bea (<@4>)"
+        ], notificationLines);
+    }
+
+    [Fact]
+    public void BuildSignupNotificationMessages_ListsNotificationLinesOnSeparateRows()
+    {
+        var ev = MakeWeeklyEvent(day: 5, hour: 4, utcEventTime: Now.AddDays(7));
+        ev.PostedEventTime = new DateTime(2026, 3, 20, 10, 15, 0, DateTimeKind.Utc);
+        ev.Message = "Reset CM";
+
+        var messages = SchedulerService.BuildSignupNotificationMessages(
+            ev,
+            ["✅ Join - One (<@1>)", "🛠️ Can Fill - Two (<@2>)"]);
+
+        var message = Assert.Single(messages);
+        Assert.Contains("Reset CM starts", message);
+        Assert.Contains("\n✅ Join - One (<@1>)\n🛠️ Can Fill - Two (<@2>)", message);
     }
 }
 

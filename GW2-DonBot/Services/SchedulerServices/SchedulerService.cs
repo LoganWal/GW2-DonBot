@@ -1,4 +1,7 @@
 using System.Collections.Concurrent;
+using System.Text;
+using System.Text.RegularExpressions;
+using Discord;
 using Discord.WebSocket;
 using DonBot.Core.Models.Entities;
 using DonBot.Core.Models.Enums;
@@ -16,6 +19,9 @@ public sealed class SchedulerService(
     IEnumerable<IScheduledEventHandler> eventHandlers)
     : BackgroundService
 {
+    private const int DiscordMessageSoftLimit = 1900;
+    private static readonly AllowedMentions SignupNotificationAllowedMentions = new(AllowedMentionTypes.Users);
+    private static readonly Regex UserMentionRegex = new(@"<@!?(\d+)>", RegexOptions.Compiled);
     private readonly ConcurrentDictionary<long, (ScheduledEvent Event, DateTime NextFireTime)> _scheduledEvents = new();
 
     private sealed record ScheduledEventSnapshot(
@@ -25,10 +31,12 @@ public sealed class SchedulerService(
         long ChannelId,
         long? MessageId,
         DateTime? PostedEventTime,
+        DateTime? LastNotificationEventTime,
         short Day,
         short Hour,
         DateTime UtcEventTime,
         short RepeatIntervalDays,
+        short NotificationMinutesBeforeStart,
         string Message,
         string ResponseOptionsJson)
     {
@@ -40,10 +48,12 @@ public sealed class SchedulerService(
                 scheduledEvent.ChannelId,
                 scheduledEvent.MessageId,
                 scheduledEvent.PostedEventTime,
+                scheduledEvent.LastNotificationEventTime,
                 scheduledEvent.Day,
                 scheduledEvent.Hour,
                 scheduledEvent.UtcEventTime,
                 scheduledEvent.RepeatIntervalDays,
+                scheduledEvent.NotificationMinutesBeforeStart,
                 scheduledEvent.Message,
                 scheduledEvent.ResponseOptionsJson);
 
@@ -54,10 +64,12 @@ public sealed class SchedulerService(
             && ChannelId == scheduledEvent.ChannelId
             && MessageId == scheduledEvent.MessageId
             && PostedEventTime == scheduledEvent.PostedEventTime
+            && LastNotificationEventTime == scheduledEvent.LastNotificationEventTime
             && Day == scheduledEvent.Day
             && Hour == scheduledEvent.Hour
             && UtcEventTime == scheduledEvent.UtcEventTime
             && RepeatIntervalDays == scheduledEvent.RepeatIntervalDays
+            && NotificationMinutesBeforeStart == scheduledEvent.NotificationMinutesBeforeStart
             && Message == scheduledEvent.Message
             && ResponseOptionsJson == scheduledEvent.ResponseOptionsJson;
     }
@@ -82,6 +94,7 @@ public sealed class SchedulerService(
             {
                 var now = DateTime.UtcNow;
                 await CheckForNewEvents(now);
+                await SendDueSignupNotifications(now);
                 FireDueEvents(now);
             }
             catch (Exception ex)
@@ -167,6 +180,260 @@ public sealed class SchedulerService(
             logger.LogError(ex, "Error occurred while checking for new events.");
         }
     }
+
+    private async Task SendDueSignupNotifications(DateTime now)
+    {
+        var dueEvents = _scheduledEvents
+            .Select(kvp => kvp.Value.Event)
+            .Where(e => ShouldCheckSignupNotification(e, now))
+            .OrderBy(e => e.PostedEventTime)
+            .ToList();
+
+        foreach (var scheduledEvent in dueEvents)
+        {
+            await SendSignupNotificationAsync(scheduledEvent, now);
+        }
+    }
+
+    internal static bool ShouldCheckSignupNotification(ScheduledEvent scheduledEvent, DateTime now)
+    {
+        if (!ScheduledEventResponseOptions.IsSignupEvent(scheduledEvent.EventType)
+            || scheduledEvent.NotificationMinutesBeforeStart < 1
+            || !scheduledEvent.MessageId.HasValue
+            || !scheduledEvent.PostedEventTime.HasValue)
+        {
+            return false;
+        }
+
+        var eventTime = DateTime.SpecifyKind(scheduledEvent.PostedEventTime.Value, DateTimeKind.Utc);
+        if (scheduledEvent.LastNotificationEventTime.HasValue
+            && scheduledEvent.LastNotificationEventTime.Value == eventTime)
+        {
+            return false;
+        }
+
+        var notificationTime = eventTime.AddMinutes(-scheduledEvent.NotificationMinutesBeforeStart);
+        return notificationTime <= now && now < eventTime;
+    }
+
+    private async Task SendSignupNotificationAsync(ScheduledEvent scheduledEvent, DateTime now)
+    {
+        try
+        {
+            var currentScheduledEvent = await entityService.ScheduledEvent.GetFirstOrDefaultAsync(
+                e => e.ScheduledEventId == scheduledEvent.ScheduledEventId);
+            if (currentScheduledEvent is null)
+            {
+                _scheduledEvents.TryRemove(scheduledEvent.ScheduledEventId, out _);
+                logger.LogInformation("Scheduled event {ScheduledEventId} was removed before notification.",
+                    scheduledEvent.ScheduledEventId);
+                return;
+            }
+
+            if (HasScheduledEventChanged(scheduledEvent, currentScheduledEvent))
+            {
+                scheduledEvent = currentScheduledEvent;
+            }
+
+            if (!ShouldCheckSignupNotification(scheduledEvent, now))
+            {
+                RefreshCachedEvent(scheduledEvent, now);
+                return;
+            }
+
+            if (!HasSignupNotificationResponseTypes(scheduledEvent))
+            {
+                logger.LogInformation(
+                    "Skipped signup notification for event {ScheduledEventId} because no response types are notify-enabled.",
+                    scheduledEvent.ScheduledEventId);
+                await MarkSignupNotificationCheckedAsync(scheduledEvent, now);
+                return;
+            }
+
+            var socketGuild = client.GetGuild((ulong)scheduledEvent.GuildId);
+            if (socketGuild is null)
+            {
+                logger.LogWarning("Guild {GuildId} not found for notification on event {ScheduledEventId}.",
+                    scheduledEvent.GuildId,
+                    scheduledEvent.ScheduledEventId);
+                return;
+            }
+
+            var channel = socketGuild.GetTextChannel((ulong)scheduledEvent.ChannelId);
+            if (channel is null)
+            {
+                logger.LogWarning("Channel {ChannelId} not found for notification on event {ScheduledEventId}.",
+                    scheduledEvent.ChannelId,
+                    scheduledEvent.ScheduledEventId);
+                return;
+            }
+
+            var signupMessage = await channel.GetMessageAsync((ulong)scheduledEvent.MessageId!.Value) as IUserMessage;
+            if (signupMessage is null)
+            {
+                logger.LogWarning("Signup message {MessageId} not found for notification on event {ScheduledEventId}.",
+                    scheduledEvent.MessageId,
+                    scheduledEvent.ScheduledEventId);
+                return;
+            }
+
+            var notificationLines = GetSignupNotificationLines(scheduledEvent, signupMessage.Embeds.FirstOrDefault());
+            if (notificationLines.Count == 0)
+            {
+                logger.LogInformation(
+                    "Skipped signup notification for event {ScheduledEventId} because no eligible users were found.",
+                    scheduledEvent.ScheduledEventId);
+                await MarkSignupNotificationCheckedAsync(scheduledEvent, now);
+                return;
+            }
+
+            foreach (var message in BuildSignupNotificationMessages(scheduledEvent, notificationLines))
+            {
+                await channel.SendMessageAsync(message, allowedMentions: SignupNotificationAllowedMentions);
+            }
+
+            await MarkSignupNotificationCheckedAsync(scheduledEvent, now);
+
+            logger.LogInformation(
+                "Sent signup notification for event {ScheduledEventId} to {MentionCount} users.",
+                scheduledEvent.ScheduledEventId,
+                notificationLines.Count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to send signup notification for event {ScheduledEventId}.",
+                scheduledEvent.ScheduledEventId);
+        }
+    }
+
+    private async Task MarkSignupNotificationCheckedAsync(ScheduledEvent scheduledEvent, DateTime now)
+    {
+        scheduledEvent.LastNotificationEventTime = DateTime.SpecifyKind(scheduledEvent.PostedEventTime!.Value, DateTimeKind.Utc);
+        await entityService.ScheduledEvent.UpdateAsync(scheduledEvent);
+        RefreshCachedEvent(scheduledEvent, now);
+    }
+
+    internal static bool HasSignupNotificationResponseTypes(ScheduledEvent scheduledEvent) =>
+        ScheduledEventResponseOptions
+            .ForEvent(scheduledEvent.EventType, scheduledEvent.ResponseOptionsJson)
+            .Any(o => o.Notify);
+
+    internal static IReadOnlyList<string> GetSignupNotificationLines(ScheduledEvent scheduledEvent, IEmbed? embed)
+    {
+        if (embed is null)
+        {
+            return [];
+        }
+
+        var notifyFieldOrder = ScheduledEventResponseOptions
+            .ForEvent(scheduledEvent.EventType, scheduledEvent.ResponseOptionsJson)
+            .Where(o => o.Notify)
+            .Select(ScheduledEventResponseOptions.FieldName)
+            .Select((fieldName, index) => new { fieldName, index })
+            .ToDictionary(x => x.fieldName, x => x.index, StringComparer.Ordinal);
+        if (notifyFieldOrder.Count == 0)
+        {
+            return [];
+        }
+
+        var embedBuilder = embed.ToEmbedBuilder();
+        var seenUserIds = new HashSet<ulong>();
+        var notificationLines = new List<SignupNotificationLine>();
+        foreach (var field in embedBuilder.Fields.Where(f => notifyFieldOrder.ContainsKey(f.Name)))
+        {
+            foreach (var line in SignupMessageBuilder.GetResponseUserList(field))
+            {
+                var match = UserMentionRegex.Match(line);
+                if (!match.Success || !ulong.TryParse(match.Groups[1].Value, out var userId))
+                {
+                    continue;
+                }
+
+                if (seenUserIds.Add(userId))
+                {
+                    var mention = match.Value;
+                    var displayName = GetSignupNotificationDisplayName(line, match);
+                    notificationLines.Add(new SignupNotificationLine(
+                        notifyFieldOrder[field.Name],
+                        displayName,
+                        $"{field.Name} - {displayName} ({mention})"));
+                }
+            }
+        }
+
+        return notificationLines
+            .OrderBy(line => line.ResponseOrder)
+            .ThenBy(line => line.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .Select(line => line.Text)
+            .ToList();
+    }
+
+    private static string GetSignupNotificationDisplayName(string line, Match mentionMatch)
+    {
+        var remainder = line[(mentionMatch.Index + mentionMatch.Length)..].Trim();
+        if (remainder.Length >= 2 && remainder[0] == '(' && remainder[^1] == ')')
+        {
+            var displayName = remainder[1..^1].Trim();
+            if (!string.IsNullOrWhiteSpace(displayName))
+            {
+                return displayName;
+            }
+        }
+
+        return mentionMatch.Value;
+    }
+
+    internal static IReadOnlyList<string> BuildSignupNotificationMessages(
+        ScheduledEvent scheduledEvent,
+        IReadOnlyList<string> notificationLines)
+    {
+        if (notificationLines.Count == 0)
+        {
+            return [];
+        }
+
+        var eventTime = scheduledEvent.PostedEventTime ?? scheduledEvent.UtcEventTime;
+        var utcEventTime = DateTime.SpecifyKind(eventTime, DateTimeKind.Utc);
+        var unixTimestamp = new DateTimeOffset(utcEventTime, TimeSpan.Zero).ToUnixTimeSeconds();
+        var title = string.IsNullOrWhiteSpace(scheduledEvent.Message)
+            ? "Event"
+            : scheduledEvent.Message.Trim();
+        var header = $"{title} starts <t:{unixTimestamp}:R>.\n";
+        var messages = new List<string>();
+        var current = new StringBuilder(header);
+
+        foreach (var notificationLine in notificationLines)
+        {
+            if (current.Length > header.Length
+                && current.Length + notificationLine.Length + 1 > DiscordMessageSoftLimit)
+            {
+                messages.Add(current.ToString());
+                current = new StringBuilder(header);
+            }
+
+            if (current.Length > header.Length)
+            {
+                current.AppendLine();
+            }
+
+            current.Append(notificationLine);
+        }
+
+        if (current.Length > header.Length)
+        {
+            messages.Add(current.ToString());
+        }
+
+        return messages;
+    }
+
+    private void RefreshCachedEvent(ScheduledEvent scheduledEvent, DateTime now)
+    {
+        var nextFireTime = GetNextEventTime(scheduledEvent, now);
+        _scheduledEvents[scheduledEvent.ScheduledEventId] = (scheduledEvent, nextFireTime);
+    }
+
+    private sealed record SignupNotificationLine(int ResponseOrder, string DisplayName, string Text);
 
     private void FireDueEvents(DateTime now)
     {
@@ -325,10 +592,12 @@ public sealed class SchedulerService(
         || cached.ChannelId != current.ChannelId
         || cached.MessageId != current.MessageId
         || cached.PostedEventTime != current.PostedEventTime
+        || cached.LastNotificationEventTime != current.LastNotificationEventTime
         || cached.Day != current.Day
         || cached.Hour != current.Hour
         || cached.UtcEventTime != current.UtcEventTime
         || cached.RepeatIntervalDays != current.RepeatIntervalDays
+        || cached.NotificationMinutesBeforeStart != current.NotificationMinutesBeforeStart
         || cached.Message != current.Message
         || cached.ResponseOptionsJson != current.ResponseOptionsJson;
 

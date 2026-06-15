@@ -99,6 +99,15 @@ public class SchedulingEndpointsTests
         Assert.Contains("Repeat interval", SchedulingEndpoints.ValidateEvent(body, Channels) ?? "");
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(10081)]
+    public void ValidateEvent_NotificationMinutesOutOfRange_ReturnsError(short minutes)
+    {
+        var body = ValidBody() with { NotificationMinutesBeforeStart = minutes };
+        Assert.Contains("Notification lead time", SchedulingEndpoints.ValidateEvent(body, Channels) ?? "");
+    }
+
     [Fact]
     public void ValidateEvent_ChannelNotInGuild_ReturnsError()
     {
@@ -272,9 +281,10 @@ public class SchedulingEndpointsTests
             Day = 1,
             Hour = 19,
             RepeatIntervalDays = 14,
+            NotificationMinutesBeforeStart = 30,
             Message = "be there",
             ResponseOptionsJson = ScheduledEventResponseOptions.Serialize([
-                new ScheduledEventResponseOption("Scout", "👀")
+                new ScheduledEventResponseOption("Scout", "👀", true)
             ]),
             UtcEventTime = fire,
         };
@@ -286,11 +296,13 @@ public class SchedulingEndpointsTests
         Assert.Equal(1, dto.Day);
         Assert.Equal(19, dto.Hour);
         Assert.Equal(14, dto.RepeatIntervalDays);
+        Assert.Equal(30, dto.NotificationMinutesBeforeStart);
         Assert.Equal(fire, dto.UtcEventTime);
         Assert.Equal("be there", dto.Message);
         var option = Assert.Single(dto.ResponseOptions);
         Assert.Equal("Scout", option.Label);
         Assert.Equal("👀", option.Emoji);
+        Assert.True(option.Notify);
     }
 
     [Fact]

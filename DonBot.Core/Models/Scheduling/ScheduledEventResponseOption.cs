@@ -3,7 +3,7 @@ using DonBot.Core.Models.Enums;
 
 namespace DonBot.Core.Models.Scheduling;
 
-public sealed record ScheduledEventResponseOption(string? Label, string? Emoji);
+public sealed record ScheduledEventResponseOption(string? Label, string? Emoji, bool Notify = false);
 
 public static class ScheduledEventResponseOptions
 {
@@ -58,7 +58,8 @@ public static class ScheduledEventResponseOptions
                 ? new ScheduledEventResponseOption(string.Empty, string.Empty)
                 : new ScheduledEventResponseOption(
                     (o.Label ?? string.Empty).Trim(),
-                    (o.Emoji ?? string.Empty).Trim()))
+                    (o.Emoji ?? string.Empty).Trim(),
+                    o.Notify))
             .ToList();
     }
 

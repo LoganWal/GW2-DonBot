@@ -16,7 +16,6 @@ public class DiscordMessageHandler(
     ILogger<DiscordMessageHandler> logger,
     IEntityService entityService,
     IMessageGenerationService messageGenerationService,
-    IPlayerService playerService,
     IDataModelGenerationService dataModelGenerator,
     IHttpClientFactory httpClientFactory,
     DiscordSocketClient client,
@@ -237,8 +236,6 @@ public class DiscordMessageHandler(
                     var (advancedMessage, _, _) = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, true, guild, client);
                     await advanceLogReportChannel.SendMessageAsync(text: "", embeds: [advancedMessage]);
                 }
-
-                await playerService.SetPlayerPoints(eliteInsightDataModel);
 
                 var (wvwMessage, wvwWebAppUrl, _) = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, false, guild, client);
                 message = wvwMessage;

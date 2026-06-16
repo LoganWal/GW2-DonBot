@@ -68,6 +68,7 @@ public sealed class LogUploadPipelineService : BackgroundService
             await using var scope = _scopeFactory.CreateAsyncScope();
             var dataModelGenerationService = scope.ServiceProvider.GetRequiredService<IDataModelGenerationService>();
             var playerService = scope.ServiceProvider.GetRequiredService<IPlayerService>();
+            var pointsAwardService = scope.ServiceProvider.GetRequiredService<IPointsAwardService>();
 
             await using var ctx = await _dbContextFactory.CreateDbContextAsync(ct);
             var upload = await ctx.LogUpload.FirstOrDefaultAsync(u => u.LogUploadId == uploadId, ct);
@@ -78,11 +79,11 @@ public sealed class LogUploadPipelineService : BackgroundService
 
             if (upload.SourceType == "url")
             {
-                await ProcessUrlUploadAsync(ctx, upload, dataModelGenerationService, playerService, ct);
+                await ProcessUrlUploadAsync(ctx, upload, dataModelGenerationService, playerService, pointsAwardService, ct);
             }
             else
             {
-                await ProcessFileUploadAsync(ctx, upload, dataModelGenerationService, playerService, ct);
+                await ProcessFileUploadAsync(ctx, upload, dataModelGenerationService, playerService, pointsAwardService, ct);
             }
         }
         catch (Exception ex)
@@ -94,7 +95,7 @@ public sealed class LogUploadPipelineService : BackgroundService
         }
     }
 
-    private async Task ProcessUrlUploadAsync(DatabaseContext ctx, LogUpload upload, IDataModelGenerationService dataModelGenerationService, IPlayerService playerService, CancellationToken ct)
+    private async Task ProcessUrlUploadAsync(DatabaseContext ctx, LogUpload upload, IDataModelGenerationService dataModelGenerationService, IPlayerService playerService, IPointsAwardService pointsAwardService, CancellationToken ct)
     {
         var uploadId = upload.LogUploadId;
         var url = upload.DpsReportUrl!;
@@ -102,6 +103,7 @@ public sealed class LogUploadPipelineService : BackgroundService
         var existingLog = await ctx.FightLog.FirstOrDefaultAsync(f => f.Url == url, ct);
         if (existingLog != null)
         {
+            await pointsAwardService.AwardFightAsync(existingLog.FightLogId, ct);
             await FinalizeAsync(uploadId, url, existingLog.FightLogId, ct);
             _progress.Publish(uploadId, "complete", "Already saved.", url, existingLog.FightLogId);
             _progress.Complete(uploadId);
@@ -116,7 +118,7 @@ public sealed class LogUploadPipelineService : BackgroundService
         await UpdateStatus(ctx, upload, "saving", ct);
         _progress.Publish(uploadId, "saving", "Saving log data...");
 
-        var fightLogId = await SaveFightLogAsync(model, playerService, ct);
+        var fightLogId = await SaveFightLogAsync(model, playerService, pointsAwardService, ct);
 
         if (upload.SubmitToWingman)
         {
@@ -128,7 +130,7 @@ public sealed class LogUploadPipelineService : BackgroundService
         _progress.Complete(uploadId);
     }
 
-    private async Task ProcessFileUploadAsync(DatabaseContext ctx, LogUpload upload, IDataModelGenerationService dataModelGenerationService, IPlayerService playerService, CancellationToken ct)
+    private async Task ProcessFileUploadAsync(DatabaseContext ctx, LogUpload upload, IDataModelGenerationService dataModelGenerationService, IPlayerService playerService, IPointsAwardService pointsAwardService, CancellationToken ct)
     {
         var uploadId = upload.LogUploadId;
         var storagePath = _configuration["Upload:StoragePath"] ?? "/tmp/donbot/uploads";
@@ -222,7 +224,7 @@ public sealed class LogUploadPipelineService : BackgroundService
             {
                 model = await dataModelGenerationService.GenerateEliteInsightDataModelFromUrl(dpsReportUrl);
             }
-            var fightLogId = await SaveFightLogAsync(model, playerService, ct, upload.GuildId);
+            var fightLogId = await SaveFightLogAsync(model, playerService, pointsAwardService, ct, upload.GuildId);
 
             await FinalizeAsync(uploadId, dpsReportUrl, fightLogId, ct);
             _progress.Publish(uploadId, "complete", "Done.", dpsReportUrl, fightLogId);
@@ -391,7 +393,7 @@ public sealed class LogUploadPipelineService : BackgroundService
         await ctx.SaveChangesAsync(ct);
     }
 
-    private async Task<long> SaveFightLogAsync(EliteInsightDataModel data, IPlayerService playerService, CancellationToken ct, long guildId = 0)
+    private async Task<long> SaveFightLogAsync(EliteInsightDataModel data, IPlayerService playerService, IPointsAwardService pointsAwardService, CancellationToken ct, long guildId = 0)
     {
         var fightPhase = data.FightEliteInsightDataModel.Phases?.Any() == true
             ? data.FightEliteInsightDataModel.Phases[0]
@@ -418,9 +420,11 @@ public sealed class LogUploadPipelineService : BackgroundService
                 playerService.GetGw2Players(data, fightPhase).Select(p => p.AccountName), ct);
         }
 
-        return data.FightEliteInsightDataModel.Wvw
+        var fightLogId = data.FightEliteInsightDataModel.Wvw
             ? await SaveWvWFightLogAsync(ctx, data, fightPhase, existing, playerService, ct, guildId)
             : await SavePvEFightLogAsync(ctx, data, fightPhase, existing, playerService, ct, guildId);
+        await pointsAwardService.AwardFightAsync(fightLogId, ct);
+        return fightLogId;
     }
 
     private async Task<long> SaveWvWFightLogAsync(DatabaseContext ctx, EliteInsightDataModel data, ArcDpsPhase fightPhase, FightLog? existing, IPlayerService playerService, CancellationToken ct, long guildId = 0)
@@ -466,7 +470,15 @@ public sealed class LogUploadPipelineService : BackgroundService
         });
 
         var gw2Players = playerService.GetGw2Players(data, fightPhase);
-        ctx.PlayerFightLog.AddRange(gw2Players.Select(p => BuildPlayerFightLog(p, fightLog.FightLogId)));
+        var averageGroupDps = PlayerFightLogRoleClassifier.GetAverageGroupDps(gw2Players, fightLog.FightDurationInMs);
+        var wvwBenchmarks = PlayerFightLogPlaystyleClassifier.BuildWvwBenchmarks(gw2Players, fightLog.FightDurationInMs);
+        ctx.PlayerFightLog.AddRange(gw2Players.Select(p => BuildPlayerFightLog(
+            p,
+            fightLog.FightLogId,
+            fightLog.FightDurationInMs,
+            averageGroupDps,
+            isWvW: true,
+            wvwBenchmarks)));
         await ctx.SaveChangesAsync(ct);
 
         return fightLog.FightLogId;
@@ -528,7 +540,13 @@ public sealed class LogUploadPipelineService : BackgroundService
         });
 
         var gw2Players = playerService.GetGw2Players(data, fightPhase, sumAllTargets);
-        var playerFightLogs = gw2Players.Select(p => BuildPlayerFightLog(p, fightLog.FightLogId)).ToList();
+        var averageGroupDps = PlayerFightLogRoleClassifier.GetAverageGroupDps(gw2Players, fightLog.FightDurationInMs);
+        var playerFightLogs = gw2Players.Select(p => BuildPlayerFightLog(
+            p,
+            fightLog.FightLogId,
+            fightLog.FightDurationInMs,
+            averageGroupDps,
+            isWvW: false)).ToList();
         ctx.PlayerFightLog.AddRange(playerFightLogs);
         await ctx.SaveChangesAsync(ct);
 
@@ -573,40 +591,56 @@ public sealed class LogUploadPipelineService : BackgroundService
     private static decimal D(double v, int decimals = 2) =>
         double.IsFinite(v) ? Math.Round((decimal)v, decimals) : 0m;
 
-    private static PlayerFightLog BuildPlayerFightLog(Gw2Player p, long fightLogId) => new()
+    private static PlayerFightLog BuildPlayerFightLog(
+        Gw2Player p,
+        long fightLogId,
+        long fightDurationInMs,
+        double averageGroupDps,
+        bool isWvW,
+        WvwPlaystyleBenchmarks? wvwBenchmarks = null)
     {
-        FightLogId = fightLogId,
-        GuildWarsAccountName = p.AccountName,
-        CharacterName = p.CharacterName,
-        Damage = p.Damage,
-        Cleave = p.Cleave,
-        Kills = p.Kills,
-        Downs = p.Downs,
-        Deaths = p.Deaths,
-        QuicknessDuration = D(p.TotalQuick),
-        AlacDuration = D(p.TotalAlac),
-        SubGroup = p.SubGroup,
-        DamageDownContribution = p.DamageDownContribution,
-        Cleanses = Convert.ToInt64(p.Cleanses),
-        Strips = Convert.ToInt64(p.Strips),
-        StabGenOnGroup = D(p.StabOnGroup),
-        StabGenOffGroup = D(p.StabOffGroup),
-        Healing = p.Healing,
-        BarrierGenerated = p.BarrierGenerated,
-        DistanceFromTag = D(p.DistanceFromTag),
-        TimesDowned = Convert.ToInt32(p.TimesDowned),
-        Interrupts = p.Interrupts,
-        NumberOfHitsWhileBlinded = p.NumberOfHitsWhileBlinded,
-        NumberOfMissesAgainst = Convert.ToInt64(p.NumberOfMissesAgainst),
-        NumberOfTimesBlockedAttack = Convert.ToInt64(p.NumberOfTimesBlockedAttack),
-        NumberOfTimesEnemyBlockedAttack = p.NumberOfTimesEnemyBlockedAttack,
-        NumberOfBoonsRipped = Convert.ToInt64(p.NumberOfBoonsRipped),
-        DamageTaken = Convert.ToInt64(p.DamageTaken),
-        BarrierMitigation = Convert.ToInt64(p.BarrierMitigation),
-        TimesInterrupted = p.TimesInterrupted,
-        ResurrectionTime = p.ResurrectionTime,
-        TimeOfDeath = p.TimeOfDeath
-    };
+        var boonRole = PlayerFightLogRoleClassifier.ResolveBoonRole(p, fightDurationInMs, averageGroupDps);
+        return new PlayerFightLog
+        {
+            FightLogId = fightLogId,
+            GuildWarsAccountName = p.AccountName,
+            CharacterName = p.CharacterName,
+            Damage = p.Damage,
+            Cleave = p.Cleave,
+            Kills = p.Kills,
+            Downs = p.Downs,
+            Deaths = p.Deaths,
+            QuicknessDuration = D(p.TotalQuick),
+            AlacDuration = D(p.TotalAlac),
+            QuicknessGenGroup = D(p.QuicknessGenGroup),
+            AlacGenGroup = D(p.AlacGenGroup),
+            BoonRole = boonRole,
+            Playstyle = isWvW
+                ? PlayerFightLogPlaystyleClassifier.ResolveWvwPlaystyle(p, fightDurationInMs, wvwBenchmarks ?? PlayerFightLogPlaystyleClassifier.BuildWvwBenchmarks([p], fightDurationInMs))
+                : PlayerFightLogPlaystyleClassifier.ResolvePvePlaystyle(p, fightDurationInMs, averageGroupDps),
+            SubGroup = p.SubGroup,
+            DamageDownContribution = p.DamageDownContribution,
+            Cleanses = Convert.ToInt64(p.Cleanses),
+            Strips = Convert.ToInt64(p.Strips),
+            StabGenOnGroup = D(p.StabOnGroup),
+            StabGenOffGroup = D(p.StabOffGroup),
+            Healing = p.Healing,
+            BarrierGenerated = p.BarrierGenerated,
+            DistanceFromTag = D(p.DistanceFromTag),
+            TimesDowned = Convert.ToInt32(p.TimesDowned),
+            Interrupts = p.Interrupts,
+            NumberOfHitsWhileBlinded = p.NumberOfHitsWhileBlinded,
+            NumberOfMissesAgainst = Convert.ToInt64(p.NumberOfMissesAgainst),
+            NumberOfTimesBlockedAttack = Convert.ToInt64(p.NumberOfTimesBlockedAttack),
+            NumberOfTimesEnemyBlockedAttack = p.NumberOfTimesEnemyBlockedAttack,
+            NumberOfBoonsRipped = Convert.ToInt64(p.NumberOfBoonsRipped),
+            DamageTaken = Convert.ToInt64(p.DamageTaken),
+            BarrierMitigation = Convert.ToInt64(p.BarrierMitigation),
+            TimesInterrupted = p.TimesInterrupted,
+            ResurrectionTime = p.ResurrectionTime,
+            TimeOfDeath = p.TimeOfDeath
+        };
+    }
 
     private static (short encounterType, bool sumAllTargets) GetPvEEncounterType(long fightId) => fightId switch
     {

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.RegularExpressions;
 using DonBot.Core.Models.Entities;
 using DonBot.Core.Models.Enums;
+using DonBot.Core.Services;
 using DonBot.Services.GuildWarsServices;
 using Microsoft.EntityFrameworkCore;
 
@@ -172,12 +173,20 @@ public static class LogsEndpoints
             .Where(pfl => logIds.Contains(pfl.FightLogId))
             .ToListAsync();
 
+        var pointAwards = await context.PlayerPointAward
+            .Where(a => logIds.Contains(a.FightLogId))
+            .ToListAsync();
+
         var allPlayerLogIds = playerLogs.Select(p => p.PlayerFightLogId).ToList();
         var allMechanics = await context.PlayerFightLogMechanic
             .Where(m => allPlayerLogIds.Contains(m.PlayerFightLogId) && m.MechanicCount > 0)
             .ToListAsync();
 
         var fightTypeByLogId = fightLogs.ToDictionary(fl => fl.FightLogId, fl => fl.FightType);
+        var durationByLogId = fightLogs.ToDictionary(fl => fl.FightLogId, fl => fl.FightDurationInMs);
+        var wvwBenchmarks = PlayerFightLogPlaystyleClassifier.BuildWvwBenchmarks(
+            playerLogs.Where(p => fightTypeByLogId.GetValueOrDefault(p.FightLogId) == (short)FightTypesEnum.WvW),
+            durationByLogId);
         var playerLogIdToFightType = playerLogs
             .Where(p => fightTypeByLogId.ContainsKey(p.FightLogId))
             .ToDictionary(p => p.PlayerFightLogId, p => fightTypeByLogId[p.FightLogId]);
@@ -263,6 +272,11 @@ public static class LogsEndpoints
                     barrierGenerated = fights.Sum(f => f.BarrierGenerated),
                     quicknessDuration = Math.Round(fights.Average(f => (double)f.QuicknessDuration), 2),
                     alacDuration = Math.Round(fights.Average(f => (double)f.AlacDuration), 2),
+                    quicknessGenGroup = Math.Round(fights.Average(f => (double)f.QuicknessGenGroup), 2),
+                    alacGenGroup = Math.Round(fights.Average(f => (double)f.AlacGenGroup), 2),
+                    boonRole = MostCommonBoonRole(fights),
+                    playstyle = PlaystyleSummaryLabel(fights, fightTypeByLogId, durationByLogId, wvwBenchmarks),
+                    playstyleBreakdown = PlaystyleBreakdown(fights, fightTypeByLogId, durationByLogId, wvwBenchmarks),
                     stabOnGroup = Math.Round(fights.Average(f => (double)f.StabGenOnGroup), 2),
                     stabOffGroup = Math.Round(fights.Average(f => (double)f.StabGenOffGroup), 2),
                     distanceFromTag = Math.Round(
@@ -305,6 +319,11 @@ public static class LogsEndpoints
                     firstToDie = firstToDieCounts.GetValueOrDefault(g.Key, 0),
                     quicknessDuration = Math.Round(fights.Average(f => (double)f.QuicknessDuration), 2),
                     alacDuration = Math.Round(fights.Average(f => (double)f.AlacDuration), 2),
+                    quicknessGenGroup = Math.Round(fights.Average(f => (double)f.QuicknessGenGroup), 2),
+                    alacGenGroup = Math.Round(fights.Average(f => (double)f.AlacGenGroup), 2),
+                    boonRole = MostCommonBoonRole(fights),
+                    playstyle = PlaystyleSummaryLabel(fights, fightTypeByLogId, durationByLogId, wvwBenchmarks),
+                    playstyleBreakdown = PlaystyleBreakdown(fights, fightTypeByLogId, durationByLogId, wvwBenchmarks),
                     barrierGenerated = fights.Sum(f => f.BarrierGenerated),
                     damageTaken = fights.Sum(f => f.DamageTaken),
                     resurrectionTime = fights.Sum(f => f.ResurrectionTime),
@@ -344,6 +363,10 @@ public static class LogsEndpoints
                     damageTaken = pfl.DamageTaken,
                     quicknessDuration = Math.Round((double)pfl.QuicknessDuration, 2),
                     alacDuration = Math.Round((double)pfl.AlacDuration, 2),
+                    quicknessGenGroup = Math.Round((double)pfl.QuicknessGenGroup, 2),
+                    alacGenGroup = Math.Round((double)pfl.AlacGenGroup, 2),
+                    boonRole = pfl.BoonRole,
+                    playstyle = ResolvePlaystyle(pfl, fightTypeByLogId, durationByLogId, wvwBenchmarks),
                     damageDownContribution = pfl.DamageDownContribution,
                     numberOfBoonsRipped = pfl.NumberOfBoonsRipped,
                     barrierGenerated = pfl.BarrierGenerated,
@@ -384,8 +407,63 @@ public static class LogsEndpoints
             timeline,
             players,
             mechanics = mechanicsStats,
+            points = BuildPointsBreakdown(playerLogs, pointAwards, fightLogs),
         });
     }
+
+    private static string MostCommonBoonRole(IEnumerable<PlayerFightLog> fights) =>
+        fights
+            .Select(f => f.BoonRole)
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .GroupBy(role => role)
+            .OrderByDescending(g => g.Count())
+            .ThenBy(g => g.Key)
+            .Select(g => g.Key)
+            .FirstOrDefault() ?? string.Empty;
+
+    private static string ResolvePlaystyle(
+        PlayerFightLog log,
+        IReadOnlyDictionary<long, short> fightTypeByLogId,
+        IReadOnlyDictionary<long, long> durationByLogId,
+        WvwPlaystyleBenchmarks wvwBenchmarks)
+    {
+        var isWvW = fightTypeByLogId.GetValueOrDefault(log.FightLogId) == (short)FightTypesEnum.WvW;
+        return PlayerFightLogPlaystyleClassifier.ResolvePlaystyle(
+            log,
+            isWvW,
+            durationByLogId.GetValueOrDefault(log.FightLogId),
+            isWvW ? wvwBenchmarks : null);
+    }
+
+    private static IReadOnlyList<PlaystyleBreakdownRow> PlaystyleBreakdown(
+        IEnumerable<PlayerFightLog> fights,
+        IReadOnlyDictionary<long, short> fightTypeByLogId,
+        IReadOnlyDictionary<long, long> durationByLogId,
+        WvwPlaystyleBenchmarks wvwBenchmarks) =>
+        fights
+            .Select(f => ResolvePlaystyle(f, fightTypeByLogId, durationByLogId, wvwBenchmarks))
+            .GroupBy(style => style)
+            .OrderByDescending(g => g.Count())
+            .ThenBy(g => PlayerFightLogPlaystyleClassifier.GetLabel(g.Key))
+            .Select(g => new PlaystyleBreakdownRow(
+                g.Key,
+                PlayerFightLogPlaystyleClassifier.GetLabel(g.Key),
+                g.Count()))
+            .ToList();
+
+    private static string PlaystyleSummaryLabel(
+        IEnumerable<PlayerFightLog> fights,
+        IReadOnlyDictionary<long, short> fightTypeByLogId,
+        IReadOnlyDictionary<long, long> durationByLogId,
+        WvwPlaystyleBenchmarks wvwBenchmarks)
+    {
+        var breakdown = PlaystyleBreakdown(fights, fightTypeByLogId, durationByLogId, wvwBenchmarks);
+        return breakdown.Count == 1
+            ? breakdown[0].Label
+            : "Mixed";
+    }
+
+    private sealed record PlaystyleBreakdownRow(string Key, string Label, int Count);
 
     private static async Task<IResult> GetLogs(
         ClaimsPrincipal user,
@@ -393,6 +471,7 @@ public static class LogsEndpoints
         long? guildId = null,
         string? fightTypes = null,
         string? characters = null,
+        string? playstyles = null,
         string? startDate = null,
         string? startDateTime = null,
         string? endDateTime = null,
@@ -426,14 +505,44 @@ public static class LogsEndpoints
             }
         }
 
-        var userPlayerLogs = await playerLogQuery
-            .Select(pfl => new { pfl.FightLogId, pfl.CharacterName })
+        var userPlayerLogs = await playerLogQuery.ToListAsync();
+
+        var initialFightLogIds = userPlayerLogs.Select(x => x.FightLogId).Distinct().ToList();
+        var initialFightMeta = await context.FightLog
+            .Where(fl => initialFightLogIds.Contains(fl.FightLogId))
+            .Select(fl => new { fl.FightLogId, fl.FightType, fl.FightDurationInMs })
             .ToListAsync();
+        var initialTypeById = initialFightMeta.ToDictionary(fl => fl.FightLogId, fl => fl.FightType);
+        var initialDurationById = initialFightMeta.ToDictionary(fl => fl.FightLogId, fl => fl.FightDurationInMs);
+        var userWvwBenchmarks = PlayerFightLogPlaystyleClassifier.BuildWvwBenchmarks(
+            userPlayerLogs.Where(p => initialTypeById.GetValueOrDefault(p.FightLogId) == (short)FightTypesEnum.WvW),
+            initialDurationById);
+
+        if (!string.IsNullOrWhiteSpace(playstyles))
+        {
+            var selectedPlaystyles = playstyles.Split(',')
+                .Select(s => s.Trim())
+                .Where(PlayerFightLogPlaystyleClassifier.IsKnownPlaystyle)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (selectedPlaystyles.Count > 0)
+            {
+                userPlayerLogs = userPlayerLogs
+                    .Where(p => selectedPlaystyles.Contains(ResolvePlaystyle(p, initialTypeById, initialDurationById, userWvwBenchmarks)))
+                    .ToList();
+            }
+        }
 
         var participatedLogIds = userPlayerLogs.Select(x => x.FightLogId).Distinct().ToList();
         var characterByFightLogId = userPlayerLogs
             .GroupBy(x => x.FightLogId)
             .ToDictionary(g => g.Key, g => g.First().CharacterName);
+        var playstyleByFightLogId = userPlayerLogs
+            .GroupBy(x => x.FightLogId)
+            .ToDictionary(g => g.Key, g =>
+            {
+                var log = g.First();
+                return ResolvePlaystyle(log, initialTypeById, initialDurationById, userWvwBenchmarks);
+            });
 
         var query = context.FightLog
             .Where(fl => participatedLogIds.Contains(fl.FightLogId));
@@ -502,6 +611,8 @@ public static class LogsEndpoints
             fl.IsSuccess,
             fl.FightPercent,
             characterName = characterByFightLogId.TryGetValue(fl.FightLogId, out var cn) ? cn : string.Empty,
+            playstyle = playstyleByFightLogId.TryGetValue(fl.FightLogId, out var ps) ? ps : string.Empty,
+            playstyleLabel = playstyleByFightLogId.TryGetValue(fl.FightLogId, out var psl) ? PlayerFightLogPlaystyleClassifier.GetLabel(psl) : string.Empty,
         }).ToList();
 
         return Results.Ok(new { total, page, pageSize, data });
@@ -559,7 +670,105 @@ public static class LogsEndpoints
             .Where(m => playerLogIds.Contains(m.PlayerFightLogId))
             .ToListAsync();
 
-        return Results.Ok(new { log, players = playerLogs, mechanics = mechanicLogs });
+        var pointAwards = await context.PlayerPointAward
+            .Where(a => a.FightLogId == id)
+            .ToListAsync();
+
+        return Results.Ok(new { log, players = playerLogs, mechanics = mechanicLogs, points = BuildPointsBreakdown(playerLogs, pointAwards, [log]) });
+    }
+
+    private static object BuildPointsBreakdown(
+        IReadOnlyList<PlayerFightLog> playerLogs,
+        IReadOnlyList<PlayerPointAward> pointAwards,
+        IReadOnlyList<FightLog> fightLogs)
+    {
+        var fightById = fightLogs.ToDictionary(f => f.FightLogId);
+        var awardsByPlayerFightLogId = pointAwards
+            .GroupBy(a => a.PlayerFightLogId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var playerRows = playerLogs
+            .GroupBy(p => p.GuildWarsAccountName)
+            .Select(g =>
+            {
+                var awards = g
+                    .SelectMany(player => awardsByPlayerFightLogId.GetValueOrDefault(player.PlayerFightLogId, []))
+                    .ToList();
+                return new
+                {
+                    accountName = g.Key,
+                    fightCount = g.Select(p => p.FightLogId).Distinct().Count(),
+                    totalPoints = Math.Round(awards.Sum(a => a.Points), 3),
+                    components = awards
+                        .GroupBy(a => new { a.Metric, a.MetricLabel })
+                        .Select(cg => new
+                        {
+                            metric = cg.Key.Metric,
+                            metricLabel = cg.Key.MetricLabel,
+                            points = Math.Round(cg.Sum(a => a.Points), 3),
+                            count = cg.Count(),
+                            bestValue = cg.Max(a => a.MetricValue),
+                            percentileValue = cg.Max(a => a.PercentileValue),
+                        })
+                        .OrderByDescending(c => c.points)
+                        .ThenBy(c => c.metricLabel)
+                        .ToList(),
+                    logs = awards
+                        .GroupBy(a => a.FightLogId)
+                        .Select(lg =>
+                        {
+                            fightById.TryGetValue(lg.Key, out var fight);
+                            return new
+                            {
+                                fightLogId = lg.Key,
+                                fightType = fight?.FightType ?? 0,
+                                fightStart = fight?.FightStart,
+                                totalPoints = Math.Round(lg.Sum(a => a.Points), 3),
+                                components = lg
+                                    .OrderByDescending(a => a.Points)
+                                    .Select(a => new
+                                    {
+                                        a.Metric,
+                                        a.MetricLabel,
+                                        a.MetricValue,
+                                        a.PercentileValue,
+                                        a.BasePoints,
+                                        a.Multiplier,
+                                        a.Points,
+                                        a.Reason,
+                                    })
+                                    .ToList(),
+                            };
+                        })
+                        .OrderByDescending(l => l.totalPoints)
+                        .ThenByDescending(l => l.fightStart)
+                        .ToList()
+                };
+            })
+            .OrderByDescending(p => p.totalPoints)
+            .ThenBy(p => p.accountName)
+            .ToList();
+
+        var componentRows = pointAwards
+            .GroupBy(a => new { a.Metric, a.MetricLabel })
+            .Select(g => new
+            {
+                metric = g.Key.Metric,
+                metricLabel = g.Key.MetricLabel,
+                points = Math.Round(g.Sum(a => a.Points), 3),
+                count = g.Count(),
+            })
+            .OrderByDescending(g => g.points)
+            .ThenBy(g => g.metricLabel)
+            .ToList();
+
+        return new
+        {
+            totalPoints = Math.Round(pointAwards.Sum(a => a.Points), 3),
+            awardedPlayers = playerRows.Count(p => p.totalPoints > 0),
+            components = componentRows,
+            players = playerRows,
+        };
     }
 
     // ASP.NET Core model binding instantiates this request DTO.

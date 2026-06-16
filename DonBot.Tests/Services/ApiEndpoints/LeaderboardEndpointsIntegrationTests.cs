@@ -121,4 +121,60 @@ public class LeaderboardEndpointsIntegrationTests
 
         Assert.Equal(2, doc.RootElement.GetProperty("wvw").GetArrayLength());
     }
+
+    [Fact]
+    public async Task GetLeaderboard_ReturnsPlaystyleBuckets()
+    {
+        using var host = NewHost();
+        await using (var db = await host.DbFactory.CreateDbContextAsync())
+        {
+            db.FightLog.AddRange(
+                new FightLog { FightLogId = 1, GuildId = 100, FightType = 1, FightStart = DateTime.UtcNow.AddDays(-1), FightDurationInMs = 60_000, Url = "pve1" },
+                new FightLog { FightLogId = 2, GuildId = 100, FightType = 1, FightStart = DateTime.UtcNow.AddDays(-1), FightDurationInMs = 60_000, Url = "pve2" },
+                new FightLog { FightLogId = 3, GuildId = 100, FightType = 0, FightStart = DateTime.UtcNow.AddDays(-1), FightDurationInMs = 60_000, Url = "wvw1" });
+            db.PlayerFightLog.AddRange(
+                new PlayerFightLog
+                {
+                    PlayerFightLogId = 1,
+                    FightLogId = 1,
+                    GuildWarsAccountName = "Pure.1234",
+                    CharacterName = "C",
+                    Playstyle = "dps",
+                    Damage = 120_000
+                },
+                new PlayerFightLog
+                {
+                    PlayerFightLogId = 2,
+                    FightLogId = 2,
+                    GuildWarsAccountName = "Boon.1234",
+                    CharacterName = "C",
+                    Playstyle = "boon-dps",
+                    Damage = 60_000,
+                    QuicknessDuration = 80
+                },
+                new PlayerFightLog
+                {
+                    PlayerFightLogId = 3,
+                    FightLogId = 3,
+                    GuildWarsAccountName = "Support.1234",
+                    CharacterName = "C",
+                    Playstyle = "support-dps",
+                    Damage = 50_000,
+                    Cleanses = 20
+                });
+            await db.SaveChangesAsync();
+        }
+        host.AuthenticateAs(123L);
+
+        var body = await host.Client.GetStringAsync("/api/guilds/100/leaderboard");
+        var doc = JsonDocument.Parse(body).RootElement;
+        var pveGroups = doc.GetProperty("pvePlaystyles");
+        var wvwGroups = doc.GetProperty("wvwPlaystyles");
+
+        var boonGroup = Assert.Single(pveGroups.EnumerateArray(), group => group.GetProperty("key").GetString() == "boon-dps");
+        Assert.Equal("Boon.1234", boonGroup.GetProperty("players")[0].GetProperty("accountName").GetString());
+
+        var supportGroup = Assert.Single(wvwGroups.EnumerateArray(), group => group.GetProperty("key").GetString() == "support-dps");
+        Assert.Equal("Support.1234", supportGroup.GetProperty("players")[0].GetProperty("accountName").GetString());
+    }
 }

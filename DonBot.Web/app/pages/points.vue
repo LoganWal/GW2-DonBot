@@ -12,7 +12,7 @@
         :disabled="guildsPending"
         style="min-width: 260px;"
       />
-      <Button icon="pi pi-refresh" severity="secondary" text aria-label="Refresh" :disabled="statePending || !selectedGuildId" @click="loadState" />
+      <Button icon="pi pi-refresh" severity="secondary" text aria-label="Refresh" :disabled="statePending || !selectedGuildId" @click="refreshAll" />
     </div>
 
     <template v-if="!selectedGuildId || (!guildsPending && !selectedGuildIsAvailable)">
@@ -27,6 +27,9 @@
       <div class="stat-grid">
         <StatCard label="Available Points" :value="state.account?.availablePoints ?? 0" />
         <StatCard label="Total Earned" :value="state.account?.points ?? 0" />
+        <StatCard label="Spent Points" :value="spentBalance" />
+        <StatCard label="Earned Last 30 Days" :value="pointHistory?.summary.earnedLast30Days ?? 0" />
+        <StatCard label="Awarded Logs" :value="pointHistory?.summary.awardedLogs ?? 0" />
       </div>
 
       <div class="action-strip">
@@ -198,6 +201,74 @@
           </Card>
         </div>
       </section>
+
+      <section class="points-section">
+        <h2>Points Earned</h2>
+        <ProgressSpinner v-if="pointHistoryPending && !pointHistory" />
+        <div v-else class="points-grid">
+          <Card class="points-pane">
+            <template #title>Components</template>
+            <template #content>
+              <div v-if="!(pointHistory?.byComponent.length)" class="empty-line">No earned point components yet.</div>
+              <DataTable v-else :value="pointHistory.byComponent" size="small" striped-rows>
+                <Column field="metricLabel" header="Component" />
+                <Column field="count" header="Awards" style="width: 6rem;" />
+                <Column header="Points" style="width: 7rem;">
+                  <template #body="{ data }">{{ formatAwardPoints(data.points) }}</template>
+                </Column>
+              </DataTable>
+            </template>
+          </Card>
+
+          <Card class="points-pane">
+            <template #title>Fight Types</template>
+            <template #content>
+              <div v-if="!(pointHistory?.byFightType.length)" class="empty-line">No earned fight-type points yet.</div>
+              <DataTable v-else :value="pointHistory.byFightType" size="small" striped-rows>
+                <Column header="Fight">
+                  <template #body="{ data }">{{ fightName(data.fightType) }}</template>
+                </Column>
+                <Column field="count" header="Logs" style="width: 5rem;" />
+                <Column header="Points" style="width: 7rem;">
+                  <template #body="{ data }">{{ formatAwardPoints(data.points) }}</template>
+                </Column>
+              </DataTable>
+            </template>
+          </Card>
+        </div>
+
+        <Card class="points-pane recent-points-pane">
+          <template #title>Recent Earned Points</template>
+          <template #content>
+            <div v-if="!(pointHistory?.recent.length)" class="empty-line">No point awards recorded yet.</div>
+            <div v-else class="earned-stack">
+              <button
+                v-for="award in pointHistory.recent"
+                :key="`${award.fightLogId}-${award.playerFightLogId}`"
+                class="earned-row"
+                type="button"
+                @click="navigateTo(`/logs/${award.fightLogId}`)"
+              >
+                <div class="earned-main">
+                  <div>
+                    <span>{{ fightName(award.fightType) }}</span>
+                    <small>{{ award.accountName }} · {{ formatDate(award.fightStart) }}</small>
+                  </div>
+                  <strong>{{ formatAwardPoints(award.totalPoints) }}</strong>
+                </div>
+                <div class="earned-components">
+                  <Tag
+                    v-for="component in award.components"
+                    :key="component.metric"
+                    severity="secondary"
+                    :value="`${component.metricLabel}: ${formatAwardPoints(component.points)}`"
+                  />
+                </div>
+              </button>
+            </div>
+          </template>
+        </Card>
+      </section>
     </template>
 
     <Dialog v-model:visible="createVisible" modal :header="createType === 1 ? 'Create Event Raffle' : 'Create Raffle'" style="width: min(560px, 92vw);">
@@ -235,6 +306,8 @@
 </template>
 
 <script setup lang="ts">
+import { fightName } from '~/composables/useFightTypes'
+
 definePageMeta({ middleware: 'auth' })
 
 usePageTitle()
@@ -291,6 +364,39 @@ type WinnerEvent = {
   drawAtUtc?: string
   winners: RaffleBid[]
 }
+type PointComponent = {
+  metric: string
+  metricLabel: string
+  metricValue: number
+  percentileValue: number
+  basePoints: number
+  multiplier: number
+  points: number
+  reason: string
+}
+type PointHistoryResponse = {
+  account: { points: number; availablePoints: number } | null
+  summary: {
+    totalEarned: number
+    availablePoints: number
+    spentPoints: number
+    earnedLast30Days: number
+    awardedLogs: number
+    lastAwardAt: string | null
+  }
+  byComponent: { metric: string; metricLabel: string; points: number; count: number }[]
+  byFightType: { fightType: number; points: number; count: number }[]
+  recent: {
+    fightLogId: number
+    playerFightLogId: number
+    accountName: string
+    fightType: number
+    fightStart: string
+    url: string
+    totalPoints: number
+    components: PointComponent[]
+  }[]
+}
 
 const api = useApi()
 const apiBase = useRuntimeConfig().public.apiBase as string
@@ -301,6 +407,27 @@ const { data: guildOptions, pending: guildsPending } = useLazyAsyncData(
   'raffle-guilds',
   () => api('/api/raffles/guilds') as Promise<GuildOption[]>,
   { default: () => [] }
+)
+
+const { data: pointHistory, pending: pointHistoryPending, refresh: refreshPointHistory } = useLazyAsyncData(
+  'point-history',
+  () => api('/api/points/history?take=100') as Promise<PointHistoryResponse>,
+  {
+    default: () => ({
+      account: null,
+      summary: {
+        totalEarned: 0,
+        availablePoints: 0,
+        spentPoints: 0,
+        earnedLast30Days: 0,
+        awardedLogs: 0,
+        lastAwardAt: null,
+      },
+      byComponent: [],
+      byFightType: [],
+      recent: [],
+    }),
+  }
 )
 
 const availableGuildIds = computed(() => (guildOptions.value ?? []).map(g => g.guildId))
@@ -322,6 +449,11 @@ const historyPanes = [
   { type: 0, label: 'Raffle' },
   { type: 1, label: 'Event Raffle' },
 ]
+const spentBalance = computed(() => {
+  const earned = Number(state.value?.account?.points ?? pointHistory.value?.summary.totalEarned ?? 0)
+  const available = Number(state.value?.account?.availablePoints ?? pointHistory.value?.summary.availablePoints ?? 0)
+  return Math.max(earned - available, 0)
+})
 
 let source: EventSource | null = null
 let countdownTimer: ReturnType<typeof setInterval> | null = null
@@ -351,6 +483,10 @@ const loadState = async () => {
   } finally {
     statePending.value = false
   }
+}
+
+const refreshAll = async () => {
+  await Promise.all([loadState(), refreshPointHistory()])
 }
 
 const applyState = (next: RaffleState) => {
@@ -569,6 +705,12 @@ const startWinnerCountdown = (event: WinnerEvent) => {
 }
 
 const formatPoints = (value: number) => Math.floor(value).toLocaleString()
+const formatAwardPoints = (value: number) =>
+  Number(value ?? 0).toLocaleString(undefined, { maximumFractionDigits: 3 })
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString()
+}
 
 const confettiStyle = (i: number) => ({
   left: `${(i * 37) % 100}%`,
@@ -614,11 +756,13 @@ const confettiStyle = (i: number) => ({
   gap: 1rem;
 }
 
-.history-section {
+.history-section,
+.points-section {
   margin-top: 1.5rem;
 }
 
-.history-section h2 {
+.history-section h2,
+.points-section h2 {
   margin: 0 0 0.85rem;
   font-size: 1.15rem;
 }
@@ -627,6 +771,21 @@ const confettiStyle = (i: number) => ({
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
+}
+
+.points-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.points-pane {
+  min-width: 0;
+}
+
+.recent-points-pane {
+  margin-top: 1rem;
 }
 
 .raffle-title {
@@ -703,6 +862,61 @@ const confettiStyle = (i: number) => ({
   max-height: 260px;
   overflow: auto;
   padding-right: 0.25rem;
+}
+
+.earned-stack {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.earned-row {
+  display: grid;
+  gap: 0.6rem;
+  width: 100%;
+  border: 1px solid var(--p-surface-border);
+  border-radius: 8px;
+  background: var(--p-surface-ground);
+  color: var(--p-text-color);
+  padding: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.earned-row:hover {
+  border-color: var(--p-primary-color);
+}
+
+.earned-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.earned-main > div {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.earned-main span {
+  font-weight: 600;
+}
+
+.earned-main small {
+  color: var(--p-text-muted-color);
+  font-size: 0.75rem;
+}
+
+.earned-main strong {
+  color: var(--p-primary-color);
+  white-space: nowrap;
+}
+
+.earned-components {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
 }
 
 .bid-row,
@@ -816,7 +1030,8 @@ const confettiStyle = (i: number) => ({
 
 @media (max-width: 700px) {
   .raffle-grid,
-  .history-grid {
+  .history-grid,
+  .points-grid {
     grid-template-columns: 1fr;
   }
 

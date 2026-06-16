@@ -91,8 +91,10 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
                 var cleanses = supportStats?.FirstOrDefault() ?? 0;
                 cleanses += supportStats?.Count >= ArcDpsDataIndices.PlayerCleansesIndex + 1 ? supportStats[ArcDpsDataIndices.PlayerCleansesIndex] : 0;
                 var strips = supportStats?.Count >= ArcDpsDataIndices.PlayerStripsIndex + 1 ? supportStats[ArcDpsDataIndices.PlayerStripsIndex] : 0;
-                var stabOnGroup = stabBoonIndex >= 0 && boonGenGroupStats?.Data?.Count > stabBoonIndex ? boonGenGroupStats.Data[stabBoonIndex][0] : 0;
-                var stabOffGroup = stabBoonIndex >= 0 ? boonGenOffGroupStats?.Data?[stabBoonIndex][0] ?? 0 : 0;
+                var stabOnGroup = GetBoonValue(boonGenGroupStats, stabBoonIndex);
+                var stabOffGroup = GetBoonValue(boonGenOffGroupStats, stabBoonIndex);
+                var quicknessGenGroup = GetBoonValue(boonGenGroupStats, quickBoonIndex);
+                var alacGenGroup = GetBoonValue(boonGenGroupStats, alacBoonIndex);
                 var healing = healingStatsTargets?.Sum(s => s.FirstOrDefault()) ?? 0;
                 var barrierGenerated = barrierStats?.FirstOrDefault() ?? 0;
                 var distanceFromTag = gameplayStats?[ArcDpsDataIndices.DistanceFromTagIndex] ?? 0;
@@ -121,6 +123,8 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
                     existingPlayer.Strips = strips;
                     existingPlayer.StabOnGroup = stabOnGroup;
                     existingPlayer.StabOffGroup = stabOffGroup;
+                    existingPlayer.QuicknessGenGroup = quicknessGenGroup;
+                    existingPlayer.AlacGenGroup = alacGenGroup;
                     existingPlayer.Healing = healing;
                     existingPlayer.BarrierGenerated = barrierGenerated;
                     existingPlayer.DistanceFromTag = distanceFromTag;
@@ -151,6 +155,8 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
                     existingPlayer.Strips += strips;
                     existingPlayer.StabOnGroup += stabOnGroup;
                     existingPlayer.StabOffGroup += stabOffGroup;
+                    existingPlayer.QuicknessGenGroup += quicknessGenGroup;
+                    existingPlayer.AlacGenGroup += alacGenGroup;
                     existingPlayer.Healing += healing;
                     existingPlayer.BarrierGenerated += barrierGenerated;
                     existingPlayer.DistanceFromTag += distanceFromTag;
@@ -208,12 +214,24 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
 
             player.StabOnGroup /= count;
             player.StabOffGroup /= count;
+            player.QuicknessGenGroup /= count;
+            player.AlacGenGroup /= count;
             player.DistanceFromTag /= count;
             player.TotalQuick /= count;
             player.TotalAlac /= count;
         }
 
         return gw2Players;
+    }
+
+    private static double GetBoonValue(BoonActiveStat? stats, int boonIndex)
+    {
+        if (boonIndex < 0 || !(stats?.Data?.CheckIndexIsValid(boonIndex, 0) ?? false))
+        {
+            return 0d;
+        }
+
+        return stats.Data[boonIndex][0];
     }
 
     public async Task SetPlayerPoints(EliteInsightDataModel fightEliteInsightDataModel)

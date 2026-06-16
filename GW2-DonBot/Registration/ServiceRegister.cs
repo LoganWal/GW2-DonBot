@@ -34,6 +34,7 @@ public static class ServiceRegister
         services.AddScoped<DiscordMessageHandler>();
         services.AddScoped<ILoggingService, LoggingService>();
         services.AddScoped<IPlayerService, PlayerService>();
+        services.AddScoped<IPointsAwardService, PointsAwardService>();
         services.AddScoped<IRaidCommandService, RaidCommandCommandService>();
         services.AddScoped<IRaidLifecycleService, RaidLifecycleService>();
         services.AddScoped<IFightLogService, FightLogService>();

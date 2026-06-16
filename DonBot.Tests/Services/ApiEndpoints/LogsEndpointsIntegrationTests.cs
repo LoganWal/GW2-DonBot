@@ -128,6 +128,52 @@ public class LogsEndpointsIntegrationTests
     }
 
     [Fact]
+    public async Task GetLogs_PlaystyleFilter_ReturnsMatchingRoleAndLabel()
+    {
+        using var host = NewHost();
+        await using (var db = await host.DbFactory.CreateDbContextAsync())
+        {
+            db.GuildWarsAccount.Add(new GuildWarsAccount
+            {
+                GuildWarsAccountId = Guid.NewGuid(),
+                DiscordId = 123L,
+                GuildWarsAccountName = "Mine.1234"
+            });
+            db.FightLog.AddRange(
+                new FightLog { FightLogId = 1, FightType = 1, FightStart = DateTime.UtcNow.AddMinutes(-2), Url = "u1" },
+                new FightLog { FightLogId = 2, FightType = 1, FightStart = DateTime.UtcNow.AddMinutes(-1), Url = "u2" });
+            db.PlayerFightLog.AddRange(
+                new PlayerFightLog
+                {
+                    PlayerFightLogId = 1,
+                    FightLogId = 1,
+                    GuildWarsAccountName = "Mine.1234",
+                    CharacterName = "DpsChar",
+                    Playstyle = "dps"
+                },
+                new PlayerFightLog
+                {
+                    PlayerFightLogId = 2,
+                    FightLogId = 2,
+                    GuildWarsAccountName = "Mine.1234",
+                    CharacterName = "BoonChar",
+                    Playstyle = "boon-dps"
+                });
+            await db.SaveChangesAsync();
+        }
+        host.AuthenticateAs(123L);
+
+        var body = await host.Client.GetStringAsync("/api/logs/?playstyles=boon-dps");
+        var doc = JsonDocument.Parse(body).RootElement;
+        var data = doc.GetProperty("data");
+
+        Assert.Equal(1, doc.GetProperty("total").GetInt32());
+        Assert.Equal(2, data[0].GetProperty("fightLogId").GetInt64());
+        Assert.Equal("boon-dps", data[0].GetProperty("playstyle").GetString());
+        Assert.Equal("Boon DPS", data[0].GetProperty("playstyleLabel").GetString());
+    }
+
+    [Fact]
     public async Task GetMyCharacters_NoAuth_Returns401()
     {
         using var host = NewHost();
@@ -296,6 +342,104 @@ public class LogsEndpointsIntegrationTests
         var doc = JsonDocument.Parse(body);
 
         Assert.Equal("pve", doc.RootElement.GetProperty("type").GetString());
+    }
+
+    [Fact]
+    public async Task AggregateLogs_MixedPlaystyles_ReturnsMixedSummaryAndBreakdown()
+    {
+        using var host = NewHost();
+        await using (var db = await host.DbFactory.CreateDbContextAsync())
+        {
+            var t = DateTime.UtcNow;
+            db.FightLog.AddRange(
+                new FightLog { FightLogId = 1, FightType = 1, FightDurationInMs = 60_000, FightStart = t, Url = "u1" },
+                new FightLog { FightLogId = 2, FightType = 1, FightDurationInMs = 60_000, FightStart = t.AddMinutes(2), Url = "u2" });
+            db.PlayerFightLog.AddRange(
+                new PlayerFightLog
+                {
+                    PlayerFightLogId = 1,
+                    FightLogId = 1,
+                    GuildWarsAccountName = "A",
+                    CharacterName = "C",
+                    Playstyle = "dps",
+                    Damage = 100
+                },
+                new PlayerFightLog
+                {
+                    PlayerFightLogId = 2,
+                    FightLogId = 2,
+                    GuildWarsAccountName = "A",
+                    CharacterName = "C",
+                    Playstyle = "boon-dps",
+                    Damage = 200
+                });
+            await db.SaveChangesAsync();
+        }
+        host.AuthenticateAs(123L);
+
+        var response = await host.Client.PostAsJsonAsync("/api/logs/aggregate", new { LogIds = new[] { 1L, 2L } });
+        var body = await response.Content.ReadAsStringAsync();
+        var player = JsonDocument.Parse(body).RootElement.GetProperty("players")[0];
+        var breakdown = player.GetProperty("playstyleBreakdown");
+
+        Assert.Equal("Mixed", player.GetProperty("playstyle").GetString());
+        Assert.Equal(2, breakdown.GetArrayLength());
+        Assert.Contains(breakdown.EnumerateArray(), row =>
+            row.GetProperty("key").GetString() == "dps" &&
+            row.GetProperty("count").GetInt32() == 1);
+        Assert.Contains(breakdown.EnumerateArray(), row =>
+            row.GetProperty("key").GetString() == "boon-dps" &&
+            row.GetProperty("count").GetInt32() == 1);
+    }
+
+    [Fact]
+    public async Task AggregateLogs_ReturnsBoonGenerationAndRole()
+    {
+        using var host = NewHost();
+        await using (var db = await host.DbFactory.CreateDbContextAsync())
+        {
+            db.FightLog.Add(new FightLog
+            {
+                FightLogId = 1,
+                FightType = 1,
+                FightDurationInMs = 60_000,
+                FightStart = DateTime.UtcNow,
+                Url = "u1"
+            });
+            db.PlayerFightLog.Add(new PlayerFightLog
+            {
+                PlayerFightLogId = 1,
+                FightLogId = 1,
+                GuildWarsAccountName = "A",
+                CharacterName = "C",
+                Damage = 100,
+                QuicknessDuration = 12.25m,
+                AlacDuration = 9.5m,
+                QuicknessGenGroup = 72.5m,
+                AlacGenGroup = 81.25m,
+                BoonRole = "boon-dps"
+            });
+            await db.SaveChangesAsync();
+        }
+        host.AuthenticateAs(123L);
+
+        var response = await host.Client.PostAsJsonAsync("/api/logs/aggregate", new { LogIds = new[] { 1L } });
+        var body = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(body);
+
+        var player = doc.RootElement.GetProperty("players")[0];
+        Assert.Equal(12.25m, player.GetProperty("quicknessDuration").GetDecimal());
+        Assert.Equal(9.5m, player.GetProperty("alacDuration").GetDecimal());
+        Assert.Equal(72.5m, player.GetProperty("quicknessGenGroup").GetDecimal());
+        Assert.Equal(81.25m, player.GetProperty("alacGenGroup").GetDecimal());
+        Assert.Equal("boon-dps", player.GetProperty("boonRole").GetString());
+        Assert.Equal("Boon DPS", player.GetProperty("playstyle").GetString());
+
+        var timelinePlayer = doc.RootElement.GetProperty("timeline")[0].GetProperty("players")[0];
+        Assert.Equal(72.5m, timelinePlayer.GetProperty("quicknessGenGroup").GetDecimal());
+        Assert.Equal(81.25m, timelinePlayer.GetProperty("alacGenGroup").GetDecimal());
+        Assert.Equal("boon-dps", timelinePlayer.GetProperty("boonRole").GetString());
+        Assert.Equal("boon-dps", timelinePlayer.GetProperty("playstyle").GetString());
     }
 
     [Fact]

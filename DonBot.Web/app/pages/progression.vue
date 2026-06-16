@@ -19,6 +19,17 @@
           @update:model-value="difficultyFilter = $event; load(false)"
         />
       </template>
+      <MultiSelect
+        v-if="selectedFightType !== null"
+        v-model="selectedPlaystyles"
+        :options="currentPlaystyleOptions"
+        option-label="label"
+        option-value="value"
+        placeholder="Play types"
+        display="chip"
+        style="min-width: 260px; max-width: 420px;"
+        @change="load(false)"
+      />
     </div>
 
     <template v-if="selectedFightType !== null && !loading">
@@ -174,6 +185,7 @@ const selectedFightType = ref<number | null>(
 const points = ref<any[]>([])
 const loading = ref(false)
 const selectedCharacters = ref<string[]>([])
+const selectedPlaystyles = ref<string[]>([])
 const timeRange = ref<'all' | 'year' | 'month' | 'week'>('all')
 const allCharacters = ref<string[]>([])
 const successFilter = ref<SuccessFilter>('all')
@@ -188,6 +200,26 @@ const timeRangeOptions = [
   { label: 'Last week', value: 'week' },
 ] as const
 
+const pvePlaystyleOptions = [
+  { label: 'DPS', value: 'dps' },
+  { label: 'Boon DPS', value: 'boon-dps' },
+  { label: 'Boon Healer', value: 'boon-healer' },
+  { label: 'Mechanic', value: 'mechanic' },
+]
+
+const wvwPlaystyleOptions = [
+  { label: 'DPS', value: 'dps' },
+  { label: 'Support DPS', value: 'support-dps' },
+  { label: 'Support', value: 'support' },
+  { label: 'Heal Support', value: 'heal-support' },
+]
+
+const currentPlaystyleOptions = computed(() => isWvWFight.value ? wvwPlaystyleOptions : pvePlaystyleOptions)
+
+const selectAllPlaystyles = () => {
+  selectedPlaystyles.value = currentPlaystyleOptions.value.map(option => option.value)
+}
+
 const load = async (resetCharacters = false) => {
   if (selectedFightType.value === null)
   {
@@ -199,10 +231,17 @@ const load = async (resetCharacters = false) => {
     selectedCharacters.value = []
     successFilter.value = 'all'
     difficultyFilter.value = null
+    selectAllPlaystyles()
+  }
+  if (selectedPlaystyles.value.length === 0) {
+    points.value = []
+    loading.value = false
+    return
   }
   try
   {
     let url = `/api/stats/progression?fightType=${selectedFightType.value}`
+    url += `&playstyles=${selectedPlaystyles.value.map(encodeURIComponent).join(',')}`
     if (timeRange.value !== 'all') {
       const msMap = { week: 7, month: 30, year: 365 }
       const since = new Date(Date.now() - msMap[timeRange.value] * 24 * 60 * 60 * 1000)

@@ -29,6 +29,16 @@ public class PlayerFightLog
 
     public decimal AlacDuration { get; init; }
 
+    public decimal QuicknessGenGroup { get; init; }
+
+    public decimal AlacGenGroup { get; init; }
+
+    [MaxLength(32)]
+    public string BoonRole { get; init; } = string.Empty;
+
+    [MaxLength(32)]
+    public string Playstyle { get; init; } = string.Empty;
+
     public long SubGroup { get; init; }
 
     public long DamageDownContribution { get; init; }

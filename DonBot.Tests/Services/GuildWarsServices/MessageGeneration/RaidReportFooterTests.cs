@@ -174,6 +174,7 @@ internal sealed class FakeEntityService(List<FightLog> fightLogs, List<PlayerFig
     public IDatabaseUpdateService<Guild> Guild => throw new NotImplementedException();
     public IDatabaseUpdateService<GuildQuote> GuildQuote => throw new NotImplementedException();
     public IDatabaseUpdateService<GuildWarsAccount> GuildWarsAccount => throw new NotImplementedException();
+    public IDatabaseUpdateService<PlayerPointAward> PlayerPointAward => throw new NotImplementedException();
     public IDatabaseUpdateService<PlayerRaffleBid> PlayerRaffleBid => throw new NotImplementedException();
     public IDatabaseUpdateService<Raffle> Raffle => throw new NotImplementedException();
     public IDatabaseUpdateService<ScheduledEvent> ScheduledEvent => throw new NotImplementedException();

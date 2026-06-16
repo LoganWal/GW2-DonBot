@@ -40,6 +40,19 @@
         style="min-width: 200px; flex: 1;"
         @change="onFilterChange"
       />
+      <MultiSelect
+        v-model="selectedPlaystyles"
+        :options="playstyleGroupedOptions"
+        option-group-label="label"
+        option-group-children="items"
+        option-label="label"
+        option-value="value"
+        placeholder="All play types"
+        show-clear
+        display="chip"
+        style="min-width: 220px; flex: 1;"
+        @change="onFilterChange"
+      />
     </div>
     <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center;">
       <FilterButtonGroup
@@ -104,6 +117,12 @@
                   <Column header="Character" sort-field="characterName" :sortable="true">
                     <template #body="{ data }">{{ data.characterName || '-' }}</template>
                   </Column>
+                  <Column header="Role" sort-field="playstyleLabel" :sortable="true">
+                    <template #body="{ data }">
+                      <Tag v-if="data.playstyleLabel" :severity="playstyleSeverity(data.playstyle)" :value="data.playstyleLabel" />
+                      <span v-else>-</span>
+                    </template>
+                  </Column>
                   <Column header="Date" sort-field="fightStart" :sortable="true">
                     <template #body="{ data }">{{ new Date(data.fightStart).toLocaleString() }}</template>
                   </Column>
@@ -156,6 +175,12 @@
         </Column>
         <Column header="Character">
           <template #body="{ data }">{{ data.characterName || '-' }}</template>
+        </Column>
+        <Column header="Role">
+          <template #body="{ data }">
+            <Tag v-if="data.playstyleLabel" :severity="playstyleSeverity(data.playstyle)" :value="data.playstyleLabel" />
+            <span v-else>-</span>
+          </template>
         </Column>
         <Column header="Date">
           <template #body="{ data }">{{ new Date(data.fightStart).toLocaleString() }}</template>
@@ -215,6 +240,9 @@ const selectedFightTypes = ref<number[]>(
 const selectedCharacters = ref<string[]>(
   route.query.characters ? String(route.query.characters).split(',') : []
 )
+const selectedPlaystyles = ref<string[]>(
+  route.query.playstyles ? String(route.query.playstyles).split(',') : []
+)
 const successFilter = ref<SuccessFilter>('all')
 const difficultyFilter = ref<DifficultyFilter>(null)
 
@@ -242,6 +270,27 @@ const categoryLoading = ref(false)
 const sortModeOptions = [
   { label: 'Sort: By Time', value: 'time' },
   { label: 'Sort: By Category', value: 'category' },
+]
+
+const playstyleGroupedOptions = [
+  {
+    label: 'WvW',
+    items: [
+      { label: 'DPS', value: 'dps' },
+      { label: 'Support DPS', value: 'support-dps' },
+      { label: 'Support', value: 'support' },
+      { label: 'Heal Support', value: 'heal-support' },
+    ],
+  },
+  {
+    label: 'PvE',
+    items: [
+      { label: 'DPS', value: 'dps' },
+      { label: 'Boon DPS', value: 'boon-dps' },
+      { label: 'Boon Healer', value: 'boon-healer' },
+      { label: 'Mechanic', value: 'mechanic' },
+    ],
+  },
 ]
 
 const viewToday = (types: number[]) => {
@@ -323,6 +372,10 @@ const syncUrl = () => {
   {
     q.characters = selectedCharacters.value.join(',')
   }
+  if (selectedPlaystyles.value.length)
+  {
+    q.playstyles = selectedPlaystyles.value.join(',')
+  }
   if (sortMode.value === 'category')
   {
     q.sort = 'category'
@@ -336,6 +389,8 @@ const buildUrl = () => {
     url += `&fightTypes=${selectedFightTypes.value.join(',')}`
   if (selectedCharacters.value.length > 0)
     url += `&characters=${encodeURIComponent(selectedCharacters.value.join(','))}`
+  if (selectedPlaystyles.value.length > 0)
+    url += `&playstyles=${encodeURIComponent(selectedPlaystyles.value.join(','))}`
   if (successFilter.value === 'kills') url += '&isSuccess=true'
   else if (successFilter.value === 'wipes') url += '&isSuccess=false'
   if (difficultyFilter.value !== null) url += `&fightMode=${difficultyFilter.value}`
@@ -416,6 +471,23 @@ const onCheckboxClick = (e: MouseEvent, row: any) => {
 const goToAggregate = () => {
   const ids = selectedLogs.value.map((l: any) => l.fightLogId).join(',')
   navigateTo(`/logs/aggregate?ids=${ids}`)
+}
+
+const playstyleSeverity = (playstyle: string) => {
+  switch (playstyle) {
+    case 'boon-dps':
+    case 'support-dps':
+      return 'success'
+    case 'boon-healer':
+    case 'heal-support':
+      return 'info'
+    case 'mechanic':
+      return 'contrast'
+    case 'support':
+      return 'warn'
+    default:
+      return 'secondary'
+  }
 }
 </script>
 

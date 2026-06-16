@@ -134,6 +134,8 @@ public sealed class RaidReportService(
             Strips = Math.Round(playersFights.Average(s => (double)s.Strips), 0),
             StabOnGroup = Math.Round(Convert.ToDouble(playersFights.Average(s => (float)s.StabGenOnGroup)), 2),
             StabOffGroup = Math.Round(Convert.ToDouble(playersFights.Average(s => (float)s.StabGenOffGroup)), 2),
+            QuicknessGenGroup = Math.Round(Convert.ToDouble(playersFights.Average(s => s.QuicknessGenGroup)), 2),
+            AlacGenGroup = Math.Round(Convert.ToDouble(playersFights.Average(s => s.AlacGenGroup)), 2),
             Healing = (long)Math.Round(playersFights.Average(s => (double)s.Healing), 0),
             BarrierGenerated = (long)Math.Round(playersFights.Average(s => (double)s.BarrierGenerated), 0),
             DistanceFromTag = Math.Round(Convert.ToDouble(playersFights.Any(s => s.DistanceFromTag < 1100)

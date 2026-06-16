@@ -20,6 +20,40 @@
     <ProgressSpinner v-if="pending" />
 
     <template v-else-if="data">
+      <template v-if="data.pvePlaystyles?.length">
+        <button
+          v-for="group in data.pvePlaystyles"
+          :key="`pve-${group.key}`"
+          class="section-toggle"
+          @click="togglePlaystyleSection(`pve-${group.key}`)"
+        >
+          <i :class="isPlaystyleSectionExpanded(`pve-${group.key}`) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="toggle-icon" />
+          PvE - {{ group.label }} Damage
+          <span class="section-count">{{ group.players.length }} players</span>
+        </button>
+        <template v-for="group in data.pvePlaystyles" :key="`pve-table-${group.key}`">
+          <DataTable v-if="isPlaystyleSectionExpanded(`pve-${group.key}`)" :value="group.players" striped-rows scrollable class="mb-section" sort-field="dps" :sort-order="-1">
+            <Column header="#" style="width: 3rem;" frozen>
+              <template #body="{ index }">{{ index + 1 }}</template>
+            </Column>
+            <Column field="accountName" header="Account" frozen :sortable="true" style="min-width: 160px;" />
+            <Column field="fights" header="Fights" :sortable="true" style="min-width: 70px;" />
+            <Column header="DPS" :sortable="true" sort-field="dps" style="min-width: 90px;">
+              <template #body="{ data: row }">{{ row.dps.toLocaleString() }}</template>
+            </Column>
+            <Column header="Cleave DPS" :sortable="true" sort-field="cleaveDps" style="min-width: 105px;">
+              <template #body="{ data: row }">{{ row.cleaveDps.toLocaleString() }}</template>
+            </Column>
+            <Column header="Quick %" :sortable="true" sort-field="avgQuick" style="min-width: 85px;">
+              <template #body="{ data: row }">{{ row.avgQuick }}%</template>
+            </Column>
+            <Column header="Alac %" :sortable="true" sort-field="avgAlac" style="min-width: 80px;">
+              <template #body="{ data: row }">{{ row.avgAlac }}%</template>
+            </Column>
+          </DataTable>
+        </template>
+      </template>
+
       <template v-if="data.pve.length">
         <button class="section-toggle" @click="expanded.pveDamage = !expanded.pveDamage">
           <i :class="expanded.pveDamage ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="toggle-icon" />
@@ -83,6 +117,37 @@
             <Column field="fights" header="Fights" :sortable="true" style="min-width: 70px;" />
             <Column field="avgDeaths" header="Avg Deaths" :sortable="true" style="min-width: 105px;" />
             <Column field="avgTimesDowned" header="Avg Downed" :sortable="true" style="min-width: 110px;" />
+          </DataTable>
+        </template>
+      </template>
+
+      <template v-if="data.wvwPlaystyles?.length">
+        <button
+          v-for="group in data.wvwPlaystyles"
+          :key="`wvw-${group.key}`"
+          class="section-toggle"
+          @click="togglePlaystyleSection(`wvw-${group.key}`)"
+        >
+          <i :class="isPlaystyleSectionExpanded(`wvw-${group.key}`) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="toggle-icon" />
+          WvW - {{ group.label }} Damage & Combat
+          <span class="section-count">{{ group.players.length }} players</span>
+        </button>
+        <template v-for="group in data.wvwPlaystyles" :key="`wvw-table-${group.key}`">
+          <DataTable v-if="isPlaystyleSectionExpanded(`wvw-${group.key}`)" :value="group.players" striped-rows scrollable class="mb-section" sort-field="avgDamage" :sort-order="-1">
+            <Column header="#" style="width: 3rem;" frozen>
+              <template #body="{ index }">{{ index + 1 }}</template>
+            </Column>
+            <Column field="accountName" header="Account" frozen :sortable="true" style="min-width: 160px;" />
+            <Column field="fights" header="Fights" :sortable="true" style="min-width: 70px;" />
+            <Column header="Avg Damage" :sortable="true" sort-field="avgDamage" style="min-width: 110px;">
+              <template #body="{ data: row }">{{ row.avgDamage.toLocaleString() }}</template>
+            </Column>
+            <Column header="Avg DDC" :sortable="true" sort-field="avgDdc" style="min-width: 100px;">
+              <template #body="{ data: row }">{{ row.avgDdc.toLocaleString() }}</template>
+            </Column>
+            <Column field="avgKills" header="Avg Kills" :sortable="true" style="min-width: 85px;" />
+            <Column field="avgDowns" header="Avg Downs" :sortable="true" style="min-width: 90px;" />
+            <Column field="avgBoonsRipped" header="Avg Boons Ripped" :sortable="true" style="min-width: 130px;" />
           </DataTable>
         </template>
       </template>
@@ -184,6 +249,8 @@ const { data, pending, refresh } = await useAsyncData(
     untilDate: string
     wvw: any[]
     pve: any[]
+    wvwPlaystyles: { key: string; label: string; players: any[] }[]
+    pvePlaystyles: { key: string; label: string; players: any[] }[]
   }>
 )
 
@@ -196,7 +263,14 @@ const expanded = reactive({
   pveDamage: false,
   pveSupport: false,
   pveSurvival: false,
+  playstyles: {} as Record<string, boolean>,
 })
+
+const isPlaystyleSectionExpanded = (key: string) => expanded.playstyles[key] ?? false
+
+const togglePlaystyleSection = (key: string) => {
+  expanded.playstyles[key] = !isPlaystyleSectionExpanded(key)
+}
 </script>
 
 <style scoped>

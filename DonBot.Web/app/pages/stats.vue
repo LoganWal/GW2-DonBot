@@ -28,6 +28,41 @@
             <StatCard label="Down Contribution" :value="stats.wvw.totalDamageDownContribution" />
           </div>
 
+          <SectionTitle>Play Types</SectionTitle>
+          <DataTable
+            v-if="stats.wvw.playstyleBreakdown?.length"
+            :value="stats.wvw.playstyleBreakdown"
+            striped-rows
+            size="small"
+            sort-field="count"
+            :sort-order="-1"
+            class="playstyle-table"
+          >
+            <Column field="label" header="Role" :sortable="true" />
+            <Column field="count" header="Logs" :sortable="true" style="width: 6rem;" />
+            <Column header="Share" :sortable="true" sort-field="percent" style="width: 7rem;">
+              <template #body="{ data }">{{ data.percent }}%</template>
+            </Column>
+            <Column header="Avg DPS" :sortable="true" sort-field="avgDps">
+              <template #body="{ data }">{{ formatInt(data.avgDps) }}</template>
+            </Column>
+            <Column header="HPS" :sortable="true" sort-field="avgHealingPerSecond">
+              <template #body="{ data }">{{ formatInt(data.avgHealingPerSecond) }}</template>
+            </Column>
+            <Column header="Cleanses" :sortable="true" sort-field="totalCleanses">
+              <template #body="{ data }">{{ formatInt(data.totalCleanses) }}</template>
+            </Column>
+            <Column header="Strips" :sortable="true" sort-field="totalStrips">
+              <template #body="{ data }">{{ formatInt(data.totalStrips) }}</template>
+            </Column>
+            <Column header="Stab On" :sortable="true" sort-field="avgStabOnGroup">
+              <template #body="{ data }">{{ data.avgStabOnGroup?.toFixed(2) ?? '0.00' }}</template>
+            </Column>
+            <Column header="Stab Off" :sortable="true" sort-field="avgStabOffGroup">
+              <template #body="{ data }">{{ data.avgStabOffGroup?.toFixed(2) ?? '0.00' }}</template>
+            </Column>
+          </DataTable>
+
           <SectionTitle>Support</SectionTitle>
           <div class="stat-grid">
             <StatCard label="Total Healing" :value="stats.wvw.totalHealing" :sub="(stats.wvw.avgHealingPerSecond?.toLocaleString() ?? '0') + '/s avg'" />
@@ -36,6 +71,8 @@
             <StatCard label="Total Strips" :value="stats.wvw.totalStrips" :sub="(stats.wvw.avgStripsPerSecond ?? '0') + '/s avg'" />
             <StatCard label="Avg Quickness" :value="(stats.wvw.avgQuickness?.toFixed(1) ?? '0') + '%'" />
             <StatCard label="Avg Alacrity" :value="(stats.wvw.avgAlac?.toFixed(1) ?? '0') + '%'" />
+            <StatCard label="Avg Quick Gen" :value="(stats.wvw.avgQuicknessGen?.toFixed(1) ?? '0') + '%'" />
+            <StatCard label="Avg Alac Gen" :value="(stats.wvw.avgAlacGen?.toFixed(1) ?? '0') + '%'" />
             <StatCard label="Avg Stab (On Group)" :value="stats.wvw.avgStabOnGroup?.toFixed(2) ?? '0'" />
             <StatCard label="Avg Stab (Off Group)" :value="stats.wvw.avgStabOffGroup?.toFixed(2) ?? '0'" />
           </div>
@@ -83,8 +120,39 @@
             <StatCard label="Total Cleave" :value="stats.pve.totalCleave" :sub="(stats.pve.avgCleaveDps?.toLocaleString() ?? '0') + '/s avg'" />
             <StatCard label="Avg Alacrity" :value="(stats.pve.avgAlac?.toFixed(1) ?? '0') + '%'" />
             <StatCard label="Avg Quickness" :value="(stats.pve.avgQuickness?.toFixed(1) ?? '0') + '%'" />
+            <StatCard label="Avg Alac Gen" :value="(stats.pve.avgAlacGen?.toFixed(1) ?? '0') + '%'" />
+            <StatCard label="Avg Quick Gen" :value="(stats.pve.avgQuicknessGen?.toFixed(1) ?? '0') + '%'" />
             <StatCard label="Total Healing" :value="stats.pve.totalHealing" :sub="(stats.pve.avgHealingPerSecond?.toLocaleString() ?? '0') + '/s avg'" />
           </div>
+
+          <SectionTitle>Play Types</SectionTitle>
+          <DataTable
+            v-if="stats.pve.playstyleBreakdown?.length"
+            :value="stats.pve.playstyleBreakdown"
+            striped-rows
+            size="small"
+            sort-field="count"
+            :sort-order="-1"
+            class="playstyle-table"
+          >
+            <Column field="label" header="Role" :sortable="true" />
+            <Column field="count" header="Logs" :sortable="true" style="width: 6rem;" />
+            <Column header="Share" :sortable="true" sort-field="percent" style="width: 7rem;">
+              <template #body="{ data }">{{ data.percent }}%</template>
+            </Column>
+            <Column header="Avg DPS" :sortable="true" sort-field="avgDps">
+              <template #body="{ data }">{{ formatInt(data.avgDps) }}</template>
+            </Column>
+            <Column header="HPS" :sortable="true" sort-field="avgHealingPerSecond">
+              <template #body="{ data }">{{ formatInt(data.avgHealingPerSecond) }}</template>
+            </Column>
+            <Column header="Quick Gen" :sortable="true" sort-field="avgQuicknessGen">
+              <template #body="{ data }">{{ data.avgQuicknessGen?.toFixed(1) ?? '0.0' }}%</template>
+            </Column>
+            <Column header="Alac Gen" :sortable="true" sort-field="avgAlacGen">
+              <template #body="{ data }">{{ data.avgAlacGen?.toFixed(1) ?? '0.0' }}%</template>
+            </Column>
+          </DataTable>
 
           <SectionTitle>Survivability</SectionTitle>
           <div class="stat-grid">
@@ -127,4 +195,11 @@ watch(stats, (s) => {
 }, { immediate: true })
 
 const charactersSortField = computed(() => activeTab.value === 'wvw' ? 'wvwLogs' : 'pveLogs')
+const formatInt = (value: number) => Math.round(Number(value) || 0).toLocaleString()
 </script>
+
+<style scoped>
+.playstyle-table {
+  margin-bottom: 1rem;
+}
+</style>

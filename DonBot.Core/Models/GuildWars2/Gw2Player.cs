@@ -32,6 +32,10 @@ public class Gw2Player
 
     public double StabOffGroup { get; set; }
 
+    public double QuicknessGenGroup { get; set; }
+
+    public double AlacGenGroup { get; set; }
+
     public long Healing { get; set; }
 
     public long BarrierGenerated { get; set; }

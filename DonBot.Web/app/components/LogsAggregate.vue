@@ -38,6 +38,8 @@
             <StatCard label="Group DPS" :value="groupDps.toLocaleString()" />
             <StatCard label="Avg Quick" :value="`${avgQuick.toFixed(1)}%`" />
             <StatCard label="Avg Alac" :value="`${avgAlac.toFixed(1)}%`" />
+            <StatCard label="Avg Quick Gen" :value="`${avgQuickGen.toFixed(1)}%`" />
+            <StatCard label="Avg Alac Gen" :value="`${avgAlacGen.toFixed(1)}%`" />
           </template>
           <template v-else>
             <StatCard label="Damage Dealt" :value="wvwTotals.damage.toLocaleString()" />
@@ -46,6 +48,8 @@
             <StatCard label="Enemies Downed" :value="wvwTotals.downs.toLocaleString()" />
             <StatCard label="Group Deaths" :value="wvwTotals.deaths.toLocaleString()" />
             <StatCard label="Group Downed" :value="wvwTotals.timesDowned.toLocaleString()" />
+            <StatCard label="Avg Quick Gen" :value="`${avgQuickGen.toFixed(1)}%`" />
+            <StatCard label="Avg Alac Gen" :value="`${avgAlacGen.toFixed(1)}%`" />
           </template>
         </div>
       </div>
@@ -66,12 +70,16 @@
           <StatCard label="Enemies Downed" :value="wvwTotals.downs.toLocaleString()" />
           <StatCard label="Group Deaths" :value="wvwTotals.deaths.toLocaleString()" />
           <StatCard label="Group Downed" :value="wvwTotals.timesDowned.toLocaleString()" />
+          <StatCard label="Avg Quick Gen" :value="`${avgQuickGen.toFixed(1)}%`" />
+          <StatCard label="Avg Alac Gen" :value="`${avgAlacGen.toFixed(1)}%`" />
         </template>
         <template v-else>
           <StatCard label="Kills / Wipes" :value="`${pveKillsWipes.kills}K / ${pveKillsWipes.wipes}W`" />
           <StatCard label="Group DPS" :value="groupDps.toLocaleString()" />
           <StatCard label="Avg Quick" :value="`${avgQuick.toFixed(1)}%`" />
           <StatCard label="Avg Alac" :value="`${avgAlac.toFixed(1)}%`" />
+          <StatCard label="Avg Quick Gen" :value="`${avgQuickGen.toFixed(1)}%`" />
+          <StatCard label="Avg Alac Gen" :value="`${avgAlacGen.toFixed(1)}%`" />
         </template>
         <ProgressSpinner v-if="filterPending" style="width: 2rem; height: 2rem;" />
       </div>
@@ -137,6 +145,7 @@
           <Tab value="damage">Damage</Tab>
           <Tab value="support">Support</Tab>
           <Tab value="survivability">Survivability</Tab>
+          <Tab value="points">Points Earned</Tab>
           <Tab v-if="displayResult?.type !== 'wvw'" value="mechanics">Mechanics</Tab>
           <Tab v-if="displayResult?.type === 'wvw'" value="enemy">Know My Enemy</Tab>
         </TabList>
@@ -204,6 +213,12 @@
                   <template #header><i class="pi pi-users" v-tooltip.top="'Subgroup'" /></template>
                 </Column>
                 <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
+                <Column header="Role" :sortable="true" sort-field="playstyle" style="min-width: 115px;">
+                  <template #body="{ data }">
+                    <Tag v-if="playstyleLabel(data)" :severity="playstyleSeverity(data)" :value="playstyleLabel(data)" v-tooltip.top="playstyleTooltip(data) ?? undefined" />
+                    <span v-else class="points-muted">-</span>
+                  </template>
+                </Column>
                 <Column header="Damage" :sortable="true" sort-field="damage" style="min-width: 95px;">
                   <template #body="{ data }">{{ data.damage?.toLocaleString() ?? '0' }}</template>
                 </Column>
@@ -218,6 +233,7 @@
                     <Column footer="" />
                     <Column :footer="row.subGroupLabel" />
                     <Column :footer="row.rowLabel" />
+                    <Column footer="" />
                     <Column :footer="fmtN(row.damage)" />
                     <Column :footer="fmtN(row.damageDownContribution)" />
                     <Column :footer="fmtN(row.kills)" />
@@ -254,6 +270,12 @@
                   <template #header><i class="pi pi-users" v-tooltip.top="'Subgroup'" /></template>
                 </Column>
                 <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
+                <Column header="Role" :sortable="true" sort-field="playstyle" style="min-width: 115px;">
+                  <template #body="{ data }">
+                    <Tag v-if="playstyleLabel(data)" :severity="playstyleSeverity(data)" :value="playstyleLabel(data)" v-tooltip.top="playstyleTooltip(data) ?? undefined" />
+                    <span v-else class="points-muted">-</span>
+                  </template>
+                </Column>
                 <Column header="DPS" :sortable="true" sort-field="dps" style="min-width: 90px;">
                   <template #body="{ data }">{{ data.dps?.toLocaleString() ?? '0' }}</template>
                 </Column>
@@ -272,6 +294,7 @@
                     <Column footer="" />
                     <Column :footer="row.subGroupLabel" />
                     <Column :footer="row.rowLabel" />
+                    <Column footer="" />
                     <Column :footer="fmtN(row.dps)" />
                     <Column :footer="fmtN(row.cleaveDps)" />
                     <Column :footer="fmtPct(row.quicknessDuration)" />
@@ -284,7 +307,7 @@
 
           <TabPanel value="support">
             <template v-if="displayResult && filteredAggLogs.length > 0 && displayResult.type === 'wvw'">
-              <div v-if="showGraphs && (chartHasData(healingChartData) || chartHasData(barrierGenChartData) || chartHasData(stabOnChartData) || chartHasData(stabOffChartData) || chartHasData(cleansesChartData) || chartHasData(wvwBoonsRippedChartData) || chartHasData(stripsChartData) || chartHasData(interruptsChartData) || chartHasData(wvwQuickChartData))" class="charts-row mb-section">
+              <div v-if="showGraphs && (chartHasData(healingChartData) || chartHasData(barrierGenChartData) || chartHasData(stabOnChartData) || chartHasData(stabOffChartData) || chartHasData(cleansesChartData) || chartHasData(wvwBoonsRippedChartData) || chartHasData(stripsChartData) || chartHasData(interruptsChartData) || chartHasData(wvwQuickChartData) || chartHasData(wvwQuickGenChartData) || chartHasData(wvwAlacGenChartData))" class="charts-row mb-section">
                 <div v-if="chartHasData(healingChartData)" class="chart-container clickable-chart">
                   <div class="chart-label">Healing per Fight</div>
                   <Chart :type="chartType" :data="healingChartData" :options="clickableChartOptions" />
@@ -321,6 +344,14 @@
                   <div class="chart-label">Quickness % per Fight</div>
                   <Chart :type="chartType" :data="wvwQuickChartData" :options="clickableChartOptions" />
                 </div>
+                <div v-if="chartHasData(wvwQuickGenChartData)" class="chart-container clickable-chart">
+                  <div class="chart-label">Quick Gen % per Fight</div>
+                  <Chart :type="chartType" :data="wvwQuickGenChartData" :options="clickableChartOptions" />
+                </div>
+                <div v-if="chartHasData(wvwAlacGenChartData)" class="chart-container clickable-chart">
+                  <div class="chart-label">Alac Gen % per Fight</div>
+                  <Chart :type="chartType" :data="wvwAlacGenChartData" :options="clickableChartOptions" />
+                </div>
               </div>
               <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="healing" :sort-order="-1" data-key="accountName" :selection="selectedPlayers" @update:selection="onSelectionChange">
                 <Column selection-mode="multiple" header-style="width: 3rem" frozen />
@@ -331,6 +362,12 @@
                   <template #header><i class="pi pi-users" v-tooltip.top="'Subgroup'" /></template>
                 </Column>
                 <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
+                <Column header="Role" :sortable="true" sort-field="playstyle" style="min-width: 115px;">
+                  <template #body="{ data }">
+                    <Tag v-if="playstyleLabel(data)" :severity="playstyleSeverity(data)" :value="playstyleLabel(data)" v-tooltip.top="playstyleTooltip(data) ?? undefined" />
+                    <span v-else class="points-muted">-</span>
+                  </template>
+                </Column>
                 <Column header="Healing" :sortable="true" sort-field="healing" style="min-width: 105px;">
                   <template #body="{ data }">{{ data.healing?.toLocaleString() ?? '0' }}</template>
                 </Column>
@@ -344,6 +381,12 @@
                 <Column :sortable="true" sort-field="stabOffGroup" style="min-width: 100px;">
                   <template #header><span v-tooltip.top="'Stability generation on players in other subgroups'">Stab Off Gen</span></template>
                   <template #body="{ data }">{{ data.stabOffGroup }}</template>
+                </Column>
+                <Column header="Quick Gen" :sortable="true" sort-field="quicknessGenGroup" style="min-width: 90px;">
+                  <template #body="{ data }">{{ data.quicknessGenGroup }}%</template>
+                </Column>
+                <Column header="Alac Gen" :sortable="true" sort-field="alacGenGroup" style="min-width: 85px;">
+                  <template #body="{ data }">{{ data.alacGenGroup }}%</template>
                 </Column>
                 <Column header="Cleanses" :sortable="true" sort-field="cleanses" style="min-width: 95px;">
                   <template #body="{ data }">{{ data.cleanses?.toLocaleString() ?? '0' }}</template>
@@ -362,10 +405,13 @@
                     <Column footer="" />
                     <Column :footer="row.subGroupLabel" />
                     <Column :footer="row.rowLabel" />
+                    <Column footer="" />
                     <Column :footer="fmtN(row.healing)" />
                     <Column :footer="fmtN(row.barrierGenerated)" />
                     <Column :footer="fmtDec(row.stabOnGroup)" />
                     <Column :footer="fmtDec(row.stabOffGroup)" />
+                    <Column :footer="fmtPct(row.quicknessGenGroup)" />
+                    <Column :footer="fmtPct(row.alacGenGroup)" />
                     <Column :footer="fmtN(row.cleanses)" />
                     <Column :footer="fmtN(row.numberOfBoonsRipped)" />
                     <Column :footer="fmtN(row.strips)" />
@@ -376,7 +422,7 @@
               </DataTable>
             </template>
             <template v-else-if="displayResult && filteredAggLogs.length > 0">
-              <div v-if="showGraphs && (chartHasData(healingChartData) || chartHasData(barrierGenChartData) || chartHasData(cleansesChartData) || chartHasData(stripsChartData) || chartHasData(stabOnChartData) || chartHasData(stabOffChartData))" class="charts-row mb-section">
+              <div v-if="showGraphs && (chartHasData(healingChartData) || chartHasData(barrierGenChartData) || chartHasData(cleansesChartData) || chartHasData(stripsChartData) || chartHasData(stabOnChartData) || chartHasData(stabOffChartData) || chartHasData(pveQuickGenChartData) || chartHasData(pveAlacGenChartData))" class="charts-row mb-section">
                 <div v-if="chartHasData(healingChartData)" class="chart-container clickable-chart">
                   <div class="chart-label">Healing per Fight</div>
                   <Chart :type="chartType" :data="healingChartData" :options="clickableChartOptions" />
@@ -401,6 +447,14 @@
                   <div class="chart-label">Stab Off Group per Fight</div>
                   <Chart :type="chartType" :data="stabOffChartData" :options="clickableChartOptions" />
                 </div>
+                <div v-if="chartHasData(pveQuickGenChartData)" class="chart-container clickable-chart">
+                  <div class="chart-label">Quick Gen % per Fight</div>
+                  <Chart :type="chartType" :data="pveQuickGenChartData" :options="clickableChartOptions" />
+                </div>
+                <div v-if="chartHasData(pveAlacGenChartData)" class="chart-container clickable-chart">
+                  <div class="chart-label">Alac Gen % per Fight</div>
+                  <Chart :type="chartType" :data="pveAlacGenChartData" :options="clickableChartOptions" />
+                </div>
               </div>
               <DataTable v-if="showTables" :value="displayResult.players" striped-rows scrollable class="mb-section" sort-field="healing" :sort-order="-1" data-key="accountName" :selection="selectedPlayers" @update:selection="onSelectionChange">
                 <Column selection-mode="multiple" header-style="width: 3rem" frozen />
@@ -411,6 +465,12 @@
                   <template #header><i class="pi pi-users" v-tooltip.top="'Subgroup'" /></template>
                 </Column>
                 <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
+                <Column header="Role" :sortable="true" sort-field="playstyle" style="min-width: 115px;">
+                  <template #body="{ data }">
+                    <Tag v-if="playstyleLabel(data)" :severity="playstyleSeverity(data)" :value="playstyleLabel(data)" v-tooltip.top="playstyleTooltip(data) ?? undefined" />
+                    <span v-else class="points-muted">-</span>
+                  </template>
+                </Column>
                 <Column header="Healing" :sortable="true" sort-field="healing" style="min-width: 105px;">
                   <template #body="{ data }">{{ data.healing?.toLocaleString() ?? '0' }}</template>
                 </Column>
@@ -429,18 +489,27 @@
                 <Column header="Stab Off" :sortable="true" sort-field="stabOffGroup" style="min-width: 80px;">
                   <template #body="{ data }">{{ data.stabOffGroup }}</template>
                 </Column>
+                <Column header="Quick Gen" :sortable="true" sort-field="quicknessGenGroup" style="min-width: 90px;">
+                  <template #body="{ data }">{{ data.quicknessGenGroup }}%</template>
+                </Column>
+                <Column header="Alac Gen" :sortable="true" sort-field="alacGenGroup" style="min-width: 85px;">
+                  <template #body="{ data }">{{ data.alacGenGroup }}%</template>
+                </Column>
                 <ColumnGroup type="footer">
                   <Row v-for="row in supportPveSummary" :key="row.key" :class="{ 'summary-total': row.isTotal }">
                     <Column footer="" />
                     <Column footer="" />
                     <Column :footer="row.subGroupLabel" />
                     <Column :footer="row.rowLabel" />
+                    <Column footer="" />
                     <Column :footer="fmtN(row.healing)" />
                     <Column :footer="fmtN(row.barrierGenerated)" />
                     <Column :footer="fmtN(row.cleanses)" />
                     <Column :footer="fmtN(row.strips)" />
                     <Column :footer="fmtDec(row.stabOnGroup)" />
                     <Column :footer="fmtDec(row.stabOffGroup)" />
+                    <Column :footer="fmtPct(row.quicknessGenGroup)" />
+                    <Column :footer="fmtPct(row.alacGenGroup)" />
                   </Row>
                 </ColumnGroup>
               </DataTable>
@@ -516,6 +585,12 @@
                   <template #header><i class="pi pi-users" v-tooltip.top="'Subgroup'" /></template>
                 </Column>
                 <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
+                <Column header="Role" :sortable="true" sort-field="playstyle" style="min-width: 115px;">
+                  <template #body="{ data }">
+                    <Tag v-if="playstyleLabel(data)" :severity="playstyleSeverity(data)" :value="playstyleLabel(data)" v-tooltip.top="playstyleTooltip(data) ?? undefined" />
+                    <span v-else class="points-muted">-</span>
+                  </template>
+                </Column>
                 <Column field="deaths" header="Deaths" :sortable="true" style="min-width: 70px;" />
                 <Column field="timesDowned" header="Downed" :sortable="true" style="min-width: 70px;" />
                 <Column field="firstToDie" header="Died 1st" :sortable="true" style="min-width: 75px;" />
@@ -538,6 +613,7 @@
                     <Column footer="" />
                     <Column :footer="row.subGroupLabel" />
                     <Column :footer="row.rowLabel" />
+                    <Column footer="" />
                     <Column :footer="fmtN(row.deaths)" />
                     <Column :footer="fmtN(row.timesDowned)" />
                     <Column :footer="fmtN(row.firstToDie)" />
@@ -583,6 +659,12 @@
                   <template #header><i class="pi pi-users" v-tooltip.top="'Subgroup'" /></template>
                 </Column>
                 <Column field="accountName" header="Account" :sortable="true" frozen style="min-width: 160px;" />
+                <Column header="Role" :sortable="true" sort-field="playstyle" style="min-width: 115px;">
+                  <template #body="{ data }">
+                    <Tag v-if="playstyleLabel(data)" :severity="playstyleSeverity(data)" :value="playstyleLabel(data)" v-tooltip.top="playstyleTooltip(data) ?? undefined" />
+                    <span v-else class="points-muted">-</span>
+                  </template>
+                </Column>
                 <Column field="deaths" header="Deaths" :sortable="true" style="min-width: 70px;" />
                 <Column field="timesDowned" header="Downed" :sortable="true" style="min-width: 70px;" />
                 <Column field="firstToDie" header="Died 1st" :sortable="true" style="min-width: 75px;" />
@@ -598,6 +680,7 @@
                     <Column footer="" />
                     <Column :footer="row.subGroupLabel" />
                     <Column :footer="row.rowLabel" />
+                    <Column footer="" />
                     <Column :footer="fmtN(row.deaths)" />
                     <Column :footer="fmtN(row.timesDowned)" />
                     <Column :footer="fmtN(row.firstToDie)" />
@@ -607,6 +690,58 @@
                 </ColumnGroup>
               </DataTable>
             </template>
+          </TabPanel>
+
+          <TabPanel value="points">
+            <div v-if="pointsSummary" class="points-tab">
+              <div class="points-overview">
+                <StatCard label="Points Awarded" :value="pointsSummary.totalPoints" />
+                <StatCard label="Awarded Players" :value="pointsSummary.awardedPlayers" />
+                <StatCard label="Components" :value="pointsSummary.components?.length ?? 0" />
+              </div>
+
+              <DataTable v-if="pointsRows.length" :value="pointsRows" striped-rows scrollable size="small" sort-field="totalPoints" :sort-order="-1">
+                <Column field="accountName" header="Account" frozen style="min-width: 160px;" />
+                <Column field="fightCount" header="Fights" style="width: 5rem;" />
+                <Column header="Points" :sortable="true" sort-field="totalPoints" style="width: 7rem;">
+                  <template #body="{ data }">{{ formatPointValue(data.totalPoints) }}</template>
+                </Column>
+                <Column header="Components" style="min-width: 260px;">
+                  <template #body="{ data }">
+                    <div v-if="data.components?.length" class="point-component-tags">
+                      <Tag
+                        v-for="component in data.components"
+                        :key="component.metric"
+                        severity="secondary"
+                        :value="`${component.metricLabel}: ${formatPointValue(component.points)}`"
+                      />
+                    </div>
+                    <span v-else class="points-muted">No points earned</span>
+                  </template>
+                </Column>
+                <Column header="Logs" style="min-width: 300px;">
+                  <template #body="{ data }">
+                    <div v-if="data.logs?.length" class="point-log-stack">
+                      <button
+                        v-for="log in data.logs"
+                        :key="log.fightLogId"
+                        class="point-log-row"
+                        type="button"
+                        @click="onPointLogClick(log.fightLogId)"
+                      >
+                        <span>{{ fightName(log.fightType) }}</span>
+                        <strong>{{ formatPointValue(log.totalPoints) }}</strong>
+                      </button>
+                    </div>
+                    <span v-else class="points-muted">-</span>
+                  </template>
+                </Column>
+              </DataTable>
+
+              <Message v-else severity="secondary" :closable="false">
+                No points were awarded for these logs.
+              </Message>
+            </div>
           </TabPanel>
 
           <TabPanel value="mechanics">
@@ -749,6 +884,9 @@ const singleLog = computed(() => {
   return logs.length === 1 ? logs[0] : null
 })
 
+const pointsSummary = computed(() => displayResult.value?.points ?? null)
+const pointsRows = computed(() => pointsSummary.value?.players ?? [])
+
 const groupDps = computed(() => {
   const players = displayResult.value?.players ?? []
   return Math.round(players.reduce((s: number, p: any) => s + (Number(p.dps) || 0), 0))
@@ -768,6 +906,22 @@ const avgAlac = computed(() => {
     return 0
   }
   return players.reduce((s: number, p: any) => s + (Number(p.alacDuration) || 0), 0) / players.length
+})
+
+const avgQuickGen = computed(() => {
+  const players = (displayResult.value?.players ?? []).filter((p: any) => Number(p.quicknessGenGroup) > 0)
+  if (players.length === 0) {
+    return 0
+  }
+  return players.reduce((s: number, p: any) => s + (Number(p.quicknessGenGroup) || 0), 0) / players.length
+})
+
+const avgAlacGen = computed(() => {
+  const players = (displayResult.value?.players ?? []).filter((p: any) => Number(p.alacGenGroup) > 0)
+  if (players.length === 0) {
+    return 0
+  }
+  return players.reduce((s: number, p: any) => s + (Number(p.alacGenGroup) || 0), 0) / players.length
 })
 
 const wvwWinLoss = computed(() => {
@@ -864,6 +1018,67 @@ const fmtN = (v: number) => Math.round(v ?? 0).toLocaleString()
 const fmtPct = (v: number) => `${(v ?? 0).toFixed(2)}%`
 const fmtDec = (v: number, d = 2) => (v ?? 0).toFixed(d)
 const fmtSec = (v: number) => ((v ?? 0) / 1000).toFixed(1)
+const formatPointValue = (v: number) => Number(v ?? 0).toLocaleString(undefined, { maximumFractionDigits: 3 })
+
+const playstyleLabels: Record<string, string> = {
+  dps: 'DPS',
+  'boon-dps': 'Boon DPS',
+  'boon-healer': 'Boon Healer',
+  mechanic: 'Mechanic',
+  'support-dps': 'Support DPS',
+  support: 'Support',
+  'heal-support': 'Heal Support',
+}
+
+const playstyleKeyFromRow = (row: any) => {
+  const breakdown = row?.playstyleBreakdown ?? []
+  if (breakdown.length === 1) {
+    return breakdown[0].key as string
+  }
+  const raw = String(row?.playstyle ?? '')
+  if (playstyleLabels[raw]) {
+    return raw
+  }
+  const match = Object.entries(playstyleLabels).find(([, label]) => label === raw)
+  return match?.[0] ?? raw
+}
+
+const playstyleLabel = (row: any) => {
+  const raw = String(row?.playstyle ?? '')
+  if (raw === 'Mixed') {
+    return raw
+  }
+  const key = playstyleKeyFromRow(row)
+  return playstyleLabels[key] ?? raw
+}
+
+const playstyleTooltip = (row: any) => {
+  const breakdown = row?.playstyleBreakdown ?? []
+  if (breakdown.length <= 1) {
+    return null
+  }
+  return breakdown.map((r: any) => `${r.count} ${r.label}`).join('\n')
+}
+
+const playstyleSeverity = (row: any) => {
+  const key = playstyleKeyFromRow(row)
+  if (String(row?.playstyle ?? '') === 'Mixed') {
+    return 'secondary'
+  }
+  if (key === 'boon-healer' || key === 'heal-support') {
+    return 'info'
+  }
+  if (key === 'boon-dps' || key === 'support-dps') {
+    return 'success'
+  }
+  if (key === 'support') {
+    return 'warn'
+  }
+  if (key === 'mechanic') {
+    return 'contrast'
+  }
+  return 'secondary'
+}
 
 const damageWvwSummary = computed(() => buildSummary(displayResult.value?.players ?? [], {
   damage: 'sum', damageDownContribution: 'sum', kills: 'sum', downs: 'sum',
@@ -874,11 +1089,12 @@ const damagePveSummary = computed(() => buildSummary(displayResult.value?.player
 const supportWvwSummary = computed(() => buildSummary(displayResult.value?.players ?? [], {
   healing: 'sum', cleanses: 'sum', strips: 'sum', barrierGenerated: 'sum',
   stabOnGroup: 'avg', stabOffGroup: 'avg',
+  quicknessGenGroup: 'avg', alacGenGroup: 'avg',
   interrupts: 'sum', numberOfBoonsRipped: 'sum', quicknessDuration: 'avg',
 }))
 const supportPveSummary = computed(() => buildSummary(displayResult.value?.players ?? [], {
   healing: 'sum', barrierGenerated: 'sum', cleanses: 'sum', strips: 'sum',
-  stabOnGroup: 'avg', stabOffGroup: 'avg',
+  stabOnGroup: 'avg', stabOffGroup: 'avg', quicknessGenGroup: 'avg', alacGenGroup: 'avg',
 }))
 const survivabilityWvwSummary = computed(() => buildSummary(displayResult.value?.players ?? [], {
   deaths: 'sum', timesDowned: 'sum', firstToDie: 'sum', damageTaken: 'sum',
@@ -987,6 +1203,14 @@ const onRowAction = (row: any) => {
 const onLogRowClick = (event: any) => {
   if (props.rowAction === 'select') {
     emit('select-log', event.data.fightLogId)
+  }
+}
+
+const onPointLogClick = (fightLogId: number) => {
+  if (props.rowAction === 'select') {
+    emit('select-log', fightLogId)
+  } else {
+    navigateTo(`/logs/${fightLogId}`)
   }
 }
 
@@ -1180,11 +1404,15 @@ const tagRadialPoints = computed(() => {
   })
 })
 const wvwQuickChartData = chartData(p => p.quicknessDuration, true)
+const wvwQuickGenChartData = chartData(p => p.quicknessGenGroup, true)
+const wvwAlacGenChartData = chartData(p => p.alacGenGroup, true)
 
 const pveDpsChartData = chartData(p => p.dps)
 const pveCleaveDpsChartData = chartData(p => p.cleaveDps)
 const pveAlacChartData = chartData(p => p.alacDuration, true)
 const pveQuickChartData = chartData(p => p.quicknessDuration, true)
+const pveQuickGenChartData = chartData(p => p.quicknessGenGroup, true)
+const pveAlacGenChartData = chartData(p => p.alacGenGroup, true)
 
 const deathsChartData = chartData(p => p.deaths)
 const downedChartData = chartData(p => p.timesDowned)
@@ -1349,6 +1577,59 @@ defineExpose({ reload: loadInitial })
 .mechanic-group {
   margin-top: 0.25rem;
 }
+
+.points-tab {
+  display: grid;
+  gap: 1rem;
+}
+
+.points-overview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.point-component-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.point-log-stack {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.point-log-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  border: 1px solid var(--p-surface-border);
+  border-radius: 6px;
+  background: var(--p-surface-ground);
+  color: var(--p-text-color);
+  padding: 0.35rem 0.5rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.point-log-row:hover {
+  border-color: var(--p-primary-color);
+}
+
+.point-log-row strong {
+  color: var(--p-primary-color);
+  white-space: nowrap;
+}
+
+.points-muted {
+  color: var(--p-text-muted-color);
+  font-size: 0.8rem;
+}
+
 .mechanic-group :deep(.collapsible-section) {
   margin-top: 0.5rem;
 }

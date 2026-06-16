@@ -34,6 +34,8 @@ internal sealed class InMemoryEntityService : IEntityService
 
     public IDatabaseUpdateService<PlayerFightLogMechanic> PlayerFightLogMechanic => PlayerFightLogMechanicRepo;
 
+    public IDatabaseUpdateService<PlayerPointAward> PlayerPointAward => PlayerPointAwardRepo;
+
     public IDatabaseUpdateService<PlayerRaffleBid> PlayerRaffleBid => PlayerRaffleBidRepo;
 
     public IDatabaseUpdateService<Raffle> Raffle => RaffleRepo;
@@ -51,6 +53,8 @@ internal sealed class InMemoryEntityService : IEntityService
     private InMemoryRepo<GuildWarsAccount> GuildWarsAccountRepo { get; } = new();
 
     private InMemoryRepo<PlayerFightLogMechanic> PlayerFightLogMechanicRepo { get; } = new();
+
+    private InMemoryRepo<PlayerPointAward> PlayerPointAwardRepo { get; } = new();
 
     private InMemoryRepo<PlayerRaffleBid> PlayerRaffleBidRepo { get; } = new();
 

@@ -19,6 +19,7 @@ public static class PointsEndpoints
     {
         var pointsGroup = app.MapGroup("/api/points").RequireAuthorization();
         pointsGroup.MapGet("/me", GetMyPoints);
+        pointsGroup.MapGet("/history", GetPointHistory);
 
         var rafflesGroup = app.MapGroup("/api/raffles").RequireAuthorization();
         rafflesGroup.MapGet("/", GetRaffles);
@@ -219,6 +220,120 @@ public static class PointsEndpoints
         }
 
         return Results.Ok(account);
+    }
+
+    private static async Task<IResult> GetPointHistory(
+        ClaimsPrincipal user,
+        IDbContextFactory<DatabaseContext> dbContextFactory,
+        int take = 100,
+        CancellationToken ct = default)
+    {
+        if (!TryGetDiscordId(user, out var discordId))
+        {
+            return Results.Unauthorized();
+        }
+
+        take = Math.Clamp(take, 1, 250);
+
+        await using var context = await dbContextFactory.CreateDbContextAsync(ct);
+        var account = await context.Account.FirstOrDefaultAsync(a => a.DiscordId == discordId, ct);
+
+        var rows = await (
+            from award in context.PlayerPointAward
+            join fight in context.FightLog on award.FightLogId equals fight.FightLogId
+            where award.DiscordId == discordId
+            select new { Award = award, Fight = fight })
+            .ToListAsync(ct);
+
+        var recent = rows
+            .GroupBy(r => new
+            {
+                r.Award.FightLogId,
+                r.Award.PlayerFightLogId,
+                r.Award.GuildWarsAccountName,
+                r.Fight.FightType,
+                r.Fight.FightStart,
+                r.Fight.Url
+            })
+            .Select(g => new
+            {
+                fightLogId = g.Key.FightLogId,
+                playerFightLogId = g.Key.PlayerFightLogId,
+                accountName = g.Key.GuildWarsAccountName,
+                fightType = g.Key.FightType,
+                fightStart = g.Key.FightStart,
+                url = g.Key.Url,
+                awardedAt = g.Max(r => r.Award.AwardedAt),
+                awardId = g.Max(r => r.Award.PlayerPointAwardId),
+                totalPoints = Math.Round(g.Sum(r => r.Award.Points), 3),
+                components = g
+                    .OrderByDescending(r => r.Award.Points)
+                    .Select(r => new
+                    {
+                        r.Award.Metric,
+                        r.Award.MetricLabel,
+                        r.Award.MetricValue,
+                        r.Award.PercentileValue,
+                        r.Award.BasePoints,
+                        r.Award.Multiplier,
+                        r.Award.Points,
+                        r.Award.Reason,
+                    })
+                    .ToList()
+            })
+            .OrderByDescending(r => r.awardedAt)
+            .ThenByDescending(r => r.awardId)
+            .Take(take)
+            .Select(r => new
+            {
+                r.fightLogId,
+                r.playerFightLogId,
+                r.accountName,
+                r.fightType,
+                r.fightStart,
+                r.url,
+                r.totalPoints,
+                r.components
+            })
+            .ToList();
+
+        var last30Start = DateTime.UtcNow.AddDays(-30);
+        var summary = new
+        {
+            totalEarned = account?.Points ?? rows.Sum(r => r.Award.Points),
+            availablePoints = account?.AvailablePoints ?? 0m,
+            spentPoints = account is null ? 0m : Math.Max(account.Points - account.AvailablePoints, 0m),
+            earnedLast30Days = Math.Round(rows.Where(r => r.Award.AwardedAt >= last30Start).Sum(r => r.Award.Points), 3),
+            awardedLogs = rows.Select(r => r.Award.FightLogId).Distinct().Count(),
+            lastAwardAt = rows.Count > 0 ? rows.Max(r => r.Award.AwardedAt) : (DateTime?)null,
+        };
+
+        var byComponent = rows
+            .GroupBy(r => new { r.Award.Metric, r.Award.MetricLabel })
+            .Select(g => new
+            {
+                metric = g.Key.Metric,
+                metricLabel = g.Key.MetricLabel,
+                points = Math.Round(g.Sum(r => r.Award.Points), 3),
+                count = g.Count(),
+            })
+            .OrderByDescending(g => g.points)
+            .ThenBy(g => g.metricLabel)
+            .ToList();
+
+        var byFightType = rows
+            .GroupBy(r => r.Fight.FightType)
+            .Select(g => new
+            {
+                fightType = g.Key,
+                points = Math.Round(g.Sum(r => r.Award.Points), 3),
+                count = g.Select(r => r.Award.FightLogId).Distinct().Count(),
+            })
+            .OrderByDescending(g => g.points)
+            .ThenBy(g => g.fightType)
+            .ToList();
+
+        return Results.Ok(new { account, summary, byComponent, byFightType, recent });
     }
 
     private static async Task<IResult> GetRaffles(
@@ -1217,6 +1332,7 @@ public static class PointsEndpoints
         await using var context = await dbContextFactory.CreateDbContextAsync();
 
         var account = await context.Account.FirstOrDefaultAsync(a => a.DiscordId == discordId);
+        var pointSummary = await BuildDashboardPointSummaryAsync(context, discordId, days);
 
         var gw2Accounts = await context.GuildWarsAccount
             .Where(a => a.DiscordId == discordId)
@@ -1230,7 +1346,7 @@ public static class PointsEndpoints
 
         if (gw2Names.Count == 0)
         {
-            return Results.Ok(new { account, gw2Accounts, lastFightDate = (DateTime?)null, fights = (object?)null });
+            return Results.Ok(new { account, gw2Accounts, lastFightDate = (DateTime?)null, fights = (object?)null, points = pointSummary });
         }
 
         var joinedBase = from pfl in context.PlayerFightLog
@@ -1265,13 +1381,15 @@ public static class PointsEndpoints
                 TotalStrips = g.Sum(x => x.Pfl.Strips),
                 TotalDownContribution = g.Sum(x => x.FightType == 0 ? x.Pfl.DamageDownContribution : 0L),
                 AvgQuickness = g.Average(x => (double)x.Pfl.QuicknessDuration),
-                AvgAlac = g.Average(x => (double)x.Pfl.AlacDuration)
+                AvgAlac = g.Average(x => (double)x.Pfl.AlacDuration),
+                AvgQuicknessGen = g.Average(x => (double)x.Pfl.QuicknessGenGroup),
+                AvgAlacGen = g.Average(x => (double)x.Pfl.AlacGenGroup)
             })
             .FirstOrDefaultAsync();
 
         if (totals is null)
         {
-            return Results.Ok(new { account, gw2Accounts, lastFightDate, fights = (object?)null });
+            return Results.Ok(new { account, gw2Accounts, lastFightDate, fights = (object?)null, points = pointSummary });
         }
 
         var bestDamageFight = await joined
@@ -1305,10 +1423,54 @@ public static class PointsEndpoints
             totalDownContribution = totals.TotalDownContribution,
             avgQuickness = totals.AvgQuickness,
             avgAlac = totals.AvgAlac,
+            avgQuicknessGen = totals.AvgQuicknessGen,
+            avgAlacGen = totals.AvgAlacGen,
             bestDamageFight,
             bestKillsFight
         };
 
-        return Results.Ok(new { account, gw2Accounts, lastFightDate, fights, characterCount });
+        return Results.Ok(new { account, gw2Accounts, lastFightDate, fights, characterCount, points = pointSummary });
+    }
+
+    private static async Task<object> BuildDashboardPointSummaryAsync(DatabaseContext context, long discordId, int? days)
+    {
+        var query = context.PlayerPointAward.Where(a => a.DiscordId == discordId);
+        if (days is > 0)
+        {
+            var since = DateTime.UtcNow.AddDays(-days.Value);
+            query = query.Where(a => a.AwardedAt >= since);
+        }
+
+        var rows = await query.ToListAsync();
+        if (rows.Count == 0)
+        {
+            return new
+            {
+                earned = 0m,
+                awardedLogs = 0,
+                topComponent = (object?)null,
+                lastAwardAt = (DateTime?)null,
+            };
+        }
+
+        var topComponent = rows
+            .GroupBy(a => a.MetricLabel)
+            .Select(g => new
+            {
+                metricLabel = g.Key,
+                points = Math.Round(g.Sum(a => a.Points), 3),
+                count = g.Count(),
+            })
+            .OrderByDescending(g => g.points)
+            .ThenBy(g => g.metricLabel)
+            .FirstOrDefault();
+
+        return new
+        {
+            earned = Math.Round(rows.Sum(a => a.Points), 3),
+            awardedLogs = rows.Select(a => a.FightLogId).Distinct().Count(),
+            topComponent,
+            lastAwardAt = rows.Max(a => a.AwardedAt),
+        };
     }
 }

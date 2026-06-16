@@ -22,6 +22,8 @@ public interface IEntityService
 
     IDatabaseUpdateService<PlayerFightLogMechanic> PlayerFightLogMechanic { get; }
 
+    IDatabaseUpdateService<PlayerPointAward> PlayerPointAward { get; }
+
     IDatabaseUpdateService<PlayerRaffleBid> PlayerRaffleBid { get; }
 
     IDatabaseUpdateService<Raffle> Raffle { get; }

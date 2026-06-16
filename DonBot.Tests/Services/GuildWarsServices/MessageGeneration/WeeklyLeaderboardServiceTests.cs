@@ -23,8 +23,8 @@ public class WeeklyLeaderboardServiceTests
         Assert.StartsWith("PvE Weekly Leaderboard", embed.Title);
         Assert.Contains("Week of", embed.Description);
         var fieldNames = embed.Fields.Select(f => f.Name).ToList();
-        Assert.Contains("DPS", fieldNames);
-        Assert.Contains("Cleave DPS", fieldNames);
+        Assert.Contains("DPS - DPS", fieldNames);
+        Assert.Contains("Cleave - DPS", fieldNames);
         Assert.Contains("Res Time", fieldNames);
         Assert.Contains("Damage Taken", fieldNames);
         Assert.Contains("Times Downed", fieldNames);
@@ -55,7 +55,7 @@ public class WeeklyLeaderboardServiceTests
 
         Assert.StartsWith("WvW Weekly Leaderboard", embeds[0].Title);
         var firstFields = embeds[0].Fields.Select(f => f.Name).ToList();
-        Assert.Contains("Damage", firstFields);
+        Assert.Contains("Damage - DPS", firstFields);
         Assert.Contains("Cleanses", firstFields);
         Assert.Contains("Strips", firstFields);
         Assert.Contains("Stab", firstFields);

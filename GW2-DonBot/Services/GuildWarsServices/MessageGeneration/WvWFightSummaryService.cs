@@ -18,6 +18,7 @@ public sealed class WvWFightSummaryService(
     IPlayerService playerService,
     IFooterService footerService,
     IDbContextFactory<DatabaseContext> dbContextFactory,
+    IPointsAwardService pointsAwardService,
     IConfiguration configuration) : IWvWFightSummaryService
 {
     private const int NameWidth = DiscordDisplayConstants.PlayerNameWidth;
@@ -205,43 +206,58 @@ public sealed class WvWFightSummaryService(
                     RawBarrierData = data.RawBarrierData
                 });
 
-                var playerFights = gw2Players.Select(gw2Player => new PlayerFightLog
+                var averageGroupDps = PlayerFightLogRoleClassifier.GetAverageGroupDps(gw2Players, fightLog.FightDurationInMs);
+                var wvwBenchmarks = PlayerFightLogPlaystyleClassifier.BuildWvwBenchmarks(gw2Players, fightLog.FightDurationInMs);
+                var playerFights = gw2Players.Select(gw2Player =>
                 {
-                    FightLogId = fightLog.FightLogId,
-                    GuildWarsAccountName = gw2Player.AccountName,
-                    CharacterName = gw2Player.CharacterName,
-                    Damage = gw2Player.Damage,
-                    Cleave = gw2Player.Cleave,
-                    Kills = gw2Player.Kills,
-                    Downs = gw2Player.Downs,
-                    Deaths = gw2Player.Deaths,
-                    QuicknessDuration = Convert.ToDecimal(gw2Player.TotalQuick),
-                    AlacDuration = Convert.ToDecimal(gw2Player.TotalAlac),
-                    SubGroup = gw2Player.SubGroup,
-                    DamageDownContribution = gw2Player.DamageDownContribution,
-                    Cleanses = Convert.ToInt64(gw2Player.Cleanses),
-                    Strips = Convert.ToInt64(gw2Player.Strips),
-                    StabGenOnGroup = Convert.ToDecimal(gw2Player.StabOnGroup),
-                    StabGenOffGroup = Convert.ToDecimal(gw2Player.StabOffGroup),
-                    Healing = gw2Player.Healing,
-                    BarrierGenerated = gw2Player.BarrierGenerated,
-                    DistanceFromTag = Convert.ToDecimal(gw2Player.DistanceFromTag),
-                    TimesDowned = Convert.ToInt32(gw2Player.TimesDowned),
-                    Interrupts = gw2Player.Interrupts,
-                    NumberOfHitsWhileBlinded = gw2Player.NumberOfHitsWhileBlinded,
-                    NumberOfMissesAgainst = Convert.ToInt64(gw2Player.NumberOfMissesAgainst),
-                    NumberOfTimesBlockedAttack = Convert.ToInt64(gw2Player.NumberOfTimesBlockedAttack),
-                    NumberOfTimesEnemyBlockedAttack = gw2Player.NumberOfTimesEnemyBlockedAttack,
-                    NumberOfBoonsRipped = Convert.ToInt64(gw2Player.NumberOfBoonsRipped),
-                    DamageTaken = Convert.ToInt64(gw2Player.DamageTaken),
-                    BarrierMitigation = Convert.ToInt64(gw2Player.BarrierMitigation),
-                    TimesInterrupted = gw2Player.TimesInterrupted,
-                    ResurrectionTime = gw2Player.ResurrectionTime,
-                    TimeOfDeath = gw2Player.TimeOfDeath,
+                    var boonRole = PlayerFightLogRoleClassifier.ResolveBoonRole(gw2Player, fightLog.FightDurationInMs, averageGroupDps);
+                    return new PlayerFightLog
+                    {
+                        FightLogId = fightLog.FightLogId,
+                        GuildWarsAccountName = gw2Player.AccountName,
+                        CharacterName = gw2Player.CharacterName,
+                        Damage = gw2Player.Damage,
+                        Cleave = gw2Player.Cleave,
+                        Kills = gw2Player.Kills,
+                        Downs = gw2Player.Downs,
+                        Deaths = gw2Player.Deaths,
+                        QuicknessDuration = Convert.ToDecimal(gw2Player.TotalQuick),
+                        AlacDuration = Convert.ToDecimal(gw2Player.TotalAlac),
+                        QuicknessGenGroup = Convert.ToDecimal(gw2Player.QuicknessGenGroup),
+                        AlacGenGroup = Convert.ToDecimal(gw2Player.AlacGenGroup),
+                        BoonRole = boonRole,
+                        Playstyle = PlayerFightLogPlaystyleClassifier.ResolveWvwPlaystyle(gw2Player, fightLog.FightDurationInMs, wvwBenchmarks),
+                        SubGroup = gw2Player.SubGroup,
+                        DamageDownContribution = gw2Player.DamageDownContribution,
+                        Cleanses = Convert.ToInt64(gw2Player.Cleanses),
+                        Strips = Convert.ToInt64(gw2Player.Strips),
+                        StabGenOnGroup = Convert.ToDecimal(gw2Player.StabOnGroup),
+                        StabGenOffGroup = Convert.ToDecimal(gw2Player.StabOffGroup),
+                        Healing = gw2Player.Healing,
+                        BarrierGenerated = gw2Player.BarrierGenerated,
+                        DistanceFromTag = Convert.ToDecimal(gw2Player.DistanceFromTag),
+                        TimesDowned = Convert.ToInt32(gw2Player.TimesDowned),
+                        Interrupts = gw2Player.Interrupts,
+                        NumberOfHitsWhileBlinded = gw2Player.NumberOfHitsWhileBlinded,
+                        NumberOfMissesAgainst = Convert.ToInt64(gw2Player.NumberOfMissesAgainst),
+                        NumberOfTimesBlockedAttack = Convert.ToInt64(gw2Player.NumberOfTimesBlockedAttack),
+                        NumberOfTimesEnemyBlockedAttack = gw2Player.NumberOfTimesEnemyBlockedAttack,
+                        NumberOfBoonsRipped = Convert.ToInt64(gw2Player.NumberOfBoonsRipped),
+                        DamageTaken = Convert.ToInt64(gw2Player.DamageTaken),
+                        BarrierMitigation = Convert.ToInt64(gw2Player.BarrierMitigation),
+                        TimesInterrupted = gw2Player.TimesInterrupted,
+                        ResurrectionTime = gw2Player.ResurrectionTime,
+                        TimeOfDeath = gw2Player.TimeOfDeath,
+                    };
                 })
                     .ToList();
 
                 await entityService.PlayerFightLog.AddRangeAsync(playerFights);
+            }
+
+            if (fightLog != null)
+            {
+                await pointsAwardService.AwardFightAsync(fightLog.FightLogId);
             }
         }
 

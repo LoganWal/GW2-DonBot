@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using DonBot.Core.Models.Entities;
 using DonBot.Core.Models.Enums;
+using DonBot.Core.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace DonBot.Api.Endpoints;
@@ -18,7 +19,8 @@ public static class StatsEndpoints
 
     private static async Task<IResult> GetMyStats(
         ClaimsPrincipal user,
-        IDbContextFactory<DatabaseContext> dbContextFactory)
+        IDbContextFactory<DatabaseContext> dbContextFactory,
+        int? days = null)
     {
         var discordIdStr = user.FindFirst("discord_id")?.Value;
         if (!long.TryParse(discordIdStr, out var discordId))
@@ -45,8 +47,25 @@ public static class StatsEndpoints
         var fightLogIds = playerLogs.Select(p => p.FightLogId).Distinct().ToList();
         var fightMeta = await context.FightLog
             .Where(fl => fightLogIds.Contains(fl.FightLogId))
-            .Select(fl => new { fl.FightLogId, fl.FightType, fl.FightDurationInMs })
+            .Select(fl => new { fl.FightLogId, fl.FightType, fl.FightDurationInMs, fl.FightStart })
             .ToListAsync();
+
+        if (days is > 0)
+        {
+            var since = DateTime.UtcNow.AddDays(-days.Value);
+            fightMeta = fightMeta
+                .Where(fl => fl.FightStart >= since)
+                .ToList();
+            var filteredFightLogIds = fightMeta.Select(fl => fl.FightLogId).ToHashSet();
+            playerLogs = playerLogs
+                .Where(p => filteredFightLogIds.Contains(p.FightLogId))
+                .ToList();
+        }
+
+        if (playerLogs.Count == 0)
+        {
+            return Results.Ok(new { wvw = (object?)null, pve = (object?)null, characters = Array.Empty<object>() });
+        }
 
         var typeById = fightMeta.ToDictionary(x => x.FightLogId, x => x.FightType);
         var durationById = fightMeta.ToDictionary(x => x.FightLogId, x => x.FightDurationInMs);
@@ -110,6 +129,8 @@ public static class StatsEndpoints
             avgStripsPerSecond = s > 0 ? Math.Round(totalStrips / s, 2) : 0,
             avgQuickness = logs.Average(p => (double)p.QuicknessDuration),
             avgAlac = logs.Average(p => (double)p.AlacDuration),
+            avgQuicknessGen = logs.Average(p => (double)p.QuicknessGenGroup),
+            avgAlacGen = logs.Average(p => (double)p.AlacGenGroup),
             avgStabOnGroup = logs.Average(p => (double)p.StabGenOnGroup),
             avgStabOffGroup = logs.Average(p => (double)p.StabGenOffGroup),
             totalTimesDowned = logs.Sum(p => p.TimesDowned),
@@ -123,7 +144,8 @@ public static class StatsEndpoints
             totalBarrierMitigation,
             barrierMitigationPercent = totalDamageTaken > 0
                 ? Math.Round(totalBarrierMitigation / totalDamageTaken * 100, 2)
-                : 0
+                : 0,
+            playstyleBreakdown = BuildWvwPlaystyleStats(logs, durationById)
         };
     }
 
@@ -147,12 +169,95 @@ public static class StatsEndpoints
             avgHealingPerSecond = s > 0 ? (long)(totalHealing / s) : 0,
             avgQuickness = logs.Average(p => (double)p.QuicknessDuration),
             avgAlac = logs.Average(p => (double)p.AlacDuration),
+            avgQuicknessGen = logs.Average(p => (double)p.QuicknessGenGroup),
+            avgAlacGen = logs.Average(p => (double)p.AlacGenGroup),
             totalResurrectionTime = logs.Sum(p => p.ResurrectionTime),
             totalDamageTaken = logs.Sum(p => p.DamageTaken),
             totalTimesDowned = logs.Sum(p => p.TimesDowned),
-            totalDeaths = logs.Sum(p => p.Deaths)
+            totalDeaths = logs.Sum(p => p.Deaths),
+            playstyleBreakdown = BuildPvePlaystyleStats(logs, durationById)
         };
     }
+
+    private static IReadOnlyList<object> BuildPvePlaystyleStats(
+        List<PlayerFightLog> logs,
+        Dictionary<long, long> durationById) =>
+        BuildPlaystyleStats(
+            logs.Select(log => new PlaystyleLog(
+                log,
+                PlayerFightLogPlaystyleClassifier.ResolvePlaystyle(
+                    log,
+                    isWvW: false,
+                    GetDuration(durationById, log.FightLogId)))),
+            PlayerFightLogPlaystyleClassifier.PvePlaystyles,
+            durationById);
+
+    private static IReadOnlyList<object> BuildWvwPlaystyleStats(
+        List<PlayerFightLog> logs,
+        Dictionary<long, long> durationById)
+    {
+        var benchmarks = PlayerFightLogPlaystyleClassifier.BuildWvwBenchmarks(logs, durationById);
+        return BuildPlaystyleStats(
+            logs.Select(log => new PlaystyleLog(
+                log,
+                PlayerFightLogPlaystyleClassifier.ResolvePlaystyle(
+                    log,
+                    isWvW: true,
+                    GetDuration(durationById, log.FightLogId),
+                    benchmarks))),
+            PlayerFightLogPlaystyleClassifier.WvwPlaystyles,
+            durationById);
+    }
+
+    private static IReadOnlyList<object> BuildPlaystyleStats(
+        IEnumerable<PlaystyleLog> rows,
+        IReadOnlyList<PlaystyleDefinition> order,
+        Dictionary<long, long> durationById)
+    {
+        var rowList = rows.ToList();
+        var total = rowList.Count;
+        if (total == 0)
+        {
+            return [];
+        }
+
+        return order
+            .Select(style =>
+            {
+                var logs = rowList
+                    .Where(row => row.Playstyle == style.Key)
+                    .Select(row => row.Log)
+                    .ToList();
+                var durationSeconds = logs.Sum(log => GetDuration(durationById, log.FightLogId)) / 1000d;
+                var totalDamage = logs.Sum(log => log.Damage);
+                var totalHealing = logs.Sum(log => log.Healing);
+                return new
+                {
+                    key = style.Key,
+                    label = style.Label,
+                    count = logs.Count,
+                    percent = Math.Round(logs.Count / (double)total * 100d, 1),
+                    totalDamage,
+                    avgDps = durationSeconds > 0 ? (long)Math.Round(totalDamage / durationSeconds, 0) : 0L,
+                    totalHealing,
+                    avgHealingPerSecond = durationSeconds > 0 ? (long)Math.Round(totalHealing / durationSeconds, 0) : 0L,
+                    totalCleanses = logs.Sum(log => log.Cleanses),
+                    totalStrips = logs.Sum(log => log.Strips),
+                    avgStabOnGroup = logs.Count > 0 ? Math.Round(logs.Average(log => (double)log.StabGenOnGroup), 2) : 0d,
+                    avgStabOffGroup = logs.Count > 0 ? Math.Round(logs.Average(log => (double)log.StabGenOffGroup), 2) : 0d,
+                    avgQuicknessGen = logs.Count > 0 ? Math.Round(logs.Average(log => (double)log.QuicknessGenGroup), 1) : 0d,
+                    avgAlacGen = logs.Count > 0 ? Math.Round(logs.Average(log => (double)log.AlacGenGroup), 1) : 0d,
+                };
+            })
+            .Where(row => row.count > 0)
+            .Cast<object>()
+            .ToList();
+    }
+
+    private static long GetDuration(IReadOnlyDictionary<long, long> durationById, long fightLogId) =>
+        durationById.TryGetValue(fightLogId, out var duration) ? duration : 0L;
+
+    private sealed record PlaystyleLog(PlayerFightLog Log, string Playstyle);
 
     private static async Task<IResult> GetMyBests(
         ClaimsPrincipal user,
@@ -298,6 +403,7 @@ public static class StatsEndpoints
         short fightType = 0,
         string? startDateTime = null,
         string? endDateTime = null,
+        string? playstyles = null,
         bool? isSuccess = null,
         int? fightMode = null)
     {
@@ -359,6 +465,23 @@ public static class StatsEndpoints
             .ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.Damage).First());
 
         var isWvW = fightType == (short)FightTypesEnum.WvW;
+        var durationByFightLogId = fightMeta.ToDictionary(f => f.FightLogId, f => f.FightDurationInMs);
+        var wvwBenchmarks = PlayerFightLogPlaystyleClassifier.BuildWvwBenchmarks(playerLogById.Values, durationByFightLogId);
+
+        if (!string.IsNullOrWhiteSpace(playstyles))
+        {
+            var selectedPlaystyles = playstyles.Split(',')
+                .Select(s => s.Trim())
+                .Where(PlayerFightLogPlaystyleClassifier.IsKnownPlaystyle)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (selectedPlaystyles.Count > 0)
+            {
+                fightMeta = fightMeta
+                    .Where(f => playerLogById.TryGetValue(f.FightLogId, out var log)
+                        && selectedPlaystyles.Contains(ResolveProgressionPlaystyle(log, isWvW, f.FightDurationInMs, wvwBenchmarks)))
+                    .ToList();
+            }
+        }
 
         Dictionary<long, Dictionary<string, long>> mechanicsLookup = [];
         if (!isWvW)
@@ -383,6 +506,7 @@ public static class StatsEndpoints
                 var durationSeconds = f.FightDurationInMs / 1000.0;
                 var dps = durationSeconds > 0 ? (long)(p.Damage / durationSeconds) : 0;
                 var cleaveDps = durationSeconds > 0 ? (long)(p.Cleave / durationSeconds) : 0;
+                var playstyle = ResolveProgressionPlaystyle(p, isWvW, f.FightDurationInMs, wvwBenchmarks);
 
                 if (isWvW)
                 {
@@ -392,6 +516,8 @@ public static class StatsEndpoints
                         date = f.FightStart,
                         durationMs = f.FightDurationInMs,
                         characterName = p.CharacterName,
+                        playstyle,
+                        playstyleLabel = PlayerFightLogPlaystyleClassifier.GetLabel(playstyle),
                         dps,
                         kills = p.Kills,
                         downs = p.Downs,
@@ -418,6 +544,8 @@ public static class StatsEndpoints
                         isSuccess = f.IsSuccess,
                         fightPercent = f.FightPercent,
                         fightMode = f.FightMode,
+                        playstyle,
+                        playstyleLabel = PlayerFightLogPlaystyleClassifier.GetLabel(playstyle),
                         dps,
                         cleaveDps,
                         healing = p.Healing,
@@ -434,6 +562,17 @@ public static class StatsEndpoints
 
         return Results.Ok(points);
     }
+
+    private static string ResolveProgressionPlaystyle(
+        PlayerFightLog log,
+        bool isWvW,
+        long fightDurationInMs,
+        WvwPlaystyleBenchmarks wvwBenchmarks) =>
+        PlayerFightLogPlaystyleClassifier.ResolvePlaystyle(
+            log,
+            isWvW,
+            fightDurationInMs,
+            isWvW ? wvwBenchmarks : null);
 
     private static object BuildPveBests(
         List<PlayerFightLog> logs,

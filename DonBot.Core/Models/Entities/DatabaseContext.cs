@@ -18,6 +18,7 @@ public sealed class DatabaseContext : DbContext
         FightsReport = Set<FightsReport>();
         PlayerFightLog = Set<PlayerFightLog>();
         PlayerFightLogMechanic = Set<PlayerFightLogMechanic>();
+        PlayerPointAward = Set<PlayerPointAward>();
         GuildQuote = Set<GuildQuote>();
         ScheduledEvent = Set<ScheduledEvent>();
         RotationAnomaly = Set<RotationAnomaly>();
@@ -43,6 +44,8 @@ public sealed class DatabaseContext : DbContext
     public DbSet<PlayerFightLog> PlayerFightLog { get; set; }
 
     public DbSet<PlayerFightLogMechanic> PlayerFightLogMechanic { get; set; }
+
+    public DbSet<PlayerPointAward> PlayerPointAward { get; set; }
 
     public DbSet<GuildQuote> GuildQuote { get; set; }
 
@@ -92,11 +95,27 @@ public sealed class DatabaseContext : DbContext
             .HasPrecision(6, 2);
 
         modelBuilder.Entity<PlayerFightLog>()
+            .Property(pfl => pfl.AlacGenGroup)
+            .HasPrecision(6, 2);
+
+        modelBuilder.Entity<PlayerFightLog>()
+            .Property(pfl => pfl.BoonRole)
+            .HasMaxLength(32);
+
+        modelBuilder.Entity<PlayerFightLog>()
+            .Property(pfl => pfl.Playstyle)
+            .HasMaxLength(32);
+
+        modelBuilder.Entity<PlayerFightLog>()
             .Property(pfl => pfl.DistanceFromTag)
             .HasPrecision(16, 2);
 
         modelBuilder.Entity<PlayerFightLog>()
             .Property(pfl => pfl.QuicknessDuration)
+            .HasPrecision(6, 2);
+
+        modelBuilder.Entity<PlayerFightLog>()
+            .Property(pfl => pfl.QuicknessGenGroup)
             .HasPrecision(6, 2);
 
         modelBuilder.Entity<PlayerFightLog>()
@@ -116,5 +135,41 @@ public sealed class DatabaseContext : DbContext
             .WithMany()
             .HasForeignKey(m => m.PlayerFightLogId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PlayerPointAward>()
+            .HasIndex(a => new { a.PlayerFightLogId, a.Metric })
+            .IsUnique();
+
+        modelBuilder.Entity<PlayerPointAward>()
+            .HasOne<FightLog>()
+            .WithMany()
+            .HasForeignKey(a => a.FightLogId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PlayerPointAward>()
+            .HasOne<PlayerFightLog>()
+            .WithMany()
+            .HasForeignKey(a => a.PlayerFightLogId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PlayerPointAward>()
+            .Property(a => a.BasePoints)
+            .HasPrecision(16, 3);
+
+        modelBuilder.Entity<PlayerPointAward>()
+            .Property(a => a.MetricValue)
+            .HasPrecision(20, 3);
+
+        modelBuilder.Entity<PlayerPointAward>()
+            .Property(a => a.Multiplier)
+            .HasPrecision(5, 3);
+
+        modelBuilder.Entity<PlayerPointAward>()
+            .Property(a => a.PercentileValue)
+            .HasPrecision(20, 3);
+
+        modelBuilder.Entity<PlayerPointAward>()
+            .Property(a => a.Points)
+            .HasPrecision(16, 3);
     }
 }

@@ -2,6 +2,7 @@ using System.Globalization;
 using Discord;
 using DonBot.Core.Models.Entities;
 using DonBot.Core.Models.Enums;
+using DonBot.Core.Services;
 using DonBot.Extensions;
 using DonBot.Services.DatabaseServices;
 
@@ -63,7 +64,13 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
         var description = $"**Week of {cutoff:MMM dd} – {DateTime.UtcNow:MMM dd, yyyy}**\n";
 
         var embed1 = BuildBaseEmbed("WvW Weekly Leaderboard", description, color);
-        embed1.AddField("Damage", BuildWvWDamageTable(grouped));
+        foreach (var playstyleGroup in BuildPlaystyleGroups(
+            playerFights,
+            isWvW: true,
+            PlayerFightLogPlaystyleClassifier.WvwPlaystyles))
+        {
+            embed1.AddField($"Damage - {playstyleGroup.Label}", BuildWvWDamageTable(playstyleGroup.Groups));
+        }
         embed1.AddField("Cleanses", BuildWvWSimpleTable("Cleanses", grouped,
             g => g.Sum(s => s.Cleanses),
             v => ((long)v).ToString(CultureInfo.InvariantCulture)));
@@ -131,8 +138,15 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
             $"**Week of {cutoff:MMM dd} – {DateTime.UtcNow:MMM dd, yyyy}**\n",
             System.Drawing.Color.FromArgb(101, 149, 195));
 
-        message.AddField("DPS", BuildPvEDpsTable(grouped, fightDurations));
-        message.AddField("Cleave DPS", BuildPvECleaveDpsTable(grouped, fightDurations));
+        foreach (var playstyleGroup in BuildPlaystyleGroups(
+            playerFights,
+            isWvW: false,
+            PlayerFightLogPlaystyleClassifier.PvePlaystyles)
+            .Where(group => group.Groups.Any(g => g.Count() >= 6)))
+        {
+            message.AddField($"DPS - {playstyleGroup.Label}", BuildPvEDpsTable(playstyleGroup.Groups, fightDurations));
+            message.AddField($"Cleave - {playstyleGroup.Label}", BuildPvECleaveDpsTable(playstyleGroup.Groups, fightDurations));
+        }
         message.AddField("Res Time", BuildPvESimpleTable("Avg Res (s)", grouped,
             g => Math.Round(g.Average(s => s.ResurrectionTime) / 1000.0, 3),
             v => v.ToString("F3", CultureInfo.InvariantCulture)));
@@ -327,6 +341,38 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
             }
         };
 
+    private static IReadOnlyList<LeaderboardPlaystyleGroup> BuildPlaystyleGroups(
+        IEnumerable<PlayerFightLog> playerFights,
+        bool isWvW,
+        IReadOnlyList<PlaystyleDefinition> playstyles)
+    {
+        var logsByPlaystyle = playerFights
+            .GroupBy(log => EffectivePlaystyle(log, isWvW))
+            .ToDictionary(
+                g => g.Key,
+                g => g.GroupBy(log => log.GuildWarsAccountName).ToList());
+
+        return playstyles
+            .Select(playstyle => new LeaderboardPlaystyleGroup(
+                playstyle.Key,
+                playstyle.Label,
+                logsByPlaystyle.GetValueOrDefault(playstyle.Key, [])))
+            .Where(group => group.Groups.Count > 0)
+            .ToList();
+    }
+
+    private static string EffectivePlaystyle(PlayerFightLog log, bool isWvW)
+    {
+        if (!string.IsNullOrWhiteSpace(log.Playstyle))
+        {
+            return log.Playstyle;
+        }
+
+        return isWvW
+            ? PlayerFightLogPlaystyleClassifier.DpsPlaystyle
+            : PlayerFightLogPlaystyleClassifier.ResolvePvePlaystyle(log.BoonRole);
+    }
+
     private static string BuildWvWDamageTable(List<IGrouping<string, PlayerFightLog>> grouped)
     {
         var table = $"```{DiscordTable.Header(LeaderDamageColumns)}";
@@ -445,4 +491,9 @@ public sealed class WeeklyLeaderboardService(IEntityService entityService, IFoot
         }
         return table + "```";
     }
+
+    private sealed record LeaderboardPlaystyleGroup(
+        string Key,
+        string Label,
+        List<IGrouping<string, PlayerFightLog>> Groups);
 }

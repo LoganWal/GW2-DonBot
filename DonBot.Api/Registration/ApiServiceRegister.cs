@@ -35,6 +35,7 @@ public static class ApiServiceRegister
         services.AddScoped<IEntityService, EntityService>();
         services.AddScoped<IRaidLifecycleService, RaidLifecycleService>();
         services.AddScoped<IPlayerService, PlayerService>();
+        services.AddScoped<IPointsAwardService, PointsAwardService>();
         services.AddScoped<IDataModelGenerationService, DataModelGenerationService>();
 
         services.AddTransient<IFooterService, FooterService>();

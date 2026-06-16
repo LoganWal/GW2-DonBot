@@ -27,6 +27,8 @@
       <div class="stat-grid dashboard-stat-grid">
         <StatCard label="Available Points" :value="availablePoints" />
         <StatCard label="Total Points Earned" :value="totalPoints" />
+        <StatCard label="30 Day Point Gain" :value="periodPointGain" />
+        <StatCard label="Awarded Logs" :value="dashboard.points?.awardedLogs ?? 0" />
         <StatCard label="Total Fights" :value="dashboard.fights?.total ?? 0" />
         <StatCard label="Characters" :value="dashboard.characterCount ?? 0" />
         <Card v-if="dashboard.gw2Accounts?.length" class="stat-card account-card">
@@ -92,6 +94,80 @@
                   <span>PvE</span>
                   <strong>{{ dashboard.fights?.pve ?? 0 }}</strong>
                 </div>
+              </div>
+            </div>
+          </template>
+        </Card>
+
+        <Card v-if="pvePlaystyles.length" class="dashboard-panel">
+          <template #title>
+            <div class="panel-title-row">
+              <span>PvE Playstyle</span>
+              <div class="panel-title-actions">
+                <Button
+                  v-for="option in playstyleRangeOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  size="small"
+                  :severity="playstyleRange === option.value ? 'primary' : 'secondary'"
+                  outlined
+                  @click="playstyleRange = option.value"
+                />
+              </div>
+            </div>
+          </template>
+          <template #content>
+            <div class="playstyle-stack">
+              <div v-for="style in pvePlaystyles" :key="style.key" class="playstyle-row">
+                <div class="playstyle-copy">
+                  <span>{{ style.label }}</span>
+                  <strong>{{ style.count }}</strong>
+                </div>
+                <div class="playstyle-track">
+                  <span
+                    class="playstyle-fill"
+                    :class="playstyleFillClass(style.key)"
+                    :style="{ width: playstyleWidth(style.percent) }"
+                  />
+                </div>
+                <small>{{ style.percent.toFixed(1) }}%</small>
+              </div>
+            </div>
+          </template>
+        </Card>
+
+        <Card v-if="wvwPlaystyles.length" class="dashboard-panel">
+          <template #title>
+            <div class="panel-title-row">
+              <span>WvW Playstyle</span>
+              <div class="panel-title-actions">
+                <Button
+                  v-for="option in playstyleRangeOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  size="small"
+                  :severity="playstyleRange === option.value ? 'primary' : 'secondary'"
+                  outlined
+                  @click="playstyleRange = option.value"
+                />
+              </div>
+            </div>
+          </template>
+          <template #content>
+            <div class="playstyle-stack">
+              <div v-for="style in wvwPlaystyles" :key="style.key" class="playstyle-row">
+                <div class="playstyle-copy">
+                  <span>{{ style.label }}</span>
+                  <strong>{{ style.count }}</strong>
+                </div>
+                <div class="playstyle-track">
+                  <span
+                    class="playstyle-fill"
+                    :class="playstyleFillClass(style.key)"
+                    :style="{ width: playstyleWidth(style.percent) }"
+                  />
+                </div>
+                <small>{{ style.percent.toFixed(1) }}%</small>
               </div>
             </div>
           </template>
@@ -351,6 +427,12 @@ type DashboardResponse = {
   gw2Accounts: { guildWarsAccountName: string }[]
   lastFightDate: string | null
   characterCount?: number
+  points?: {
+    earned: number
+    awardedLogs: number
+    topComponent?: { metricLabel: string; points: number; count: number } | null
+    lastAwardAt?: string | null
+  } | null
   fights: {
     total: number
     wvw: number
@@ -364,15 +446,24 @@ type DashboardResponse = {
     totalDownContribution: number
     avgQuickness: number
     avgAlac: number
+    avgQuicknessGen: number
+    avgAlacGen: number
     bestDamageFight?: { fightLogId: number; fightType: number; damage: number } | null
     bestKillsFight?: { fightLogId: number; kills: number } | null
   } | null
 }
 
 type StatsResponse = {
-  wvw: Record<string, any> | null
-  pve: Record<string, any> | null
+  wvw: (Record<string, any> & { playstyleBreakdown?: PlaystyleBreakdownRow[] }) | null
+  pve: (Record<string, any> & { playstyleBreakdown?: PlaystyleBreakdownRow[] }) | null
   characters?: { characterName: string; pveLogs: number; wvwLogs: number }[]
+}
+
+type PlaystyleBreakdownRow = {
+  key: string
+  label: string
+  count: number
+  percent: number
 }
 
 type BestEntry = {
@@ -470,6 +561,7 @@ type DashboardVisuals = {
   dashboard: DashboardResponse | null
   periodDashboard: DashboardResponse | null
   stats: StatsResponse | null
+  periodStats: StatsResponse | null
   bests: BestsResponse | null
   logs: LogsResponse
   activityLogs: LogsResponse
@@ -514,11 +606,17 @@ const selectedTrendFightType = ref<number | null>(null)
 const trendPoints = ref<ProgressionPoint[]>([])
 const trendPending = ref(false)
 const trendUnavailable = ref(false)
+const playstyleRange = ref<'month' | 'all'>('month')
 let trendRequestId = 0
 
 const dashboard = computed(() => visuals.value?.dashboard ?? null)
 const periodDashboard = computed(() => visuals.value?.periodDashboard ?? null)
 const stats = computed(() => visuals.value?.stats ?? null)
+const selectedPlaystyleStats = computed(() =>
+  playstyleRange.value === 'month'
+    ? visuals.value?.periodStats ?? null
+    : stats.value
+)
 const bests = computed(() => visuals.value?.bests ?? null)
 const logs = computed(() => visuals.value?.logs.data ?? [])
 const logsTotal = computed(() => visuals.value?.logs.total ?? logs.value.length)
@@ -539,6 +637,7 @@ const unavailablePanelLabels = computed(() => {
 const totalPoints = computed(() => Number(dashboard.value?.account?.points ?? 0))
 const availablePoints = computed(() => Number(dashboard.value?.account?.availablePoints ?? 0))
 const spentPoints = computed(() => Math.max(totalPoints.value - availablePoints.value, 0))
+const periodPointGain = computed(() => Number(periodDashboard.value?.points?.earned ?? 0))
 
 const fightMixTotal = computed(() => Number(dashboard.value?.fights?.total ?? 0))
 
@@ -567,6 +666,8 @@ const boonBars = computed(() => {
   return [
     { label: 'Quickness', value: Number(fights?.avgQuickness ?? 0), className: 'fill-blue' },
     { label: 'Alacrity', value: Number(fights?.avgAlac ?? 0), className: 'fill-green' },
+    { label: 'Quick Gen', value: Number(fights?.avgQuicknessGen ?? 0), className: 'fill-teal' },
+    { label: 'Alac Gen', value: Number(fights?.avgAlacGen ?? 0), className: 'fill-amber' },
   ].filter(b => b.value > 0)
 })
 
@@ -590,6 +691,12 @@ const maxCombatMetric = computed(() =>
 )
 
 const characterRows = computed(() => stats.value?.characters ?? [])
+const pvePlaystyles = computed(() => normalizePlaystyleRows(selectedPlaystyleStats.value?.pve?.playstyleBreakdown))
+const wvwPlaystyles = computed(() => normalizePlaystyleRows(selectedPlaystyleStats.value?.wvw?.playstyleBreakdown))
+const playstyleRangeOptions = [
+  { label: '30d', value: 'month' },
+  { label: 'All', value: 'all' },
+] as const
 
 const characterUsageLimitLabel = computed(() => {
   const count = characterRows.value.length
@@ -844,6 +951,7 @@ async function loadDashboardVisuals(): Promise<DashboardVisuals> {
 
   const [
     periodDashboardResult,
+    periodStatsResult,
     statsResult,
     bestsResult,
     logsResult,
@@ -853,6 +961,7 @@ async function loadDashboardVisuals(): Promise<DashboardVisuals> {
     liveRaidGuildsResult,
   ] = await Promise.all([
     safeApi<DashboardResponse | null>(`/api/dashboard?days=${DASHBOARD_PERIOD_DAYS}`, null),
+    safeApi<StatsResponse | null>(`/api/stats/me?days=${DASHBOARD_PERIOD_DAYS}`, null),
     safeApi<StatsResponse | null>('/api/stats/me', null),
     safeApi<BestsResponse | null>('/api/stats/bests', null),
     safeApi<LogsResponse>(`/api/logs?page=1&pageSize=${RECENT_LOG_FETCH_LIMIT}`, { total: 0, data: [] }),
@@ -877,7 +986,8 @@ async function loadDashboardVisuals(): Promise<DashboardVisuals> {
   const unavailable = [
     panelFailure(dashboardResult, 'dashboard', 'Dashboard summary'),
     panelFailure(periodDashboardResult, 'period-dashboard', 'Boon uptime and combat stats'),
-    panelFailure(statsResult, 'stats', 'Character usage'),
+    panelFailure(periodStatsResult, 'period-stats', 'Recent playstyle'),
+    panelFailure(statsResult, 'stats', 'Character usage and playstyle'),
     panelFailure(bestsResult, 'bests', 'Personal bests'),
     panelFailure(logsResult, 'logs', 'Recent logs'),
     panelFailure(activityLogsResult, 'activity-logs', 'Recent activity'),
@@ -892,6 +1002,7 @@ async function loadDashboardVisuals(): Promise<DashboardVisuals> {
   return {
     dashboard: dashboardResult.data,
     periodDashboard: periodDashboardResult.data,
+    periodStats: periodStatsResult.data,
     stats: statsResult.data,
     bests: bestsResult.data,
     logs: logsResult.data,
@@ -1050,6 +1161,37 @@ function metricWidth(value: number) {
   return `${Math.max(6, Math.round((value / maxCombatMetric.value) * 100))}%`
 }
 
+function normalizePlaystyleRows(rows?: PlaystyleBreakdownRow[]) {
+  return (rows ?? [])
+    .map(row => ({
+      key: row.key,
+      label: row.label,
+      count: Number(row.count ?? 0),
+      percent: Number(row.percent ?? 0),
+    }))
+    .filter(row => row.count > 0)
+}
+
+function playstyleWidth(percent: number) {
+  return `${Math.max(6, Math.min(100, percent))}%`
+}
+
+function playstyleFillClass(key: string) {
+  switch (key) {
+    case 'boon-dps':
+    case 'support-dps':
+      return 'fill-teal'
+    case 'boon-healer':
+    case 'heal-support':
+      return 'fill-green'
+    case 'mechanic':
+    case 'support':
+      return 'fill-amber'
+    default:
+      return 'fill-blue'
+  }
+}
+
 function openLog(fightLogId?: number | null) {
   if (fightLogId) {
     navigateTo(`/logs/${fightLogId}`)
@@ -1169,6 +1311,7 @@ function formatShortDate(value: string) {
 .legend-stack,
 .meter-stack,
 .metric-stack,
+.playstyle-stack,
 .rank-stack,
 .log-stack,
 .upload-stack {
@@ -1179,6 +1322,7 @@ function formatShortDate(value: string) {
 .legend-row,
 .metric-label,
 .meter-label,
+.playstyle-copy,
 .rank-row,
 .log-row,
 .upload-row {
@@ -1189,6 +1333,7 @@ function formatShortDate(value: string) {
 }
 
 .legend-row,
+.playstyle-row,
 .rank-row,
 .log-row,
 .upload-row {
@@ -1225,8 +1370,40 @@ function formatShortDate(value: string) {
 .legend-row strong,
 .rank-row strong,
 .metric-row strong,
-.meter-row strong {
+.meter-row strong,
+.playstyle-row strong {
   font-size: 0.86rem;
+}
+
+.playstyle-row {
+  display: grid;
+  grid-template-columns: minmax(7rem, 1fr) minmax(5rem, 1.2fr) auto;
+  align-items: center;
+}
+
+.playstyle-copy {
+  min-width: 0;
+}
+
+.playstyle-copy span,
+.playstyle-row small {
+  color: var(--p-text-muted-color);
+  font-size: 0.78rem;
+}
+
+.playstyle-track {
+  width: 100%;
+  height: 0.5rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.14);
+}
+
+.playstyle-fill {
+  display: block;
+  height: 100%;
+  min-width: 0.35rem;
+  border-radius: inherit;
 }
 
 .legend-dot {

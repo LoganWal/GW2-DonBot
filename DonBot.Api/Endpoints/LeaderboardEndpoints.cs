@@ -1,5 +1,7 @@
 using System.Security.Claims;
 using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.Enums;
+using DonBot.Core.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace DonBot.Api.Endpoints;
@@ -77,8 +79,7 @@ public static class LeaderboardEndpoints
         }
 
         var rows = await query
-            .Select(x => new
-            {
+            .Select(x => new LeaderboardSourceRow(
                 x.pfl.GuildWarsAccountName,
                 x.fl.FightType,
                 x.fl.FightDurationInMs,
@@ -97,13 +98,41 @@ public static class LeaderboardEndpoints
                 x.pfl.BarrierGenerated,
                 x.pfl.QuicknessDuration,
                 x.pfl.AlacDuration,
-            })
+                x.pfl.BoonRole,
+                x.pfl.Playstyle))
             .ToListAsync();
 
         var wvwRows = rows.Where(r => r.FightType == 0).ToList();
         var pveRows = rows.Where(r => r.FightType != 0).ToList();
 
-        var wvw = wvwRows
+        var wvw = BuildWvwLeaderboardRows(wvwRows);
+        var pve = BuildPveLeaderboardRows(pveRows);
+        var wvwPlaystyles = BuildPlaystyleLeaderboardGroups(
+            wvwRows,
+            isWvW: true,
+            PlayerFightLogPlaystyleClassifier.WvwPlaystyles,
+            BuildWvwLeaderboardRows);
+        var pvePlaystyles = BuildPlaystyleLeaderboardGroups(
+            pveRows,
+            isWvW: false,
+            PlayerFightLogPlaystyleClassifier.PvePlaystyles,
+            BuildPveLeaderboardRows);
+
+        return Results.Ok(new
+        {
+            sinceDate = since.ToString("yyyy-MM-dd"),
+            untilDate = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+            wvw,
+            pve,
+            wvwPlaystyles,
+            pvePlaystyles,
+        });
+    }
+
+    private static List<object> BuildWvwLeaderboardRows(IEnumerable<LeaderboardSourceRow> sourceRows)
+    {
+        var rows = sourceRows.ToList();
+        return rows
             .GroupBy(r => r.GuildWarsAccountName)
             .Select(g =>
             {
@@ -126,9 +155,14 @@ public static class LeaderboardEndpoints
                 };
             })
             .OrderByDescending(x => x.avgDamage)
+            .Cast<object>()
             .ToList();
+    }
 
-        var pve = pveRows
+    private static List<object> BuildPveLeaderboardRows(IEnumerable<LeaderboardSourceRow> sourceRows)
+    {
+        var rows = sourceRows.ToList();
+        return rows
             .GroupBy(r => r.GuildWarsAccountName)
             .Select(g =>
             {
@@ -152,14 +186,68 @@ public static class LeaderboardEndpoints
                 };
             })
             .OrderByDescending(x => x.dps)
+            .Cast<object>()
             .ToList();
-
-        return Results.Ok(new
-        {
-            sinceDate = since.ToString("yyyy-MM-dd"),
-            untilDate = DateTime.UtcNow.ToString("yyyy-MM-dd"),
-            wvw,
-            pve,
-        });
     }
+
+    private static IReadOnlyList<object> BuildPlaystyleLeaderboardGroups(
+        IEnumerable<LeaderboardSourceRow> rows,
+        bool isWvW,
+        IReadOnlyList<PlaystyleDefinition> playstyles,
+        Func<IEnumerable<LeaderboardSourceRow>, List<object>> rowBuilder)
+    {
+        var rowList = rows.ToList();
+        return playstyles
+            .Select(playstyle =>
+            {
+                var styleRows = rowList
+                    .Where(row => EffectivePlaystyle(row, isWvW) == playstyle.Key)
+                    .ToList();
+                return new
+                {
+                    key = playstyle.Key,
+                    label = playstyle.Label,
+                    players = rowBuilder(styleRows)
+                };
+            })
+            .Where(group => group.players.Count > 0)
+            .Cast<object>()
+            .ToList();
+    }
+
+    private static string EffectivePlaystyle(LeaderboardSourceRow row, bool isWvW)
+    {
+        var playstyle = row.Playstyle ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(playstyle))
+        {
+            return playstyle;
+        }
+
+        var boonRole = row.BoonRole ?? string.Empty;
+        return isWvW
+            ? PlayerFightLogPlaystyleClassifier.DpsPlaystyle
+            : PlayerFightLogPlaystyleClassifier.ResolvePvePlaystyle(boonRole);
+    }
+
+    private sealed record LeaderboardSourceRow(
+        string GuildWarsAccountName,
+        short FightType,
+        long FightDurationInMs,
+        long Damage,
+        long Cleave,
+        long DamageDownContribution,
+        long Kills,
+        long Downs,
+        long Deaths,
+        int TimesDowned,
+        long Healing,
+        long Cleanses,
+        long Strips,
+        long NumberOfBoonsRipped,
+        int ResurrectionTime,
+        long BarrierGenerated,
+        decimal QuicknessDuration,
+        decimal AlacDuration,
+        string BoonRole,
+        string Playstyle);
 }

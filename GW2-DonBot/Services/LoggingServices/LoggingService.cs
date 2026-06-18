@@ -7,26 +7,30 @@ public sealed class LoggingService(ILogger<LoggingService> logger) : ILoggingSer
 {
     public Task LogAsync(LogMessage msg)
     {
+        var message = msg.Message
+            ?? msg.Exception?.Message
+            ?? $"Discord.Net {msg.Severity} log with no message from {msg.Source}";
+
         switch (msg.Severity)
         {
             case LogSeverity.Debug:
-                logger.LogDebug(msg.Message);
+                logger.LogDebug(message);
                 break;
             case LogSeverity.Info:
-                logger.LogInformation(msg.Message);
+                logger.LogInformation(message);
                 break;
             case LogSeverity.Warning:
-                logger.LogWarning(msg.Message);
+                logger.LogWarning(message);
                 break;
             case LogSeverity.Error:
-                logger.LogError(msg.Exception, msg.Message);
+                logger.LogError(msg.Exception, message);
                 break;
             case LogSeverity.Critical:
-                logger.LogCritical(msg.Exception, msg.Message);
+                logger.LogCritical(msg.Exception, message);
                 break;
             case LogSeverity.Verbose:
             default:
-                logger.LogInformation(msg.Message);
+                logger.LogInformation(message);
                 break;
         }
         return Task.CompletedTask;

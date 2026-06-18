@@ -73,9 +73,25 @@ public sealed class DiscordCore(
     {
         client.Log += loggingService.LogAsync;
         client.MessageReceived += messageHandler.MessageReceivedAsync;
-        client.SlashCommandExecuted += command => commandHandler.SlashCommandExecutedAsync(command, client);
+        client.SlashCommandExecuted += command =>
+        {
+            _ = Task.Run(() => ExecuteSlashCommandAsync(command));
+            return Task.CompletedTask;
+        };
         client.ButtonExecuted += buttonHandler.ButtonExecutedAsync;
         client.JoinedGuild += OnJoinedGuildAsync;
+    }
+
+    private async Task ExecuteSlashCommandAsync(SocketSlashCommand command)
+    {
+        try
+        {
+            await commandHandler.SlashCommandExecutedAsync(command, client);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unhandled background failure while executing slash command {CommandName}", command.Data.Name);
+        }
     }
 
     private void UnregisterEventHandlers()

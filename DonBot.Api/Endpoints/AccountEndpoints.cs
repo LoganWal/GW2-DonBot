@@ -56,10 +56,11 @@ public static class AccountEndpoints
 
         var existing = await context.GuildWarsAccount
             .AsTracking()
-            .FirstOrDefaultAsync(g => g.DiscordId == discordId && g.GuildWarsAccountId == accountData.Id);
+            .FirstOrDefaultAsync(g => g.GuildWarsAccountId == accountData.Id);
 
         if (existing != null)
         {
+            existing.DiscordId = discordId;
             existing.GuildWarsAccountName = accountData.Name;
             existing.GuildWarsApiKey = request.ApiKey;
             existing.GuildWarsGuilds = string.Join(',', accountData.Guilds);

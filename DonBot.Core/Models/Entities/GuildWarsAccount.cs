@@ -7,7 +7,7 @@ public class GuildWarsAccount
     [Key]
     public Guid GuildWarsAccountId { get; set; }
 
-    public long DiscordId { get; init; }
+    public long DiscordId { get; set; }
 
     [MaxLength(1000)]
     public string? GuildWarsApiKey { get; set; }

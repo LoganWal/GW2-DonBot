@@ -215,6 +215,47 @@ public class AccountEndpointsIntegrationTests
         Assert.Equal(3000, stored.World);
     }
 
+    [Fact]
+    public async Task VerifyGw2Key_ExistingGw2AccountForOtherDiscordId_TransfersLink()
+    {
+        var accountGuid = Guid.NewGuid();
+        var json = $$"""
+                     {"id":"{{accountGuid}}","name":"Jezelle.4107","world":2202,"guilds":["new-guild"]}
+                     """;
+        var handler = new ApiStubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        });
+        using var host = NewHost(handler);
+        await using (var seed = await host.DbFactory.CreateDbContextAsync())
+        {
+            seed.Account.AddRange(
+                new Account { DiscordId = 111L },
+                new Account { DiscordId = 222L });
+            seed.GuildWarsAccount.Add(new GuildWarsAccount
+            {
+                GuildWarsAccountId = accountGuid,
+                DiscordId = 111L,
+                GuildWarsAccountName = "Jezelle.4107",
+                GuildWarsGuilds = "old-guild",
+                World = 1000,
+                GuildWarsApiKey = null
+            });
+            await seed.SaveChangesAsync();
+        }
+        host.AuthenticateAs(222L);
+
+        var response = await host.Client.PostAsJsonAsync("/api/account/verify", new { ApiKey = "new-key" });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await using var verify = await host.DbFactory.CreateDbContextAsync();
+        var stored = verify.GuildWarsAccount.Single();
+        Assert.Equal(222L, stored.DiscordId);
+        Assert.Equal("new-key", stored.GuildWarsApiKey);
+        Assert.Equal("new-guild", stored.GuildWarsGuilds);
+        Assert.Equal(2202, stored.World);
+    }
+
     private sealed class ApiStubHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>

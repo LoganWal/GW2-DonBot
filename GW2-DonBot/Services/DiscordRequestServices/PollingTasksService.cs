@@ -36,15 +36,17 @@ public sealed class PollingTasksService(
     {
         var accounts = await entityService.Account.GetAllAsync();
         var guilds = await entityService.Guild.GetAllAsync();
-        var guildWarsAccounts = await entityService.GuildWarsAccount.GetWhereAsync(s => s.GuildWarsApiKey != null);
+        var guildWarsAccounts = await entityService.GuildWarsAccount.GetAllAsync();
+        var guildWarsAccountsWithKeys = guildWarsAccounts.Where(s => !string.IsNullOrEmpty(s.GuildWarsApiKey)).ToList();
 
-        accounts = accounts.Where(s => guildWarsAccounts.Select(gw => gw.DiscordId).Contains(s.DiscordId)).ToList();
+        var accountIdsWithKeys = guildWarsAccountsWithKeys.Select(gw => gw.DiscordId).ToHashSet();
+        var accountsWithKeys = accounts.Where(s => accountIdsWithKeys.Contains(s.DiscordId)).ToList();
 
         var guildWars2Data = new ConcurrentDictionary<long, List<GuildWars2AccountDataModel>>();
 
-        var tasks = accounts.Select(async account =>
+        var tasks = accountsWithKeys.Select(async account =>
         {
-            var guildWars2Accounts = guildWarsAccounts.Where(s => s.DiscordId == account.DiscordId).ToList();
+            var guildWars2Accounts = guildWarsAccountsWithKeys.Where(s => s.DiscordId == account.DiscordId).ToList();
             var accountData = await FetchAccountData(guildWars2Accounts);
             // Omit failed fetches so transient API failures do not strip existing roles.
             if (accountData.Count > 0)
@@ -55,13 +57,13 @@ public sealed class PollingTasksService(
 
         await Task.WhenAll(tasks);
 
-        if (accounts.Count > 0 && (double)guildWars2Data.Count / accounts.Count < 0.5)
+        if (accountsWithKeys.Count > 0 && (double)guildWars2Data.Count / accountsWithKeys.Count < 0.5)
         {
-            logger.LogWarning("GW2 API appears to be down ({SuccessfulFetches}/{TotalAccounts} accounts fetched). Skipping role changes.", guildWars2Data.Count, accounts.Count);
+            logger.LogWarning("GW2 API appears to be down ({SuccessfulFetches}/{TotalAccounts} accounts fetched). Skipping role changes.", guildWars2Data.Count, accountsWithKeys.Count);
             return;
         }
 
-        await entityService.GuildWarsAccount.UpdateRangeAsync(guildWarsAccounts);
+        await entityService.GuildWarsAccount.UpdateRangeAsync(guildWarsAccountsWithKeys);
         foreach (var clientGuild in discordClient.Guilds)
         {
             var guildConfiguration = guilds.FirstOrDefault(g => g.GuildId == (long)clientGuild.Id);

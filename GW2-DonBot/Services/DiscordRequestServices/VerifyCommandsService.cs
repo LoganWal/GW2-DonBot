@@ -36,56 +36,19 @@ public sealed class VerifyCommandsService(IEntityService entityService, ILogger<
             var stringData = await response.Content.ReadAsStringAsync();
             var accountData = JsonConvert.DeserializeObject<GuildWars2AccountDataModel>(stringData) ?? new GuildWars2AccountDataModel();
 
-            var isNewAccount = false;
             var account = await entityService.Account.GetFirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
-
-            if (account != null)
+            var isNewAccount = account == null;
+            if (account == null)
             {
-                var gw2Account = await entityService.GuildWarsAccount.GetFirstOrDefaultAsync(s => s.GuildWarsAccountId == accountData.Id);
-                if (gw2Account != null)
-                {
-                    gw2Account.GuildWarsAccountId = accountData.Id;
-                    gw2Account.GuildWarsAccountName = accountData.Name;
-                    gw2Account.GuildWarsApiKey = apiKey;
-
-                    await entityService.GuildWarsAccount.UpdateAsync(gw2Account);
-                }
-                else
-                {
-                    gw2Account = new GuildWarsAccount
-                    {
-                        GuildWarsAccountId = accountData.Id,
-                        DiscordId = account.DiscordId,
-                        GuildWarsApiKey = apiKey,
-                        GuildWarsAccountName = accountData.Name,
-                        GuildWarsGuilds = string.Join(',', accountData.Guilds),
-                        World = Convert.ToInt32(accountData.World)
-                    };
-
-                    await entityService.GuildWarsAccount.AddAsync(gw2Account);
-                }
-            }
-            else
-            {
-                isNewAccount = true;
                 account = new Account()
                 {
                     DiscordId = (long)command.User.Id
                 };
 
-                var gw2Account = new GuildWarsAccount
-                {
-                    GuildWarsAccountId = accountData.Id,
-                    DiscordId = account.DiscordId,
-                    GuildWarsApiKey = apiKey,
-                    GuildWarsAccountName = accountData.Name,
-                    GuildWarsGuilds = string.Join(',', accountData.Guilds),
-                    World = Convert.ToInt32(accountData.World)
-                };
-
                 await entityService.Account.AddAsync(account);
-                await entityService.GuildWarsAccount.AddAsync(gw2Account);
             }
+
+            await UpsertGuildWarsAccountAsync(account.DiscordId, accountData, apiKey);
 
             var guild = await entityService.Guild.GetFirstOrDefaultAsync(g => g.GuildId == (long)command.GuildId);
 
@@ -134,6 +97,34 @@ public sealed class VerifyCommandsService(IEntityService entityService, ILogger<
 
             await command.FollowupAsync($"Looks like you screwed up a couple of letters in the api key, try again mate, failed to process with API key: `{apiKey}`", ephemeral: true);
         }
+    }
+
+    internal async Task UpsertGuildWarsAccountAsync(long discordId, GuildWars2AccountDataModel accountData, string apiKey)
+    {
+        var gw2Account = await entityService.GuildWarsAccount.GetFirstOrDefaultAsync(s => s.GuildWarsAccountId == accountData.Id);
+        if (gw2Account != null)
+        {
+            gw2Account.DiscordId = discordId;
+            gw2Account.GuildWarsAccountName = accountData.Name;
+            gw2Account.GuildWarsApiKey = apiKey;
+            gw2Account.GuildWarsGuilds = string.Join(',', accountData.Guilds);
+            gw2Account.World = Convert.ToInt32(accountData.World);
+
+            await entityService.GuildWarsAccount.UpdateAsync(gw2Account);
+            return;
+        }
+
+        gw2Account = new GuildWarsAccount
+        {
+            GuildWarsAccountId = accountData.Id,
+            DiscordId = discordId,
+            GuildWarsApiKey = apiKey,
+            GuildWarsAccountName = accountData.Name,
+            GuildWarsGuilds = string.Join(',', accountData.Guilds),
+            World = Convert.ToInt32(accountData.World)
+        };
+
+        await entityService.GuildWarsAccount.AddAsync(gw2Account);
     }
 
     public async Task DeverifyCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)

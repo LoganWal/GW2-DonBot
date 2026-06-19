@@ -16,6 +16,10 @@ public class ArtSpamDetectorTests
     [InlineData("Finished this custom l2d vtuber model, Anyone interested! so HMU for more info")]
     [InlineData("COMPLETED ANIMATED STREAM PACKAGE AND LOGO\nSlide into my DM for further info and rates")]
     [InlineData("Custom 2D Vtuber Model Commission Done!!\nSlide Into My DM For Further Details And Pricing")]
+    [InlineData("finished, check out my art, dms are open")]
+    [InlineData("finished, check out my artwork, my dm is open")]
+    [InlineData("logo designs available, message me for rate")]
+    [InlineData("custom avatar comms open, dm for details")]
     public void IsSpam_KnownArtSpamWithImage_ReturnsTrue(string content)
     {
         Assert.True(_detector.IsSpam(content, hasImage: true));

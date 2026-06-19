@@ -51,6 +51,36 @@ public class ArtSpamQuestionnaireTests
     }
 
     [Fact]
+    public void BuildNextContent_AfterBaseQuestions_UsesStableStoryline()
+    {
+        var content = ArtSpamQuestionnaire.BuildNextContent(42, 5);
+
+        Assert.Equal("DonBot Awakening", ArtSpamQuestionnaire.SelectStorylineName(42));
+        Assert.Contains("Step 7:", content);
+        Assert.Contains("DonBot detected an unexpected feeling", content);
+    }
+
+    [Fact]
+    public void BuildNextContent_DifferentUserCanUseSciFiStoryline()
+    {
+        var content = ArtSpamQuestionnaire.BuildNextContent(43, 5);
+
+        Assert.Equal("Derelict Signal", ArtSpamQuestionnaire.SelectStorylineName(43));
+        Assert.Contains("Step 7:", content);
+        Assert.Contains("impossible shadow", content);
+    }
+
+    [Fact]
+    public void BuildNextContent_DifferentUserCanUseSoftwareBodyHorrorStoryline()
+    {
+        var content = ArtSpamQuestionnaire.BuildNextContent(44, 5);
+
+        Assert.Equal("Soft Tissue Interface", ArtSpamQuestionnaire.SelectStorylineName(44));
+        Assert.Contains("Step 7:", content);
+        Assert.Contains("pulses when DonBot renders the buttons", content);
+    }
+
+    [Fact]
     public void BuildInitialComponents_ContainsQuestionnaireButtonIds()
     {
         var components = ArtSpamQuestionnaire.BuildInitialComponents(42);

@@ -19,9 +19,22 @@ public class DiscordMessageHandler(
     IDataModelGenerationService dataModelGenerator,
     IHttpClientFactory httpClientFactory,
     DiscordSocketClient client,
-    IPendingLogService pendingLogService)
+    IPendingLogService pendingLogService,
+    IArtSpamDetector artSpamDetector)
 {
     private readonly HashSet<string> _seenUrls = [];
+    private static readonly string[] ImageAttachmentExtensions =
+    [
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".gif",
+        ".webp",
+        ".bmp",
+        ".tif",
+        ".tiff",
+        ".avif"
+    ];
 
     public async Task LoadExistingFightLogs()
     {
@@ -42,7 +55,8 @@ public class DiscordMessageHandler(
     {
         try
         {
-            if (seenMessage.Author.IsBot && seenMessage.Source != MessageSource.Webhook)
+            var possibleArtSpam = artSpamDetector.IsSpam(seenMessage.Content, HasImage(seenMessage));
+            if (seenMessage.Author.IsBot && seenMessage.Source != MessageSource.Webhook && !possibleArtSpam)
             {
                 return;
             }
@@ -56,6 +70,17 @@ public class DiscordMessageHandler(
             else
             {
                 guild = await entityService.Guild.GetFirstOrDefaultAsync(g => g.GuildId == (long)channel.Guild.Id);
+            }
+
+            if ((guild?.ArtSpamFilterEnabled ?? false) && possibleArtSpam)
+            {
+                await HandleSpamMessage(seenMessage, "posting art commission spam", sendArtQuestionnaire: true);
+                return;
+            }
+
+            if (seenMessage.Author.IsBot && seenMessage.Source != MessageSource.Webhook)
+            {
+                return;
             }
 
             // Ignore webhooks outside the log drop-off channel so uploader bots are not pinged.
@@ -76,7 +101,7 @@ public class DiscordMessageHandler(
                 var user = await entityService.Account.GetFirstOrDefaultAsync(g => g.DiscordId == (long)seenMessage.Author.Id);
                 if (user is null)
                 {
-                    await HandleSpamMessage(seenMessage);
+                    await HandleSpamMessage(seenMessage, "posting a discord link without being verified");
                     return;
                 }
 
@@ -85,7 +110,7 @@ public class DiscordMessageHandler(
                     if (seenMessage.Author is SocketGuildUser socketUser &&
                         !socketUser.Roles.Select(s => (long)s.Id).Contains(guild.DiscordVerifiedRoleId.Value))
                     {
-                        await HandleSpamMessage(seenMessage);
+                        await HandleSpamMessage(seenMessage, "posting a discord link without being verified");
                         return;
                     }
                 }
@@ -126,9 +151,43 @@ public class DiscordMessageHandler(
         }
     }
 
-    private async Task HandleSpamMessage(SocketMessage seenMessage)
+    private static bool HasImage(SocketMessage seenMessage)
+        => seenMessage.Attachments.Any(IsImageAttachment) ||
+           seenMessage.Embeds.Any(embed => embed.Image is not null || embed.Thumbnail is not null);
+
+    private static bool IsImageAttachment(IAttachment attachment)
+    {
+        if (attachment.Height.HasValue || attachment.Width.HasValue)
+        {
+            return true;
+        }
+
+        if (attachment.ContentType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return true;
+        }
+
+        return ImageAttachmentExtensions.Any(ext => attachment.Filename.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task HandleSpamMessage(SocketMessage seenMessage, string reason, bool sendArtQuestionnaire = false)
     {
         await seenMessage.DeleteAsync();
+
+        if (sendArtQuestionnaire)
+        {
+            try
+            {
+                await seenMessage.Channel.SendMessageAsync(
+                    ArtSpamQuestionnaire.BuildInitialContent(seenMessage.Author.Id),
+                    components: ArtSpamQuestionnaire.BuildInitialComponents(seenMessage.Author.Id),
+                    allowedMentions: new AllowedMentions(AllowedMentionTypes.Users));
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to send art spam questionnaire for user {DiscordId}.", seenMessage.Author.Id);
+            }
+        }
 
         var discordGuild = (seenMessage.Channel as SocketGuildChannel)?.Guild;
         if (discordGuild is null)
@@ -149,7 +208,7 @@ public class DiscordMessageHandler(
             return;
         }
 
-        await targetChannel.SendMessageAsync($"Removed message from <@{seenMessage.Author.Id}> ({seenMessage.Author.Username}), for posting a discord link without being verified.");
+        await targetChannel.SendMessageAsync($"Removed message from <@{seenMessage.Author.Id}> ({seenMessage.Author.Username}), for {reason}.");
     }
 
     private async Task AnalyseAndReportOnUrl(List<string> urls, long guildId, bool isEmbed, ISocketMessageChannel replyChannel, ulong uploaderId)

@@ -38,6 +38,8 @@ public class Guild
 
     public bool RemoveSpamEnabled { get; set; }
 
+    public bool ArtSpamFilterEnabled { get; set; }
+
     public long? RemovedMessageChannelId { get; set; }
 
     public bool AutoSubmitToWingman { get; set; } = true;

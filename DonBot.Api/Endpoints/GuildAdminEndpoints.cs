@@ -38,6 +38,7 @@ public static class GuildAdminEndpoints
         bool RaidAlertEnabled,
         string? RaidAlertChannelId,
         bool RemoveSpamEnabled,
+        bool ArtSpamFilterEnabled,
         string? RemovedMessageChannelId,
         bool AutoSubmitToWingman,
         bool AutoAggregateLogs,
@@ -447,6 +448,7 @@ public static class GuildAdminEndpoints
         g.RaidAlertEnabled,
         LongToString(g.RaidAlertChannelId),
         g.RemoveSpamEnabled,
+        g.ArtSpamFilterEnabled,
         LongToString(g.RemovedMessageChannelId),
         g.AutoSubmitToWingman,
         g.AutoAggregateLogs,
@@ -480,6 +482,7 @@ public static class GuildAdminEndpoints
         guild.RaidAlertEnabled = dto.RaidAlertEnabled;
         guild.RaidAlertChannelId = ParseOptionalLong(dto.RaidAlertChannelId);
         guild.RemoveSpamEnabled = dto.RemoveSpamEnabled;
+        guild.ArtSpamFilterEnabled = dto.ArtSpamFilterEnabled;
         guild.RemovedMessageChannelId = ParseOptionalLong(dto.RemovedMessageChannelId);
         guild.AutoSubmitToWingman = dto.AutoSubmitToWingman;
         guild.AutoAggregateLogs = dto.AutoAggregateLogs;

@@ -33,6 +33,7 @@ public static class ServiceRegister
         services.AddScoped<DiscordButtonHandler>();
         services.AddScoped<DiscordMessageHandler>();
         services.AddScoped<ILoggingService, LoggingService>();
+        services.AddSingleton<IArtSpamDetector, ArtSpamDetector>();
         services.AddScoped<IPlayerService, PlayerService>();
         services.AddScoped<IPointsAwardService, PointsAwardService>();
         services.AddScoped<IRaidCommandService, RaidCommandCommandService>();

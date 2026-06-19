@@ -124,6 +124,10 @@ public sealed class DiscordCommandService(IEntityService entityService) : IDisco
                 guild.RemoveSpamEnabled = (bool)option.Value;
                 break;
 
+            case "art_spam_filter_enabled":
+                guild.ArtSpamFilterEnabled = (bool)option.Value;
+                break;
+
             case "removed_message_channel":
                 if (option.Value is not SocketTextChannel removedMessageChannel)
                 {

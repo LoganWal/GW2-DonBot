@@ -51,6 +51,12 @@ public class DiscordButtonHandler(
             return;
         }
 
+        if (customId.StartsWith(ButtonId.ArtSpamQuestionnairePrefix))
+        {
+            _ = HandleArtSpamQuestionnaire(buttonComponent, customId);
+            return;
+        }
+
         if (IsScheduledEventButton(customId))
         {
             await HandleScheduledEventButton(buttonComponent, customId);
@@ -114,6 +120,34 @@ public class DiscordButtonHandler(
         finally
         {
             semaphore.Release();
+        }
+    }
+
+    private async Task HandleArtSpamQuestionnaire(SocketMessageComponent buttonComponent, string customId)
+    {
+        try
+        {
+            if (!ArtSpamQuestionnaire.TryParseCustomId(customId, out var userId, out var stage))
+            {
+                await buttonComponent.RespondAsync("This verification step is invalid.", ephemeral: true);
+                return;
+            }
+
+            if (buttonComponent.User.Id != userId)
+            {
+                await buttonComponent.RespondAsync("Only the original commission poster can complete this verification.", ephemeral: true);
+                return;
+            }
+
+            await buttonComponent.UpdateAsync(msg =>
+            {
+                msg.Content = ArtSpamQuestionnaire.BuildNextContent(userId, stage);
+                msg.Components = ArtSpamQuestionnaire.BuildNextComponents(userId, stage);
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error handling art spam questionnaire button: {CustomId}", customId);
         }
     }
 

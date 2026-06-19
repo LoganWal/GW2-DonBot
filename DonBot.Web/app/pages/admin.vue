@@ -420,6 +420,7 @@ type Config = {
   raidAlertEnabled: boolean
   raidAlertChannelId: string | null
   removeSpamEnabled: boolean
+  artSpamFilterEnabled: boolean
   removedMessageChannelId: string | null
   autoSubmitToWingman: boolean
   autoAggregateLogs: boolean
@@ -452,7 +453,7 @@ const channelFields: Field[] = [
   { key: 'advanceLogReportChannelId', label: 'Advance log report channel', tip: 'Optional second channel for the more detailed WvW report. Leave empty to skip.' },
   { key: 'streamLogChannelId', label: 'Stream log channel', tip: 'Channel for raw streaming log output.' },
   { key: 'raidAlertChannelId', label: 'Raid alert channel', tip: 'Channel where raid alerts are posted when "Raid alerts enabled" is on.' },
-  { key: 'removedMessageChannelId', label: 'Removed message channel', tip: 'Where removed spam messages are logged when "Remove spam enabled" is on.' },
+  { key: 'removedMessageChannelId', label: 'Removed message channel', tip: 'Where removed spam messages are logged when a spam filter deletes a message.' },
   { key: 'wvwLeaderboardChannelId', label: 'WvW leaderboard channel', tip: 'Channel where the weekly WvW leaderboard is posted when enabled.' },
   { key: 'pveLeaderboardChannelId', label: 'PvE leaderboard channel', tip: 'Channel where the weekly PvE leaderboard is posted when enabled.' },
 ]
@@ -466,6 +467,7 @@ const roleFields: Field[] = [
 const toggleFields: BooleanField[] = [
   { key: 'raidAlertEnabled', label: 'Raid alerts enabled', tip: 'Allow scheduled raid alert messages to be posted in the raid alert channel.' },
   { key: 'removeSpamEnabled', label: 'Remove spam enabled', tip: 'Auto-delete messages from unverified users that contain dps.report or wingman links.' },
+  { key: 'artSpamFilterEnabled', label: 'Art spam filter enabled', tip: 'Auto-delete image posts that match known art commission spam patterns.' },
   { key: 'autoSubmitToWingman', label: 'Auto-submit logs to Wingman', tip: 'Automatically forward processed dps.report logs to gw2wingman for import.' },
   { key: 'autoAggregateLogs', label: 'Auto-aggregate logs', tip: 'When multiple logs are shared at once, prompt to post a single combined summary.' },
   { key: 'autoReplySingleLog', label: 'Auto-reply to single logs', tip: 'Reply with a fight summary whenever a single log is shared.' },

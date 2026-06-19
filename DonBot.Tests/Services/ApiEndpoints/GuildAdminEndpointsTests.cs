@@ -109,6 +109,7 @@ public class GuildAdminEndpointsTests
             RaidAlertEnabled = true,
             RaidAlertChannelId = 9,
             RemoveSpamEnabled = true,
+            ArtSpamFilterEnabled = true,
             RemovedMessageChannelId = 10,
             AutoSubmitToWingman = false,
             AutoAggregateLogs = false,
@@ -128,6 +129,7 @@ public class GuildAdminEndpointsTests
         Assert.Equal("a,b,c", dto.Gw2SecondaryMemberRoleIds);
         Assert.True(dto.RaidAlertEnabled);
         Assert.True(dto.RemoveSpamEnabled);
+        Assert.True(dto.ArtSpamFilterEnabled);
         Assert.False(dto.AutoSubmitToWingman);
         Assert.False(dto.AutoAggregateLogs);
         Assert.True(dto.AutoReplySingleLog);
@@ -150,6 +152,7 @@ public class GuildAdminEndpointsTests
         Assert.True(dto.AutoSubmitToWingman);
         Assert.True(dto.AutoAggregateLogs);
         Assert.False(dto.RaidAlertEnabled);
+        Assert.False(dto.ArtSpamFilterEnabled);
     }
 
     [Fact]
@@ -164,6 +167,7 @@ public class GuildAdminEndpointsTests
             Gw2SecondaryMemberRoleIds = "x,y",
             RaidAlertEnabled = true,
             RaidAlertChannelId = 300,
+            ArtSpamFilterEnabled = true,
             AutoSubmitToWingman = false,
             PveLeaderboardEnabled = true,
             PveLeaderboardChannelId = 400
@@ -179,6 +183,7 @@ public class GuildAdminEndpointsTests
         Assert.Equal(original.Gw2SecondaryMemberRoleIds, target.Gw2SecondaryMemberRoleIds);
         Assert.Equal(original.RaidAlertEnabled, target.RaidAlertEnabled);
         Assert.Equal(original.RaidAlertChannelId, target.RaidAlertChannelId);
+        Assert.Equal(original.ArtSpamFilterEnabled, target.ArtSpamFilterEnabled);
         Assert.Equal(original.AutoSubmitToWingman, target.AutoSubmitToWingman);
         Assert.Equal(original.PveLeaderboardEnabled, target.PveLeaderboardEnabled);
         Assert.Equal(original.PveLeaderboardChannelId, target.PveLeaderboardChannelId);

@@ -155,6 +155,9 @@ namespace DonBot.Migrations
                     b.Property<long?>("AnnouncementChannelId")
                         .HasColumnType("bigint");
 
+                    b.Property<bool>("ArtSpamFilterEnabled")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("AutoAggregateLogs")
                         .HasColumnType("boolean");
 

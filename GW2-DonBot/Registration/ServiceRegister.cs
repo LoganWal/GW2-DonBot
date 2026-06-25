@@ -34,6 +34,9 @@ public static class ServiceRegister
         services.AddScoped<DiscordMessageHandler>();
         services.AddScoped<ILoggingService, LoggingService>();
         services.AddSingleton<IArtSpamDetector, ArtSpamDetector>();
+        services.AddSingleton<IScheduledMessageDeleteClient, DiscordScheduledMessageDeleteClient>();
+        services.AddSingleton<ScheduledMessageDeleteService>();
+        services.AddSingleton<IScheduledMessageDeleteScheduler>(sp => sp.GetRequiredService<ScheduledMessageDeleteService>());
         services.AddScoped<IPlayerService, PlayerService>();
         services.AddScoped<IPointsAwardService, PointsAwardService>();
         services.AddScoped<IRaidCommandService, RaidCommandCommandService>();

@@ -21,6 +21,7 @@ public sealed class DatabaseContext : DbContext
         PlayerPointAward = Set<PlayerPointAward>();
         GuildQuote = Set<GuildQuote>();
         ScheduledEvent = Set<ScheduledEvent>();
+        ScheduledMessageDelete = Set<ScheduledMessageDelete>();
         RotationAnomaly = Set<RotationAnomaly>();
         LogUpload = Set<LogUpload>();
     }
@@ -50,6 +51,8 @@ public sealed class DatabaseContext : DbContext
     public DbSet<GuildQuote> GuildQuote { get; set; }
 
     public DbSet<ScheduledEvent> ScheduledEvent { get; set; }
+
+    public DbSet<ScheduledMessageDelete> ScheduledMessageDelete { get; set; }
 
     public DbSet<RotationAnomaly> RotationAnomaly { get; set; }
 
@@ -89,6 +92,9 @@ public sealed class DatabaseContext : DbContext
         modelBuilder.Entity<ScheduledEvent>()
             .Property(se => se.NotificationMinutesBeforeStart)
             .HasDefaultValue((short)15);
+
+        modelBuilder.Entity<ScheduledMessageDelete>()
+            .HasIndex(smd => smd.DeleteAfterUtc);
 
         modelBuilder.Entity<PlayerFightLog>()
             .Property(pfl => pfl.AlacDuration)

@@ -17,6 +17,7 @@ public sealed class DiscordCore(
     IPollingTasksService pollingTasksService,
     ILoggingService loggingService,
     SchedulerService schedulerService,
+    ScheduledMessageDeleteService scheduledMessageDeleteService,
     DiscordSocketClient client,
     DiscordCommandRegistrar commandRegistrar,
     DiscordCommandHandler commandHandler,
@@ -27,6 +28,7 @@ public sealed class DiscordCore(
 {
     private CancellationTokenSource? _pollingRolesCancellationTokenSource;
     private CancellationTokenSource? _scheduleServiceCancellationTokenSource;
+    private CancellationTokenSource? _scheduledMessageDeleteCancellationTokenSource;
     private Task? _pollingRolesTask;
 
     public async Task MainAsync(CancellationToken cancellationToken = default)
@@ -52,6 +54,9 @@ public sealed class DiscordCore(
 
         _scheduleServiceCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         await schedulerService.StartAsync(_scheduleServiceCancellationTokenSource.Token);
+
+        _scheduledMessageDeleteCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        await scheduledMessageDeleteService.StartAsync(_scheduledMessageDeleteCancellationTokenSource.Token);
 
         logger.LogInformation("GW2-DonBot setup - ready to cause chaos");
 
@@ -182,6 +187,20 @@ public sealed class DiscordCore(
             await _scheduleServiceCancellationTokenSource.CancelAsync();
         }
 
+        if (_scheduledMessageDeleteCancellationTokenSource is not null)
+        {
+            await _scheduledMessageDeleteCancellationTokenSource.CancelAsync();
+            try
+            {
+                using var stopCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                await scheduledMessageDeleteService.StopAsync(stopCts.Token);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Error waiting for scheduled message delete service to stop");
+            }
+        }
+
         if (_pollingRolesTask is not null)
         {
             try
@@ -204,6 +223,7 @@ public sealed class DiscordCore(
 
         _pollingRolesCancellationTokenSource?.Dispose();
         _scheduleServiceCancellationTokenSource?.Dispose();
+        _scheduledMessageDeleteCancellationTokenSource?.Dispose();
 
         logger.LogInformation("Discord client shutdown completed");
     }

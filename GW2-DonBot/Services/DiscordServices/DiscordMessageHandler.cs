@@ -20,8 +20,10 @@ public class DiscordMessageHandler(
     IHttpClientFactory httpClientFactory,
     DiscordSocketClient client,
     IPendingLogService pendingLogService,
-    IArtSpamDetector artSpamDetector)
+    IArtSpamDetector artSpamDetector,
+    IScheduledMessageDeleteScheduler scheduledMessageDeleteScheduler)
 {
+    private static readonly TimeSpan ArtSpamQuestionnaireLifetime = TimeSpan.FromHours(1);
     private readonly HashSet<string> _seenUrls = [];
     private static readonly string[] ImageAttachmentExtensions =
     [
@@ -176,9 +178,10 @@ public class DiscordMessageHandler(
 
         if (sendArtQuestionnaire)
         {
+            IUserMessage? questionnaireMessage;
             try
             {
-                await seenMessage.Channel.SendMessageAsync(
+                questionnaireMessage = await seenMessage.Channel.SendMessageAsync(
                     ArtSpamQuestionnaire.BuildInitialContent(seenMessage.Author.Id),
                     components: ArtSpamQuestionnaire.BuildInitialComponents(seenMessage.Author.Id),
                     allowedMentions: new AllowedMentions(AllowedMentionTypes.Users));
@@ -186,6 +189,25 @@ public class DiscordMessageHandler(
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Failed to send art spam questionnaire for user {DiscordId}.", seenMessage.Author.Id);
+                questionnaireMessage = null;
+            }
+
+            if (questionnaireMessage is not null)
+            {
+                try
+                {
+                    await scheduledMessageDeleteScheduler.ScheduleDeleteAsync(
+                        seenMessage.Channel.Id,
+                        questionnaireMessage.Id,
+                        ArtSpamQuestionnaireLifetime,
+                        "art spam questionnaire");
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to schedule art spam questionnaire message {MessageId} for deletion.",
+                        questionnaireMessage.Id);
+                    _ = DeleteArtSpamQuestionnaireAfterDelayAsync(questionnaireMessage, seenMessage.Author.Id);
+                }
             }
         }
 
@@ -209,6 +231,20 @@ public class DiscordMessageHandler(
         }
 
         await targetChannel.SendMessageAsync($"Removed message from <@{seenMessage.Author.Id}> ({seenMessage.Author.Username}), for {reason}.");
+    }
+
+    private async Task DeleteArtSpamQuestionnaireAfterDelayAsync(IUserMessage questionnaireMessage, ulong userId)
+    {
+        try
+        {
+            await Task.Delay(ArtSpamQuestionnaireLifetime);
+            await questionnaireMessage.DeleteAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to delete art spam questionnaire message {MessageId} for user {DiscordId}.",
+                questionnaireMessage.Id, userId);
+        }
     }
 
     private async Task AnalyseAndReportOnUrl(List<string> urls, long guildId, bool isEmbed, ISocketMessageChannel replyChannel, ulong uploaderId)

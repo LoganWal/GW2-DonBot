@@ -38,7 +38,6 @@ public static class PlayerFightLogPlaystyleClassifier
     private const double MinimumGoodHealingPerSecond = 500d;
     private const double MinimumCleansesPerMinute = 3d;
     private const double MinimumStripsPerMinute = 1d;
-    private const double MinimumStabilityGeneration = 5d;
 
     public static string ResolvePvePlaystyle(string boonRole) =>
         boonRole switch
@@ -170,7 +169,7 @@ public static class PlayerFightLogPlaystyleClassifier
         var hasDecentSupport = Qualifies(metrics.HealingPerSecond, benchmarks.DecentHealingPerSecond, MinimumHealingPerSecond) ||
             Qualifies(metrics.CleansesPerMinute, benchmarks.DecentCleansesPerMinute, MinimumCleansesPerMinute) ||
             Qualifies(metrics.StripsPerMinute, benchmarks.DecentStripsPerMinute, MinimumStripsPerMinute) ||
-            Qualifies(metrics.StabilityGeneration, benchmarks.DecentStabilityGeneration, MinimumStabilityGeneration);
+            QualifiesStability(metrics.StabilityGeneration, benchmarks.DecentStabilityGeneration);
         var hasGoodHealing = Qualifies(metrics.HealingPerSecond, benchmarks.GoodHealingPerSecond, MinimumGoodHealingPerSecond);
 
         if (!hasDecentDamage && hasGoodHealing)
@@ -215,6 +214,13 @@ public static class PlayerFightLogPlaystyleClassifier
 
     private static bool Qualifies(double value, double benchmark, double minimum) =>
         double.IsFinite(value) && value >= Math.Max(benchmark, minimum);
+
+    private static bool QualifiesStability(double value, double benchmark) =>
+        double.IsFinite(value) &&
+        double.IsFinite(benchmark) &&
+        benchmark > 0d &&
+        value > 0d &&
+        value >= benchmark;
 
     private static double Percentile(IEnumerable<double> values, double percentile)
     {

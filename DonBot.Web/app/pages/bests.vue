@@ -23,6 +23,13 @@
         </div>
 
         <template v-if="bests.bestTimes?.length">
+          <div class="mode-filter-row">
+            <FilterButtonGroup
+              :options="bestTimeModeOptions"
+              :model-value="selectedBestTimeMode"
+              @update:model-value="selectedBestTimeMode = $event"
+            />
+          </div>
           <template v-for="group in bestTimeGroups" :key="group.label">
             <SectionTitle>{{ group.label }}</SectionTitle>
             <div class="bests-grid">
@@ -34,7 +41,7 @@
               </Card>
               <StatCard
                 v-for="t in group.items"
-                :key="t.fightType"
+                :key="`${t.fightType}-${t.fightMode}`"
                 :title="t.fightType === 42 ? 'Not included in total' : undefined"
                 :class="t.fightType === 42 ? 'best-card excluded-card' : 'best-card'"
                 :label="fightName(t.fightType)"
@@ -48,6 +55,9 @@
               </StatCard>
             </div>
           </template>
+          <Message v-if="bestTimeGroups.length === 0" severity="secondary" :closable="false">
+            No {{ selectedBestTimeModeLabel }} best times yet.
+          </Message>
         </template>
       </TabPanel>
 
@@ -96,9 +106,19 @@ definePageMeta({ middleware: 'auth' })
 
 const api = useApi()
 const { data: bests, pending } = await useAsyncData('bests', () => api('/api/stats/bests') as Promise<any>)
+const selectedBestTimeMode = ref(0)
+const bestTimeModeOptions = [
+  { label: 'NM', value: 0, severity: 'primary' },
+  { label: 'CM', value: 1, severity: 'primary' },
+  { label: 'LCM', value: 2, severity: 'primary' },
+]
+const selectedBestTimeModeLabel = computed(() =>
+  bestTimeModeOptions.find(o => o.value === selectedBestTimeMode.value)?.label ?? 'selected mode'
+)
 
 const bestTimeGroups = computed(() =>
-  groupByFightType<any>((bests.value as any)?.bestTimes ?? [])
+  groupByFightType<any>(((bests.value as any)?.bestTimes ?? [])
+    .filter((time: any) => Number(time.fightMode ?? 0) === selectedBestTimeMode.value))
 )
 </script>
 
@@ -123,6 +143,13 @@ const bestTimeGroups = computed(() =>
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 0.75rem;
+}
+
+.mode-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 1.25rem;
+  margin-bottom: 1rem;
 }
 
 .dps-row {

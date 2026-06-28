@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using DonBot.Api.Endpoints;
 using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.Enums;
 using DonBot.Tests.Infrastructure;
 
 namespace DonBot.Tests.Services.ApiEndpoints;
@@ -153,6 +154,46 @@ public class StatsEndpointsIntegrationTests
 
         Assert.Equal(1, bestTimes.GetArrayLength());
         Assert.Equal(60_000L, bestTimes[0].GetProperty("durationMs").GetInt64());
+        Assert.Equal(0, bestTimes[0].GetProperty("fightMode").GetInt32());
+    }
+
+    [Fact]
+    public async Task GetMyBests_PveSuccessfulKills_ReturnsBestTimesPerFightMode()
+    {
+        using var host = NewHost();
+        await using (var db = await host.DbFactory.CreateDbContextAsync())
+        {
+            db.GuildWarsAccount.Add(new GuildWarsAccount
+            {
+                GuildWarsAccountId = Guid.NewGuid(),
+                DiscordId = 123L,
+                GuildWarsAccountName = "Player.1234"
+            });
+            db.FightLog.AddRange(
+                new FightLog { FightLogId = 1, FightType = 5, FightMode = 0, FightDurationInMs = 90_000, IsSuccess = true, FightStart = DateTime.UtcNow, Url = "nm-slow" },
+                new FightLog { FightLogId = 2, FightType = 5, FightMode = 0, FightDurationInMs = 60_000, IsSuccess = true, FightStart = DateTime.UtcNow, Url = "nm-fast" },
+                new FightLog { FightLogId = 3, FightType = 5, FightMode = 1, FightDurationInMs = 120_000, IsSuccess = true, FightStart = DateTime.UtcNow, Url = "cm-slow" },
+                new FightLog { FightLogId = 4, FightType = 5, FightMode = 1, FightDurationInMs = 100_000, IsSuccess = true, FightStart = DateTime.UtcNow, Url = "cm-fast" });
+            db.PlayerFightLog.AddRange(
+                new PlayerFightLog { PlayerFightLogId = 1, FightLogId = 1, GuildWarsAccountName = "Player.1234", CharacterName = "C", Damage = 1000 },
+                new PlayerFightLog { PlayerFightLogId = 2, FightLogId = 2, GuildWarsAccountName = "Player.1234", CharacterName = "C", Damage = 2000 },
+                new PlayerFightLog { PlayerFightLogId = 3, FightLogId = 3, GuildWarsAccountName = "Player.1234", CharacterName = "C", Damage = 3000 },
+                new PlayerFightLog { PlayerFightLogId = 4, FightLogId = 4, GuildWarsAccountName = "Player.1234", CharacterName = "C", Damage = 4000 });
+            await db.SaveChangesAsync();
+        }
+        host.AuthenticateAs(123L);
+
+        var body = await host.Client.GetStringAsync("/api/stats/bests");
+        var doc = JsonDocument.Parse(body);
+        var bestTimes = doc.RootElement.GetProperty("bestTimes").EnumerateArray().ToArray();
+
+        Assert.Equal(2, bestTimes.Length);
+        Assert.Contains(bestTimes, row =>
+            row.GetProperty("fightMode").GetInt32() == 0 &&
+            row.GetProperty("durationMs").GetInt64() == 60_000L);
+        Assert.Contains(bestTimes, row =>
+            row.GetProperty("fightMode").GetInt32() == 1 &&
+            row.GetProperty("durationMs").GetInt64() == 100_000L);
     }
 
     [Fact]
@@ -239,6 +280,188 @@ public class StatsEndpointsIntegrationTests
         Assert.Equal(2, data[0].GetProperty("fightLogId").GetInt64());
         Assert.Equal("boon-dps", data[0].GetProperty("playstyle").GetString());
         Assert.Equal("Boon DPS", data[0].GetProperty("playstyleLabel").GetString());
+    }
+
+    [Fact]
+    public async Task GetMyProgression_HarvestTempleLegacyProgress_DoesNotUseRawRepair()
+    {
+        using var host = NewHost();
+        await using (var db = await host.DbFactory.CreateDbContextAsync())
+        {
+            db.GuildWarsAccount.Add(new GuildWarsAccount
+            {
+                GuildWarsAccountId = Guid.NewGuid(),
+                DiscordId = 123L,
+                GuildWarsAccountName = "Player.1234"
+            });
+            db.FightLog.Add(new FightLog
+            {
+                FightLogId = 1,
+                FightType = (short)FightTypesEnum.Ht,
+                FightMode = 1,
+                FightDurationInMs = 60_000,
+                FightStart = DateTime.UtcNow.AddMinutes(-5),
+                FightPercent = 99,
+                Url = "ht"
+            });
+            db.FightLogRawData.Add(new FightLogRawData
+            {
+                FightLogId = 1,
+                RawFightData = """
+                               {
+                                 "targets": [
+                                   { "hbWidth": 800, "hpLeft": 0, "health": 100, "name": "The JormagVoid" },
+                                   { "hbWidth": 800, "hpLeft": 0, "health": 100, "name": "The PrimordusVoid" },
+                                   { "hbWidth": 800, "hpLeft": 0, "health": 100, "name": "The KralkatorrikVoid" },
+                                   { "hbWidth": 800, "hpLeft": 0, "health": 100, "name": "The MordremothVoid" },
+                                   { "hbWidth": 800, "hpLeft": 0, "health": 100, "name": "The ZhaitanVoid" },
+                                   { "hbWidth": 800, "hpLeft": 0, "health": 200, "name": "The SooWonVoid" },
+                                   { "hbWidth": 180, "hpLeft": -1, "health": -1, "name": "Soo-Won Green NE" }
+                                 ]
+                               }
+                               """
+            });
+            db.PlayerFightLog.Add(new PlayerFightLog
+            {
+                PlayerFightLogId = 1,
+                FightLogId = 1,
+                GuildWarsAccountName = "Player.1234",
+                CharacterName = "C",
+                Damage = 100
+            });
+            await db.SaveChangesAsync();
+        }
+        host.AuthenticateAs(123L);
+
+        var body = await host.Client.GetStringAsync($"/api/stats/progression?fightType={(short)FightTypesEnum.Ht}");
+        var data = JsonDocument.Parse(body).RootElement;
+
+        Assert.Equal(99m, data[0].GetProperty("fightPercent").GetDecimal());
+        Assert.Equal(JsonValueKind.Null, data[0].GetProperty("fightPhase").ValueKind);
+    }
+
+    [Fact]
+    public async Task GetMyProgression_HarvestTempleStoredProgress_DoesNotRequireRawData()
+    {
+        using var host = NewHost();
+        await using (var db = await host.DbFactory.CreateDbContextAsync())
+        {
+            db.GuildWarsAccount.Add(new GuildWarsAccount
+            {
+                GuildWarsAccountId = Guid.NewGuid(),
+                DiscordId = 123L,
+                GuildWarsAccountName = "Player.1234"
+            });
+            db.FightLog.AddRange(
+                new FightLog
+                {
+                    FightLogId = 1,
+                    FightType = (short)FightTypesEnum.Ht,
+                    FightMode = 1,
+                    FightDurationInMs = 60_000,
+                    FightStart = DateTime.UtcNow.AddMinutes(-5),
+                    FightPercent = 50,
+                    FightPhase = 3,
+                    Url = "ht1"
+                },
+                new FightLog
+                {
+                    FightLogId = 2,
+                    FightType = (short)FightTypesEnum.Ht,
+                    FightMode = 1,
+                    FightDurationInMs = 60_000,
+                    FightStart = DateTime.UtcNow.AddMinutes(-4),
+                    FightPercent = 0,
+                    FightPhase = 6,
+                    Url = "ht2"
+                });
+            db.PlayerFightLog.AddRange(
+                new PlayerFightLog
+                {
+                    PlayerFightLogId = 1,
+                    FightLogId = 1,
+                    GuildWarsAccountName = "Player.1234",
+                    CharacterName = "C",
+                    Damage = 100
+                },
+                new PlayerFightLog
+                {
+                    PlayerFightLogId = 2,
+                    FightLogId = 2,
+                    GuildWarsAccountName = "Player.1234",
+                    CharacterName = "C",
+                    Damage = 200
+                });
+            await db.SaveChangesAsync();
+        }
+        host.AuthenticateAs(123L);
+
+        var body = await host.Client.GetStringAsync($"/api/stats/progression?fightType={(short)FightTypesEnum.Ht}");
+        var data = JsonDocument.Parse(body).RootElement;
+
+        Assert.Equal(2, data.GetArrayLength());
+        Assert.Equal(58.33m, data[0].GetProperty("fightPercent").GetDecimal());
+        Assert.Equal(3, data[0].GetProperty("fightPhase").GetInt32());
+        Assert.Equal(0m, data[1].GetProperty("fightPercent").GetDecimal());
+        Assert.Equal(6, data[1].GetProperty("fightPhase").GetInt32());
+    }
+
+    [Fact]
+    public async Task GetMyProgression_UraStoredProgress_DoesNotUseRawRepair()
+    {
+        using var host = NewHost();
+        await using (var db = await host.DbFactory.CreateDbContextAsync())
+        {
+            db.GuildWarsAccount.Add(new GuildWarsAccount
+            {
+                GuildWarsAccountId = Guid.NewGuid(),
+                DiscordId = 123L,
+                GuildWarsAccountName = "Player.1234"
+            });
+            db.FightLog.Add(new FightLog
+            {
+                FightLogId = 1,
+                FightType = (short)FightTypesEnum.Ura,
+                FightMode = 2,
+                FightDurationInMs = 60_000,
+                FightStart = DateTime.UtcNow.AddMinutes(-5),
+                FightPercent = 10,
+                FightPhase = 1,
+                Url = "ura"
+            });
+            db.FightLogRawData.Add(new FightLogRawData
+            {
+                FightLogId = 1,
+                RawFightData = """
+                               {
+                                 "fightMode": "Legendary Challenge Mode",
+                                 "targets": [
+                                   { "hbWidth": 1000, "hpLeft": 20, "health": 100, "name": "Godscream Ura" }
+                                 ],
+                                 "phases": [
+                                   { "name": "Full Fight", "targets": [0] },
+                                   { "name": "Healed", "targets": [0] }
+                                 ]
+                               }
+                               """
+            });
+            db.PlayerFightLog.Add(new PlayerFightLog
+            {
+                PlayerFightLogId = 1,
+                FightLogId = 1,
+                GuildWarsAccountName = "Player.1234",
+                CharacterName = "C",
+                Damage = 100
+            });
+            await db.SaveChangesAsync();
+        }
+        host.AuthenticateAs(123L);
+
+        var body = await host.Client.GetStringAsync($"/api/stats/progression?fightType={(short)FightTypesEnum.Ura}");
+        var data = JsonDocument.Parse(body).RootElement;
+
+        Assert.Equal(37m, data[0].GetProperty("fightPercent").GetDecimal());
+        Assert.Equal(1, data[0].GetProperty("fightPhase").GetInt32());
     }
 
     [Fact]

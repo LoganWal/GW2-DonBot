@@ -156,7 +156,7 @@
 
           <SectionTitle>Survivability</SectionTitle>
           <div class="stat-grid">
-            <StatCard label="Res Time (ms)" :value="stats.pve.totalResurrectionTime" />
+            <StatCard label="Res Time (s)" :value="formatSeconds(stats.pve.totalResurrectionTime)" />
             <StatCard label="Damage Taken" :value="stats.pve.totalDamageTaken" />
             <StatCard label="Times Downed" :value="stats.pve.totalTimesDowned" />
             <StatCard label="Total Deaths" :value="stats.pve.totalDeaths" />
@@ -196,6 +196,7 @@ watch(stats, (s) => {
 
 const charactersSortField = computed(() => activeTab.value === 'wvw' ? 'wvwLogs' : 'pveLogs')
 const formatInt = (value: number) => Math.round(Number(value) || 0).toLocaleString()
+const formatSeconds = (valueMs: number) => `${((Number(valueMs) || 0) / 1000).toFixed(1)}s`
 </script>
 
 <style scoped>

@@ -78,6 +78,16 @@ public static class Program
                 await MissingPointsRunner.RunAsync(factory, options, cts.Token);
             }
 
+            if (options.BackfillUraProgress)
+            {
+                await UraProgressBackfillRunner.RunAsync(factory, options, cts.Token);
+            }
+
+            if (options.BackfillHtProgress)
+            {
+                await HarvestTempleProgressBackfillRunner.RunAsync(factory, options, cts.Token);
+            }
+
             return 0;
         }
         catch (OperationCanceledException)
@@ -95,11 +105,15 @@ public static class Program
         Usage:
           dotnet run --project DonBot.Reprocessor -- --backfill-playtypes
           dotnet run --project DonBot.Reprocessor -- --award-missing-points
+          dotnet run --project DonBot.Reprocessor -- --backfill-ura-progress
+          dotnet run --project DonBot.Reprocessor -- --backfill-ht-progress
           dotnet run --project DonBot.Reprocessor -- --all
 
         Tasks:
           --backfill-playtypes       Rebuild stab, quick/alac generation, boon role, and playstyle from raw log JSON.
           --award-missing-points     Award missing dynamic point rows for existing fights.
+          --backfill-ura-progress    Rebuild Ura CM/LCM fight percent and phase from raw log JSON.
+          --backfill-ht-progress     Rebuild Harvest Temple fight percent and phase from raw log JSON.
           --all                      Run all currently registered reprocessors.
 
         Options:
@@ -116,6 +130,8 @@ public static class Program
 public sealed record ReprocessorOptions(
     bool BackfillPlaytypes,
     bool AwardMissingPoints,
+    bool BackfillUraProgress,
+    bool BackfillHtProgress,
     bool DryRun,
     bool Force,
     bool ShowHelp,
@@ -123,12 +139,14 @@ public sealed record ReprocessorOptions(
     long? FromId,
     long? ToId)
 {
-    public bool HasWork => BackfillPlaytypes || AwardMissingPoints;
+    public bool HasWork => BackfillPlaytypes || AwardMissingPoints || BackfillUraProgress || BackfillHtProgress;
 
     public static bool TryParse(string[] args, out ReprocessorOptions options, out string? error)
     {
         var backfillPlaytypes = false;
         var awardMissingPoints = false;
+        var backfillUraProgress = false;
+        var backfillHtProgress = false;
         var dryRun = false;
         var force = false;
         var showHelp = false;
@@ -148,9 +166,19 @@ public sealed record ReprocessorOptions(
                 case "--award-missing-points":
                     awardMissingPoints = true;
                     break;
+                case "--backfill-ura-progress":
+                case "--update-ura-progress":
+                    backfillUraProgress = true;
+                    break;
+                case "--backfill-ht-progress":
+                case "--update-ht-progress":
+                    backfillHtProgress = true;
+                    break;
                 case "--all":
                     backfillPlaytypes = true;
                     awardMissingPoints = true;
+                    backfillUraProgress = true;
+                    backfillHtProgress = true;
                     break;
                 case "--dry-run":
                     dryRun = true;
@@ -209,12 +237,12 @@ public sealed record ReprocessorOptions(
             return false;
         }
 
-        options = new ReprocessorOptions(backfillPlaytypes, awardMissingPoints, dryRun, force, showHelp, batchSize, fromId, toId);
+        options = new ReprocessorOptions(backfillPlaytypes, awardMissingPoints, backfillUraProgress, backfillHtProgress, dryRun, force, showHelp, batchSize, fromId, toId);
         error = null;
         return true;
     }
 
-    private static ReprocessorOptions Empty => new(false, false, false, false, false, 100, null, null);
+    private static ReprocessorOptions Empty => new(false, false, false, false, false, false, false, 100, null, null);
 
     private static bool TryReadInt(string[] args, ref int index, string name, out int value, out string? error)
     {
@@ -668,6 +696,366 @@ internal static class MissingPointsRunner
     }
 }
 
+internal static class UraProgressBackfillRunner
+{
+    public static async Task RunAsync(IDbContextFactory<DatabaseContext> factory, ReprocessorOptions options, CancellationToken cancellationToken)
+    {
+        Console.WriteLine(options.DryRun
+            ? "Starting Ura CM/LCM progress dry run."
+            : "Starting Ura CM/LCM progress backfill.");
+
+        var stopwatch = Stopwatch.StartNew();
+        var processedLogs = 0;
+        var updatedLogs = 0;
+        var unchangedLogs = 0;
+        var skippedLogs = 0;
+        var failedLogs = 0;
+
+        await using var countContext = await factory.CreateDbContextAsync(cancellationToken);
+        var totalLogs = await BuildUraProgressQuery(countContext, options, null)
+            .CountAsync(cancellationToken);
+
+        Console.WriteLine($"Queued {totalLogs:N0} Ura fight logs with raw data for progress backfill.");
+
+        long? lastFightLogId = null;
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            List<UraProgressRow> fightRows;
+            await using (var queryContext = await factory.CreateDbContextAsync(cancellationToken))
+            {
+                fightRows = await BuildUraProgressQuery(queryContext, options, lastFightLogId)
+                    .Take(options.BatchSize)
+                    .ToListAsync(cancellationToken);
+            }
+
+            if (fightRows.Count == 0)
+            {
+                break;
+            }
+
+            lastFightLogId = fightRows[^1].FightLogId;
+            var updates = new List<UraProgressUpdate>(fightRows.Count);
+
+            foreach (var fightRow in fightRows)
+            {
+                try
+                {
+                    var fightData = JsonConvert.DeserializeObject<FightEliteInsightDataModel>(fightRow.RawFightData) ?? new FightEliteInsightDataModel();
+                    if (fightData.Targets is not { Count: > 0 })
+                    {
+                        skippedLogs++;
+                        processedLogs++;
+                        continue;
+                    }
+
+                    var rawFightMode = FightLogProgressCalculator.ResolveFightMode(fightData, fightData.Phases?.FirstOrDefault());
+                    var fightMode = rawFightMode != 0 ? rawFightMode : fightRow.FightMode;
+                    if (fightMode is not (1 or 2))
+                    {
+                        skippedLogs++;
+                        processedLogs++;
+                        continue;
+                    }
+
+                    var progress = FightLogProgressCalculator.Calculate(fightData, (short)FightTypesEnum.Ura, fightMode);
+                    if (fightRow.FightMode == fightMode &&
+                        fightRow.FightPhase == progress.FightPhase &&
+                        fightRow.FightPercent == progress.FightPercent)
+                    {
+                        unchangedLogs++;
+                        processedLogs++;
+                        continue;
+                    }
+
+                    updates.Add(new UraProgressUpdate(
+                        fightRow.FightLogId,
+                        fightMode,
+                        progress.FightPhase,
+                        progress.FightPercent));
+                    processedLogs++;
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    failedLogs++;
+                    Console.Error.WriteLine($"Failed to update Ura progress for FightLogId {fightRow.FightLogId}: {ex.Message}");
+                    processedLogs++;
+                }
+            }
+
+            if (updates.Count > 0 && options.DryRun is false)
+            {
+                await using var updateContext = await factory.CreateDbContextAsync(cancellationToken);
+                updateContext.ChangeTracker.AutoDetectChangesEnabled = false;
+                await BulkUpdateUraProgressAsync(updateContext, updates, cancellationToken);
+            }
+
+            updatedLogs += updates.Count;
+            ProgressWriter.Write("Ura progress", processedLogs, totalLogs, stopwatch, $"updates {updatedLogs:N0}, unchanged {unchangedLogs:N0}, skipped {skippedLogs:N0}, errors {failedLogs:N0}");
+        }
+
+        Console.WriteLine($"Ura progress backfill complete. Logs {processedLogs:N0}/{totalLogs:N0}, updates {updatedLogs:N0}, unchanged {unchangedLogs:N0}, skipped {skippedLogs:N0}, errors {failedLogs:N0}.");
+    }
+
+    private static IQueryable<UraProgressRow> BuildUraProgressQuery(DatabaseContext context, ReprocessorOptions options, long? afterFightLogId)
+    {
+        var query =
+            from fightLog in context.FightLog
+            join rawData in context.FightLogRawData on fightLog.FightLogId equals rawData.FightLogId
+            where fightLog.FightType == (short)FightTypesEnum.Ura
+            where rawData.RawFightData != null && rawData.RawFightData != string.Empty
+            select new
+            {
+                fightLog.FightLogId,
+                fightLog.FightMode,
+                fightLog.FightPercent,
+                fightLog.FightPhase,
+                rawData.RawFightData
+            };
+
+        if (afterFightLogId.HasValue)
+        {
+            query = query.Where(row => row.FightLogId > afterFightLogId.Value);
+        }
+
+        if (options.FromId.HasValue)
+        {
+            query = query.Where(row => row.FightLogId >= options.FromId.Value);
+        }
+
+        if (options.ToId.HasValue)
+        {
+            query = query.Where(row => row.FightLogId <= options.ToId.Value);
+        }
+
+        return query
+            .OrderBy(row => row.FightLogId)
+            .Select(row => new UraProgressRow(
+                row.FightLogId,
+                row.FightMode,
+                row.FightPercent,
+                row.FightPhase,
+                row.RawFightData!));
+    }
+
+    private static async Task BulkUpdateUraProgressAsync(DatabaseContext context, IReadOnlyList<UraProgressUpdate> updates, CancellationToken cancellationToken)
+    {
+        var values = new StringBuilder(updates.Count * 32);
+        var parameters = new List<object>(updates.Count * 4);
+
+        for (var index = 0; index < updates.Count; index++)
+        {
+            if (index > 0)
+            {
+                values.Append(", ");
+            }
+
+            values.Append(CultureInfo.InvariantCulture, $"(@id{index}, @mode{index}, @phase{index}, @percent{index})");
+
+            var update = updates[index];
+            parameters.Add(new NpgsqlParameter($"id{index}", update.FightLogId));
+            parameters.Add(new NpgsqlParameter($"mode{index}", update.FightMode));
+            parameters.Add(new NpgsqlParameter($"phase{index}", (object?)update.FightPhase ?? DBNull.Value));
+            parameters.Add(new NpgsqlParameter($"percent{index}", update.FightPercent));
+        }
+
+        var sql = $$"""
+        UPDATE "FightLog" AS fight_log
+        SET "FightMode" = updates."FightMode",
+            "FightPhase" = updates."FightPhase",
+            "FightPercent" = updates."FightPercent"
+        FROM (VALUES {{values}}) AS updates("FightLogId", "FightMode", "FightPhase", "FightPercent")
+        WHERE fight_log."FightLogId" = updates."FightLogId";
+        """;
+
+        await context.Database.ExecuteSqlRawAsync(sql, parameters, cancellationToken);
+    }
+}
+
+internal static class HarvestTempleProgressBackfillRunner
+{
+    public static async Task RunAsync(IDbContextFactory<DatabaseContext> factory, ReprocessorOptions options, CancellationToken cancellationToken)
+    {
+        Console.WriteLine(options.DryRun
+            ? "Starting Harvest Temple progress dry run."
+            : "Starting Harvest Temple progress backfill.");
+
+        var stopwatch = Stopwatch.StartNew();
+        var processedLogs = 0;
+        var updatedLogs = 0;
+        var unchangedLogs = 0;
+        var skippedLogs = 0;
+        var failedLogs = 0;
+
+        await using var countContext = await factory.CreateDbContextAsync(cancellationToken);
+        var totalLogs = await BuildHarvestTempleProgressQuery(countContext, options, null)
+            .CountAsync(cancellationToken);
+
+        Console.WriteLine($"Queued {totalLogs:N0} Harvest Temple fight logs with raw data for progress backfill.");
+
+        long? lastFightLogId = null;
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            List<HarvestTempleProgressRow> fightRows;
+            await using (var queryContext = await factory.CreateDbContextAsync(cancellationToken))
+            {
+                fightRows = await BuildHarvestTempleProgressQuery(queryContext, options, lastFightLogId)
+                    .Take(options.BatchSize)
+                    .ToListAsync(cancellationToken);
+            }
+
+            if (fightRows.Count == 0)
+            {
+                break;
+            }
+
+            lastFightLogId = fightRows[^1].FightLogId;
+            var updates = new List<HarvestTempleProgressUpdate>(fightRows.Count);
+
+            foreach (var fightRow in fightRows)
+            {
+                try
+                {
+                    var fightData = JsonConvert.DeserializeObject<FightEliteInsightDataModel>(fightRow.RawFightData) ?? new FightEliteInsightDataModel();
+                    if (fightData.Targets is not { Count: > 0 })
+                    {
+                        skippedLogs++;
+                        processedLogs++;
+                        continue;
+                    }
+
+                    var progress = FightLogProgressCalculator.Calculate(fightData, (short)FightTypesEnum.Ht, fightRow.FightMode);
+                    if (progress.FightPhase is null)
+                    {
+                        skippedLogs++;
+                        processedLogs++;
+                        continue;
+                    }
+
+                    if (fightRow.FightPhase == progress.FightPhase &&
+                        fightRow.FightPercent == progress.FightPercent)
+                    {
+                        unchangedLogs++;
+                        processedLogs++;
+                        continue;
+                    }
+
+                    updates.Add(new HarvestTempleProgressUpdate(
+                        fightRow.FightLogId,
+                        progress.FightPhase,
+                        progress.FightPercent));
+                    processedLogs++;
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    failedLogs++;
+                    Console.Error.WriteLine($"Failed to update Harvest Temple progress for FightLogId {fightRow.FightLogId}: {ex.Message}");
+                    processedLogs++;
+                }
+            }
+
+            if (updates.Count > 0 && options.DryRun is false)
+            {
+                await using var updateContext = await factory.CreateDbContextAsync(cancellationToken);
+                updateContext.ChangeTracker.AutoDetectChangesEnabled = false;
+                await BulkUpdateHarvestTempleProgressAsync(updateContext, updates, cancellationToken);
+            }
+
+            updatedLogs += updates.Count;
+            ProgressWriter.Write("HT progress", processedLogs, totalLogs, stopwatch, $"updates {updatedLogs:N0}, unchanged {unchangedLogs:N0}, skipped {skippedLogs:N0}, errors {failedLogs:N0}");
+        }
+
+        Console.WriteLine($"Harvest Temple progress backfill complete. Logs {processedLogs:N0}/{totalLogs:N0}, updates {updatedLogs:N0}, unchanged {unchangedLogs:N0}, skipped {skippedLogs:N0}, errors {failedLogs:N0}.");
+    }
+
+    private static IQueryable<HarvestTempleProgressRow> BuildHarvestTempleProgressQuery(DatabaseContext context, ReprocessorOptions options, long? afterFightLogId)
+    {
+        var query =
+            from fightLog in context.FightLog
+            join rawData in context.FightLogRawData on fightLog.FightLogId equals rawData.FightLogId
+            where fightLog.FightType == (short)FightTypesEnum.Ht
+            where rawData.RawFightData != null && rawData.RawFightData != string.Empty
+            select new
+            {
+                fightLog.FightLogId,
+                fightLog.FightMode,
+                fightLog.FightPercent,
+                fightLog.FightPhase,
+                rawData.RawFightData
+            };
+
+        if (options.Force is false)
+        {
+            query = query.Where(row =>
+                row.FightPhase == null ||
+                row.FightPhase < 1 ||
+                row.FightPhase > 6 ||
+                row.FightPercent < 0m ||
+                row.FightPercent > 100m);
+        }
+
+        if (afterFightLogId.HasValue)
+        {
+            query = query.Where(row => row.FightLogId > afterFightLogId.Value);
+        }
+
+        if (options.FromId.HasValue)
+        {
+            query = query.Where(row => row.FightLogId >= options.FromId.Value);
+        }
+
+        if (options.ToId.HasValue)
+        {
+            query = query.Where(row => row.FightLogId <= options.ToId.Value);
+        }
+
+        return query
+            .OrderBy(row => row.FightLogId)
+            .Select(row => new HarvestTempleProgressRow(
+                row.FightLogId,
+                row.FightMode,
+                row.FightPercent,
+                row.FightPhase,
+                row.RawFightData!));
+    }
+
+    private static async Task BulkUpdateHarvestTempleProgressAsync(DatabaseContext context, IReadOnlyList<HarvestTempleProgressUpdate> updates, CancellationToken cancellationToken)
+    {
+        var values = new StringBuilder(updates.Count * 24);
+        var parameters = new List<object>(updates.Count * 3);
+
+        for (var index = 0; index < updates.Count; index++)
+        {
+            if (index > 0)
+            {
+                values.Append(", ");
+            }
+
+            values.Append(CultureInfo.InvariantCulture, $"(@id{index}, @phase{index}, @percent{index})");
+
+            var update = updates[index];
+            parameters.Add(new NpgsqlParameter($"id{index}", update.FightLogId));
+            parameters.Add(new NpgsqlParameter($"phase{index}", (object?)update.FightPhase ?? DBNull.Value));
+            parameters.Add(new NpgsqlParameter($"percent{index}", update.FightPercent));
+        }
+
+        var sql = $$"""
+        UPDATE "FightLog" AS fight_log
+        SET "FightPhase" = updates."FightPhase",
+            "FightPercent" = updates."FightPercent"
+        FROM (VALUES {{values}}) AS updates("FightLogId", "FightPhase", "FightPercent")
+        WHERE fight_log."FightLogId" = updates."FightLogId";
+        """;
+
+        await context.Database.ExecuteSqlRawAsync(sql, parameters, cancellationToken);
+    }
+}
+
 internal static class ProgressWriter
 {
     public static void Write(string label, int processed, int total, Stopwatch stopwatch, string detail)
@@ -743,3 +1131,28 @@ internal sealed record PlayerLogUpdate(
     decimal AlacGenGroup,
     string BoonRole,
     string Playstyle);
+
+internal sealed record UraProgressRow(
+    long FightLogId,
+    int FightMode,
+    decimal FightPercent,
+    int? FightPhase,
+    string RawFightData);
+
+internal sealed record UraProgressUpdate(
+    long FightLogId,
+    int FightMode,
+    int? FightPhase,
+    decimal FightPercent);
+
+internal sealed record HarvestTempleProgressRow(
+    long FightLogId,
+    int FightMode,
+    decimal FightPercent,
+    int? FightPhase,
+    string RawFightData);
+
+internal sealed record HarvestTempleProgressUpdate(
+    long FightLogId,
+    int? FightPhase,
+    decimal FightPercent);

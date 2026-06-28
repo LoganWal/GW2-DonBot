@@ -16,6 +16,8 @@ public class ReprocessorOptionsTests
         Assert.Null(error);
         Assert.True(options.BackfillPlaytypes);
         Assert.False(options.AwardMissingPoints);
+        Assert.False(options.BackfillUraProgress);
+        Assert.False(options.BackfillHtProgress);
         Assert.Equal(250, options.BatchSize);
         Assert.Equal(10, options.FromId);
         Assert.Equal(99, options.ToId);
@@ -30,8 +32,42 @@ public class ReprocessorOptionsTests
         Assert.Null(error);
         Assert.True(options.BackfillPlaytypes);
         Assert.True(options.AwardMissingPoints);
+        Assert.True(options.BackfillUraProgress);
+        Assert.True(options.BackfillHtProgress);
         Assert.True(options.DryRun);
         Assert.True(options.Force);
+    }
+
+    [Theory]
+    [InlineData("--backfill-ura-progress")]
+    [InlineData("--update-ura-progress")]
+    public void TryParseBackfillUraProgressEnablesOnlyUraProgressBackfill(string optionName)
+    {
+        var parsed = ReprocessorOptions.TryParse([optionName], out var options, out var error);
+
+        Assert.True(parsed);
+        Assert.Null(error);
+        Assert.False(options.BackfillPlaytypes);
+        Assert.False(options.AwardMissingPoints);
+        Assert.True(options.BackfillUraProgress);
+        Assert.False(options.BackfillHtProgress);
+        Assert.True(options.HasWork);
+    }
+
+    [Theory]
+    [InlineData("--backfill-ht-progress")]
+    [InlineData("--update-ht-progress")]
+    public void TryParseBackfillHtProgressEnablesOnlyHtProgressBackfill(string optionName)
+    {
+        var parsed = ReprocessorOptions.TryParse([optionName], out var options, out var error);
+
+        Assert.True(parsed);
+        Assert.Null(error);
+        Assert.False(options.BackfillPlaytypes);
+        Assert.False(options.AwardMissingPoints);
+        Assert.False(options.BackfillUraProgress);
+        Assert.True(options.BackfillHtProgress);
+        Assert.True(options.HasWork);
     }
 
     [Fact]

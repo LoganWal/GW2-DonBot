@@ -246,11 +246,8 @@ public sealed class PvEFightSummaryService(
         }
 
         var gw2Players = playerService.GetGw2Players(data, fightPhase, sumAllTargets);
-        var mainTarget = data.FightEliteInsightDataModel.Targets?.FirstOrDefault() ?? new ArcDpsTarget
-        {
-            HpLeft = 1,
-            Health = 1
-        };
+        var fightMode = FightLogProgressCalculator.ResolveFightMode(data.FightEliteInsightDataModel, fightPhase);
+        var fightProgress = FightLogProgressCalculator.Calculate(data.FightEliteInsightDataModel, encounterType, fightMode);
 
         var existingFightLog = await entityService.FightLog.GetFirstOrDefaultAsync(s => s.Url == data.FightEliteInsightDataModel.Url);
 
@@ -269,23 +266,10 @@ public sealed class PvEFightSummaryService(
             existingFightLog.FightStart = dateTimeStart;
             existingFightLog.FightDurationInMs = duration;
             existingFightLog.IsSuccess = data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false;
-            existingFightLog.FightPercent = Math.Round((mainTarget.HpLeft / (decimal)mainTarget.Health) * 100, 2);
-            existingFightLog.FightMode = !string.IsNullOrEmpty(data.FightEliteInsightDataModel.FightMode ?? fightPhase.Mode)
-                ? data.FightEliteInsightDataModel.GetFightMode()
-                : data.FightEliteInsightDataModel.LogName?.Split(' ').LastOrDefault() switch
-                {
-                    "CM" => 1,
-                    "LCM" => 2,
-                    _ => 0
-                };
+            existingFightLog.FightPercent = fightProgress.FightPercent;
+            existingFightLog.FightPhase = fightProgress.FightPhase;
+            existingFightLog.FightMode = fightMode;
             existingFightLog.Source = FightLogHelpers.GetLogSource(data.FightEliteInsightDataModel.Url);
-
-            if (encounterType == (short)FightTypesEnum.Ht)
-            {
-                var finalTarget = data.FightEliteInsightDataModel.Targets?.LastOrDefault(s => s.HbWidth == 800) ?? mainTarget;
-                existingFightLog.FightPhase = data.FightEliteInsightDataModel.Targets?.Count(s => s.HbWidth == 800);
-                existingFightLog.FightPercent = Math.Round((finalTarget.HpLeft / (decimal)finalTarget.Health) * 100, 2);
-            }
 
             await entityService.FightLog.UpdateAsync(existingFightLog);
             await FightLogHelpers.UpsertRawDataAsync(entityService, existingFightLog.FightLogId, data);
@@ -300,24 +284,11 @@ public sealed class PvEFightSummaryService(
                 FightStart = dateTimeStart,
                 FightDurationInMs = duration,
                 IsSuccess = data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false,
-                FightPercent = Math.Round((mainTarget.HpLeft / (decimal)mainTarget.Health) * 100, 2),
-                FightMode = !string.IsNullOrEmpty(data.FightEliteInsightDataModel.FightMode ?? fightPhase.Mode)
-                    ? data.FightEliteInsightDataModel.GetFightMode()
-                    : data.FightEliteInsightDataModel.LogName?.Split(' ').LastOrDefault() switch
-                    {
-                        "CM" => 1,
-                        "LCM" => 2,
-                        _ => 0
-                    },
+                FightPercent = fightProgress.FightPercent,
+                FightPhase = fightProgress.FightPhase,
+                FightMode = fightMode,
                 Source = FightLogHelpers.GetLogSource(data.FightEliteInsightDataModel.Url)
             };
-
-            if (encounterType == (short)FightTypesEnum.Ht)
-            {
-                var finalTarget = data.FightEliteInsightDataModel.Targets?.LastOrDefault(s => s.HbWidth == 800) ?? mainTarget;
-                fightLog.FightPhase = data.FightEliteInsightDataModel.Targets?.Count(s => s.HbWidth == 800);
-                fightLog.FightPercent = Math.Round((finalTarget.HpLeft / (decimal)finalTarget.Health) * 100, 2);
-            }
 
             await entityService.FightLog.AddAsync(fightLog);
 
@@ -394,12 +365,16 @@ public sealed class PvEFightSummaryService(
         var webAppUrl = !string.IsNullOrEmpty(webAppBaseUrl)
             ? $"{webAppBaseUrl}/logs/{existingFightLog.FightLogId}"
             : null;
+        var isSuccess = data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false;
+        var wipeProgressText = isSuccess
+            ? string.Empty
+            : $" {FormatFightProgress(existingFightLog.FightPhase, existingFightLog.FightPercent)}";
 
         var message = new EmbedBuilder
         {
             Title = $"{data.FightEliteInsightDataModel.LogName}\n",
-            Description = $"**Length:** {data.FightEliteInsightDataModel.Phases?.FirstOrDefault()?.EncounterDuration}{(data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false ? string.Empty : $" {(existingFightLog.FightPhase != null ? (existingFightLog.FightPhase) : string.Empty)} - {existingFightLog.FightPercent}%")}\n",
-            Color = data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false ? Color.Green : Color.Red,
+            Description = $"**Length:** {data.FightEliteInsightDataModel.Phases?.FirstOrDefault()?.EncounterDuration}{wipeProgressText}\n",
+            Color = isSuccess ? Color.Green : Color.Red,
             Author = new EmbedAuthorBuilder()
             {
                 Name = "GW2-DonBot",
@@ -451,4 +426,9 @@ public sealed class PvEFightSummaryService(
 
         return (message.Build(), webAppUrl, existingFightLog.FightLogId);
     }
+
+    private static string FormatFightProgress(int? fightPhase, decimal fightPercent) =>
+        fightPhase.HasValue
+            ? $"P{fightPhase.Value} - {fightPercent}%"
+            : $"{fightPercent}%";
 }

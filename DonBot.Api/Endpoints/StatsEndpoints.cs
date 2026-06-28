@@ -288,7 +288,7 @@ public static class StatsEndpoints
         var fightLogIds = playerLogs.Select(p => p.FightLogId).Distinct().ToList();
         var fightMeta = await context.FightLog
             .Where(fl => fightLogIds.Contains(fl.FightLogId))
-            .Select(fl => new { fl.FightLogId, fl.FightType, fl.FightStart, fl.FightDurationInMs, fl.IsSuccess })
+            .Select(fl => new { fl.FightLogId, fl.FightType, fl.FightMode, fl.FightStart, fl.FightDurationInMs, fl.IsSuccess })
             .ToListAsync();
 
         var metaById = fightMeta.ToDictionary(
@@ -310,7 +310,7 @@ public static class StatsEndpoints
                 && pveFightLogIds.Contains(f.FightLogId)
                 && f.FightType != (short)FightTypesEnum.WvW
                 && f.FightType != (short)FightTypesEnum.Unkn)
-            .GroupBy(f => f.FightType)
+            .GroupBy(f => new { f.FightType, f.FightMode })
             .Select(g =>
             {
                 var best = g.MinBy(f => f.FightDurationInMs)!;
@@ -320,6 +320,7 @@ public static class StatsEndpoints
                 return new
                 {
                     fightType = (int)best.FightType,
+                    fightMode = best.FightMode,
                     durationMs = best.FightDurationInMs,
                     fightLogId = best.FightLogId,
                     fightDate = best.FightStart,
@@ -420,49 +421,82 @@ public static class StatsEndpoints
             .Select(a => a.GuildWarsAccountName)
             .ToListAsync();
 
-        var playerLogs = await context.PlayerFightLog
-            .Where(pfl => gw2Names.Contains(pfl.GuildWarsAccountName))
-            .ToListAsync();
-
-        if (playerLogs.Count == 0)
+        if (gw2Names.Count == 0)
         {
             return Results.Ok(Array.Empty<object>());
         }
 
-        var fightLogIds = playerLogs.Select(p => p.FightLogId).Distinct().ToList();
-        var fightMetaQuery = context.FightLog
-            .Where(fl => fightLogIds.Contains(fl.FightLogId) && fl.FightType == fightType);
+        var progressionQuery =
+            from pfl in context.PlayerFightLog
+            join fl in context.FightLog on pfl.FightLogId equals fl.FightLogId
+            where gw2Names.Contains(pfl.GuildWarsAccountName) && fl.FightType == fightType
+            select new
+            {
+                PlayerLog = pfl,
+                fl.FightLogId,
+                fl.FightStart,
+                fl.FightDurationInMs,
+                fl.IsSuccess,
+                fl.FightPercent,
+                fl.FightPhase,
+                fl.FightMode
+            };
 
         if (!string.IsNullOrEmpty(startDateTime) &&
             DateTime.TryParse(startDateTime, null, System.Globalization.DateTimeStyles.RoundtripKind, out var startDt))
         {
-            fightMetaQuery = fightMetaQuery.Where(fl => fl.FightStart >= startDt);
+            progressionQuery = progressionQuery.Where(fl => fl.FightStart >= startDt);
         }
 
         if (!string.IsNullOrEmpty(endDateTime) &&
             DateTime.TryParse(endDateTime, null, System.Globalization.DateTimeStyles.RoundtripKind, out var endDt))
         {
-            fightMetaQuery = fightMetaQuery.Where(fl => fl.FightStart <= endDt);
+            progressionQuery = progressionQuery.Where(fl => fl.FightStart <= endDt);
         }
 
         if (isSuccess.HasValue)
         {
-            fightMetaQuery = fightMetaQuery.Where(fl => fl.IsSuccess == isSuccess.Value);
+            progressionQuery = progressionQuery.Where(fl => fl.IsSuccess == isSuccess.Value);
         }
 
         if (fightMode.HasValue)
         {
-            fightMetaQuery = fightMetaQuery.Where(fl => fl.FightMode == fightMode.Value);
+            progressionQuery = progressionQuery.Where(fl => fl.FightMode == fightMode.Value);
         }
 
-        var fightMeta = await fightMetaQuery
-            .Select(fl => new { fl.FightLogId, fl.FightStart, fl.FightDurationInMs, fl.IsSuccess, fl.FightPercent, fl.FightMode })
+        var progressionRows = await progressionQuery
             .OrderBy(fl => fl.FightStart)
             .ToListAsync();
 
-        var playerLogById = playerLogs
-            .GroupBy(p => p.FightLogId)
-            .ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.Damage).First());
+        if (progressionRows.Count == 0)
+        {
+            return Results.Ok(Array.Empty<object>());
+        }
+
+        var fightMeta = progressionRows
+            .GroupBy(row => row.FightLogId)
+            .Select(g =>
+            {
+                var row = g.First();
+                return new
+                {
+                    row.FightLogId,
+                    row.FightStart,
+                    row.FightDurationInMs,
+                    row.IsSuccess,
+                    row.FightPercent,
+                    row.FightPhase,
+                    row.FightMode
+                };
+            })
+            .OrderBy(row => row.FightStart)
+            .ToList();
+
+        var playerLogById = progressionRows
+            .GroupBy(row => row.FightLogId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(row => row.PlayerLog).OrderByDescending(p => p.Damage).First());
 
         var isWvW = fightType == (short)FightTypesEnum.WvW;
         var durationByFightLogId = fightMeta.ToDictionary(f => f.FightLogId, f => f.FightDurationInMs);
@@ -483,10 +517,18 @@ public static class StatsEndpoints
             }
         }
 
+        var fightProgressById = fightMeta.ToDictionary(
+            f => f.FightLogId,
+            f => new FightLogProgress(f.FightPercent, f.FightPhase));
+
         Dictionary<long, Dictionary<string, long>> mechanicsLookup = [];
         if (!isWvW)
         {
-            var matchedPlayerLogIds = playerLogById.Values.Select(p => p.PlayerFightLogId).ToList();
+            var matchedFightLogIds = fightMeta.Select(f => f.FightLogId).ToHashSet();
+            var matchedPlayerLogIds = playerLogById
+                .Where(p => matchedFightLogIds.Contains(p.Key))
+                .Select(p => p.Value.PlayerFightLogId)
+                .ToList();
             var mechanicsList = await context.PlayerFightLogMechanic
                 .Where(m => matchedPlayerLogIds.Contains(m.PlayerFightLogId) && m.MechanicCount > 0)
                 .ToListAsync();
@@ -507,6 +549,7 @@ public static class StatsEndpoints
                 var dps = durationSeconds > 0 ? (long)(p.Damage / durationSeconds) : 0;
                 var cleaveDps = durationSeconds > 0 ? (long)(p.Cleave / durationSeconds) : 0;
                 var playstyle = ResolveProgressionPlaystyle(p, isWvW, f.FightDurationInMs, wvwBenchmarks);
+                var fightProgress = fightProgressById.GetValueOrDefault(f.FightLogId, new FightLogProgress(f.FightPercent, f.FightPhase));
 
                 if (isWvW)
                 {
@@ -542,7 +585,8 @@ public static class StatsEndpoints
                         durationMs = f.FightDurationInMs,
                         characterName = p.CharacterName,
                         isSuccess = f.IsSuccess,
-                        fightPercent = f.FightPercent,
+                        fightPercent = FightLogProgressCalculator.NormalizeForProgression(fightType, f.FightMode, fightProgress.FightPercent, fightProgress.FightPhase),
+                        fightPhase = fightProgress.FightPhase,
                         fightMode = f.FightMode,
                         playstyle,
                         playstyleLabel = PlayerFightLogPlaystyleClassifier.GetLabel(playstyle),

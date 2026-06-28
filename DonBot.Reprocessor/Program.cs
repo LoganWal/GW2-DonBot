@@ -98,15 +98,15 @@ public static class Program
           dotnet run --project DonBot.Reprocessor -- --all
 
         Tasks:
-          --backfill-playtypes       Rebuild quick/alac generation, boon role, and playstyle from raw log JSON.
-          --award-missing-points     Award missing dynamic point rows for existing PvE fights.
+          --backfill-playtypes       Rebuild stab, quick/alac generation, boon role, and playstyle from raw log JSON.
+          --award-missing-points     Award missing dynamic point rows for existing fights.
           --all                      Run all currently registered reprocessors.
 
         Options:
           --batch-size <number>      Fight logs to process per batch. Default: 100.
           --from-id <number>         Only process fight logs with this id or higher.
           --to-id <number>           Only process fight logs with this id or lower.
-          --force                    Reprocess rows even when a playstyle is already stored.
+          --force                    Reprocess stored playtypes or recheck all eligible fights for missing point components.
           --dry-run                  Read and calculate only; do not write database updates.
           --help                     Show this help.
         """);
@@ -378,6 +378,8 @@ internal static class PlaytypeBackfillRunner
 
                         updates.Add(new PlayerLogUpdate(
                             playerLog.PlayerFightLogId,
+                            ToDatabaseDecimal(gw2Player.StabOnGroup),
+                            ToDatabaseDecimal(gw2Player.StabOffGroup),
                             ToDatabaseDecimal(gw2Player.QuicknessGenGroup),
                             ToDatabaseDecimal(gw2Player.AlacGenGroup),
                             boonRole,
@@ -479,7 +481,7 @@ internal static class PlaytypeBackfillRunner
     private static async Task BulkUpdatePlayerLogsAsync(DatabaseContext context, IReadOnlyList<PlayerLogUpdate> updates, CancellationToken cancellationToken)
     {
         var values = new StringBuilder(updates.Count * 48);
-        var parameters = new List<object>(updates.Count * 5);
+        var parameters = new List<object>(updates.Count * 7);
 
         for (var index = 0; index < updates.Count; index++)
         {
@@ -488,10 +490,12 @@ internal static class PlaytypeBackfillRunner
                 values.Append(", ");
             }
 
-            values.Append(CultureInfo.InvariantCulture, $"(@id{index}, @quick{index}, @alac{index}, @boon{index}, @playstyle{index})");
+            values.Append(CultureInfo.InvariantCulture, $"(@id{index}, @stabOn{index}, @stabOff{index}, @quick{index}, @alac{index}, @boon{index}, @playstyle{index})");
 
             var update = updates[index];
             parameters.Add(new NpgsqlParameter($"id{index}", update.PlayerFightLogId));
+            parameters.Add(new NpgsqlParameter($"stabOn{index}", update.StabGenOnGroup));
+            parameters.Add(new NpgsqlParameter($"stabOff{index}", update.StabGenOffGroup));
             parameters.Add(new NpgsqlParameter($"quick{index}", update.QuicknessGenGroup));
             parameters.Add(new NpgsqlParameter($"alac{index}", update.AlacGenGroup));
             parameters.Add(new NpgsqlParameter($"boon{index}", update.BoonRole));
@@ -500,11 +504,13 @@ internal static class PlaytypeBackfillRunner
 
         var sql = $$"""
         UPDATE "PlayerFightLog" AS player_log
-        SET "QuicknessGenGroup" = updates."QuicknessGenGroup",
+        SET "StabGenOnGroup" = updates."StabGenOnGroup",
+            "StabGenOffGroup" = updates."StabGenOffGroup",
+            "QuicknessGenGroup" = updates."QuicknessGenGroup",
             "AlacGenGroup" = updates."AlacGenGroup",
             "BoonRole" = updates."BoonRole",
             "Playstyle" = updates."Playstyle"
-        FROM (VALUES {{values}}) AS updates("PlayerFightLogId", "QuicknessGenGroup", "AlacGenGroup", "BoonRole", "Playstyle")
+        FROM (VALUES {{values}}) AS updates("PlayerFightLogId", "StabGenOnGroup", "StabGenOffGroup", "QuicknessGenGroup", "AlacGenGroup", "BoonRole", "Playstyle")
         WHERE player_log."PlayerFightLogId" = updates."PlayerFightLogId";
         """;
 
@@ -575,7 +581,7 @@ internal static class MissingPointsRunner
         var totalLogs = await BuildAwardQuery(countContext, options, null)
             .CountAsync(cancellationToken);
 
-        Console.WriteLine($"Queued {totalLogs:N0} PvE fight logs for missing point awards.");
+        Console.WriteLine($"Queued {totalLogs:N0} fight logs for missing point awards.");
 
         long? lastFightLogId = null;
         var pointsAwardService = new PointsAwardService(factory, NullLogger<PointsAwardService>.Instance);
@@ -631,12 +637,15 @@ internal static class MissingPointsRunner
     private static IQueryable<long> BuildAwardQuery(DatabaseContext context, ReprocessorOptions options, long? afterFightLogId)
     {
         var query = context.FightLog
-            .Where(fightLog => fightLog.FightType != (short)FightTypesEnum.WvW)
             .Where(fightLog => fightLog.FightType != (short)FightTypesEnum.Unkn)
-            .Where(fightLog => fightLog.FightType != (short)FightTypesEnum.Golem)
-            .Where(fightLog => context.PlayerFightLog.Any(playerLog =>
+            .Where(fightLog => fightLog.FightType != (short)FightTypesEnum.Golem);
+
+        if (options.Force is false)
+        {
+            query = query.Where(fightLog => context.PlayerFightLog.Any(playerLog =>
                 playerLog.FightLogId == fightLog.FightLogId &&
                 context.PlayerPointAward.Any(award => award.PlayerFightLogId == playerLog.PlayerFightLogId) == false));
+        }
 
         if (afterFightLogId.HasValue)
         {
@@ -728,6 +737,8 @@ internal sealed record PlayerLogLite(
 
 internal sealed record PlayerLogUpdate(
     long PlayerFightLogId,
+    decimal StabGenOnGroup,
+    decimal StabGenOffGroup,
     decimal QuicknessGenGroup,
     decimal AlacGenGroup,
     string BoonRole,

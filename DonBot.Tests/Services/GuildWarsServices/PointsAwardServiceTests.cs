@@ -2,6 +2,7 @@ using DonBot.Core.Models.Entities;
 using DonBot.Core.Models.Enums;
 using DonBot.Services.GuildWarsServices;
 using DonBot.Tests.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace DonBot.Tests.Services.GuildWarsServices;
@@ -175,7 +176,7 @@ public class PointsAwardServiceTests
     }
 
     [Fact]
-    public async Task AwardFightAsync_GivesHalfCreditForTinyThresholdOutlier()
+    public async Task AwardFightAsync_AwardsStabilityWithTinyBenchmark()
     {
         using var db = new SqliteTestDb();
         await SeedVerifiedAccountAsync(db, discordId: 100, accountName: "Player.1234");
@@ -183,7 +184,7 @@ public class PointsAwardServiceTests
         await SeedFightAsync(db, 1, FightTypesEnum.Cairn, isSuccess: true, [
             Player(1, 1, "Ref.0001", stabOn: 2)
         ]);
-        await SeedFightAsync(db, 2, FightTypesEnum.Cairn, isSuccess: false, [
+        await SeedFightAsync(db, 2, FightTypesEnum.Cairn, isSuccess: true, [
             Player(2, 2, "Player.1234", stabOn: 10)
         ]);
 
@@ -192,9 +193,33 @@ public class PointsAwardServiceTests
 
         var award = Assert.Single(awards);
         Assert.Equal("stability", award.Metric);
-        Assert.Equal(0.5m, award.Multiplier);
-        Assert.Equal(4m, award.Points);
-        Assert.Equal("Outlier half credit", award.Reason);
+        Assert.Equal(1m, award.Multiplier);
+        Assert.Equal(8m, award.Points);
+        Assert.Equal("95th percentile", award.Reason);
+    }
+
+    [Fact]
+    public async Task AwardFightAsync_AwardsStabilityWithoutMinimumFloor()
+    {
+        using var db = new SqliteTestDb();
+        await SeedVerifiedAccountAsync(db, discordId: 100, accountName: "Player.1234");
+
+        await SeedFightAsync(db, 1, FightTypesEnum.Cairn, isSuccess: true, [
+            Player(1, 1, "Ref.0001", stabOn: 0.25m)
+        ]);
+        await SeedFightAsync(db, 2, FightTypesEnum.Cairn, isSuccess: true, [
+            Player(2, 2, "Player.1234", stabOn: 0.25m)
+        ]);
+
+        var service = NewService(db);
+        var awards = await service.AwardFightAsync(2);
+
+        var award = Assert.Single(awards);
+        Assert.Equal("stability", award.Metric);
+        Assert.Equal("Stability", award.MetricLabel);
+        Assert.Equal(0.25m, award.PercentileValue);
+        Assert.Equal(8m, award.Points);
+        Assert.Equal("95th percentile", award.Reason);
     }
 
     [Fact]
@@ -340,6 +365,61 @@ public class PointsAwardServiceTests
         Assert.NotNull(account);
         Assert.Equal(8m, account.Points);
         Assert.Equal(8m, account.AvailablePoints);
+    }
+
+    [Fact]
+    public async Task AwardFightAsync_AddsMissingMetricForAlreadyAwardedPlayerFight()
+    {
+        using var db = new SqliteTestDb();
+        await SeedVerifiedAccountAsync(db, discordId: 100, accountName: "Player.1234");
+
+        await SeedFightAsync(db, 1, FightTypesEnum.Cairn, isSuccess: true, [
+            Player(1, 1, "Ref.0001", damage: 6_000, stabOn: 10)
+        ]);
+        await SeedFightAsync(db, 2, FightTypesEnum.Cairn, isSuccess: true, [
+            Player(2, 2, "Player.1234", damage: 6_000, stabOn: 10)
+        ]);
+
+        await using (var ctx = db.NewContext())
+        {
+            var account = await ctx.Account.AsTracking().FirstAsync(a => a.DiscordId == 100L);
+            account.Points = 8m;
+            account.AvailablePoints = 8m;
+            ctx.PlayerPointAward.Add(new PlayerPointAward
+            {
+                FightLogId = 2,
+                PlayerFightLogId = 2,
+                DiscordId = 100,
+                GuildWarsAccountName = "Player.1234",
+                FightType = (short)FightTypesEnum.Cairn,
+                Metric = "dps",
+                MetricLabel = "DPS",
+                MetricValue = 100m,
+                PercentileValue = 100m,
+                BasePoints = 8m,
+                Multiplier = 1m,
+                Points = 8m,
+                Reason = "95th percentile",
+                AwardedAt = DateTime.UtcNow
+            });
+            await ctx.SaveChangesAsync();
+        }
+
+        var service = NewService(db);
+        var awards = await service.AwardFightAsync(2);
+
+        var award = Assert.Single(awards);
+        Assert.Equal("stability", award.Metric);
+        Assert.Equal("Stability", award.MetricLabel);
+        Assert.Equal(4m, award.BasePoints);
+        Assert.Equal(4m, award.Points);
+
+        await using var verifyCtx = db.NewContext();
+        var accountAfter = await verifyCtx.Account.FindAsync(100L);
+        Assert.NotNull(accountAfter);
+        Assert.Equal(12m, accountAfter.Points);
+        Assert.Equal(12m, accountAfter.AvailablePoints);
+        Assert.Equal(2, verifyCtx.PlayerPointAward.Count(a => a.PlayerFightLogId == 2));
     }
 
     private static PointsAwardService NewService(SqliteTestDb db) =>

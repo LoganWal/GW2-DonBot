@@ -467,6 +467,41 @@ public class PointsEndpointsIntegrationTests
     }
 
     [Fact]
+    public async Task GetDashboard_BoonGenerationAveragesIgnoreLogsBelowProviderGate()
+    {
+        using var host = NewHost();
+        await using (var db = await host.DbFactory.CreateDbContextAsync())
+        {
+            db.Account.Add(new Account { DiscordId = 123L });
+            db.GuildWarsAccount.Add(new GuildWarsAccount
+            {
+                GuildWarsAccountId = Guid.NewGuid(),
+                DiscordId = 123L,
+                GuildWarsAccountName = "Player.1234"
+            });
+            db.FightLog.AddRange(
+                new FightLog { FightLogId = 1, FightType = 1, FightDurationInMs = 60_000, FightStart = DateTime.UtcNow, Url = "u1" },
+                new FightLog { FightLogId = 2, FightType = 1, FightDurationInMs = 60_000, FightStart = DateTime.UtcNow, Url = "u2" },
+                new FightLog { FightLogId = 3, FightType = 1, FightDurationInMs = 60_000, FightStart = DateTime.UtcNow, Url = "u3" },
+                new FightLog { FightLogId = 4, FightType = 1, FightDurationInMs = 60_000, FightStart = DateTime.UtcNow, Url = "u4" });
+            db.PlayerFightLog.AddRange(
+                new PlayerFightLog { PlayerFightLogId = 1, FightLogId = 1, GuildWarsAccountName = "Player.1234", CharacterName = "C1", QuicknessGenGroup = 80m, AlacGenGroup = 10m },
+                new PlayerFightLog { PlayerFightLogId = 2, FightLogId = 2, GuildWarsAccountName = "Player.1234", CharacterName = "C2", QuicknessGenGroup = 10m, AlacGenGroup = 70m },
+                new PlayerFightLog { PlayerFightLogId = 3, FightLogId = 3, GuildWarsAccountName = "Player.1234", CharacterName = "C3", QuicknessGenGroup = 35m, AlacGenGroup = 35m },
+                new PlayerFightLog { PlayerFightLogId = 4, FightLogId = 4, GuildWarsAccountName = "Player.1234", CharacterName = "C4", QuicknessGenGroup = 50m, AlacGenGroup = 45m });
+            await db.SaveChangesAsync();
+        }
+        host.AuthenticateAs(123L);
+
+        var body = await host.Client.GetStringAsync("/api/dashboard");
+        var doc = JsonDocument.Parse(body);
+        var fights = doc.RootElement.GetProperty("fights");
+
+        Assert.Equal(65d, fights.GetProperty("avgQuicknessGen").GetDouble(), precision: 3);
+        Assert.Equal(57.5d, fights.GetProperty("avgAlacGen").GetDouble(), precision: 3);
+    }
+
+    [Fact]
     public async Task GetDashboard_WithDays_FiltersAggregates()
     {
         using var host = NewHost();

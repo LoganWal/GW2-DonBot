@@ -20,7 +20,7 @@ public sealed class PointsAwardService(
         new("dps", "DPS", (player, fight) => PerSecond(player.Damage, fight), 10, true, false),
         new("cleanses", "Cleanses", (player, _) => player.Cleanses, 12, false, true),
         new("strips", "Strips", (player, _) => player.Strips, 12, false, true),
-        new("stability", "Stability", (player, _) => (double)(player.StabGenOnGroup + player.StabGenOffGroup), 10, true, false),
+        new("stability", "Stability", (player, _) => (double)(player.StabGenOnGroup + player.StabGenOffGroup), 0, true, false),
         new("hps", "Healing/sec", (player, fight) => PerSecond(player.Healing, fight), 10, true, false),
         new("barrier", "Barrier/sec", (player, fight) => PerSecond(player.BarrierGenerated, fight), 10, true, false)
     ];
@@ -45,22 +45,20 @@ public sealed class PointsAwardService(
         }
 
         var playerFightLogIds = playerLogs.Select(p => p.PlayerFightLogId).ToList();
-        var alreadyAwardedPlayerIds = await ctx.PlayerPointAward
+        var existingAwardRows = await ctx.PlayerPointAward
             .Where(a => playerFightLogIds.Contains(a.PlayerFightLogId))
-            .Select(a => a.PlayerFightLogId)
-            .Distinct()
             .ToListAsync(ct);
 
-        var alreadyAwarded = alreadyAwardedPlayerIds.ToHashSet();
-        var awardablePlayerLogs = playerLogs
-            .Where(p => !alreadyAwarded.Contains(p.PlayerFightLogId))
-            .ToList();
-        if (awardablePlayerLogs.Count == 0)
-        {
-            return [];
-        }
+        var existingAwardMetricsByPlayerLog = existingAwardRows
+            .GroupBy(a => a.PlayerFightLogId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(a => a.Metric).ToHashSet(StringComparer.OrdinalIgnoreCase));
+        var existingAwardPointsByPlayerLog = existingAwardRows
+            .GroupBy(a => a.PlayerFightLogId)
+            .ToDictionary(g => g.Key, g => g.Sum(a => a.Points));
 
-        var accountNames = awardablePlayerLogs
+        var accountNames = playerLogs
             .Select(p => p.GuildWarsAccountName)
             .Where(n => !string.IsNullOrWhiteSpace(n))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -111,7 +109,7 @@ public sealed class PointsAwardService(
         var awards = new List<PlayerPointAward>();
         var fullCreditFight = fight.FightType == (short)FightTypesEnum.WvW || fight.IsSuccess;
 
-        foreach (var playerLog in awardablePlayerLogs)
+        foreach (var playerLog in playerLogs)
         {
             if (!discordIdByGw2Account.TryGetValue(playerLog.GuildWarsAccountName, out var discordId))
             {
@@ -128,10 +126,21 @@ public sealed class PointsAwardService(
                 continue;
             }
 
-            var remaining = MaxPointsPerFight;
+            var existingMetrics = existingAwardMetricsByPlayerLog.GetValueOrDefault(playerLog.PlayerFightLogId);
+            var remaining = MaxPointsPerFight - existingAwardPointsByPlayerLog.GetValueOrDefault(playerLog.PlayerFightLogId);
+            if (remaining <= 0m)
+            {
+                continue;
+            }
+
             for (var i = 0; i < earnedMetrics.Count && remaining > 0m; i++)
             {
                 var earned = earnedMetrics[i];
+                if (existingMetrics?.Contains(earned.Metric.Key) is true)
+                {
+                    continue;
+                }
+
                 var basePoints = FirstComponentPoints / (decimal)Math.Pow(2, i);
                 var points = Math.Round(Math.Min(remaining, basePoints * earned.Multiplier), 3);
                 if (points <= 0m)

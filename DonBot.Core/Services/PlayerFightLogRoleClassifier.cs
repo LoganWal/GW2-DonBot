@@ -7,7 +7,7 @@ public static class PlayerFightLogRoleClassifier
     public const string BoonDpsRole = "boon-dps";
     public const string BoonHealerRole = "boon-healer";
 
-    private const double BoonGenerationThreshold = 35d;
+    public const double BoonGenerationThreshold = 35d;
     private const double BoonHealerDpsThreshold = 0.33d;
 
     public static double GetAverageGroupDps(IEnumerable<Gw2Player> players, long fightDurationInMs)
@@ -38,8 +38,11 @@ public static class PlayerFightLogRoleClassifier
     }
 
     public static bool HasBoonGeneration(Gw2Player player) =>
-        player.QuicknessGenGroup > BoonGenerationThreshold ||
-        player.AlacGenGroup > BoonGenerationThreshold;
+        HasProviderLevelBoonGeneration(player.QuicknessGenGroup) ||
+        HasProviderLevelBoonGeneration(player.AlacGenGroup);
+
+    public static bool HasProviderLevelBoonGeneration(double boonGeneration) =>
+        boonGeneration > BoonGenerationThreshold;
 
     public static bool IsLowDps(Gw2Player player, long fightDurationInMs, double averageGroupDps)
     {

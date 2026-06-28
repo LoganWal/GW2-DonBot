@@ -6,6 +6,7 @@ using Discord.Rest;
 using DonBot.Api.Services;
 using DonBot.Core.Models.Entities;
 using DonBot.Core.Models.Enums;
+using DonBot.Core.Services;
 using DonBot.Services.GuildWarsServices.MessageGeneration;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -1382,8 +1383,12 @@ public static class PointsEndpoints
                 TotalDownContribution = g.Sum(x => x.FightType == 0 ? x.Pfl.DamageDownContribution : 0L),
                 AvgQuickness = g.Average(x => (double)x.Pfl.QuicknessDuration),
                 AvgAlac = g.Average(x => (double)x.Pfl.AlacDuration),
-                AvgQuicknessGen = g.Average(x => (double)x.Pfl.QuicknessGenGroup),
-                AvgAlacGen = g.Average(x => (double)x.Pfl.AlacGenGroup)
+                AvgQuicknessGen = g
+                    .Where(x => (double)x.Pfl.QuicknessGenGroup > PlayerFightLogRoleClassifier.BoonGenerationThreshold)
+                    .Average(x => (double?)x.Pfl.QuicknessGenGroup) ?? 0d,
+                AvgAlacGen = g
+                    .Where(x => (double)x.Pfl.AlacGenGroup > PlayerFightLogRoleClassifier.BoonGenerationThreshold)
+                    .Average(x => (double?)x.Pfl.AlacGenGroup) ?? 0d
             })
             .FirstOrDefaultAsync();
 

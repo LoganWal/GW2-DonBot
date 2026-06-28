@@ -100,20 +100,13 @@ public sealed class LogUploadPipelineService : BackgroundService
         var uploadId = upload.LogUploadId;
         var url = upload.DpsReportUrl!;
 
-        var existingLog = await ctx.FightLog.FirstOrDefaultAsync(f => f.Url == url, ct);
-        if (existingLog != null)
-        {
-            await pointsAwardService.AwardFightAsync(existingLog.FightLogId, ct);
-            await FinalizeAsync(uploadId, url, existingLog.FightLogId, ct);
-            _progress.Publish(uploadId, "complete", "Already saved.", url, existingLog.FightLogId);
-            _progress.Complete(uploadId);
-            return;
-        }
-
         await UpdateStatus(ctx, upload, "parsing", ct);
         _progress.Publish(uploadId, "parsing", "Fetching log from URL...");
 
         var model = await dataModelGenerationService.GenerateEliteInsightDataModelFromUrl(url);
+        var modelUrl = string.IsNullOrWhiteSpace(model.FightEliteInsightDataModel.Url)
+            ? url
+            : model.FightEliteInsightDataModel.Url;
 
         await UpdateStatus(ctx, upload, "saving", ct);
         _progress.Publish(uploadId, "saving", "Saving log data...");
@@ -122,11 +115,11 @@ public sealed class LogUploadPipelineService : BackgroundService
 
         if (upload.SubmitToWingman)
         {
-            FireAndForgetWingman(url);
+            FireAndForgetWingman(modelUrl);
         }
 
-        await FinalizeAsync(uploadId, url, fightLogId, ct);
-        _progress.Publish(uploadId, "complete", "Done.", url, fightLogId);
+        await FinalizeAsync(uploadId, modelUrl, fightLogId, ct);
+        _progress.Publish(uploadId, "complete", "Done.", modelUrl, fightLogId);
         _progress.Complete(uploadId);
     }
 
@@ -192,9 +185,6 @@ public sealed class LogUploadPipelineService : BackgroundService
             _progress.Publish(uploadId, "uploading", "Getting dps.report link...");
 
             var eiResult = ParseEiStdout(eiStdout);
-            var htmlPath = eiResult?.GeneratedFiles?.FirstOrDefault(f => f.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
-                ?? Directory.GetFiles(jobOutputDir, "*.html").FirstOrDefault();
-
             var dpsReportUrl = eiResult?.DpsReportLink
                 ?? ExtractDpsReportUrl(eiStdout)
                 ?? ExtractDpsReportUrlFromLogFiles(jobOutputDir)
@@ -214,20 +204,14 @@ public sealed class LogUploadPipelineService : BackgroundService
             await UpdateStatus(ctx, upload, "saving", ct);
             _progress.Publish(uploadId, "saving", "Saving log data...");
 
-            EliteInsightDataModel model;
-            if (htmlPath != null && File.Exists(htmlPath))
-            {
-                var html = await File.ReadAllTextAsync(htmlPath, ct);
-                model = dataModelGenerationService.GenerateEliteInsightDataModelFromHtml(html, dpsReportUrl);
-            }
-            else
-            {
-                model = await dataModelGenerationService.GenerateEliteInsightDataModelFromUrl(dpsReportUrl);
-            }
+            var model = await dataModelGenerationService.GenerateEliteInsightDataModelFromUrl(dpsReportUrl);
+            var modelUrl = string.IsNullOrWhiteSpace(model.FightEliteInsightDataModel.Url)
+                ? dpsReportUrl
+                : model.FightEliteInsightDataModel.Url;
             var fightLogId = await SaveFightLogAsync(model, playerService, pointsAwardService, ct, upload.GuildId);
 
-            await FinalizeAsync(uploadId, dpsReportUrl, fightLogId, ct);
-            _progress.Publish(uploadId, "complete", "Done.", dpsReportUrl, fightLogId);
+            await FinalizeAsync(uploadId, modelUrl, fightLogId, ct);
+            _progress.Publish(uploadId, "complete", "Done.", modelUrl, fightLogId);
             _progress.Complete(uploadId);
         }
         finally
@@ -432,6 +416,7 @@ public sealed class LogUploadPipelineService : BackgroundService
         if (existing != null)
         {
             await AttachGuildToExistingLogAsync(ctx, existing, guildId, ct);
+            await UpsertRawDataAsync(ctx, existing.FightLogId, data, ct);
             return existing.FightLogId;
         }
 
@@ -461,13 +446,7 @@ public sealed class LogUploadPipelineService : BackgroundService
         ctx.FightLog.Add(fightLog);
         await ctx.SaveChangesAsync(ct);
 
-        ctx.FightLogRawData.Add(new FightLogRawData
-        {
-            FightLogId = fightLog.FightLogId,
-            RawFightData = data.RawFightData,
-            RawHealingData = data.RawHealingData,
-            RawBarrierData = data.RawBarrierData
-        });
+        await UpsertRawDataAsync(ctx, fightLog.FightLogId, data, ct);
 
         var gw2Players = playerService.GetGw2Players(data, fightPhase);
         var averageGroupDps = PlayerFightLogRoleClassifier.GetAverageGroupDps(gw2Players, fightLog.FightDurationInMs);
@@ -489,6 +468,7 @@ public sealed class LogUploadPipelineService : BackgroundService
         if (existing != null)
         {
             await AttachGuildToExistingLogAsync(ctx, existing, guildId, ct);
+            await UpsertRawDataAsync(ctx, existing.FightLogId, data, ct);
             return existing.FightLogId;
         }
 
@@ -514,13 +494,7 @@ public sealed class LogUploadPipelineService : BackgroundService
         ctx.FightLog.Add(fightLog);
         await ctx.SaveChangesAsync(ct);
 
-        ctx.FightLogRawData.Add(new FightLogRawData
-        {
-            FightLogId = fightLog.FightLogId,
-            RawFightData = data.RawFightData,
-            RawHealingData = data.RawHealingData,
-            RawBarrierData = data.RawBarrierData
-        });
+        await UpsertRawDataAsync(ctx, fightLog.FightLogId, data, ct);
 
         var gw2Players = playerService.GetGw2Players(data, fightPhase, sumAllTargets);
         var averageGroupDps = PlayerFightLogRoleClassifier.GetAverageGroupDps(gw2Players, fightLog.FightDurationInMs);
@@ -563,6 +537,30 @@ public sealed class LogUploadPipelineService : BackgroundService
 
         existing.GuildId = guildId;
         ctx.FightLog.Update(existing);
+        await ctx.SaveChangesAsync(ct);
+    }
+
+    private static async Task UpsertRawDataAsync(DatabaseContext ctx, long fightLogId, EliteInsightDataModel data, CancellationToken ct)
+    {
+        var existing = await ctx.FightLogRawData.FirstOrDefaultAsync(r => r.FightLogId == fightLogId, ct);
+        if (existing != null)
+        {
+            existing.RawFightData = data.RawFightData;
+            existing.RawHealingData = data.RawHealingData;
+            existing.RawBarrierData = data.RawBarrierData;
+            ctx.FightLogRawData.Update(existing);
+        }
+        else
+        {
+            ctx.FightLogRawData.Add(new FightLogRawData
+            {
+                FightLogId = fightLogId,
+                RawFightData = data.RawFightData,
+                RawHealingData = data.RawHealingData,
+                RawBarrierData = data.RawBarrierData
+            });
+        }
+
         await ctx.SaveChangesAsync(ct);
     }
 

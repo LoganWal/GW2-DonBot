@@ -113,6 +113,9 @@ internal sealed class MinimalApiHost : IDisposable
 
         public EliteInsightDataModel GenerateEliteInsightDataModelFromHtml(string html, string url) =>
             new();
+
+        public EliteInsightDataModel GenerateEliteInsightDataModelFromJson(string json, string url) =>
+            new();
     }
 
     private string CreateJwt(long discordId)

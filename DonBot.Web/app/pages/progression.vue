@@ -33,25 +33,47 @@
     </div>
 
     <template v-if="selectedFightType !== null && !loading">
-      <div v-if="allCharacters.length > 1" style="margin-bottom: 1rem; max-width: 360px;">
+      <div class="progression-filter-toolbar">
         <MultiSelect
+          v-if="allCharacters.length > 1"
           v-model="selectedCharacters"
           :options="allCharacters"
           placeholder="All characters"
           show-clear
           display="chip"
-          style="width: 100%;"
+          class="character-filter"
         />
-      </div>
-      <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
-        <Button
-          v-for="opt in timeRangeOptions"
-          :key="opt.value"
-          :label="opt.label"
-          size="small"
-          :severity="timeRange === opt.value ? 'primary' : 'secondary'"
-          @click="timeRange = opt.value; load(false)"
-        />
+        <div class="time-range-controls">
+          <Button
+            v-for="opt in timeRangeOptions"
+            :key="opt.value"
+            :label="opt.label"
+            size="small"
+            :severity="timeRange === opt.value ? 'primary' : 'secondary'"
+            @click="timeRange = opt.value; load(false)"
+          />
+        </div>
+        <div v-if="!isWvWFight" class="day-group-controls">
+          <FilterButtonGroup
+            :options="dayGroupOptions"
+            :model-value="dayGroupMode"
+            @update:model-value="dayGroupMode = $event"
+          />
+          <div v-if="dayGroupMode === 'days'" class="logs-per-day-control">
+            <InputNumber
+              v-model="logsPerDay"
+              :min="1"
+              :max="20"
+              show-buttons
+              button-layout="horizontal"
+              increment-button-icon="pi pi-plus"
+              decrement-button-icon="pi pi-minus"
+              input-id="logs-per-day"
+              class="logs-per-day-input"
+            />
+            <span class="logs-per-day-label">logs/day</span>
+          </div>
+        </div>
       </div>
     </template>
 
@@ -190,6 +212,8 @@ const timeRange = ref<'all' | 'year' | 'month' | 'week'>('all')
 const allCharacters = ref<string[]>([])
 const successFilter = ref<SuccessFilter>('all')
 const difficultyFilter = ref<DifficultyFilter>(null)
+const dayGroupMode = ref<'logs' | 'days'>('logs')
+const logsPerDay = ref<number | null>(3)
 
 const isWvWFight = computed(() => selectedFightType.value === 0)
 
@@ -198,6 +222,11 @@ const timeRangeOptions = [
   { label: 'Last year', value: 'year' },
   { label: 'Last month', value: 'month' },
   { label: 'Last week', value: 'week' },
+] as const
+
+const dayGroupOptions = [
+  { label: 'Every log', value: 'logs' },
+  { label: 'By day', value: 'days' },
 ] as const
 
 const pvePlaystyleOptions = [
@@ -277,7 +306,41 @@ const filteredPoints = computed(() =>
     : points.value
 )
 
-const displayPoints = computed(() => filteredPoints.value)
+const dayKey = (value: string) => {
+  const date = new Date(value)
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
+}
+
+const normalizedLogsPerDay = computed(() => {
+  const value = Math.trunc(Number(logsPerDay.value) || 3)
+  return Math.min(Math.max(value, 1), 20)
+})
+
+const displayPoints = computed(() => {
+  if (isWvW.value || dayGroupMode.value !== 'days') {
+    return filteredPoints.value
+  }
+
+  const pointsByDay = new Map<string, any[]>()
+  for (const point of filteredPoints.value) {
+    const key = dayKey(point.date)
+    const dayPoints = pointsByDay.get(key)
+    if (dayPoints) {
+      dayPoints.push(point)
+    } else {
+      pointsByDay.set(key, [point])
+    }
+  }
+
+  return [...pointsByDay.values()]
+    .flatMap(dayPoints => {
+      const lowestPoints = [...dayPoints]
+        .sort((a, b) => Number(a.fightPercent) - Number(b.fightPercent))
+        .slice(0, normalizedLogsPerDay.value)
+      return lowestPoints.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    })
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+})
 
 const labels = computed(() =>
   displayPoints.value.map(p => new Date(p.date).toLocaleDateString())
@@ -369,7 +432,7 @@ const pveSurvivabilityChartData = computed(() => ({
 const mechanicNames = computed(() => {
   if (isWvW.value) return []
   const names = new Set<string>()
-  for (const p of filteredPoints.value) {
+  for (const p of displayPoints.value) {
     for (const k of Object.keys((p as any).mechanics ?? {})) {
       names.add(k)
     }
@@ -486,5 +549,53 @@ const chartOptions = computed(() => ({
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 0.5rem;
+}
+
+.progression-filter-toolbar {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.character-filter {
+  width: min(360px, 100%);
+}
+
+.time-range-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.day-group-controls {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.logs-per-day-control {
+  display: inline-flex;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.logs-per-day-input {
+  width: 7rem;
+}
+
+.logs-per-day-label {
+  color: var(--p-text-muted-color);
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .character-filter {
+    width: 100%;
+  }
 }
 </style>

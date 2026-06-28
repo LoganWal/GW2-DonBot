@@ -83,6 +83,28 @@ public class PlayerFightLogPlaystyleClassifierTests
     }
 
     [Fact]
+    public void ResolveWvwPlaystyle_WhenDamageIsLimitedAndStabilityMeetsTinyBenchmark_ReturnsSupport()
+    {
+        var playstyle = PlayerFightLogPlaystyleClassifier.ResolveWvwPlaystyle(
+            Player(6_000, stab: 0.25m),
+            60_000,
+            Benchmarks(stability: 0.25));
+
+        Assert.Equal(PlayerFightLogPlaystyleClassifier.WvwSupportPlaystyle, playstyle);
+    }
+
+    [Fact]
+    public void ResolveWvwPlaystyle_WhenStabilityBenchmarkIsMissing_DoesNotTreatStabilityAsSupport()
+    {
+        var playstyle = PlayerFightLogPlaystyleClassifier.ResolveWvwPlaystyle(
+            Player(6_000, stab: 0.25m),
+            60_000,
+            Benchmarks(stability: 0));
+
+        Assert.Equal(PlayerFightLogPlaystyleClassifier.DpsPlaystyle, playstyle);
+    }
+
+    [Fact]
     public void ResolveWvwPlaystyle_WhenDamageIsLimitedAndHealingIsGood_ReturnsHealSupport()
     {
         var playstyle = PlayerFightLogPlaystyleClassifier.ResolveWvwPlaystyle(
@@ -93,14 +115,14 @@ public class PlayerFightLogPlaystyleClassifierTests
         Assert.Equal(PlayerFightLogPlaystyleClassifier.WvwHealSupportPlaystyle, playstyle);
     }
 
-    private static WvwPlaystyleBenchmarks Benchmarks() => new(
+    private static WvwPlaystyleBenchmarks Benchmarks(double stability = 5) => new(
         HighDamagePerSecond: 750,
         DecentDamagePerSecond: 300,
         DecentHealingPerSecond: 250,
         GoodHealingPerSecond: 500,
         DecentCleansesPerMinute: 3,
         DecentStripsPerMinute: 1,
-        DecentStabilityGeneration: 5);
+        DecentStabilityGeneration: stability);
 
     private static PlayerFightLog Player(
         long damage,

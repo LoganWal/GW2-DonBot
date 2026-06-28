@@ -495,25 +495,8 @@ public sealed class LogUploadPipelineService : BackgroundService
         var dateTimeStart = ParseStart(data.FightEliteInsightDataModel.Start);
         var (encounterType, sumAllTargets) = GetPvEEncounterType(data.FightEliteInsightDataModel.FightId);
 
-        var mainTarget = data.FightEliteInsightDataModel.Targets?.FirstOrDefault() ?? new ArcDpsTarget { HpLeft = 1, Health = 1 };
-        var fightPercent = Math.Round((mainTarget.HpLeft / (decimal)(mainTarget.Health == 0 ? 1 : mainTarget.Health)) * 100, 2);
-        int? fightPhaseCount = null;
-
-        if (encounterType == (short)FightTypesEnum.Ht)
-        {
-            var finalTarget = data.FightEliteInsightDataModel.Targets?.LastOrDefault(s => s.HbWidth == 800) ?? mainTarget;
-            fightPhaseCount = data.FightEliteInsightDataModel.Targets?.Count(s => s.HbWidth == 800);
-            fightPercent = Math.Round((finalTarget.HpLeft / (decimal)(finalTarget.Health == 0 ? 1 : finalTarget.Health)) * 100, 2);
-        }
-
-        var fightMode = !string.IsNullOrEmpty(data.FightEliteInsightDataModel.FightMode ?? fightPhase.Mode)
-            ? data.FightEliteInsightDataModel.GetFightMode()
-            : data.FightEliteInsightDataModel.LogName?.Split(' ').LastOrDefault() switch
-            {
-                "CM" => 1,
-                "LCM" => 2,
-                _ => 0
-            };
+        var fightMode = FightLogProgressCalculator.ResolveFightMode(data.FightEliteInsightDataModel, fightPhase);
+        var fightProgress = FightLogProgressCalculator.Calculate(data.FightEliteInsightDataModel, encounterType, fightMode);
 
         var fightLog = new FightLog
         {
@@ -523,8 +506,8 @@ public sealed class LogUploadPipelineService : BackgroundService
             FightStart = dateTimeStart,
             FightDurationInMs = fightPhase.Duration,
             IsSuccess = data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false,
-            FightPercent = fightPercent,
-            FightPhase = fightPhaseCount,
+            FightPercent = fightProgress.FightPercent,
+            FightPhase = fightProgress.FightPhase,
             FightMode = fightMode,
             Source = GetLogSource(data.FightEliteInsightDataModel.Url)
         };

@@ -107,11 +107,17 @@ public class ArcDpsPhase
     [JsonProperty("name")]
     public string Name { get; set; } = string.Empty;
 
+    [JsonProperty("start")]
+    public double Start { get; set; }
+
     [JsonProperty("duration")]
     public long Duration { get; set; }
 
     [JsonProperty("end")]
     public double End { get; set; }
+
+    [JsonProperty("targets")]
+    public List<int>? Targets { get; set; }
 
     [JsonProperty("dpsStats")]
     public List<List<long>>? DpsStats { get; set; }

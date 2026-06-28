@@ -198,13 +198,6 @@ public sealed class WvWFightSummaryService(
                 };
 
                 await entityService.FightLog.AddAsync(fightLog);
-                await entityService.FightLogRawData.AddAsync(new FightLogRawData
-                {
-                    FightLogId = fightLog.FightLogId,
-                    RawFightData = data.RawFightData,
-                    RawHealingData = data.RawHealingData,
-                    RawBarrierData = data.RawBarrierData
-                });
 
                 var averageGroupDps = PlayerFightLogRoleClassifier.GetAverageGroupDps(gw2Players, fightLog.FightDurationInMs);
                 var wvwBenchmarks = PlayerFightLogPlaystyleClassifier.BuildWvwBenchmarks(gw2Players, fightLog.FightDurationInMs);
@@ -257,6 +250,7 @@ public sealed class WvWFightSummaryService(
 
             if (fightLog != null)
             {
+                await FightLogHelpers.UpsertRawDataAsync(entityService, fightLog.FightLogId, data);
                 await pointsAwardService.AwardFightAsync(fightLog.FightLogId);
             }
         }

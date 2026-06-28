@@ -22,6 +22,9 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
         var stabBoonIndex = data.FightEliteInsightDataModel.Boons.IndexOf(Gw2BoonIds.Stability);
         var quickBoonIndex = data.FightEliteInsightDataModel.Boons.IndexOf(Gw2BoonIds.Quickness);
         var alacBoonIndex = data.FightEliteInsightDataModel.Boons.IndexOf(Gw2BoonIds.Alacrity);
+        var fightPhaseIndex = ResolveFightPhaseIndex(data, fightPhase);
+        var healingPhase = ResolveExtensionPhase(data.HealingEliteInsightDataModel.HealingPhases, fightPhaseIndex);
+        var barrierPhase = ResolveExtensionPhase(data.BarrierEliteInsightDataModel.BarrierPhases, fightPhaseIndex);
 
         foreach (var arcDpsPlayer in data.FightEliteInsightDataModel.Players)
         {
@@ -60,8 +63,8 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
             var boonGenGroupStats = fightPhase.BuffsStatContainer.BoonGenGroupStats?.Count >= playerIndex + 1 ? fightPhase.BuffsStatContainer.BoonGenGroupStats[playerIndex] : null;
             var boonGenOffGroupStats = fightPhase.BuffsStatContainer.BoonGenOGroupStats?.Count >= playerIndex + 1 ? fightPhase.BuffsStatContainer.BoonGenOGroupStats[playerIndex] : null;
 
-            var healingStatsTargets = data.HealingEliteInsightDataModel.HealingPhases.Any() ? (data.HealingEliteInsightDataModel.HealingPhases[0].OutgoingHealingStatsTargets.Count >= playerIndex + 1 ? data.HealingEliteInsightDataModel.HealingPhases[0].OutgoingHealingStatsTargets[playerIndex] : null) : null;
-            var barrierStats = data.BarrierEliteInsightDataModel.BarrierPhases.Any() ? (data.BarrierEliteInsightDataModel.BarrierPhases[0].OutgoingBarrierStats.Count >= playerIndex + 1 ? data.BarrierEliteInsightDataModel.BarrierPhases[0].OutgoingBarrierStats[playerIndex] : null) : null;
+            var healingStatsTargets = healingPhase != null && healingPhase.OutgoingHealingStatsTargets.Count >= playerIndex + 1 ? healingPhase.OutgoingHealingStatsTargets[playerIndex] : null;
+            var barrierStats = barrierPhase != null && barrierPhase.OutgoingBarrierStats.Count >= playerIndex + 1 ? barrierPhase.OutgoingBarrierStats[playerIndex] : null;
             var gameplayStats = fightPhase.GameplayStats?.Count >= playerIndex + 1 ? fightPhase.GameplayStats[playerIndex] : null;
             var defStats = fightPhase.DefStats?.Count >= playerIndex + 1 ? fightPhase.DefStats[playerIndex] : null;
             var offensiveStatsTargets = fightPhase.OffensiveStatsTargets?.Count >= playerIndex + 1 ? fightPhase.OffensiveStatsTargets[playerIndex] : null;
@@ -232,6 +235,22 @@ public sealed class PlayerService(IEntityService entityService) : IPlayerService
         }
 
         return stats.Data[boonIndex][0];
+    }
+
+    private static int ResolveFightPhaseIndex(EliteInsightDataModel data, ArcDpsPhase fightPhase)
+    {
+        var phaseIndex = data.FightEliteInsightDataModel.Phases?.IndexOf(fightPhase) ?? 0;
+        return Math.Max(phaseIndex, 0);
+    }
+
+    private static TPhase? ResolveExtensionPhase<TPhase>(List<TPhase> phases, int fightPhaseIndex) where TPhase : class
+    {
+        if (phases.Count == 0)
+        {
+            return null;
+        }
+
+        return fightPhaseIndex < phases.Count ? phases[fightPhaseIndex] : phases[0];
     }
 
     public async Task SetPlayerPoints(EliteInsightDataModel fightEliteInsightDataModel)

@@ -85,6 +85,12 @@ public sealed class DatabaseContext : DbContext
             .Property(fl => fl.FightPercent)
             .HasPrecision(6, 2);
 
+        modelBuilder.Entity<FightLog>()
+            .HasIndex(fl => new { fl.FightType, fl.FightStart });
+
+        modelBuilder.Entity<FightLog>()
+            .HasIndex(fl => new { fl.FightType, fl.FightMode, fl.FightStart });
+
         modelBuilder.Entity<LogUpload>()
             .HasIndex(lu => lu.TusFileId)
             .IsUnique();
@@ -131,6 +137,12 @@ public sealed class DatabaseContext : DbContext
         modelBuilder.Entity<PlayerFightLog>()
             .Property(pfl => pfl.StabGenOnGroup)
             .HasPrecision(6, 2);
+
+        modelBuilder.Entity<PlayerFightLog>()
+            .HasIndex(pfl => pfl.FightLogId);
+
+        modelBuilder.Entity<PlayerFightLog>()
+            .HasIndex(pfl => new { pfl.GuildWarsAccountName, pfl.FightLogId });
 
         modelBuilder.Entity<PlayerRaffleBid>()
             .Property(prb => prb.PointsSpent)

@@ -3,6 +3,7 @@ using Discord;
 using Discord.WebSocket;
 using DonBot.Core.Models.Entities;
 using DonBot.Core.Models.Enums;
+using DonBot.Core.Services.Raffles;
 using DonBot.Models.Statics;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.GuildWarsServices.MessageGeneration;
@@ -13,11 +14,14 @@ namespace DonBot.Services.DiscordRequestServices;
 
 public sealed class RaffleCommandsService(
     IEntityService entityService,
+    RaffleService raffleService,
     IFooterService footerService,
     ILogger<RaffleCommandsService> logger,
     IConfiguration configuration)
     : IRaffleCommandsService
 {
+    private sealed class RaffleCommandUserException(string message) : Exception(message);
+
     private MessageComponent BuildRaffleComponents(int raffleType, long guildId)
     {
         var isEvent = raffleType == (int)RaffleTypeEnum.Event;
@@ -49,18 +53,15 @@ public sealed class RaffleCommandsService(
         return $"{webAppBaseUrl.TrimEnd('/')}/points?guild={guildId}";
     }
 
-    private async Task ResetRaffleWinners(int raffleId)
+    private static ITextChannel ResolveAnnouncementChannel(Guild guild, DiscordSocketClient discordClient)
     {
-        var winnerBids = await entityService.PlayerRaffleBid.GetWhereAsync(bid => bid.RaffleId == raffleId && bid.IsWinner);
-        foreach (var bid in winnerBids)
+        if (guild.AnnouncementChannelId == null)
         {
-            bid.IsWinner = false;
+            throw new RaffleCommandUserException("No Announcement Channel Set");
         }
 
-        if (winnerBids.Count > 0)
-        {
-            await entityService.PlayerRaffleBid.UpdateRangeAsync(winnerBids);
-        }
+        return discordClient.GetChannel((ulong)guild.AnnouncementChannelId) as ITextChannel
+            ?? throw new RaffleCommandUserException("Failed to find the target channel.");
     }
 
     public async Task CreateRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
@@ -90,63 +91,63 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        if (guild.AnnouncementChannelId == null)
+        RaffleCreateResult createResult;
+        try
         {
-            await command.FollowupAsync("No Announcement Channel Set", ephemeral: true);
+            createResult = await raffleService.CreateWithMessageReferenceAsync(
+                new RaffleCreateRequest(
+                    guild.GuildId,
+                    (int)RaffleTypeEnum.Normal,
+                    command.Data.Options.First().Value?.ToString(),
+                    (long)command.User.Id),
+                async (raffle, _) =>
+                {
+                    var targetChannel = ResolveAnnouncementChannel(guild, discordClient);
+                    var message = new EmbedBuilder()
+                    {
+                        Title = "Raffle!",
+                        Description = $"{raffle.Description}{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /enter_raffle <points> to enter!",
+                        Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
+                        Author = new EmbedAuthorBuilder()
+                        {
+                            Name = "GW2-DonBot",
+                            Url = "https://github.com/LoganWal/GW2-DonBot",
+                            IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                        },
+                        Footer = new EmbedFooterBuilder()
+                        {
+                            Text = await footerService.Generate(guild.GuildId),
+                            IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                        },
+                        Timestamp = DateTime.Now
+                    };
+
+                    var sent = await targetChannel.SendMessageAsync(
+                        text: $"<@&{guild.DiscordVerifiedRoleId}>",
+                        embeds: [message.Build()],
+                        components: BuildRaffleComponents(raffle.RaffleType, guild.GuildId));
+                    return new RaffleMessageReference(
+                        raffle.Id,
+                        (long)targetChannel.Id,
+                        (long)sent.Id);
+                });
+        }
+        catch (RaffleCommandUserException ex)
+        {
+            await command.FollowupAsync(ex.Message, ephemeral: true);
             return;
         }
-
-        if (discordClient.GetChannel((ulong)guild.AnnouncementChannelId.Value) is not ITextChannel targetChannel)
+        if (createResult.Status != RaffleOperationStatus.Success)
         {
-            await command.FollowupAsync("Failed to find the target channel.", ephemeral: true);
-            return;
-        }
-
-        var activeRaffleExists = await entityService.Raffle.IfAnyAsync(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId);
-
-        if (activeRaffleExists)
-        {
-            await command.FollowupAsync("There is already a running raffle, close that one first!", ephemeral: true);
-            return;
-        }
-
-        var message = new EmbedBuilder()
-        {
-            Title = "Raffle!",
-            Description = $"{command.Data.Options.First().Value}{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /enter_raffle <points> to enter!",
-            Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
-            Author = new EmbedAuthorBuilder()
+            await command.FollowupAsync(createResult.Status switch
             {
-                Name = "GW2-DonBot",
-                Url = "https://github.com/LoganWal/GW2-DonBot",
-                IconUrl = "https://i.imgur.com/tQ4LD6H.png"
-            },
-            Footer = new EmbedFooterBuilder()
-            {
-                Text = await footerService.Generate(guild.GuildId),
-                IconUrl = "https://i.imgur.com/tQ4LD6H.png"
-            },
-            Timestamp = DateTime.Now
-        };
+                RaffleOperationStatus.ActiveRaffleExists => "There is already a running raffle, close that one first!",
+                RaffleOperationStatus.DescriptionRequired => "Raffle message is required.",
+                _ => "Failed to create raffle, please try again or contact support."
+            }, ephemeral: true);
+            return;
+        }
 
-        var raffle = new Raffle
-        {
-            Description = $"{command.Data.Options.First().Value}",
-            GuildId = guild.GuildId,
-            IsActive = true,
-            RaffleType = (int)RaffleTypeEnum.Normal,
-            CreatorDiscordId = (long)command.User.Id
-        };
-
-        await entityService.Raffle.AddAsync(raffle);
-
-        var sent = await targetChannel.SendMessageAsync(
-            text: $"<@&{guild.DiscordVerifiedRoleId}>",
-            embeds: [message.Build()],
-            components: BuildRaffleComponents(raffle.RaffleType, guild.GuildId));
-        raffle.MessageChannelId = (long)targetChannel.Id;
-        raffle.MessageId = (long)sent.Id;
-        await entityService.Raffle.UpdateAsync(raffle);
         await command.FollowupAsync("Raffle created successfully!", ephemeral: true);
     }
 
@@ -246,62 +247,62 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        if (guild.AnnouncementChannelId == null)
+        RaffleCreateResult createResult;
+        try
         {
-            await command.FollowupAsync("No Announcement Channel Set", ephemeral: true);
+            createResult = await raffleService.CreateWithMessageReferenceAsync(
+                new RaffleCreateRequest(
+                    guild.GuildId,
+                    (int)RaffleTypeEnum.Event,
+                    command.Data.Options.First().Value?.ToString(),
+                    (long)command.User.Id),
+                async (raffle, _) =>
+                {
+                    var targetChannel = ResolveAnnouncementChannel(guild, discordClient);
+                    var message = new EmbedBuilder
+                    {
+                        Title = "EVENT Raffle!\n",
+                        Description = $"{raffle.Description}{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /enter_event_raffle <points> to enter!",
+                        Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
+                        Author = new EmbedAuthorBuilder()
+                        {
+                            Name = "GW2-DonBot",
+                            Url = "https://github.com/LoganWal/GW2-DonBot",
+                            IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                        },
+                        Footer = new EmbedFooterBuilder()
+                        {
+                            Text = $"{await footerService.Generate(guild.GuildId)}",
+                            IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                        },
+                        Timestamp = DateTime.Now
+                    };
+
+                    var sent = await targetChannel.SendMessageAsync(
+                        text: $"<@&{guild.DiscordVerifiedRoleId}>",
+                        embeds: [message.Build()],
+                        components: BuildRaffleComponents(raffle.RaffleType, guild.GuildId));
+                    return new RaffleMessageReference(
+                        raffle.Id,
+                        (long)targetChannel.Id,
+                        (long)sent.Id);
+                });
+        }
+        catch (RaffleCommandUserException ex)
+        {
+            await command.FollowupAsync(ex.Message, ephemeral: true);
             return;
         }
-
-        if (discordClient.GetChannel((ulong)guild.AnnouncementChannelId) is not ITextChannel targetChannel)
+        if (createResult.Status != RaffleOperationStatus.Success)
         {
-            await command.FollowupAsync("Failed to find the target channel.", ephemeral: true);
-            return;
-        }
-
-        var raffles = await entityService.Raffle.GetAllAsync();
-        if (raffles.Any(raf => raf is { IsActive: true, RaffleType: (int)RaffleTypeEnum.Event } && raf.GuildId == guild.GuildId))
-        {
-            await command.FollowupAsync("There already is a running raffle, close that one first!", ephemeral: true);
-            return;
-        }
-
-        var message = new EmbedBuilder
-        {
-            Title = "EVENT Raffle!\n",
-            Description = $"{command.Data.Options.First().Value}{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /enter_event_raffle <points> to enter!",
-            Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
-            Author = new EmbedAuthorBuilder()
+            await command.FollowupAsync(createResult.Status switch
             {
-                Name = "GW2-DonBot",
-                Url = "https://github.com/LoganWal/GW2-DonBot",
-                IconUrl = "https://i.imgur.com/tQ4LD6H.png"
-            },
-            Footer = new EmbedFooterBuilder()
-            {
-                Text = $"{await footerService.Generate(guild.GuildId)}",
-                IconUrl = "https://i.imgur.com/tQ4LD6H.png"
-            },
-            Timestamp = DateTime.Now
-        };
-
-        var raffle = new Raffle
-        {
-            Description = $"{command.Data.Options.First().Value}",
-            GuildId = guild.GuildId,
-            IsActive = true,
-            RaffleType = (int)RaffleTypeEnum.Event,
-            CreatorDiscordId = (long)command.User.Id
-        };
-
-        await entityService.Raffle.AddAsync(raffle);
-
-        var sent = await targetChannel.SendMessageAsync(
-            text: $"<@&{guild.DiscordVerifiedRoleId}>",
-            embeds: [message.Build()],
-            components: BuildRaffleComponents(raffle.RaffleType, guild.GuildId));
-        raffle.MessageChannelId = (long)targetChannel.Id;
-        raffle.MessageId = (long)sent.Id;
-        await entityService.Raffle.UpdateAsync(raffle);
+                RaffleOperationStatus.ActiveRaffleExists => "There already is a running raffle, close that one first!",
+                RaffleOperationStatus.DescriptionRequired => "Raffle message is required.",
+                _ => "Failed to create raffle, please try again or contact support."
+            }, ephemeral: true);
+            return;
+        }
 
         await command.FollowupAsync("Created!", ephemeral: true);
     }
@@ -340,55 +341,15 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        var currentRaffle = await entityService.Raffle.GetFirstOrDefaultAsync(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId);
-        if (currentRaffle == null)
-        {
-            await command.FollowupAsync("There are currently no raffles.", ephemeral: true);
-            return;
-        }
+        var enterResult = await raffleService.EnterActiveAsync(new RaffleEnterActiveRequest(
+            guild.GuildId,
+            (int)RaffleTypeEnum.Normal,
+            (long)command.User.Id,
+            pointsToSpend));
 
-        var account = await entityService.Account.GetFirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
-        if (account == null)
-        {
-            await command.FollowupAsync("Could not find an account for you, have you verified?", ephemeral: true);
-            return;
-        }
-
-        var gw2Accounts = await entityService.GuildWarsAccount.GetWhereAsync(s => s.DiscordId == account.DiscordId);
-        if (!gw2Accounts.Any())
-        {
-            await command.FollowupAsync("Could not find a guild wars 2 account for you, have you verified?", ephemeral: true);
-            return;
-        }
-
-        if (account.AvailablePoints < pointsToSpend)
-        {
-            await command.FollowupAsync($"You do not have enough points for that, you currently have {account.AvailablePoints} points to spend.", ephemeral: true);
-            return;
-        }
-
-        var currentBid = await entityService.PlayerRaffleBid.GetFirstOrDefaultAsync(bid => bid.RaffleId == currentRaffle.Id && bid.DiscordId == account.DiscordId);
-        if (currentBid != null)
-        {
-            currentBid.PointsSpent += pointsToSpend;
-            await entityService.PlayerRaffleBid.UpdateAsync(currentBid);
-        }
-        else
-        {
-            currentBid = new PlayerRaffleBid
-            {
-                RaffleId = currentRaffle.Id,
-                DiscordId = account.DiscordId,
-                PointsSpent = pointsToSpend
-            };
-
-            await entityService.PlayerRaffleBid.AddAsync(currentBid);
-        }
-
-        account.AvailablePoints -= pointsToSpend;
-        await entityService.Account.UpdateAsync(account);
-
-        await command.FollowupAsync($"Added {pointsToSpend} points!{Environment.NewLine}Total points in current raffle is: {currentBid.PointsSpent}", ephemeral: true);
+        await command.FollowupAsync(
+            FormatEnterResult(enterResult, pointsToSpend, isEvent: false),
+            ephemeral: true);
     }
 
     public async Task EventRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
@@ -426,59 +387,15 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        var raffles = await entityService.Raffle.GetAllAsync();
-        var currentRaffle = raffles.FirstOrDefault(raf => raf is { IsActive: true, RaffleType: (int)RaffleTypeEnum.Event } && raf.GuildId == guild.GuildId);
+        var enterResult = await raffleService.EnterActiveAsync(new RaffleEnterActiveRequest(
+            guild.GuildId,
+            (int)RaffleTypeEnum.Event,
+            (long)command.User.Id,
+            pointsToSpend));
 
-        if (currentRaffle == null)
-        {
-            await command.FollowupAsync("There are currently no raffles.", ephemeral: true);
-            return;
-        }
-
-        var account = await entityService.Account.GetFirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
-        if (account == null)
-        {
-            await command.FollowupAsync("Could not find an account for you, have you verified?", ephemeral: true);
-            return;
-        }
-
-        var gw2Accounts = await entityService.GuildWarsAccount.GetWhereAsync(s => s.DiscordId == account.DiscordId);
-        if (!gw2Accounts.Any())
-        {
-            await command.FollowupAsync("Could not find a guild wars 2 account for you, have you verified?", ephemeral: true);
-            return;
-        }
-
-        if (account.AvailablePoints < pointsToSpend)
-        {
-            await command.FollowupAsync($"You do not have enough points for that, you currently have {account.AvailablePoints} points to spend.", ephemeral: true);
-            return;
-        }
-
-        var bids = await entityService.PlayerRaffleBid.GetAllAsync();
-        var currentBid = bids.FirstOrDefault(bid => bid.RaffleId == currentRaffle.Id && bid.DiscordId == account.DiscordId);
-
-        if (currentBid != null)
-        {
-            currentBid.PointsSpent += pointsToSpend;
-            await entityService.PlayerRaffleBid.UpdateAsync(currentBid);
-        }
-        else
-        {
-            currentBid = new PlayerRaffleBid
-            {
-                RaffleId = currentRaffle.Id,
-                DiscordId = account.DiscordId,
-                PointsSpent = pointsToSpend
-            };
-
-            await entityService.PlayerRaffleBid.AddAsync(currentBid);
-        }
-
-        account.AvailablePoints -= pointsToSpend;
-        await entityService.Account.UpdateAsync(account);
-
-        await command.FollowupAsync($"Added {pointsToSpend} points!{Environment.NewLine}Total points in current event raffle is: {currentBid.PointsSpent}", ephemeral: true);
+        await command.FollowupAsync(
+            FormatEnterResult(enterResult, pointsToSpend, isEvent: true),
+            ephemeral: true);
     }
 
     public async Task CompleteRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
@@ -503,109 +420,68 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        var raffles = await entityService.Raffle.GetAllAsync();
-        var currentRaffle = raffles.FirstOrDefault(raf => raf is { IsActive: true, RaffleType: (int)RaffleTypeEnum.Normal } && raf.GuildId == guild.GuildId);
+        RaffleCompleteResult completeResult;
+        try
+        {
+            completeResult = await raffleService.CompleteWithAnnouncementAsync(
+                new RaffleCompleteRequest(
+                    guild.GuildId,
+                    (int)RaffleTypeEnum.Normal,
+                    1),
+                async (currentRaffle, currentRaffleBids, winners, _) =>
+                {
+                    var targetChannel = ResolveAnnouncementChannel(guild, discordClient);
+                    var winnerBid = winners[0];
+                    var topBidders = new StringBuilder("Top 3 Bidders:\n");
 
-        if (currentRaffle == null)
+                    foreach (var bidder in currentRaffleBids.Take(3))
+                    {
+                        var gw2Accounts = await entityService.GuildWarsAccount.GetWhereAsync(s => s.DiscordId == bidder.DiscordId);
+                        var accountNames = string.Join(", ", gw2Accounts.Where(s => !string.IsNullOrEmpty(s.GuildWarsAccountName)).Select(s => s.GuildWarsAccountName).ToList());
+                        topBidders.AppendLine($"<@{bidder.DiscordId}> ({accountNames}) - Bid: {bidder.PointsSpent} points");
+                    }
+
+                    var winnerGw2Accounts = await entityService.GuildWarsAccount.GetWhereAsync(s => s.DiscordId == winnerBid.DiscordId);
+                    var winnerAccountNames = string.Join(", ", winnerGw2Accounts.Where(s => !string.IsNullOrEmpty(s.GuildWarsAccountName)).Select(s => s.GuildWarsAccountName).ToList());
+
+                    var message = new EmbedBuilder
+                    {
+                        Title = "Raffle!\n",
+                        Description = $"And the winner is! <@{winnerBid.DiscordId}> ({winnerAccountNames} - Bid: {winnerBid.PointsSpent})\n\n{topBidders}",
+                        Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
+                        Author = new EmbedAuthorBuilder()
+                        {
+                            Name = "GW2-DonBot",
+                            Url = "https://github.com/LoganWal/GW2-DonBot",
+                            IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                        },
+                        Footer = new EmbedFooterBuilder()
+                        {
+                            Text = $"{await footerService.Generate(guild.GuildId)}",
+                            IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                        },
+                        Timestamp = DateTime.Now
+                    };
+
+                    await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: [message.Build()]);
+                });
+        }
+        catch (RaffleCommandUserException ex)
+        {
+            await command.FollowupAsync(ex.Message, ephemeral: true);
+            return;
+        }
+
+        if (completeResult.Status == RaffleOperationStatus.RaffleNotFound)
         {
             await command.FollowupAsync("There are currently no raffles, maybe create one!", ephemeral: true);
             return;
         }
-
-        var bids = await entityService.PlayerRaffleBid.GetAllAsync();
-        var currentRaffleBids = bids.Where(bid => bid.RaffleId == currentRaffle.Id)
-            .GroupBy(bid => bid.DiscordId)
-            .Select(group => group.First())
-            .OrderByDescending(bid => bid.PointsSpent)
-            .ToList();
-
-        var totalBids = Convert.ToInt32(currentRaffleBids.Sum(bid => bid.PointsSpent)) + 1;
-
-        var random = new Random();
-        var pickedBid = random.Next(1, totalBids);
-
-        Account? account = null;
-        var rollingTotal = 0m;
-
-        foreach (var currentRaffleBid in currentRaffleBids)
-        {
-            rollingTotal += currentRaffleBid.PointsSpent;
-
-            if (pickedBid < rollingTotal)
-            {
-                account = await entityService.Account.GetFirstOrDefaultAsync(a => a.DiscordId == currentRaffleBid.DiscordId);
-                break;
-            }
-        }
-
-        if (account == null)
+        if (completeResult.Status != RaffleOperationStatus.Success)
         {
             await command.FollowupAsync("Unable to choose a winner, please try again, or yell at someone", ephemeral: true);
             return;
         }
-
-        var winnerBid = currentRaffleBids.FirstOrDefault(s => s.DiscordId == account.DiscordId);
-
-        if (winnerBid == null)
-        {
-            await command.FollowupAsync("Unable to choose a winner, account chosen didn't have any registered bid", ephemeral: true);
-            return;
-        }
-
-        if (guild.AnnouncementChannelId == null)
-        {
-            await command.FollowupAsync("No Announcement Channel Set", ephemeral: true);
-            return;
-        }
-
-        if (discordClient.GetChannel((ulong)guild.AnnouncementChannelId) is not ITextChannel targetChannel)
-        {
-            await command.FollowupAsync("Failed to find the target channel.", ephemeral: true);
-            return;
-        }
-
-        var topBidders = new StringBuilder("Top 3 Bidders:\n");
-
-        foreach (var bidder in currentRaffleBids.Take(3))
-        {
-            var gw2Accounts = await entityService.GuildWarsAccount.GetWhereAsync(s => s.DiscordId == bidder.DiscordId);
-            var accountNames = string.Join(", ", gw2Accounts.Where(s => !string.IsNullOrEmpty(s.GuildWarsAccountName)).Select(s => s.GuildWarsAccountName).ToList());
-            topBidders.AppendLine($"<@{bidder.DiscordId}> ({accountNames}) - Bid: {bidder.PointsSpent} points");
-        }
-
-        var winnerGw2Accounts = await entityService.GuildWarsAccount.GetWhereAsync(s => s.DiscordId == account.DiscordId);
-        var winnerAccountNames = string.Join(", ", winnerGw2Accounts.Where(s => !string.IsNullOrEmpty(s.GuildWarsAccountName)).Select(s => s.GuildWarsAccountName).ToList());
-
-        var message = new EmbedBuilder
-        {
-            Title = "Raffle!\n",
-            Description = $"And the winner is! <@{account.DiscordId}> ({winnerAccountNames} - Bid: {winnerBid.PointsSpent})\n\n{topBidders}",
-            Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
-            Author = new EmbedAuthorBuilder()
-            {
-                Name = "GW2-DonBot",
-                Url = "https://github.com/LoganWal/GW2-DonBot",
-                IconUrl = "https://i.imgur.com/tQ4LD6H.png"
-            },
-            Footer = new EmbedFooterBuilder()
-            {
-                Text = $"{await footerService.Generate(guild.GuildId)}",
-                IconUrl = "https://i.imgur.com/tQ4LD6H.png"
-            },
-            Timestamp = DateTime.Now
-        };
-
-        var builtMessage = message.Build();
-
-        currentRaffle.IsActive = false;
-        foreach (var bid in currentRaffleBids)
-        {
-            bid.IsWinner = bid.DiscordId == winnerBid.DiscordId;
-        }
-
-        await entityService.PlayerRaffleBid.UpdateRangeAsync(currentRaffleBids);
-        await entityService.Raffle.UpdateAsync(currentRaffle);
-        await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: [builtMessage]);
         await command.FollowupAsync("Selected!", ephemeral: true);
     }
 
@@ -645,121 +521,75 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        var accounts = await entityService.Account.GetAllAsync();
-        var gw2Accounts = await entityService.GuildWarsAccount.GetAllAsync();
-
-        var raffles = await entityService.Raffle.GetAllAsync();
-        var currentRaffle = raffles.FirstOrDefault(raf => raf is { IsActive: true, RaffleType: (int)RaffleTypeEnum.Event } && raf.GuildId == guild.GuildId);
-        if (currentRaffle != null)
+        RaffleCompleteResult completeResult;
+        try
         {
-            var bids = await entityService.PlayerRaffleBid.GetAllAsync();
-            var currentRaffleBids = bids.Where(bid => bid.RaffleId == currentRaffle.Id)
-                .GroupBy(bid => bid.DiscordId)
-                .Select(group => group.First())
-                .OrderByDescending(bid => bid.PointsSpent)
-                .ToList();
-
-            var totalBids = Convert.ToInt32(currentRaffleBids.Sum(bid => bid.PointsSpent)) + 1;
-
-            var topBidders = new StringBuilder("Top 3 Bidders:\n");
-
-            foreach (var bidder in currentRaffleBids.Take(3))
-            {
-                var gw2Account = gw2Accounts.Where(s => s.DiscordId == bidder.DiscordId).ToList();
-                var accountNames = string.Join(", ", gw2Account.Where(s => !string.IsNullOrEmpty(s.GuildWarsAccountName)).Select(s => s.GuildWarsAccountName).ToList());
-                topBidders.AppendLine($"<@{bidder.DiscordId}> ({accountNames}) - Bid: {bidder.PointsSpent} points");
-            }
-
-            var remainingRaffleBids = currentRaffleBids.ToList();
-            var winningBids = new List<PlayerRaffleBid>();
-            var winners = new List<Tuple<long, string, decimal>>();
-            for (var i = 0; i < winnersCount; i++)
-            {
-                var random = new Random();
-                var pickedBid = random.Next(1, totalBids);
-
-                var rollingTotal = 0m;
-                foreach (var currentRaffleBid in remainingRaffleBids)
+            completeResult = await raffleService.CompleteWithAnnouncementAsync(
+                new RaffleCompleteRequest(
+                    guild.GuildId,
+                    (int)RaffleTypeEnum.Event,
+                    winnersCount),
+                async (_, currentRaffleBids, winners, _) =>
                 {
-                    rollingTotal += currentRaffleBid.PointsSpent;
-                    if (pickedBid < rollingTotal)
+                    var targetChannel = ResolveAnnouncementChannel(guild, discordClient);
+                    var gw2Accounts = await entityService.GuildWarsAccount.GetAllAsync();
+                    var topBidders = new StringBuilder("Top 3 Bidders:\n");
+                    foreach (var bidder in currentRaffleBids.Take(3))
                     {
-                        var account = accounts.FirstOrDefault(a => a.DiscordId == currentRaffleBid.DiscordId);
-
-                        if (account == null)
-                        {
-                            await command.FollowupAsync("Unable to choose a winner, please try again, or yell at someone", ephemeral: true);
-                            return;
-                        }
-
-                        totalBids -= Convert.ToInt32(currentRaffleBid.PointsSpent);
-                        remainingRaffleBids.Remove(currentRaffleBid);
-                        var gw2Account = gw2Accounts.Where(s => s.DiscordId == account.DiscordId).ToList();
+                        var gw2Account = gw2Accounts.Where(s => s.DiscordId == bidder.DiscordId).ToList();
                         var accountNames = string.Join(", ", gw2Account.Where(s => !string.IsNullOrEmpty(s.GuildWarsAccountName)).Select(s => s.GuildWarsAccountName).ToList());
-                        winningBids.Add(currentRaffleBid);
-                        winners.Add(new Tuple<long, string, decimal>(account.DiscordId, accountNames, currentRaffleBid.PointsSpent));
-                        break;
+                        topBidders.AppendLine($"<@{bidder.DiscordId}> ({accountNames}) - Bid: {bidder.PointsSpent} points");
                     }
-                }
-            }
 
-            if (guild.AnnouncementChannelId == null)
-            {
-                await command.FollowupAsync("No Announcement Channel Set", ephemeral: true);
-                return;
-            }
+                    var description = "And the winners are:\n";
+                    foreach (var (winner, index) in winners.Select((value, i) => (value, i)))
+                    {
+                        var gw2Account = gw2Accounts.Where(s => s.DiscordId == winner.DiscordId).ToList();
+                        var accountNames = string.Join(", ", gw2Account.Where(s => !string.IsNullOrEmpty(s.GuildWarsAccountName)).Select(s => s.GuildWarsAccountName).ToList());
+                        description += $"{index + 1}. <@{winner.DiscordId}> ({accountNames}) - Bid: {winner.PointsSpent} points\n";
+                    }
 
-            if (discordClient.GetChannel((ulong)guild.AnnouncementChannelId) is not ITextChannel targetChannel)
-            {
-                await command.FollowupAsync("Failed to find the target channel.", ephemeral: true);
-                return;
-            }
+                    description += "\n" + topBidders;
 
-            var description = "And the winners are:\n";
-            foreach (var (winner, index) in winners.Select((value, i) => (value, i)))
-            {
-                description += $"{index + 1}. <@{winner.Item1}> ({winner.Item2}) - Bid: {winner.Item3} points\n";
-            }
+                    var message = new EmbedBuilder
+                    {
+                        Title = "Event Raffle Results!\n",
+                        Description = description,
+                        Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
+                        Author = new EmbedAuthorBuilder()
+                        {
+                            Name = "GW2-DonBot",
+                            Url = "https://github.com/LoganWal/GW2-DonBot",
+                            IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                        },
+                        Footer = new EmbedFooterBuilder()
+                        {
+                            Text = $"{await footerService.Generate(guild.GuildId)}",
+                            IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                        },
+                        Timestamp = DateTime.Now
+                    };
 
-            description += "\n" + topBidders;
-
-            var message = new EmbedBuilder
-            {
-                Title = "Event Raffle Results!\n",
-                Description = description,
-                Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
-                Author = new EmbedAuthorBuilder()
-                {
-                    Name = "GW2-DonBot",
-                    Url = "https://github.com/LoganWal/GW2-DonBot",
-                    IconUrl = "https://i.imgur.com/tQ4LD6H.png"
-                },
-                Footer = new EmbedFooterBuilder()
-                {
-                    Text = $"{await footerService.Generate(guild.GuildId)}",
-                    IconUrl = "https://i.imgur.com/tQ4LD6H.png"
-                },
-                Timestamp = DateTime.Now
-            };
-
-            var builtMessage = message.Build();
-
-            currentRaffle.IsActive = false;
-            var winnerDiscordIds = winningBids.Select(b => b.DiscordId).ToHashSet();
-            foreach (var bid in currentRaffleBids)
-            {
-                bid.IsWinner = winnerDiscordIds.Contains(bid.DiscordId);
-            }
-
-            await entityService.PlayerRaffleBid.UpdateRangeAsync(currentRaffleBids);
-            await entityService.Raffle.UpdateAsync(currentRaffle);
-            await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: [builtMessage]);
-            await command.FollowupAsync("Raffle completed!", ephemeral: true);
+                    await targetChannel.SendMessageAsync(text: $"<@&{guild.DiscordVerifiedRoleId}>", embeds: [message.Build()]);
+                });
         }
-        else
+        catch (RaffleCommandUserException ex)
+        {
+            await command.FollowupAsync(ex.Message, ephemeral: true);
+            return;
+        }
+
+        if (completeResult.Status == RaffleOperationStatus.RaffleNotFound)
         {
             await command.FollowupAsync("There are currently no raffles, maybe create one!", ephemeral: true);
+            return;
         }
+        if (completeResult.Status != RaffleOperationStatus.Success)
+        {
+            await command.FollowupAsync("Unable to choose a winner, please try again, or yell at someone", ephemeral: true);
+            return;
+        }
+        await command.FollowupAsync("Raffle completed!", ephemeral: true);
     }
 
     public async Task ReopenRaffleCommandExecuted(SocketSlashCommand command, DiscordSocketClient discordClient)
@@ -792,65 +622,62 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        var raffles = await entityService.Raffle.GetAllAsync();
-        if (raffles.FirstOrDefault(raf => raf is { IsActive: true, RaffleType: (int)RaffleTypeEnum.Normal } && raf.GuildId == guild.GuildId) != null)
+        RaffleReopenResult reopenResult;
+        try
         {
-            await command.FollowupAsync("There is currently an open raffle.", ephemeral: true);
+            reopenResult = await raffleService.ReopenWithMessageReferenceAsync(
+                new RaffleReopenRequest(
+                    guild.GuildId,
+                    (int)RaffleTypeEnum.Normal,
+                    (long)command.User.Id),
+                async (latestRaffle, _) =>
+                {
+                    var targetChannel = ResolveAnnouncementChannel(guild, discordClient);
+                    var message = new EmbedBuilder
+                    {
+                        Title = "Raffle!\n",
+                        Description = $"Reopened last raffle, enter now!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /enter_raffle <points> to enter!",
+                        Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
+                        Author = new EmbedAuthorBuilder()
+                        {
+                            Name = "GW2-DonBot",
+                            Url = "https://github.com/LoganWal/GW2-DonBot",
+                            IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                        },
+                        Footer = new EmbedFooterBuilder()
+                        {
+                            Text = $"{await footerService.Generate(guild.GuildId)}",
+                            IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                        },
+                        Timestamp = DateTime.Now
+                    };
+
+                    var sent = await targetChannel.SendMessageAsync(
+                        text: $"<@&{guild.DiscordVerifiedRoleId}>",
+                        embeds: [message.Build()],
+                        components: BuildRaffleComponents(latestRaffle.RaffleType, guild.GuildId));
+                    return new RaffleMessageReference(
+                        latestRaffle.Id,
+                        (long)targetChannel.Id,
+                        (long)sent.Id);
+                });
+        }
+        catch (RaffleCommandUserException ex)
+        {
+            await command.FollowupAsync(ex.Message, ephemeral: true);
             return;
         }
-
-        var latestRaffle = raffles.Where(raffle => raffle.RaffleType == (int)RaffleTypeEnum.Normal && raffle.GuildId == guild.GuildId).MaxBy(raffle => raffle.Id);
-        if (latestRaffle != null)
+        if (reopenResult.Status != RaffleOperationStatus.Success)
         {
-            latestRaffle.IsActive = true;
-            await ResetRaffleWinners(latestRaffle.Id);
-        }
-        else
-        {
-            await command.FollowupAsync("There is currently no latest raffle, maybe create one!", ephemeral: true);
-            return;
-        }
-
-        if (guild.AnnouncementChannelId == null)
-        {
-            await command.FollowupAsync("No Announcement Channel Set", ephemeral: true);
-            return;
-        }
-
-        if (discordClient.GetChannel((ulong)guild.AnnouncementChannelId) is not ITextChannel targetChannel)
-        {
-            await command.FollowupAsync("Failed to find the target channel.", ephemeral: true);
-            return;
-        }
-
-        var message = new EmbedBuilder
-        {
-            Title = "Raffle!\n",
-            Description = $"Reopened last raffle, enter now!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /enter_raffle <points> to enter!",
-            Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
-            Author = new EmbedAuthorBuilder()
+            await command.FollowupAsync(reopenResult.Status switch
             {
-                Name = "GW2-DonBot",
-                Url = "https://github.com/LoganWal/GW2-DonBot",
-                IconUrl = "https://i.imgur.com/tQ4LD6H.png"
-            },
-            Footer = new EmbedFooterBuilder()
-            {
-                Text = $"{await footerService.Generate(guild.GuildId)}",
-                IconUrl = "https://i.imgur.com/tQ4LD6H.png"
-            },
-            Timestamp = DateTime.Now
-        };
+                RaffleOperationStatus.ActiveRaffleExists => "There is currently an open raffle.",
+                RaffleOperationStatus.PreviousRaffleNotFound => "There is currently no latest raffle, maybe create one!",
+                _ => "Failed to end raffle, please try again, or yell at logan."
+            }, ephemeral: true);
+            return;
+        }
 
-        var builtMessage = message.Build();
-
-        var sent = await targetChannel.SendMessageAsync(
-            text: $"<@&{guild.DiscordVerifiedRoleId}>",
-            embeds: [builtMessage],
-            components: BuildRaffleComponents(latestRaffle.RaffleType, guild.GuildId));
-        latestRaffle.MessageChannelId = (long)targetChannel.Id;
-        latestRaffle.MessageId = (long)sent.Id;
-        await entityService.Raffle.UpdateAsync(latestRaffle);
         await command.FollowupAsync("Reopened!", ephemeral: true);
     }
 
@@ -884,64 +711,62 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        var raffles = await entityService.Raffle.GetAllAsync();
-        if (raffles.FirstOrDefault(raf => raf is { IsActive: true, RaffleType: (int)RaffleTypeEnum.Event } && raf.GuildId == guild.GuildId) != null)
+        RaffleReopenResult reopenResult;
+        try
         {
-            await command.FollowupAsync("There is currently an open raffle.", ephemeral: true);
+            reopenResult = await raffleService.ReopenWithMessageReferenceAsync(
+                new RaffleReopenRequest(
+                    guild.GuildId,
+                    (int)RaffleTypeEnum.Event,
+                    (long)command.User.Id),
+                async (latestRaffle, _) =>
+                {
+                    var targetChannel = ResolveAnnouncementChannel(guild, discordClient);
+                    var message = new EmbedBuilder
+                    {
+                        Title = "EVENT Raffle!\n",
+                        Description = $"Reopened last event raffle, enter now!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /enter_raffle <points> to enter!",
+                        Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
+                        Author = new EmbedAuthorBuilder()
+                        {
+                            Name = "GW2-DonBot",
+                            Url = "https://github.com/LoganWal/GW2-DonBot",
+                            IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                        },
+                        Footer = new EmbedFooterBuilder()
+                        {
+                            Text = $"{await footerService.Generate(guild.GuildId)}",
+                            IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                        },
+                        Timestamp = DateTime.Now
+                    };
+
+                    var sent = await targetChannel.SendMessageAsync(
+                        text: $"<@&{guild.DiscordVerifiedRoleId}>",
+                        embeds: [message.Build()],
+                        components: BuildRaffleComponents(latestRaffle.RaffleType, guild.GuildId));
+                    return new RaffleMessageReference(
+                        latestRaffle.Id,
+                        (long)targetChannel.Id,
+                        (long)sent.Id);
+                });
+        }
+        catch (RaffleCommandUserException ex)
+        {
+            await command.FollowupAsync(ex.Message, ephemeral: true);
             return;
         }
-
-        var latestRaffle = raffles.Where(raffle => raffle.RaffleType == (int)RaffleTypeEnum.Event && raffle.GuildId == guild.GuildId).MaxBy(raffle => raffle.Id);
-
-        if (latestRaffle == null)
+        if (reopenResult.Status != RaffleOperationStatus.Success)
         {
-            await command.FollowupAsync("There is currently no latest raffle, maybe create one!", ephemeral: true);
-            return;
-        }
-
-        latestRaffle.IsActive = true;
-        await ResetRaffleWinners(latestRaffle.Id);
-
-        if (guild.AnnouncementChannelId == null)
-        {
-            await command.FollowupAsync("No Announcement Channel Set", ephemeral: true);
-            return;
-        }
-
-        if (discordClient.GetChannel((ulong)guild.AnnouncementChannelId) is not ITextChannel targetChannel)
-        {
-            await command.FollowupAsync("Failed to find the target channel.", ephemeral: true);
-            return;
-        }
-
-        var message = new EmbedBuilder
-        {
-            Title = "EVENT Raffle!\n",
-            Description = $"Reopened last event raffle, enter now!{Environment.NewLine}Use /points to check your current points!{Environment.NewLine}Use /enter_raffle <points> to enter!",
-            Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
-            Author = new EmbedAuthorBuilder()
+            await command.FollowupAsync(reopenResult.Status switch
             {
-                Name = "GW2-DonBot",
-                Url = "https://github.com/LoganWal/GW2-DonBot",
-                IconUrl = "https://i.imgur.com/tQ4LD6H.png"
-            },
-            Footer = new EmbedFooterBuilder()
-            {
-                Text = $"{await footerService.Generate(guild.GuildId)}",
-                IconUrl = "https://i.imgur.com/tQ4LD6H.png"
-            },
-            Timestamp = DateTime.Now
-        };
+                RaffleOperationStatus.ActiveRaffleExists => "There is currently an open raffle.",
+                RaffleOperationStatus.PreviousRaffleNotFound => "There is currently no latest raffle, maybe create one!",
+                _ => "Failed to end raffle, please try again, or yell at logan."
+            }, ephemeral: true);
+            return;
+        }
 
-        var builtMessage = message.Build();
-
-        var sent = await targetChannel.SendMessageAsync(
-            text: $"<@&{guild.DiscordVerifiedRoleId}>",
-            embeds: [builtMessage],
-            components: BuildRaffleComponents(latestRaffle.RaffleType, guild.GuildId));
-        latestRaffle.MessageChannelId = (long)targetChannel.Id;
-        latestRaffle.MessageId = (long)sent.Id;
-        await entityService.Raffle.UpdateAsync(latestRaffle);
         await command.FollowupAsync("Reopened!", ephemeral: true);
     }
 
@@ -960,67 +785,30 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        var currentRaffle = await entityService.Raffle.GetFirstOrDefaultAsync(raf => raf.IsActive && raf.RaffleType == (int)RaffleTypeEnum.Normal && raf.GuildId == guild.GuildId);
-        if (currentRaffle == null)
-        {
-            await command.FollowupAsync("There are currently no raffles.", ephemeral: true);
-            return;
-        }
-
-        var account = await entityService.Account.GetFirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
-        if (account == null)
-        {
-            await command.FollowupAsync("Could not find an account for you, have you verified?", ephemeral: true);
-            return;
-        }
-
-        var gw2Accounts = await entityService.GuildWarsAccount.GetWhereAsync(s => s.DiscordId == account.DiscordId);
-        if (!gw2Accounts.Any())
-        {
-            await command.FollowupAsync("Could not find a guild wars 2 account for you, have you verified?", ephemeral: true);
-            return;
-        }
-
-        var errorMessage = $"You do not have enough points for that, you currently have {Convert.ToInt32(Math.Floor(account.AvailablePoints))} points to spend.";
-        if (account.AvailablePoints <= 1)
-        {
-            await command.FollowupAsync(errorMessage, ephemeral: true);
-            return;
-        }
-
         if (pointsToSpend == -1)
         {
-            pointsToSpend = new Random().Next(1, Convert.ToInt32(Math.Floor(account.AvailablePoints)));
-        }
-
-        if (account.AvailablePoints < pointsToSpend)
-        {
-            await command.FollowupAsync(errorMessage, ephemeral: true);
-            return;
-        }
-
-        var currentBid = await entityService.PlayerRaffleBid.GetFirstOrDefaultAsync(bid => bid.RaffleId == currentRaffle.Id && bid.DiscordId == account.DiscordId);
-        if (currentBid != null)
-        {
-            currentBid.PointsSpent += pointsToSpend;
-            await entityService.PlayerRaffleBid.UpdateAsync(currentBid);
-        }
-        else
-        {
-            currentBid = new PlayerRaffleBid
+            var randomContext = await raffleService.GetRandomEntryContextAsync(
+                guild.GuildId,
+                (int)RaffleTypeEnum.Normal,
+                (long)command.User.Id);
+            if (randomContext.Status != RaffleOperationStatus.Success)
             {
-                RaffleId = currentRaffle.Id,
-                DiscordId = account.DiscordId,
-                PointsSpent = pointsToSpend
-            };
+                await command.FollowupAsync(FormatRandomEntryContextResult(randomContext), ephemeral: true);
+                return;
+            }
 
-            await entityService.PlayerRaffleBid.AddAsync(currentBid);
+            pointsToSpend = new Random().Next(1, Convert.ToInt32(Math.Floor(randomContext.AvailablePoints)));
         }
 
-        account.AvailablePoints -= pointsToSpend;
-        await entityService.Account.UpdateAsync(account);
+        var enterResult = await raffleService.EnterActiveAsync(new RaffleEnterActiveRequest(
+            guild.GuildId,
+            (int)RaffleTypeEnum.Normal,
+            (long)command.User.Id,
+            pointsToSpend));
 
-        await command.FollowupAsync($"Added {pointsToSpend} points!{Environment.NewLine}Total points in current raffle is: {currentBid.PointsSpent}", ephemeral: true);
+        await command.FollowupAsync(
+            FormatEnterResult(enterResult, pointsToSpend, isEvent: false),
+            ephemeral: true);
     }
 
     private async Task HandleEventRaffleEnter(SocketMessageComponent command, int pointsToSpend)
@@ -1041,70 +829,54 @@ public sealed class RaffleCommandsService(
             return;
         }
 
-        var raffles = await entityService.Raffle.GetAllAsync();
-        var currentRaffle = raffles.FirstOrDefault(raf => raf is { IsActive: true, RaffleType: (int)RaffleTypeEnum.Event } && raf.GuildId == guild.GuildId);
-
-        if (currentRaffle == null)
-        {
-            await command.FollowupAsync("There are currently no raffles.", ephemeral: true);
-            return;
-        }
-
-        var account = await entityService.Account.GetFirstOrDefaultAsync(a => (ulong)a.DiscordId == command.User.Id);
-        if (account == null)
-        {
-            await command.FollowupAsync("Could not find an account for you, have you verified?", ephemeral: true);
-            return;
-        }
-
-        var gw2Accounts = await entityService.GuildWarsAccount.GetWhereAsync(s => s.DiscordId == account.DiscordId);
-        if (!gw2Accounts.Any())
-        {
-            await command.FollowupAsync("Could not find a guild wars 2 account for you, have you verified?", ephemeral: true);
-            return;
-        }
-
-        var errorMessage = $"You do not have enough points for that, you currently have {Convert.ToInt32(Math.Floor(account.AvailablePoints))} points to spend.";
-        if (account.AvailablePoints <= 1)
-        {
-            await command.FollowupAsync(errorMessage, ephemeral: true);
-            return;
-        }
-
         if (pointsToSpend == -1)
         {
-            pointsToSpend = new Random().Next(1, Convert.ToInt32(Math.Floor(account.AvailablePoints)));
-        }
-
-        if (account.AvailablePoints < pointsToSpend)
-        {
-            await command.FollowupAsync(errorMessage, ephemeral: true);
-            return;
-        }
-
-        var bids = await entityService.PlayerRaffleBid.GetAllAsync();
-        var currentBid = bids.FirstOrDefault(bid => bid.RaffleId == currentRaffle.Id && bid.DiscordId == account.DiscordId);
-
-        if (currentBid != null)
-        {
-            currentBid.PointsSpent += pointsToSpend;
-            await entityService.PlayerRaffleBid.UpdateAsync(currentBid);
-        }
-        else
-        {
-            currentBid = new PlayerRaffleBid
+            var randomContext = await raffleService.GetRandomEntryContextAsync(
+                guild.GuildId,
+                (int)RaffleTypeEnum.Event,
+                (long)command.User.Id);
+            if (randomContext.Status != RaffleOperationStatus.Success)
             {
-                RaffleId = currentRaffle.Id,
-                DiscordId = account.DiscordId,
-                PointsSpent = pointsToSpend
-            };
+                await command.FollowupAsync(FormatRandomEntryContextResult(randomContext), ephemeral: true);
+                return;
+            }
 
-            await entityService.PlayerRaffleBid.AddAsync(currentBid);
+            pointsToSpend = new Random().Next(1, Convert.ToInt32(Math.Floor(randomContext.AvailablePoints)));
         }
 
-        account.AvailablePoints -= pointsToSpend;
-        await entityService.Account.UpdateAsync(account);
+        var enterResult = await raffleService.EnterActiveAsync(new RaffleEnterActiveRequest(
+            guild.GuildId,
+            (int)RaffleTypeEnum.Event,
+            (long)command.User.Id,
+            pointsToSpend));
 
-        await command.FollowupAsync($"Added {pointsToSpend} points!{Environment.NewLine}Total points in current raffle is: {currentBid.PointsSpent}", ephemeral: true);
+        await command.FollowupAsync(
+            FormatEnterResult(enterResult, pointsToSpend, isEvent: true),
+            ephemeral: true);
     }
+
+    private static string FormatEnterResult(RaffleEnterResult result, decimal pointsToSpend, bool isEvent) =>
+        result.Status switch
+        {
+            RaffleOperationStatus.Success =>
+                $"Added {pointsToSpend} points!{Environment.NewLine}Total points in current{(isEvent ? " event" : "")} raffle is: {result.Bid!.PointsSpent}",
+            RaffleOperationStatus.RaffleNotFound => "There are currently no raffles.",
+            RaffleOperationStatus.AccountNotFound => "Could not find an account for you, have you verified?",
+            RaffleOperationStatus.GuildWarsAccountRequired => "Could not find a guild wars 2 account for you, have you verified?",
+            RaffleOperationStatus.InsufficientPoints =>
+                $"You do not have enough points for that, you currently have {result.AvailablePoints} points to spend.",
+            RaffleOperationStatus.InvalidPoints => "Need to spend at least 1 point.",
+            _ => "Unable to enter raffle, please try again."
+        };
+
+    private static string FormatRandomEntryContextResult(RaffleRandomEntryContextResult result) =>
+        result.Status switch
+        {
+            RaffleOperationStatus.RaffleNotFound => "There are currently no raffles.",
+            RaffleOperationStatus.AccountNotFound => "Could not find an account for you, have you verified?",
+            RaffleOperationStatus.GuildWarsAccountRequired => "Could not find a guild wars 2 account for you, have you verified?",
+            RaffleOperationStatus.InsufficientPoints =>
+                $"You do not have enough points for that, you currently have {Convert.ToInt32(Math.Floor(result.AvailablePoints))} points to spend.",
+            _ => "Unable to enter raffle, please try again."
+        };
 }

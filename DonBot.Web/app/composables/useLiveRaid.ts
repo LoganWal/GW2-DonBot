@@ -18,85 +18,98 @@ export const useLiveRaid = (guildId: Ref<string | null>) => {
   const error = ref<string | null>(null)
   const reloadKey = ref(0)
 
-  let source: EventSource | null = null
+  const { openEventSource } = useEventSource()
+  let stream: { close: () => void } | null = null
 
   const apiBase = useRuntimeConfig().public.apiBase as string
 
-  const refresh = async () => {
-    if (!guildId.value) {
+  const refresh = async (expectedGuildId = guildId.value) => {
+    if (!expectedGuildId) {
       report.value = null
       return
     }
     pending.value = true
     error.value = null
     try {
-      report.value = await $fetch<LiveRaidReport>(`${apiBase}/api/live-raid/${guildId.value}`, {
+      const nextReport = await $fetch<LiveRaidReport>(`${apiBase}/api/live-raid/${expectedGuildId}`, {
         credentials: 'include',
       })
+      if (guildId.value !== expectedGuildId) {
+        return false
+      }
+      report.value = nextReport
+      return true
     } catch (e: any) {
+      if (guildId.value !== expectedGuildId) {
+        return false
+      }
       if (e?.statusCode === 404 || e?.status === 404) {
         report.value = null
       } else {
         error.value = e?.message ?? 'Failed to load raid.'
       }
+      return false
     } finally {
-      pending.value = false
+      if (guildId.value === expectedGuildId) {
+        pending.value = false
+      }
     }
   }
 
   const closeStream = () => {
-    if (source) {
-      source.close()
-      source = null
-    }
+    stream?.close()
+    stream = null
   }
 
-  const openStream = () => {
+  const openStream = (expectedGuildId = guildId.value) => {
     closeStream()
-    if (!guildId.value) {
+    if (!expectedGuildId || guildId.value !== expectedGuildId) {
       return
     }
-    if (typeof EventSource === 'undefined') {
-      return
-    }
-    source = new EventSource(`${apiBase}/api/live-raid/${guildId.value}/stream`, { withCredentials: true })
-
-    source.addEventListener('fight-added', (e: MessageEvent) => {
-      try {
-        const payload = JSON.parse(e.data) as { fightLogId: number }
-        if (!report.value) {
-          return
-        }
-        if (!report.value.fightLogIds.includes(payload.fightLogId)) {
-          report.value = {
-            ...report.value,
-            fightLogIds: [...report.value.fightLogIds, payload.fightLogId],
+    stream = openEventSource(`${apiBase}/api/live-raid/${expectedGuildId}/stream`, {
+      jsonHandlers: {
+        'fight-added': payload => {
+          if (guildId.value !== expectedGuildId) {
+            return
           }
-          reloadKey.value++
-        }
-      } catch (err) {
-        console.warn('live-raid: failed to parse fight-added payload', err)
-      }
+          const fightLogId = Number((payload as { fightLogId: number }).fightLogId)
+          if (!Number.isFinite(fightLogId)) {
+            return
+          }
+          if (!report.value) {
+            return
+          }
+          if (!report.value.fightLogIds.includes(fightLogId)) {
+            report.value = {
+              ...report.value,
+              fightLogIds: [...report.value.fightLogIds, fightLogId],
+            }
+            reloadKey.value++
+          }
+        },
+        closed: payload => {
+          if (guildId.value !== expectedGuildId) {
+            return
+          }
+          const fightsEnd = (payload as { fightsEnd: string }).fightsEnd
+          if (report.value) {
+            report.value = { ...report.value, fightsEnd, isOpen: false }
+          }
+        },
+      },
+      handlers: {
+        'report-changed': () => {
+          refresh(expectedGuildId).then(refreshed => {
+            if (refreshed && guildId.value === expectedGuildId) {
+              reloadKey.value++
+            }
+          })
+        },
+      },
+      onParseError: (err, eventName) => {
+        console.warn(`live-raid: failed to parse ${eventName} payload`, err)
+      },
     })
-
-    source.addEventListener('report-changed', () => {
-      refresh().then(() => { reloadKey.value++ })
-    })
-
-    source.addEventListener('closed', (e: MessageEvent) => {
-      try {
-        const payload = JSON.parse(e.data) as { fightsEnd: string }
-        if (report.value) {
-          report.value = { ...report.value, fightsEnd: payload.fightsEnd, isOpen: false }
-        }
-      } catch (err) {
-        console.warn('live-raid: failed to parse closed payload', err)
-      }
-    })
-
-    source.onerror = () => {
-      // EventSource auto-reconnects; if it errors persistently the browser keeps trying.
-    }
   }
 
   watch(guildId, async (id) => {
@@ -105,8 +118,10 @@ export const useLiveRaid = (guildId: Ref<string | null>) => {
       report.value = null
       return
     }
-    await refresh()
-    openStream()
+    const refreshed = await refresh(id)
+    if (refreshed && guildId.value === id) {
+      openStream(id)
+    }
   }, { immediate: true })
 
   onUnmounted(() => {

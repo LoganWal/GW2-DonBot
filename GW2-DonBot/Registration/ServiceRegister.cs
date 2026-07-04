@@ -1,6 +1,8 @@
 using DonBot.Controller.Discord;
 using DonBot.Core.Models.Entities;
+using DonBot.Core.Services.GuildWars2;
 using DonBot.Core.Services.RaidLifecycle;
+using DonBot.Core.Services.Raffles;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.DiscordRequestServices;
 using DonBot.Services.DiscordServices;
@@ -43,6 +45,10 @@ public static class ServiceRegister
         services.AddScoped<IRaidLifecycleService, RaidLifecycleService>();
         services.AddScoped<IFightLogService, FightLogService>();
         services.AddScoped<IRotationAnalysisService, RotationAnalysisService>();
+        services.AddSingleton<FightLogIngestionService>();
+        services.AddSingleton<IRaffleRandomSource, SharedRaffleRandomSource>();
+        services.AddSingleton<RaffleWinnerSelector>();
+        services.AddSingleton<RaffleService>();
 
         services.AddSingleton<IPendingLogService, PendingLogService>();
 

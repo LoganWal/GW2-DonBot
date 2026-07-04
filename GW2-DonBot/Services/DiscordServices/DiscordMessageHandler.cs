@@ -3,6 +3,7 @@ using Discord.WebSocket;
 using DonBot.Core.Models.Entities;
 using DonBot.Core.Models.Enums;
 using DonBot.Core.Models.GuildWars2;
+using DonBot.Core.Services.GuildWars2;
 using DonBot.Models.Statics;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.DiscordRequestServices;
@@ -516,8 +517,11 @@ public class DiscordMessageHandler(
 
     private async Task SubmitToWingmanAsync(List<string> urls)
     {
-        const string dpsReportPattern = @"https://(?:b\.dps|wvw|dps)\.report/\S+";
-        var dpsReportUrls = urls.Where(u => IsMatch(u, dpsReportPattern)).ToList();
+        var dpsReportUrls = urls
+            .Select(u => ReportUrlHelper.TryParseReportUrl(u, out var parsed, requireHttps: true) ? parsed.CanonicalUrl : null)
+            .OfType<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
         if (dpsReportUrls.Count == 0)
         {
             return;

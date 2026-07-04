@@ -111,6 +111,36 @@ public class FightLogDeduplicationTests
     }
 
     [Fact]
+    public async Task FindByContent_ScansAllCandidatesWithinWindow()
+    {
+        using var db = new SqliteTestDb();
+        MakeFightLog(db, playerNames: ["Z.9999"]);
+        var expected = MakeFightLog(db, playerNames: ["A.1234"]);
+
+        await using var ctx = db.NewContext();
+        var match = await FightLogDeduplication.FindByContentAsync(
+            ctx, FightType, FightStart, ["A.1234"]);
+
+        Assert.NotNull(match);
+        Assert.Equal(expected.FightLogId, match.FightLogId);
+    }
+
+    [Fact]
+    public async Task FindByContent_PrefersExactMatchOverSmallerSubsetCandidate()
+    {
+        using var db = new SqliteTestDb();
+        MakeFightLog(db, playerNames: ["A.1234"]);
+        var expected = MakeFightLog(db, playerNames: ["A.1234", "B.5678"]);
+
+        await using var ctx = db.NewContext();
+        var match = await FightLogDeduplication.FindByContentAsync(
+            ctx, FightType, FightStart, ["A.1234", "B.5678"]);
+
+        Assert.NotNull(match);
+        Assert.Equal(expected.FightLogId, match.FightLogId);
+    }
+
+    [Fact]
     public async Task FindByContent_NewSetMissingExistingPlayer_ReturnsNull()
     {
         using var db = new SqliteTestDb();

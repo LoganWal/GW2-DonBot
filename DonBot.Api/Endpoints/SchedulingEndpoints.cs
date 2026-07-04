@@ -4,6 +4,7 @@ using DonBot.Api.Services;
 using DonBot.Core.Models.Entities;
 using DonBot.Core.Models.Enums;
 using DonBot.Core.Models.Scheduling;
+using DonBot.Core.Services.Scheduling;
 using DonBot.Services.SchedulerServices;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -47,41 +48,35 @@ public static class SchedulingEndpoints
         IReadOnlyList<ScheduledEventResponseOption>? ResponseOptions = null,
         short NotificationMinutesBeforeStart = DefaultNotificationMinutesBeforeStart);
 
-    internal const int MaxMessageLength = 256;
-    internal const short DefaultNotificationMinutesBeforeStart = 15;
-    internal const short MaxNotificationMinutesBeforeStart = 10080;
+    internal const int MaxMessageLength = ScheduledEventRules.MaxMessageLength;
+    internal const short DefaultNotificationMinutesBeforeStart = ScheduledEventRules.DefaultNotificationMinutesBeforeStart;
+    internal const short MaxNotificationMinutesBeforeStart = ScheduledEventRules.MaxNotificationMinutesBeforeStart;
 
     private static readonly TimeSpan AccessCacheTtl = TimeSpan.FromSeconds(60);
 
     private static async Task<IResult> ListGuilds(
         ClaimsPrincipal user,
-        [FromServices] IUserGuildsService userGuilds,
         [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory,
         [FromServices] DiscordRestClientProvider clientProvider,
-        [FromServices] IMemoryCache cache)
+        [FromServices] AccessibleGuildsCache accessibleGuildsCache,
+        CancellationToken ct)
     {
-        var discordId = user.FindFirst("discord_id")?.Value;
-        if (string.IsNullOrEmpty(discordId))
+        var result = await accessibleGuildsCache.GetAsync<GuildSummaryDto>(
+            user,
+            "scheduling-guilds",
+            AccessCacheTtl,
+            TimeSpan.FromSeconds(5),
+            async (list, cancellationToken) =>
         {
-            return Results.Unauthorized();
-        }
-
-        var cacheKey = $"scheduling-guilds:{discordId}";
-        var result = await cache.GetOrCoalesceAsync(cacheKey, AccessCacheTtl, TimeSpan.FromSeconds(5), async () =>
-        {
-            var list = await userGuilds.GetForPrincipalAsync(user);
-            if (list is null)
-            {
-                return [];
-            }
-
-            await using var ctx = await dbContextFactory.CreateDbContextAsync();
+            await using var ctx = await dbContextFactory.CreateDbContextAsync(cancellationToken);
             var tracked = await ctx.Guild
                 .Select(g => new { g.GuildId, g.GuildName, g.ScheduledEventManagerRoleIds })
-                .ToListAsync();
-            var trackedById = tracked.ToDictionary(g => (ulong)g.GuildId);
+                .ToListAsync(cancellationToken);
+            var trackedById = tracked
+                .Where(g => g.GuildId > 0)
+                .ToDictionary(g => (ulong)g.GuildId);
 
-            if (!ulong.TryParse(discordId, out var userIdUlong))
+            if (!ulong.TryParse(user.FindFirst("discord_id")?.Value, out var userIdUlong))
             {
                 return [];
             }
@@ -131,30 +126,36 @@ public static class SchedulingEndpoints
             }
 
             return accessible.OrderBy(g => g.Name).ToList();
-        });
+        },
+            ct);
 
-        return Results.Ok(result);
+        if (result.IsUnauthorized)
+        {
+            return Results.Unauthorized();
+        }
+
+        return Results.Ok(result.Guilds);
     }
 
     private static async Task<IResult> GetGuildContext(
         string guildId,
         ClaimsPrincipal user,
-        [FromServices] IUserGuildsService userGuilds,
+        [FromServices] GuildAccessGuard accessGuard,
         [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory,
         [FromServices] DiscordRestClientProvider clientProvider)
     {
-        if (!ulong.TryParse(guildId, out var guildIdUlong))
+        if (!GuildRouteParser.TryParse(guildId, out var guildRoute))
         {
             return Results.BadRequest("Invalid guild id.");
         }
 
-        if (!await HasSchedulingAccessAsync(user, guildIdUlong, userGuilds, dbContextFactory, clientProvider))
+        if (await accessGuard.RequireSchedulingAccessAsync(user, guildRoute) is { } denied)
         {
-            return Results.Forbid();
+            return denied;
         }
 
         var client = await clientProvider.GetClientAsync();
-        var botGuild = await client.GetGuildAsync(guildIdUlong);
+        var botGuild = await client.GetGuildAsync(guildRoute.UnsignedValue);
         if (botGuild is null)
         {
             return Results.NotFound("Bot is not in that guild.");
@@ -176,29 +177,29 @@ public static class SchedulingEndpoints
             botGuild.Name,
             channels,
             roles,
-            ScheduledEventResponseOptions.DefaultsForEventType((short)ScheduledEventTypeEnum.RaidSignup)));
+            ScheduledEventResponseOptions.DefaultsForEventType((short)ScheduledEventTypeEnum.RaidSignup),
+            ScheduledEventRules.GetFormMetadata()));
     }
 
     private static async Task<IResult> ListEvents(
         string guildId,
         ClaimsPrincipal user,
-        [FromServices] IUserGuildsService userGuilds,
+        [FromServices] GuildAccessGuard accessGuard,
         [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory,
         [FromServices] DiscordRestClientProvider clientProvider)
     {
-        if (!ulong.TryParse(guildId, out var guildIdUlong))
+        if (!GuildRouteParser.TryParse(guildId, out var guildRoute))
         {
             return Results.BadRequest("Invalid guild id.");
         }
-        if (!await HasSchedulingAccessAsync(user, guildIdUlong, userGuilds, dbContextFactory, clientProvider))
+        if (await accessGuard.RequireSchedulingAccessAsync(user, guildRoute) is { } denied)
         {
-            return Results.Forbid();
+            return denied;
         }
 
-        var guildIdLong = (long)guildIdUlong;
         await using var ctx = await dbContextFactory.CreateDbContextAsync();
         var events = await ctx.ScheduledEvent
-            .Where(e => e.GuildId == guildIdLong)
+            .Where(e => e.GuildId == guildRoute.Value)
             .OrderBy(e => e.UtcEventTime)
             .ToListAsync();
 
@@ -209,33 +210,32 @@ public static class SchedulingEndpoints
         string guildId,
         EventWriteDto body,
         ClaimsPrincipal user,
-        [FromServices] IUserGuildsService userGuilds,
+        [FromServices] GuildAccessGuard accessGuard,
         [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory,
         [FromServices] DiscordRestClientProvider clientProvider)
     {
-        if (!ulong.TryParse(guildId, out var guildIdUlong))
+        if (!GuildRouteParser.TryParse(guildId, out var guildRoute))
         {
             return Results.BadRequest("Invalid guild id.");
         }
-        if (!await HasSchedulingAccessAsync(user, guildIdUlong, userGuilds, dbContextFactory, clientProvider))
+        if (await accessGuard.RequireSchedulingAccessAsync(user, guildRoute) is { } denied)
         {
-            return Results.Forbid();
+            return denied;
         }
 
-        var guildValidation = await GetGuildValidationContextAsync(guildIdUlong, clientProvider);
+        var guildValidation = await GetGuildValidationContextAsync(guildRoute.UnsignedValue, clientProvider);
         if (guildValidation is null)
         {
             return Results.NotFound("Bot is not in that guild.");
         }
 
-        var error = ValidateEvent(body, guildValidation.ChannelIds, guildValidation.EmojiIds);
+        var error = ValidateEvent(body, guildValidation.ChannelIds, guildValidation.EmojiIds, out var channelId);
         if (error is not null)
         {
             return Results.BadRequest(error);
         }
 
-        var guildIdLong = (long)guildIdUlong;
-        var entity = BuildEvent(guildIdLong, body);
+        var entity = ScheduledEventPlanner.BuildEvent(guildRoute.Value, ToCoreWriteRequest(body, channelId));
 
         await using var ctx = await dbContextFactory.CreateDbContextAsync();
         ctx.ScheduledEvent.Add(entity);
@@ -243,102 +243,47 @@ public static class SchedulingEndpoints
         return Results.Ok(ToDto(entity));
     }
 
-    private static ScheduledEvent BuildEvent(long guildIdLong, EventWriteDto body)
-    {
-        var utc = DateTime.SpecifyKind(body.UtcEventTime, DateTimeKind.Utc);
-        return new ScheduledEvent
-        {
-            GuildId = guildIdLong,
-            EventType = body.EventType,
-            ChannelId = long.Parse(body.ChannelId),
-            Day = body.Day,
-            Hour = body.Hour,
-            RepeatIntervalDays = body.RepeatIntervalDays,
-            NotificationMinutesBeforeStart = body.NotificationMinutesBeforeStart,
-            Message = (body.Message ?? string.Empty).Trim(),
-            ResponseOptionsJson = ScheduledEventResponseOptions.SerializeForEventType(body.EventType, body.ResponseOptions),
-            UtcEventTime = utc
-        };
-    }
-
-    private static void ApplyEvent(ScheduledEvent entity, EventWriteDto body, string responseOptionsJson)
-    {
-        var utc = DateTime.SpecifyKind(body.UtcEventTime, DateTimeKind.Utc);
-        entity.EventType = body.EventType;
-        entity.ChannelId = long.Parse(body.ChannelId);
-        entity.Day = body.Day;
-        entity.Hour = body.Hour;
-        entity.RepeatIntervalDays = body.RepeatIntervalDays;
-        entity.NotificationMinutesBeforeStart = body.NotificationMinutesBeforeStart;
-        entity.Message = (body.Message ?? string.Empty).Trim();
-        entity.ResponseOptionsJson = responseOptionsJson;
-        entity.UtcEventTime = utc;
-    }
-
-    private static string ResolveResponseOptionsJsonForUpdate(ScheduledEvent existing, EventWriteDto body)
-    {
-        if (!ScheduledEventResponseOptions.IsSignupEvent(body.EventType))
-        {
-            return string.Empty;
-        }
-
-        if (body.ResponseOptions is not null)
-        {
-            return ScheduledEventResponseOptions.SerializeForEventType(body.EventType, body.ResponseOptions);
-        }
-
-        if (ScheduledEventResponseOptions.IsSignupEvent(existing.EventType))
-        {
-            var existingOptions = ScheduledEventResponseOptions.ForEvent(existing.EventType, existing.ResponseOptionsJson);
-            return ScheduledEventResponseOptions.Serialize(existingOptions);
-        }
-
-        return ScheduledEventResponseOptions.SerializeForEventType(body.EventType, null);
-    }
-
     private static async Task<IResult> UpdateEvent(
         string guildId,
         long eventId,
         EventWriteDto body,
         ClaimsPrincipal user,
-        [FromServices] IUserGuildsService userGuilds,
+        [FromServices] GuildAccessGuard accessGuard,
         [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory,
         [FromServices] DiscordRestClientProvider clientProvider)
     {
-        if (!ulong.TryParse(guildId, out var guildIdUlong))
+        if (!GuildRouteParser.TryParse(guildId, out var guildRoute))
         {
             return Results.BadRequest("Invalid guild id.");
         }
-        if (!await HasSchedulingAccessAsync(user, guildIdUlong, userGuilds, dbContextFactory, clientProvider))
+        if (await accessGuard.RequireSchedulingAccessAsync(user, guildRoute) is { } denied)
         {
-            return Results.Forbid();
+            return denied;
         }
 
-        var guildValidation = await GetGuildValidationContextAsync(guildIdUlong, clientProvider);
+        var guildValidation = await GetGuildValidationContextAsync(guildRoute.UnsignedValue, clientProvider);
         if (guildValidation is null)
         {
             return Results.NotFound("Bot is not in that guild.");
         }
 
-        var error = ValidateEvent(body, guildValidation.ChannelIds, guildValidation.EmojiIds);
+        var error = ValidateEvent(body, guildValidation.ChannelIds, guildValidation.EmojiIds, out var channelId);
         if (error is not null)
         {
             return Results.BadRequest(error);
         }
 
-        var guildIdLong = (long)guildIdUlong;
         await using var ctx = await dbContextFactory.CreateDbContextAsync();
         var existing = await ctx.ScheduledEvent.AsTracking()
-            .FirstOrDefaultAsync(e => e.ScheduledEventId == eventId && e.GuildId == guildIdLong);
+            .FirstOrDefaultAsync(e => e.ScheduledEventId == eventId && e.GuildId == guildRoute.Value);
         if (existing is null)
         {
             return Results.NotFound();
         }
 
-        var prior = ScheduledEventUpdateSnapshot.Capture(existing);
+        var prior = ScheduledEventSnapshot.Capture(existing);
 
-        var responseOptionsJson = ResolveResponseOptionsJsonForUpdate(existing, body);
-        ApplyEvent(existing, body, responseOptionsJson);
+        ScheduledEventPlanner.ApplyForUpdate(existing, ToCoreWriteRequest(body, channelId));
         var newIsSignup = ScheduledEventResponseOptions.IsSignupEvent(existing.EventType);
 
         if (prior.IsPostedSignup)
@@ -346,7 +291,7 @@ public static class SchedulingEndpoints
             var syncError = await SaveAndSyncPostedSignupMessageForUpdateAsync(
                 ctx,
                 clientProvider,
-                guildIdUlong,
+                guildRoute.UnsignedValue,
                 existing,
                 prior,
                 newIsSignup);
@@ -369,7 +314,7 @@ public static class SchedulingEndpoints
         DiscordRestClientProvider clientProvider,
         ulong guildId,
         ScheduledEvent scheduledEvent,
-        ScheduledEventUpdateSnapshot prior,
+        ScheduledEventSnapshot prior,
         bool newIsSignup)
     {
         var priorChannelId = (ulong)prior.ChannelId;
@@ -439,7 +384,7 @@ public static class SchedulingEndpoints
     private static async Task<bool> TryRestoreEventAsync(
         DatabaseContext ctx,
         ScheduledEvent scheduledEvent,
-        ScheduledEventUpdateSnapshot prior)
+        ScheduledEventSnapshot prior)
     {
         try
         {
@@ -565,30 +510,29 @@ public static class SchedulingEndpoints
         string guildId,
         long eventId,
         ClaimsPrincipal user,
-        [FromServices] IUserGuildsService userGuilds,
+        [FromServices] GuildAccessGuard accessGuard,
         [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory,
         [FromServices] DiscordRestClientProvider clientProvider,
         [FromServices] ILoggerFactory loggerFactory)
     {
-        if (!ulong.TryParse(guildId, out var guildIdUlong))
+        if (!GuildRouteParser.TryParse(guildId, out var guildRoute))
         {
             return Results.BadRequest("Invalid guild id.");
         }
-        if (!await HasSchedulingAccessAsync(user, guildIdUlong, userGuilds, dbContextFactory, clientProvider))
+        if (await accessGuard.RequireSchedulingAccessAsync(user, guildRoute) is { } denied)
         {
-            return Results.Forbid();
+            return denied;
         }
 
-        var guildIdLong = (long)guildIdUlong;
         await using var ctx = await dbContextFactory.CreateDbContextAsync();
         var existing = await ctx.ScheduledEvent.AsTracking()
-            .FirstOrDefaultAsync(e => e.ScheduledEventId == eventId && e.GuildId == guildIdLong);
+            .FirstOrDefaultAsync(e => e.ScheduledEventId == eventId && e.GuildId == guildRoute.Value);
         if (existing is null)
         {
             return Results.NotFound();
         }
 
-        var prior = ScheduledEventUpdateSnapshot.Capture(existing);
+        var prior = ScheduledEventSnapshot.Capture(existing);
         var shouldDeletePostedSignup = prior.IsPostedSignup;
 
         ctx.ScheduledEvent.Remove(existing);
@@ -598,7 +542,7 @@ public static class SchedulingEndpoints
         {
             if (!await TryDeletePostedMessageAsync(
                 clientProvider,
-                guildIdUlong,
+                guildRoute.UnsignedValue,
                 (ulong)prior.ChannelId,
                 (ulong)prior.MessageId!.Value))
             {
@@ -648,57 +592,38 @@ public static class SchedulingEndpoints
     internal static string? ValidateEvent(
         EventWriteDto body,
         HashSet<ulong> validChannelIds,
-        HashSet<ulong>? validCustomEmojiIds = null)
+        HashSet<ulong>? validCustomEmojiIds = null) =>
+        ValidateEvent(body, validChannelIds, validCustomEmojiIds, out _);
+
+    private static string? ValidateEvent(
+        EventWriteDto body,
+        HashSet<ulong> validChannelIds,
+        HashSet<ulong>? validCustomEmojiIds,
+        out long channelId)
     {
-        if (!Enum.IsDefined(typeof(ScheduledEventTypeEnum), body.EventType))
+        channelId = 0;
+
+        var coreRequest = ToCoreWriteRequest(body, channelId: 0);
+        var coreError = ScheduledEventRules.ValidateScheduleFields(coreRequest);
+        if (coreError is not null)
         {
-            return "Invalid event type.";
+            return coreError;
         }
-        if (body.EventType == 3)
+
+        if (!long.TryParse(body.ChannelId, out channelId)
+            || channelId <= 0
+            || !validChannelIds.Contains((ulong)channelId))
         {
-            return "Invalid event type.";
-        }
-        if (body.EventType == (short)ScheduledEventTypeEnum.WvwRaidSignup)
-        {
-            return "WvW raid signup has been consolidated into raid signup. Use response options instead.";
-        }
-        if (body.Day < 0 || body.Day > 6)
-        {
-            return "Post day must be 0-6 (Sunday-Saturday).";
-        }
-        if (body.Hour < 0 || body.Hour > 23)
-        {
-            return "Post hour must be 0-23.";
-        }
-        if (body.UtcEventTime == default)
-        {
-            return "Event time is required.";
-        }
-        if (body.UtcEventTime <= DateTime.UtcNow)
-        {
-            return "Event time must be in the future.";
-        }
-        if (body.RepeatIntervalDays < 1 || body.RepeatIntervalDays > 365)
-        {
-            return "Repeat interval must be 1-365 days.";
-        }
-        if (body.NotificationMinutesBeforeStart < 1 || body.NotificationMinutesBeforeStart > MaxNotificationMinutesBeforeStart)
-        {
-            return $"Notification lead time must be 1-{MaxNotificationMinutesBeforeStart} minutes.";
-        }
-        if (!ulong.TryParse(body.ChannelId, out var channelParsed) || !validChannelIds.Contains(channelParsed))
-        {
+            channelId = 0;
             return "Channel does not belong to this guild.";
         }
-        if (!string.IsNullOrEmpty(body.Message) && body.Message.Length > MaxMessageLength)
+
+        coreError = ScheduledEventRules.ValidateContentFields(coreRequest);
+        if (coreError is not null)
         {
-            return $"Message must be {MaxMessageLength} characters or fewer.";
+            return coreError;
         }
-        var responseOptionsError = ScheduledEventResponseOptions.ValidateForEventType(body.EventType, body.ResponseOptions);
-        if (responseOptionsError is not null)
-        {
-            return responseOptionsError;
-        }
+
         if (ScheduledEventResponseOptions.IsSignupEvent(body.EventType) && body.ResponseOptions is not null)
         {
             var responseOptions = ScheduledEventResponseOptions.Normalize(body.ResponseOptions);
@@ -712,6 +637,18 @@ public static class SchedulingEndpoints
         }
         return null;
     }
+
+    private static ScheduledEventWriteRequest ToCoreWriteRequest(EventWriteDto body, long channelId) =>
+        new(
+            body.EventType,
+            channelId,
+            body.Day,
+            body.Hour,
+            body.UtcEventTime,
+            body.RepeatIntervalDays,
+            body.Message,
+            body.ResponseOptions,
+            body.NotificationMinutesBeforeStart);
 
     private static bool TryParseResponseEmoji(string emoji, HashSet<ulong>? validCustomEmojiIds)
     {
@@ -754,73 +691,7 @@ public static class SchedulingEndpoints
             e.NotificationMinutesBeforeStart);
     }
 
-    internal static HashSet<ulong> ParseRoleIds(string? csv)
-    {
-        if (string.IsNullOrWhiteSpace(csv))
-        {
-            return [];
-        }
-        return csv
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(s => ulong.TryParse(s, out var v) ? v : 0UL)
-            .Where(v => v != 0)
-            .ToHashSet();
-    }
-
-    internal static async Task<bool> HasSchedulingAccessAsync(
-        ClaimsPrincipal user,
-        ulong guildId,
-        IUserGuildsService userGuilds,
-        IDbContextFactory<DatabaseContext> dbContextFactory,
-        DiscordRestClientProvider clientProvider)
-    {
-        if (await userGuilds.HasAdministratorAsync(user, guildId))
-        {
-            return true;
-        }
-        if (!await userGuilds.IsMemberAsync(user, guildId))
-        {
-            return false;
-        }
-
-        var discordIdRaw = user.FindFirst("discord_id")?.Value;
-        if (!ulong.TryParse(discordIdRaw, out var userIdUlong))
-        {
-            return false;
-        }
-
-        var guildIdLong = (long)guildId;
-        await using var ctx = await dbContextFactory.CreateDbContextAsync();
-        var managerCsv = await ctx.Guild
-            .Where(g => g.GuildId == guildIdLong)
-            .Select(g => g.ScheduledEventManagerRoleIds)
-            .FirstOrDefaultAsync();
-        var managerRoles = ParseRoleIds(managerCsv);
-        if (managerRoles.Count == 0)
-        {
-            return false;
-        }
-
-        try
-        {
-            var client = await clientProvider.GetClientAsync();
-            var botGuild = await client.GetGuildAsync(guildId);
-            if (botGuild is null)
-            {
-                return false;
-            }
-            var member = await botGuild.GetUserAsync(userIdUlong);
-            if (member is null)
-            {
-                return false;
-            }
-            return member.RoleIds.Any(managerRoles.Contains);
-        }
-        catch
-        {
-            return false;
-        }
-    }
+    internal static HashSet<ulong> ParseRoleIds(string? csv) => GuildAccessGuard.ParseRoleIds(csv);
 
     // ASP.NET Core and System.Text.Json use these response DTO members implicitly.
     // ReSharper disable UnusedAutoPropertyAccessor.Local
@@ -853,7 +724,8 @@ public static class SchedulingEndpoints
         string guildName,
         IReadOnlyList<ChannelDto> channels,
         IReadOnlyList<RoleDto> roles,
-        IReadOnlyList<ScheduledEventResponseOption> defaultSignupResponseOptions)
+        IReadOnlyList<ScheduledEventResponseOption> defaultSignupResponseOptions,
+        ScheduledEventFormMetadata scheduling)
     {
         public string GuildId { get; } = guildId;
 
@@ -864,61 +736,12 @@ public static class SchedulingEndpoints
         public IReadOnlyList<RoleDto> Roles { get; } = roles;
 
         public IReadOnlyList<ScheduledEventResponseOption> DefaultSignupResponseOptions { get; } = defaultSignupResponseOptions;
+
+        public ScheduledEventFormMetadata Scheduling { get; } = scheduling;
     }
     // ReSharper restore UnusedAutoPropertyAccessor.Local
     // ReSharper restore UnusedMember.Local
 
     private sealed record GuildValidationContext(HashSet<ulong> ChannelIds, HashSet<ulong> EmojiIds);
 
-    private sealed record ScheduledEventUpdateSnapshot(
-        long GuildId,
-        short EventType,
-        long ChannelId,
-        long? MessageId,
-        DateTime? PostedEventTime,
-        DateTime? LastNotificationEventTime,
-        short Day,
-        short Hour,
-        DateTime UtcEventTime,
-        short RepeatIntervalDays,
-        short NotificationMinutesBeforeStart,
-        string Message,
-        string ResponseOptionsJson)
-    {
-        public static ScheduledEventUpdateSnapshot Capture(ScheduledEvent scheduledEvent) =>
-            new(
-                scheduledEvent.GuildId,
-                scheduledEvent.EventType,
-                scheduledEvent.ChannelId,
-                scheduledEvent.MessageId,
-                scheduledEvent.PostedEventTime,
-                scheduledEvent.LastNotificationEventTime,
-                scheduledEvent.Day,
-                scheduledEvent.Hour,
-                scheduledEvent.UtcEventTime,
-                scheduledEvent.RepeatIntervalDays,
-                scheduledEvent.NotificationMinutesBeforeStart,
-                scheduledEvent.Message,
-                scheduledEvent.ResponseOptionsJson);
-
-        public bool IsPostedSignup =>
-            ScheduledEventResponseOptions.IsSignupEvent(EventType) && MessageId.HasValue;
-
-        public void ApplyTo(ScheduledEvent scheduledEvent)
-        {
-            scheduledEvent.GuildId = GuildId;
-            scheduledEvent.EventType = EventType;
-            scheduledEvent.ChannelId = ChannelId;
-            scheduledEvent.MessageId = MessageId;
-            scheduledEvent.PostedEventTime = PostedEventTime;
-            scheduledEvent.LastNotificationEventTime = LastNotificationEventTime;
-            scheduledEvent.Day = Day;
-            scheduledEvent.Hour = Hour;
-            scheduledEvent.UtcEventTime = UtcEventTime;
-            scheduledEvent.RepeatIntervalDays = RepeatIntervalDays;
-            scheduledEvent.NotificationMinutesBeforeStart = NotificationMinutesBeforeStart;
-            scheduledEvent.Message = Message;
-            scheduledEvent.ResponseOptionsJson = ResponseOptionsJson;
-        }
-    }
 }

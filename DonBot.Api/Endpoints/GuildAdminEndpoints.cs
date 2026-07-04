@@ -58,70 +58,70 @@ public static class GuildAdminEndpoints
     internal record Gw2FetchResult(Gw2FetchOutcome Outcome, Gw2GuildLookup? Lookup);
 
     private static readonly TimeSpan AdminGuildsCacheTtl = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan AdminGuildsErrorTtl = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan Gw2GuildNameCacheTtl = TimeSpan.FromHours(24);
 
     private static async Task<IResult> ListAdminGuilds(
         ClaimsPrincipal user,
-        IUserGuildsService userGuilds,
         IDbContextFactory<DatabaseContext> dbContextFactory,
-        IMemoryCache cache)
+        AccessibleGuildsCache accessibleGuildsCache,
+        CancellationToken ct)
     {
-        var discordId = user.FindFirst("discord_id")?.Value;
-        if (string.IsNullOrEmpty(discordId))
+        var cached = await accessibleGuildsCache.GetAsync<GuildSummaryDto>(
+            user,
+            "admin-guilds",
+            AdminGuildsCacheTtl,
+            AdminGuildsErrorTtl,
+            async (userGuildList, cancellationToken) =>
         {
-            return Results.Unauthorized();
-        }
-
-        var cacheKey = $"admin-guilds:{discordId}";
-        var cached = await cache.GetOrCoalesceAsync(cacheKey, AdminGuildsCacheTtl, TimeSpan.FromSeconds(10), async () =>
-        {
-            var userGuildList = await userGuilds.GetForPrincipalAsync(user);
-            if (userGuildList is null)
-            {
-                return [];
-            }
-
-            await using var context = await dbContextFactory.CreateDbContextAsync();
-            var trackedSet = (await context.Guild.Select(g => g.GuildId).ToListAsync())
-                .Select(id => (ulong)id).ToHashSet();
+            await using var context = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+            var trackedSet = (await context.Guild.Select(g => g.GuildId).ToListAsync(cancellationToken))
+                .Where(id => id > 0)
+                .Select(id => (ulong)id)
+                .ToHashSet();
 
             return userGuildList
                 .Where(g => trackedSet.Contains(g.Id) && UserGuildsService.HasAdministrator(g))
                 .Select(g => new GuildSummaryDto(g.Id.ToString(), g.Name, UserGuildsService.BuildIconUrl(g.Id, g.Icon)))
                 .OrderBy(g => g.Name)
                 .ToList();
-        });
+        },
+            ct);
 
-        return Results.Ok(cached);
+        if (cached.IsUnauthorized)
+        {
+            return Results.Unauthorized();
+        }
+
+        return Results.Ok(cached.Guilds);
     }
 
     private static async Task<IResult> GetGuildConfig(
         string guildId,
         ClaimsPrincipal user,
         DiscordRestClientProvider clientProvider,
-        IUserGuildsService userGuilds,
+        GuildAccessGuard accessGuard,
         IDbContextFactory<DatabaseContext> dbContextFactory,
         IMemoryCache cache,
         IHttpClientFactory httpClientFactory,
         ILogger<DiscordRestClientProvider> logger)
     {
-        if (!ulong.TryParse(guildId, out var guildIdUlong))
+        if (!GuildRouteParser.TryParse(guildId, out var guildRoute))
         {
             return Results.BadRequest("Invalid guild id.");
         }
-        var guildIdLong = (long)guildIdUlong;
 
         var clientTask = clientProvider.GetClientAsync();
-        var adminTask = userGuilds.HasAdministratorAsync(user, guildIdUlong);
-        var dbReadTask = ReadGuildAsync(dbContextFactory, guildIdLong);
+        var adminTask = accessGuard.RequireAdministratorAsync(user, guildRoute);
+        var dbReadTask = ReadGuildAsync(dbContextFactory, guildRoute.Value);
 
-        if (!await adminTask)
+        if (await adminTask is { } denied)
         {
-            return Results.Forbid();
+            return denied;
         }
 
         var client = await clientTask;
-        var botGuild = await client.GetGuildAsync(guildIdUlong);
+        var botGuild = await client.GetGuildAsync(guildRoute.UnsignedValue);
         if (botGuild is null)
         {
             return Results.NotFound("Bot is not in that guild.");
@@ -134,7 +134,7 @@ public static class GuildAdminEndpoints
         if (guild is null)
         {
             await using var writeCtx = await dbContextFactory.CreateDbContextAsync();
-            guild = new Guild { GuildId = guildIdLong, GuildName = botGuild.Name };
+            guild = new Guild { GuildId = guildRoute.Value, GuildName = botGuild.Name };
             writeCtx.Guild.Add(guild);
             await writeCtx.SaveChangesAsync();
         }
@@ -177,24 +177,24 @@ public static class GuildAdminEndpoints
         GuildConfigDto dto,
         ClaimsPrincipal user,
         DiscordRestClientProvider clientProvider,
-        IUserGuildsService userGuilds,
+        GuildAccessGuard accessGuard,
         IDbContextFactory<DatabaseContext> dbContextFactory,
         IMemoryCache cache,
         IHttpClientFactory httpClientFactory,
         ILogger<DiscordRestClientProvider> logger)
     {
-        if (!ulong.TryParse(guildId, out var guildIdUlong))
+        if (!GuildRouteParser.TryParse(guildId, out var guildRoute))
         {
             return Results.BadRequest("Invalid guild id.");
         }
 
-        if (!await userGuilds.HasAdministratorAsync(user, guildIdUlong))
+        if (await accessGuard.RequireAdministratorAsync(user, guildRoute) is { } denied)
         {
-            return Results.Forbid();
+            return denied;
         }
 
         var client = await clientProvider.GetClientAsync();
-        var botGuild = await client.GetGuildAsync(guildIdUlong);
+        var botGuild = await client.GetGuildAsync(guildRoute.UnsignedValue);
         if (botGuild is null)
         {
             return Results.NotFound("Bot is not in that guild.");
@@ -242,11 +242,10 @@ public static class GuildAdminEndpoints
         }
 
         await using var context = await dbContextFactory.CreateDbContextAsync();
-        var guildIdLong = (long)guildIdUlong;
-        var guild = await context.Guild.AsTracking().FirstOrDefaultAsync(g => g.GuildId == guildIdLong);
+        var guild = await context.Guild.AsTracking().FirstOrDefaultAsync(g => g.GuildId == guildRoute.Value);
         if (guild is null)
         {
-            guild = new Guild { GuildId = guildIdLong, GuildName = botGuild.Name };
+            guild = new Guild { GuildId = guildRoute.Value, GuildName = botGuild.Name };
             context.Guild.Add(guild);
         }
 
@@ -561,22 +560,21 @@ public static class GuildAdminEndpoints
     private static async Task<IResult> ListQuotes(
         string guildId,
         ClaimsPrincipal user,
-        IUserGuildsService userGuilds,
+        GuildAccessGuard accessGuard,
         IDbContextFactory<DatabaseContext> dbContextFactory)
     {
-        if (!ulong.TryParse(guildId, out var guildIdUlong))
+        if (!GuildRouteParser.TryParse(guildId, out var guildRoute))
         {
             return Results.BadRequest("Invalid guild id.");
         }
-        if (!await userGuilds.HasAdministratorAsync(user, guildIdUlong))
+        if (await accessGuard.RequireAdministratorAsync(user, guildRoute) is { } denied)
         {
-            return Results.Forbid();
+            return denied;
         }
 
-        var guildIdLong = (long)guildIdUlong;
         await using var ctx = await dbContextFactory.CreateDbContextAsync();
         var quotes = await ctx.GuildQuote
-            .Where(q => q.GuildId == guildIdLong)
+            .Where(q => q.GuildId == guildRoute.Value)
             .OrderBy(q => q.GuildQuoteId)
             .Select(q => new QuoteDto(q.GuildQuoteId, q.Quote))
             .ToListAsync();
@@ -587,16 +585,16 @@ public static class GuildAdminEndpoints
         string guildId,
         QuoteWriteDto body,
         ClaimsPrincipal user,
-        IUserGuildsService userGuilds,
+        GuildAccessGuard accessGuard,
         IDbContextFactory<DatabaseContext> dbContextFactory)
     {
-        if (!ulong.TryParse(guildId, out var guildIdUlong))
+        if (!GuildRouteParser.TryParse(guildId, out var guildRoute))
         {
             return Results.BadRequest("Invalid guild id.");
         }
-        if (!await userGuilds.HasAdministratorAsync(user, guildIdUlong))
+        if (await accessGuard.RequireAdministratorAsync(user, guildRoute) is { } denied)
         {
-            return Results.Forbid();
+            return denied;
         }
 
         var trimmed = body.Quote?.Trim() ?? string.Empty;
@@ -606,9 +604,8 @@ public static class GuildAdminEndpoints
             return Results.BadRequest(error);
         }
 
-        var guildIdLong = (long)guildIdUlong;
         await using var ctx = await dbContextFactory.CreateDbContextAsync();
-        var quote = new GuildQuote { GuildId = guildIdLong, Quote = trimmed };
+        var quote = new GuildQuote { GuildId = guildRoute.Value, Quote = trimmed };
         ctx.GuildQuote.Add(quote);
         await ctx.SaveChangesAsync();
         return Results.Ok(new QuoteDto(quote.GuildQuoteId, quote.Quote));
@@ -619,16 +616,16 @@ public static class GuildAdminEndpoints
         long quoteId,
         QuoteWriteDto body,
         ClaimsPrincipal user,
-        IUserGuildsService userGuilds,
+        GuildAccessGuard accessGuard,
         IDbContextFactory<DatabaseContext> dbContextFactory)
     {
-        if (!ulong.TryParse(guildId, out var guildIdUlong))
+        if (!GuildRouteParser.TryParse(guildId, out var guildRoute))
         {
             return Results.BadRequest("Invalid guild id.");
         }
-        if (!await userGuilds.HasAdministratorAsync(user, guildIdUlong))
+        if (await accessGuard.RequireAdministratorAsync(user, guildRoute) is { } denied)
         {
-            return Results.Forbid();
+            return denied;
         }
 
         var trimmed = body.Quote?.Trim() ?? string.Empty;
@@ -638,10 +635,9 @@ public static class GuildAdminEndpoints
             return Results.BadRequest(error);
         }
 
-        var guildIdLong = (long)guildIdUlong;
         await using var ctx = await dbContextFactory.CreateDbContextAsync();
         var quote = await ctx.GuildQuote.AsTracking()
-            .FirstOrDefaultAsync(q => q.GuildQuoteId == quoteId && q.GuildId == guildIdLong);
+            .FirstOrDefaultAsync(q => q.GuildQuoteId == quoteId && q.GuildId == guildRoute.Value);
         if (quote is null)
         {
             return Results.NotFound();
@@ -656,22 +652,21 @@ public static class GuildAdminEndpoints
         string guildId,
         long quoteId,
         ClaimsPrincipal user,
-        IUserGuildsService userGuilds,
+        GuildAccessGuard accessGuard,
         IDbContextFactory<DatabaseContext> dbContextFactory)
     {
-        if (!ulong.TryParse(guildId, out var guildIdUlong))
+        if (!GuildRouteParser.TryParse(guildId, out var guildRoute))
         {
             return Results.BadRequest("Invalid guild id.");
         }
-        if (!await userGuilds.HasAdministratorAsync(user, guildIdUlong))
+        if (await accessGuard.RequireAdministratorAsync(user, guildRoute) is { } denied)
         {
-            return Results.Forbid();
+            return denied;
         }
 
-        var guildIdLong = (long)guildIdUlong;
         await using var ctx = await dbContextFactory.CreateDbContextAsync();
         var quote = await ctx.GuildQuote.AsTracking()
-            .FirstOrDefaultAsync(q => q.GuildQuoteId == quoteId && q.GuildId == guildIdLong);
+            .FirstOrDefaultAsync(q => q.GuildQuoteId == quoteId && q.GuildId == guildRoute.Value);
         if (quote is null)
         {
             return Results.NotFound();

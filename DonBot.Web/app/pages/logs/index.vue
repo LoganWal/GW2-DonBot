@@ -111,7 +111,7 @@
                   </Column>
                   <Column header="Fight" sort-field="fightType" :sortable="true">
                     <template #body="{ data }">
-                      <a :href="`/logs/${data.fightLogId}`" :title="`View ${fightName(data.fightType)} from ${new Date(data.fightStart).toLocaleString()}`" @click.prevent.stop="navigateTo(`/logs/${data.fightLogId}`)" style="color: inherit; text-decoration: none;">{{ fightName(data.fightType) }}</a>
+                      <a :href="`/logs/${data.fightLogId}`" :title="`View ${fightName(data.fightType)} from ${formatDateTime(data.fightStart)}`" @click.prevent.stop="navigateTo(`/logs/${data.fightLogId}`)" style="color: inherit; text-decoration: none;">{{ fightName(data.fightType) }}</a>
                     </template>
                   </Column>
                   <Column header="Character" sort-field="characterName" :sortable="true">
@@ -124,7 +124,7 @@
                     </template>
                   </Column>
                   <Column header="Date" sort-field="fightStart" :sortable="true">
-                    <template #body="{ data }">{{ new Date(data.fightStart).toLocaleString() }}</template>
+                    <template #body="{ data }">{{ formatDateTime(data.fightStart) }}</template>
                   </Column>
                   <Column header="Duration" sort-field="fightDurationInMs" :sortable="true">
                     <template #body="{ data }">{{ formatDuration(data.fightDurationInMs) }}</template>
@@ -170,7 +170,7 @@
         </Column>
         <Column header="Fight">
           <template #body="{ data }">
-            <a :href="`/logs/${data.fightLogId}`" :title="`View ${fightName(data.fightType)} from ${new Date(data.fightStart).toLocaleString()}`" @click.prevent.stop="navigateTo(`/logs/${data.fightLogId}`)" style="color: inherit; text-decoration: none;">{{ fightName(data.fightType) }}</a>
+            <a :href="`/logs/${data.fightLogId}`" :title="`View ${fightName(data.fightType)} from ${formatDateTime(data.fightStart)}`" @click.prevent.stop="navigateTo(`/logs/${data.fightLogId}`)" style="color: inherit; text-decoration: none;">{{ fightName(data.fightType) }}</a>
           </template>
         </Column>
         <Column header="Character">
@@ -183,7 +183,7 @@
           </template>
         </Column>
         <Column header="Date">
-          <template #body="{ data }">{{ new Date(data.fightStart).toLocaleString() }}</template>
+          <template #body="{ data }">{{ formatDateTime(data.fightStart) }}</template>
         </Column>
         <Column header="Duration">
           <template #body="{ data }">{{ formatDuration(data.fightDurationInMs) }}</template>
@@ -219,8 +219,11 @@
 </template>
 
 <script setup lang="ts">
-import { fightName, fightTypeGroupedOptions, groupBySuperCategory, formatDuration } from '~/composables/useFightTypes'
+import { fightName, fightTypeGroupedOptions, fightTypeQuickCategories, groupBySuperCategory, formatDuration } from '~/composables/useFightTypes'
 import { successFilterOptions, difficultyFilterOptions, type SuccessFilter, type DifficultyFilter } from '~/composables/useLogFilters'
+import { buildFightLogListUrl, buildLogsRouteQuery, parseNumberListQuery, parseStringListQuery } from '~/composables/useLogQuery'
+import { playstyleGroupedOptions, playstyleSeverity } from '~/composables/usePlaystyles'
+import { formatDateTime } from '~/composables/useFormatters'
 import CollapsibleSection from '~/components/CollapsibleSection.vue'
 
 definePageMeta({ middleware: 'auth' })
@@ -234,30 +237,13 @@ const page = ref(Number(route.query.page ?? 1))
 const selectedLogs = ref<any[]>([])
 const lastClickedIndex = ref<number | null>(null)
 
-const selectedFightTypes = ref<number[]>(
-  route.query.fightTypes ? String(route.query.fightTypes).split(',').map(Number) : []
-)
-const selectedCharacters = ref<string[]>(
-  route.query.characters ? String(route.query.characters).split(',') : []
-)
-const selectedPlaystyles = ref<string[]>(
-  route.query.playstyles ? String(route.query.playstyles).split(',') : []
-)
+const selectedFightTypes = ref<number[]>(parseNumberListQuery(route.query.fightTypes))
+const selectedCharacters = ref<string[]>(parseStringListQuery(route.query.characters))
+const selectedPlaystyles = ref<string[]>(parseStringListQuery(route.query.playstyles))
 const successFilter = ref<SuccessFilter>('all')
 const difficultyFilter = ref<DifficultyFilter>(null)
 
-const STRIKE_TYPES = [27, 28, 29, 30, 31, 32, 33, 47, 48, 49, 50, 51]
-const RAID_TYPES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 44, 45, 46, 53, 55]
-const FRACTAL_TYPES = [34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 52, 54]
-const PVE_TYPES = [...RAID_TYPES, ...STRIKE_TYPES, ...FRACTAL_TYPES]
-
-const quickCategories = [
-  { label: 'All PvE', types: PVE_TYPES },
-  { label: 'WvW', types: [0] },
-  { label: 'Strikes', types: STRIKE_TYPES },
-  { label: 'Raids (Wings)', types: RAID_TYPES },
-  { label: 'Fractals', types: FRACTAL_TYPES },
-]
+const quickCategories = fightTypeQuickCategories
 
 const aggregating = ref<string | null>(null)
 const noLogsToday = ref(false)
@@ -270,27 +256,6 @@ const categoryLoading = ref(false)
 const sortModeOptions = [
   { label: 'Sort: By Time', value: 'time' },
   { label: 'Sort: By Category', value: 'category' },
-]
-
-const playstyleGroupedOptions = [
-  {
-    label: 'WvW',
-    items: [
-      { label: 'DPS', value: 'dps' },
-      { label: 'Support DPS', value: 'support-dps' },
-      { label: 'Support', value: 'support' },
-      { label: 'Heal Support', value: 'heal-support' },
-    ],
-  },
-  {
-    label: 'PvE',
-    items: [
-      { label: 'DPS', value: 'dps' },
-      { label: 'Boon DPS', value: 'boon-dps' },
-      { label: 'Boon Healer', value: 'boon-healer' },
-      { label: 'Mechanic', value: 'mechanic' },
-    ],
-  },
 ]
 
 const viewToday = (types: number[]) => {
@@ -309,7 +274,7 @@ const viewTodayFromModal = (types: number[]) => {
 const loadCategoryLogs = async () => {
   categoryLoading.value = true
   try {
-    const res = await api(buildUrl().replace(/page=\d+/, 'page=1').replace(/pageSize=\d+/, 'pageSize=500')) as { data: any[] }
+    const res = await api(buildUrl(1, 500)) as { data: any[] }
     categoryLogs.value = (res.data ?? []).slice().sort((a: any, b: any) => new Date(b.fightStart).getTime() - new Date(a.fightStart).getTime())
   } finally {
     categoryLoading.value = false
@@ -332,7 +297,13 @@ const aggregateRange = async (cat: { label: string; types: number[] }, windowMs:
   try {
     const now = new Date()
     const since = new Date(now.getTime() - windowMs)
-    const url = `/api/logs?page=1&pageSize=500&startDateTime=${since.toISOString()}&endDateTime=${now.toISOString()}&fightTypes=${cat.types.join(',')}`
+    const url = buildFightLogListUrl({
+      page: 1,
+      pageSize: 500,
+      startDateTime: since.toISOString(),
+      endDateTime: now.toISOString(),
+      fightTypes: cat.types,
+    })
     const res = await api(url) as { data: any[] }
     const ids = (res.data ?? []).map((l: any) => l.fightLogId)
     if (ids.length === 0) {
@@ -359,43 +330,26 @@ const { data: availableCharacters, pending: charactersPending } = await useAsync
 )
 
 const syncUrl = () => {
-  const q: Record<string, any> = {}
-  if (page.value > 1)
-  {
-    q.page = page.value
-  }
-  if (selectedFightTypes.value.length)
-  {
-    q.fightTypes = selectedFightTypes.value.join(',')
-  }
-  if (selectedCharacters.value.length)
-  {
-    q.characters = selectedCharacters.value.join(',')
-  }
-  if (selectedPlaystyles.value.length)
-  {
-    q.playstyles = selectedPlaystyles.value.join(',')
-  }
-  if (sortMode.value === 'category')
-  {
-    q.sort = 'category'
-  }
-  router.replace({ query: q })
+  router.replace({
+    query: buildLogsRouteQuery({
+      page: page.value,
+      fightTypes: selectedFightTypes.value,
+      characters: selectedCharacters.value,
+      playstyles: selectedPlaystyles.value,
+      sortMode: sortMode.value,
+    }),
+  })
 }
 
-const buildUrl = () => {
-  let url = `/api/logs?page=${page.value}&pageSize=${pageSize}`
-  if (selectedFightTypes.value.length > 0)
-    url += `&fightTypes=${selectedFightTypes.value.join(',')}`
-  if (selectedCharacters.value.length > 0)
-    url += `&characters=${encodeURIComponent(selectedCharacters.value.join(','))}`
-  if (selectedPlaystyles.value.length > 0)
-    url += `&playstyles=${encodeURIComponent(selectedPlaystyles.value.join(','))}`
-  if (successFilter.value === 'kills') url += '&isSuccess=true'
-  else if (successFilter.value === 'wipes') url += '&isSuccess=false'
-  if (difficultyFilter.value !== null) url += `&fightMode=${difficultyFilter.value}`
-  return url
-}
+const buildUrl = (pageOverride = page.value, pageSizeOverride = pageSize) => buildFightLogListUrl({
+  page: pageOverride,
+  pageSize: pageSizeOverride,
+  fightTypes: selectedFightTypes.value,
+  characters: selectedCharacters.value,
+  playstyles: selectedPlaystyles.value,
+  successFilter: successFilter.value,
+  difficultyFilter: difficultyFilter.value,
+})
 
 const { data, pending, refresh } = await useAsyncData(
   'logs',
@@ -473,22 +427,6 @@ const goToAggregate = () => {
   navigateTo(`/logs/aggregate?ids=${ids}`)
 }
 
-const playstyleSeverity = (playstyle: string) => {
-  switch (playstyle) {
-    case 'boon-dps':
-    case 'support-dps':
-      return 'success'
-    case 'boon-healer':
-    case 'heal-support':
-      return 'info'
-    case 'mechanic':
-      return 'contrast'
-    case 'support':
-      return 'warn'
-    default:
-      return 'secondary'
-  }
-}
 </script>
 
 <style scoped>

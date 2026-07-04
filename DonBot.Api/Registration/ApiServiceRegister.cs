@@ -1,7 +1,9 @@
 using System.Text;
 using DonBot.Api.Services;
 using DonBot.Core.Models.Entities;
+using DonBot.Core.Services.GuildWars2;
 using DonBot.Core.Services.RaidLifecycle;
+using DonBot.Core.Services.Raffles;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.GuildWarsServices;
 using DonBot.Services.GuildWarsServices.MessageGeneration;
@@ -47,10 +49,16 @@ public static class ApiServiceRegister
         services.AddScoped<IRaidNotifier, RaidNotifier>();
 
         services.AddSingleton<ILogUploadProgressService, LogUploadProgressService>();
+        services.AddSingleton<FightLogIngestionService>();
+        services.AddSingleton<IRaffleRandomSource, SharedRaffleRandomSource>();
+        services.AddSingleton<RaffleWinnerSelector>();
+        services.AddSingleton<RaffleService>();
         services.AddSingleton<LogUploadPipelineService>();
         services.AddSingleton<DiscordRestClientProvider>();
         services.AddSingleton<IUserGuildsService, UserGuildsService>();
         services.AddSingleton<IDiscordCommandAccessService, DiscordCommandAccessService>();
+        services.AddSingleton<GuildAccessGuard>();
+        services.AddSingleton<AccessibleGuildsCache>();
         services.AddSingleton<IRaffleEventHub, RaffleEventHub>();
         services.AddMemoryCache();
         services.AddHostedService(sp => sp.GetRequiredService<LogUploadPipelineService>());

@@ -1,6 +1,6 @@
-namespace DonBot.Models.Statics;
+namespace DonBot.Core.Models.GuildWars2;
 
-internal static class Gw2BoonIds
+public static class Gw2BoonIds
 {
     public const int Quickness = 1187;
     public const int Alacrity = 30328;

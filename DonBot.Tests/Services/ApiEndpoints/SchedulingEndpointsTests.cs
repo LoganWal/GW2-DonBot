@@ -123,6 +123,24 @@ public class SchedulingEndpointsTests
     }
 
     [Fact]
+    public void ValidateEvent_ChannelIdAboveLongMax_ReturnsChannelError()
+    {
+        var body = ValidBody(channelId: ulong.MaxValue.ToString());
+        var error = SchedulingEndpoints.ValidateEvent(body, [ulong.MaxValue]);
+
+        Assert.Equal("Channel does not belong to this guild.", error);
+    }
+
+    [Fact]
+    public void ValidateEvent_InvalidChannelAndMessageOverLimit_ReturnsChannelError()
+    {
+        var body = ValidBody(channelId: "999", message: new string('a', SchedulingEndpoints.MaxMessageLength + 1));
+        var error = SchedulingEndpoints.ValidateEvent(body, Channels);
+
+        Assert.Equal("Channel does not belong to this guild.", error);
+    }
+
+    [Fact]
     public void ValidateEvent_MessageAtLimit_ReturnsNull()
     {
         var body = ValidBody(message: new string('a', SchedulingEndpoints.MaxMessageLength));

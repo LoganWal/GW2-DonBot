@@ -1,9 +1,13 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using DonBot.Api.Services;
 using DonBot.Core.Models.Entities;
 using DonBot.Core.Models.GuildWars2;
+using DonBot.Core.Services.GuildWars2;
+using DonBot.Core.Services.Raffles;
 using DonBot.Services.GuildWarsServices;
+using DonBot.Services.SecretsServices;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.TestHost;
@@ -46,6 +50,14 @@ internal sealed class MinimalApiHost : IDisposable
         }
 
         builder.Services.AddMemoryCache();
+        builder.Services.AddSingleton<FightLogIngestionService>();
+        builder.Services.AddSingleton<IRaffleRandomSource, SharedRaffleRandomSource>();
+        builder.Services.AddSingleton<RaffleWinnerSelector>();
+        builder.Services.AddSingleton<RaffleService>();
+        builder.Services.AddSingleton<ISecretService, TestSecretService>();
+        builder.Services.AddSingleton<DiscordRestClientProvider>();
+        builder.Services.AddSingleton<GuildAccessGuard>();
+        builder.Services.AddSingleton<AccessibleGuildsCache>();
 
         // Endpoint binding needs this at startup; specific tests can override it.
         builder.Services.AddSingleton<IDataModelGenerationService, StubDataModelGenerationService>();
@@ -116,6 +128,17 @@ internal sealed class MinimalApiHost : IDisposable
 
         public EliteInsightDataModel GenerateEliteInsightDataModelFromJson(string json, string url) =>
             new();
+    }
+
+    private sealed class TestSecretService : ISecretService
+    {
+        public string FetchDonBotSqlConnectionString() => "";
+
+        public string FetchDonBotToken() => "test-token";
+
+        public string FetchDiscordClientId() => "test-client-id";
+
+        public string FetchDiscordClientSecret() => "test-client-secret";
     }
 
     private string CreateJwt(long discordId)

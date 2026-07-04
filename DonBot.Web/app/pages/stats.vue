@@ -184,6 +184,8 @@
 </template>
 
 <script setup lang="ts">
+import { formatInteger, formatSeconds } from '~/composables/useFormatters'
+
 definePageMeta({ middleware: 'auth' })
 
 const api = useApi()
@@ -195,8 +197,7 @@ watch(stats, (s) => {
 }, { immediate: true })
 
 const charactersSortField = computed(() => activeTab.value === 'wvw' ? 'wvwLogs' : 'pveLogs')
-const formatInt = (value: number) => Math.round(Number(value) || 0).toLocaleString()
-const formatSeconds = (valueMs: number) => `${((Number(valueMs) || 0) / 1000).toFixed(1)}s`
+const formatInt = formatInteger
 </script>
 
 <style scoped>

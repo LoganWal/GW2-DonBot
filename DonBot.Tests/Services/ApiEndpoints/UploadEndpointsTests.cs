@@ -1,10 +1,13 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using DonBot.Api.Endpoints;
 using DonBot.Api.Services;
 using DonBot.Core.Models.Entities;
 using DonBot.Tests.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
 using tusdotnet.Models;
 
 namespace DonBot.Tests.Services.ApiEndpoints;
@@ -30,6 +33,69 @@ public class UploadEndpointsTests
         private IReadOnlyList<DiscordUserGuild> BuildGuilds() => GuildIds
             .Select(id => new DiscordUserGuild(id, $"Guild {id}", null, false, 0))
             .ToList();
+    }
+
+    [Fact]
+    public async Task SubmitUrls_ReportUrlWithTrailingPunctuation_StoresCanonicalUrl()
+    {
+        using var host = NewHost();
+        host.AuthenticateAs(123L);
+
+        var response = await host.Client.PostAsJsonAsync("/api/upload/urls", new
+        {
+            Urls = new[] { "https://b.dps.report/abc," },
+            Wingman = false
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await using var ctx = await host.DbFactory.CreateDbContextAsync();
+        var upload = Assert.Single(ctx.LogUpload);
+        Assert.Equal("https://dps.report/abc", upload.DpsReportUrl);
+        Assert.Equal("abc", upload.FileName);
+        Assert.False(upload.SubmitToWingman);
+    }
+
+    [Fact]
+    public async Task SubmitUrls_CanonicalEquivalentReportUrls_CreatesSingleUpload()
+    {
+        using var host = NewHost();
+        host.AuthenticateAs(123L);
+
+        var response = await host.Client.PostAsJsonAsync("/api/upload/urls", new
+        {
+            Urls = new[]
+            {
+                "https://b.dps.report/abc",
+                "https://dps.report/abc",
+                "https://dps.report/getJson?permalink=abc"
+            },
+            Wingman = true
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var result = Assert.Single(body.RootElement.EnumerateArray());
+        Assert.Equal("abc", result.GetProperty("fileName").GetString());
+
+        await using var ctx = await host.DbFactory.CreateDbContextAsync();
+        var upload = Assert.Single(ctx.LogUpload);
+        Assert.Equal("https://dps.report/abc", upload.DpsReportUrl);
+        Assert.Equal("abc", upload.FileName);
+        Assert.True(upload.SubmitToWingman);
+    }
+
+    [Fact]
+    public async Task SubmitUrls_ReportRootUrl_ReturnsBadRequest()
+    {
+        using var host = NewHost();
+        host.AuthenticateAs(123L);
+
+        var response = await host.Client.PostAsJsonAsync("/api/upload/urls", new
+        {
+            Urls = new[] { "https://dps.report/" }
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
@@ -152,6 +218,15 @@ public class UploadEndpointsTests
 
         Assert.False(result);
     }
+
+    private static MinimalApiHost NewHost() =>
+        new(
+            app => app.MapUploadEndpoints(),
+            services =>
+            {
+                services.AddSingleton<ILogUploadProgressService, LogUploadProgressService>();
+                services.AddSingleton<LogUploadPipelineService>();
+            });
 
     private static Dictionary<string, Metadata> Metadata(params (string Key, string Value)[] values)
     {

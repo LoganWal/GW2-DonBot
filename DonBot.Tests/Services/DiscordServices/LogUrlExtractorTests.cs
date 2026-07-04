@@ -71,6 +71,13 @@ public class LogUrlExtractorTests
     }
 
     [Fact]
+    public void ExtractFromText_DpsReportWithTrailingPunctuation_TrimsUrl()
+    {
+        var urls = LogUrlExtractor.ExtractFromText("see https://b.dps.report/abc, and https://wvw.report/def).");
+        Assert.Equal(["https://b.dps.report/abc", "https://wvw.report/def"], urls);
+    }
+
+    [Fact]
     public void ExtractFromText_UnknownDpsReportSubdomain_NotMatched()
     {
         // only b.dps, dps, wvw subdomains are extracted

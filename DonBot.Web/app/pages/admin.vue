@@ -17,14 +17,13 @@
         <template #content>
           <div class="guild-picker">
             <label for="guild-select">Server</label>
-            <Select
-              id="guild-select"
+            <ServerSelect
+              input-id="guild-select"
               v-model="selectedGuildId"
               :options="guilds"
               option-label="name"
-              option-value="guildId"
               placeholder="Select a server"
-              style="min-width: 320px;"
+              :select-style="{ minWidth: '320px' }"
             />
           </div>
         </template>
@@ -479,7 +478,7 @@ const gw2PrimaryTip = 'GW2 guild ID (UUID) used to assign the primary Guild memb
 const gw2SecondaryTip = 'Comma-separated GW2 guild IDs (UUIDs) used to assign the Secondary member role.'
 const managerRolesTip = 'Members with any of these roles can manage scheduled events from the Scheduling page in addition to Discord administrators.'
 
-const { selectedGuildId, ensureSelection } = useSelectedGuild()
+const { selectedGuildId, ensureSelection } = useGuildSelection()
 const working = ref<Config | null>(null)
 const original = ref<Config | null>(null)
 const channels = ref<Channel[]>([])

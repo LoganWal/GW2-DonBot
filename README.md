@@ -2,332 +2,238 @@
 
 ![DonBot](https://i.imgur.com/tQ4LD6H.png)
 
-A Discord bot and web application for Guild Wars 2 communities. Processes [Elite Insights](https://github.com/baaron4/GW2-Elite-Insights-Parser) combat logs, tracks player performance, manages raffles, and handles guild administration.
+DonBot is a Discord bot and web app for Guild Wars 2 communities. It turns combat logs into summaries, tracks player stats, manages points and raffles, and gives server admins a web interface for common guild settings.
 
-**[Add DonBot to your server](https://discord.com/api/oauth2/authorize?client_id=1021682849797111838&permissions=8&scope=bot)**
+[Add DonBot to your server](https://discord.com/api/oauth2/authorize?client_id=1021682849797111838&permissions=8&scope=bot)
 
----
+## What It Does
 
-## Features
+- Reads `dps.report`, `wvw.report`, and GW2 Wingman log links posted in Discord.
+- Creates WvW and PvE fight summaries from Elite Insights data.
+- Adds WvW tools such as advanced reports and Know My Enemy.
+- Flags suspicious PvE rotation patterns for review.
+- Tracks player stats, best times, progression, mechanics, and leaderboards.
+- Aggregates raid sessions started from Discord.
+- Links Discord users to Guild Wars 2 API keys.
+- Awards WvW participation points and lets players spend them on raffles.
+- Posts recurring raid signups and leaderboard messages.
+- Uploads `.zevtc` logs through the web app when Elite Insights CLI is configured.
+- Helps admins manage guild channels, roles, feature toggles, and scheduled events.
 
-### Combat Log Processing
+## Discord Commands
 
-Automatically detects and processes combat log URLs posted in Discord. Supported sources: `dps.report`, `wvw.report`, `gw2wingman.nevermindcreations.de`.
+### Account
 
-**WvW fights**
-Generates a fight summary embed with participant stats, damage, deaths, and builds. Updates player points and rankings. Includes a "Know My Enemy" button to inspect enemy team composition. If an advanced log report channel is configured, a detailed report is also posted there.
-
-**PvE fights**
-Generates fight summaries for strikes, fractals, and raids. Supports multi-log aggregation into a combined raid report with a "Best Times" button comparing session clears against all-time bests per boss and mode.
-
-**Rotation analysis**
-Inspects player skill rotations in PvE logs for patterns that may indicate macro or bot usage. Detected anomalies are flagged for review.
-
-**Wingman auto-submit**
-PvE log URLs are submitted to [gw2wingman](https://gw2wingman.nevermindcreations.de) in the background after processing. WvW logs are excluded. Configurable per guild.
-
-**Posting flow**
-When a log URL is detected, the bot can optionally prompt the uploader before posting publicly. Controlled by the `auto_aggregate_logs` and `auto_reply_single_log` guild settings:
-
-1. Bot prompts: **Post Summary** or **Dismiss**
-2. If confirmed: **Also submit to Wingman?** (Yes / No)
-3. Summary is posted publicly
-
-For logs delivered via webhook (e.g. a dedicated log drop-off channel), the Wingman setting follows `auto_submit_to_wingman` instead.
-
----
-
-### Points and Rankings
-
-Players earn points by participating in tracked WvW fights. Points can be spent on raffle entries.
-
-- `/points` - view your balance, spending history, and leaderboard rank
-- Role polling (every 30 min) syncs GW2 API data, updates guild membership, and applies or removes Discord roles automatically
-
----
-
-### Weekly Leaderboards
-
-Posted on a configurable schedule (default: every Monday at 00:00 UTC).
-
-**WvW leaderboard** - top 20 players over the past 7 days across: Damage, Down Contribution, Cleanses, Strips, Stab (avg, 10+ logs minimum), Healing, Barrier, Times Downed, Damage Taken, Kills, Distance From Tag (avg, 10+ logs minimum).
-
-**PvE leaderboard** - top 20 players (6+ logs minimum) across: DPS, Cleave DPS, Avg Res Time, Avg Damage Taken, Avg Times Downed.
-
-- `/my_rank` - view your personal rank across all leaderboards (ephemeral)
-- `/add_quote` - add a quote to the guild pool; quotes appear randomly in message footers
-
----
-
-### Raffle System
-
-Two raffle types with slash commands and one-click entry buttons.
-
-**Standard Raffles** - single winner
-
-| Command | Description |
+| Command | Purpose |
 |---|---|
-| `/create_raffle` | Create a raffle |
-| `/enter_raffle` | Enter by spending points |
-| `/complete_raffle` | Pick a winner |
+| `/verify` | Link a Guild Wars 2 API key to your Discord account |
+| `/deverify` | Remove your linked account |
+| `/points` | View your points, history, and rank |
+| `/my_rank` | View your leaderboard ranks |
+
+### Raffles
+
+| Command | Purpose |
+|---|---|
+| `/create_raffle` | Create a single-winner raffle |
+| `/enter_raffle` | Spend points on a raffle entry |
+| `/complete_raffle` | Draw a raffle winner |
 | `/reopen_raffle` | Reopen the last raffle |
-
-**Event Raffles** - multiple winners
-
-| Command | Description |
-|---|---|
-| `/create_event_raffle` | Create an event raffle |
-| `/enter_event_raffle` | Enter by spending points |
-| `/complete_event_raffle` | Pick N winners |
+| `/create_event_raffle` | Create a multi-winner event raffle |
+| `/enter_event_raffle` | Spend points on an event raffle entry |
+| `/complete_event_raffle` | Draw event raffle winners |
 | `/reopen_event_raffle` | Reopen the last event raffle |
 
-Raffle messages include buttons to check your balance and enter with 1, 50, 100, 1000, or a random number of points.
+### Raids and Logs
 
----
-
-### Raid Management
-
-- `/start_raid` - start a raid session; logs posted during the session are aggregated
-- `/close_raid` - close the raid and generate a combined summary report
-- `/start_alliance_raid` - start a raid with a custom alliance alert message
-
-The aggregate summary includes a **Best Times** button comparing session clears against all-time bests per boss and mode.
-
----
-
-### Scheduled Events
-
-Recurring event posts configured per guild.
-
-| Type | Description |
+| Command | Purpose |
 |---|---|
-| **PvE Raid Signup** | Weekly roster embed with Join / Can't Join / Can Fill buttons |
-| **WvW Raid Signup** | Weekly roster embed with Join / Can't Join / Will Be Late buttons |
-| **WvW Leaderboard** | Weekly WvW stats post |
-| **PvE Leaderboard** | Weekly PvE stats post |
+| `/start_raid` | Start collecting logs for a raid session |
+| `/close_raid` | Close the session and post an aggregate report |
+| `/start_alliance_raid` | Start a raid with a custom alert message |
+| `/add_quote` | Add a quote used in DonBot message footers |
+| `/digut` | Check the current GW2 Pinata event cycle |
 
----
+### Server Admin
 
-### GW2 Account Verification
+Use `/server_config` to set Discord channels, roles, Guild Wars 2 guild IDs, and feature toggles.
 
-- `/verify` - link a GW2 API key to your Discord account
-- `/deverify` - unlink your GW2 account
-- Verified accounts receive configurable Discord roles based on primary and alliance guild membership
+Common settings include:
 
----
+- Log drop-off, report, advanced report, announcement, raid alert, removed-message, and leaderboard channels.
+- Guild member, secondary member, and verified roles.
+- Primary and secondary Guild Wars 2 guild IDs.
+- Auto Wingman submission.
+- Auto log aggregation and single-log replies.
+- Raid alerts.
+- Spam and art-spam filtering.
+- WvW and PvE leaderboard posting.
 
-### Spam Protection
+## Web App
 
-Automatically removes Discord invite links and URLs posted by unverified users, and logs the removal to a configurable moderation channel.
+The web app uses Discord login and gives players and admins a richer interface than Discord commands.
 
----
+Pages include:
 
-### Other Commands
+- Dashboard
+- Fight Logs
+- Live Raid
+- My Stats
+- Personal Bests
+- Progression
+- Mechanics
+- Leaderboard
+- Raffles and Points
+- Account linking
+- Log upload
+- Scheduling
+- Server Admin
 
-| Command | Description |
-|---|---|
-| `/digut` | Check the current GW2 Pinata event cycle status |
+Log upload supports:
 
----
+- URL uploads from `dps.report` and `wvw.report`.
+- `.zevtc` file uploads when Elite Insights CLI is configured.
+- Live progress while logs are stored, parsed, uploaded, and saved.
+- Optional Wingman submission for PvE logs.
 
-### Server Configuration
+## Self-Hosting
 
-All per-guild settings are managed via `/server_config` (Administrator only).
-
-**Channels**
-
-| Subcommand | Description |
-|---|---|
-| `log_drop_off_channel` | Channel where fight logs are dropped via webhook |
-| `log_report_channel` | Channel where fight summaries are posted |
-| `advance_log_report_channel` | Channel for detailed WvW log reports |
-| `stream_log_channel` | Channel for stream log output |
-| `announcement_channel` | Channel for announcements |
-| `raid_alert_channel` | Channel for raid alerts |
-| `removed_message_channel` | Channel where removed spam messages are logged |
-| `wvw_leaderboard_channel` | Channel for the weekly WvW leaderboard |
-| `pve_leaderboard_channel` | Channel for the weekly PvE leaderboard |
-
-**Roles**
-
-| Subcommand | Description |
-|---|---|
-| `guild_member_role` | Role assigned to primary GW2 guild members |
-| `secondary_member_role` | Role assigned to alliance guild members |
-| `verified_role` | Role assigned to all verified accounts |
-
-**GW2 Guild IDs**
-
-| Subcommand | Description |
-|---|---|
-| `guild_member_role_id` | GW2 guild UUID for primary membership |
-| `secondary_member_role_ids` | Comma-separated GW2 guild UUIDs for alliance membership |
-
-**Toggles**
-
-| Subcommand | Default | Description |
-|---|---|---|
-| `raid_alert_enabled` | off | Enable raid alerts |
-| `remove_spam_enabled` | off | Auto-remove URLs from unverified users |
-| `auto_submit_to_wingman` | on | Submit PvE logs to gw2wingman automatically |
-| `auto_aggregate_logs` | on | Post aggregate summary for multiple logs |
-| `auto_reply_single_log` | off | Reply with summary for a single log |
-| `wvw_leaderboard_enabled` | off | Enable the weekly WvW leaderboard |
-| `pve_leaderboard_enabled` | off | Enable the weekly PvE leaderboard |
-
----
-
-## Web Application
-
-A companion web app provides a richer interface for log history, stats, and uploads. Users log in with Discord OAuth2.
-
-**Pages**
-
-| Page | Description |
-|---|---|
-| Dashboard | Overview of recent activity |
-| Logs | Browse and filter personal fight log history |
-| Logs: Upload | Upload `.zevtc` files or paste dps.report/wvw.report URLs |
-| Bests | All-time best clear times per boss and mode |
-| Mechanics | Per-fight mechanic hit counts |
-| Leaderboard | Guild-wide leaderboard |
-| Points | Points balance and history |
-| Progression | Player progression over time |
-| Stats | Detailed player stats |
-
-**Log upload**
-
-The upload page supports two modes:
-
-- **URL mode**: paste one or more `dps.report` or `wvw.report` links. The app fetches, parses, and saves them.
-- **File mode**: upload raw `.zevtc` ArcDPS combat logs. The app runs Elite Insights locally to parse the file, uploads to dps.report to generate a shareable URL, and saves the result. Progress is streamed live in the browser across stages: Stored, Parsing, Uploading, Saving, Done.
-
-Logs are also submitted to gw2wingman in the background after the dps.report URL is obtained.
-
----
-
-## Technology Stack
-
-| Layer | Technology |
-|---|---|
-| Bot and API | .NET 10, C# |
-| Discord integration | Discord.Net 3.18 |
-| Database | PostgreSQL via Entity Framework Core 10 + Npgsql |
-| Logging | Serilog (console + daily rolling file) |
-| File uploads | TUS resumable upload protocol |
-| Frontend | Nuxt 4, PrimeVue, Chart.js |
-| Hosting | Docker, nginx |
-| CI/CD | GitHub Actions, Watchtower |
-
----
-
-## Setup and Deployment
-
-### Prerequisites
+### Requirements
 
 - .NET 10 SDK
 - PostgreSQL
-- Docker and Docker Compose (for containerised deployment)
-- [Elite Insights CLI](https://github.com/baaron4/GW2-Elite-Insights-Parser/releases) (.dll or .exe) - required only for `.zevtc` file uploads. EI targets .NET 8, so the .NET 8 runtime must be installed alongside .NET 10.
+- Node.js and npm for local frontend development
+- Docker and Docker Compose for container deployment
+- Elite Insights CLI for `.zevtc` file uploads
+
+Elite Insights currently requires a .NET runtime compatible with its release. If you use file uploads, install the runtime required by the Elite Insights version you deploy.
 
 ### Configuration
 
-**Docker or service deployment**: copy `.env.example` to `.env` and fill in your values, or set the same keys as real environment variables. For service installs, set `DONBOT_ENV_FILE` to an absolute `.env` path if the file is not beside the published app.
+For local development, copy the example settings files and fill in local values:
 
-**Local development**: use `.env`, or copy the relevant `appsettings.example.json` to `appsettings.user.json` in the same directory. These files are gitignored and loaded automatically at startup.
+- `GW2-DonBot/appsettings.example.json` to `GW2-DonBot/appsettings.user.json`
+- `DonBot.Api/appsettings.example.json` to `DonBot.Api/appsettings.user.json`
 
-- Bot: `GW2-DonBot/appsettings.example.json`
-- API: `DonBot.Api/appsettings.example.json`
+For Docker, use `.env` or real environment variables.
 
-**Required** (both bot and API)
+Required for the bot and API:
 
-| Key | Description |
+| Key | Purpose |
 |---|---|
 | `DonBotToken` | Discord bot token |
 | `DonBotSqlConnectionString` | PostgreSQL connection string |
 
-**Required** (API only)
+Required for the API:
 
-| Key | Description |
+| Key | Purpose |
 |---|---|
-| `DiscordClientId` | Discord OAuth2 app client ID |
-| `DiscordClientSecret` | Discord OAuth2 app client secret |
-| `DonBotJwtKey` | Random 32+ character string for JWT signing (`openssl rand -base64 32`) |
-| `Discord:RedirectUri` | OAuth2 callback URL - must match the Discord developer portal |
-| `Nuxt:BaseUrl` | URL of the Nuxt frontend, used for post-login redirects |
+| `DiscordClientId` | Discord OAuth2 client ID |
+| `DiscordClientSecret` | Discord OAuth2 client secret |
+| `DonBotJwtKey` | 32+ character JWT signing key |
+| `Discord:RedirectUri` | OAuth callback URL from the Discord Developer Portal |
+| `Nuxt:BaseUrl` | Web app URL used after login |
 
-**Optional** (API)
+Optional:
 
-| Key | Default | Description |
-|---|---|---|
-| `WebApp:BaseUrl` | _(none)_ | If set, WvW embeds include a "View on DonBot" link |
-| `CookieDomain` | _(none)_ | Set to `.yourdomain.com` in production for cross-subdomain auth cookies |
-| `Cors:AllowedOrigins` | `[]` | Allowed CORS origins; if empty, any `localhost` origin is allowed |
-| `EliteInsights:DllPath` | _(none)_ | Path to EI CLI `.dll` or `.exe`. Required for `.zevtc` file uploads. |
-| `EliteInsights:OutputBasePath` | `/tmp/donbot/ei-output` | Directory where EI writes per-job output |
-| `Upload:StoragePath` | `/tmp/donbot/uploads` | Root directory for uploaded files |
-| `Upload:MaxRequestBytes` | `1073741824` (1 GB) | Kestrel max request body size |
-| `Upload:MaxConcurrentProcessing` | `3` | Max parallel upload pipeline jobs |
-| `DpsReport:UserToken` | _(none)_ | Links dps.report uploads to your account |
-
-**Docker / CI**
-
-| Key | Description |
+| Key | Purpose |
 |---|---|
-| `GHCR_USER` | GitHub username for Watchtower to pull images |
-| `GHCR_TOKEN` | GitHub PAT with `read:packages` scope |
+| `WebApp:BaseUrl` | Adds web links to Discord messages |
+| `CookieDomain` | Cookie domain for shared production subdomains |
+| `Cors:AllowedOrigins` | Allowed API origins |
+| `EliteInsights:DllPath` | Path to Elite Insights CLI |
+| `EliteInsights:OutputBasePath` | Elite Insights output directory |
+| `Upload:StoragePath` | Uploaded log storage directory |
+| `Upload:MaxRequestBytes` | Max upload size |
+| `Upload:MaxConcurrentProcessing` | Parallel upload processing limit |
+| `DpsReport:UserToken` | Optional dps.report upload token |
 
-### Docker (recommended)
+### Docker
 
 ```bash
 docker-compose up -d
 ```
 
-The stack runs the bot, API, web frontend (nginx), and Watchtower for automatic updates.
+The compose stack runs:
 
-A new image is pushed to `ghcr.io/loganwal/gw2-donbot:latest` by GitHub Actions on every merge to `main`. Watchtower automatically restarts containers when a new image is available.
+- Discord bot
+- API
+- Web frontend
+- Watchtower for image updates
 
-**Generating a GitHub PAT for Watchtower:**
-1. Go to GitHub, Settings, Developer settings, Personal access tokens, Tokens (classic)
-2. Tick `read:packages` only
-3. Paste the token as `GHCR_TOKEN` in `.env`
+Published images:
 
-### Local Development
+- `ghcr.io/loganwal/gw2-donbot:latest`
+- `ghcr.io/loganwal/gw2-donbot-api:latest`
+- `ghcr.io/loganwal/gw2-donbot-web:latest`
+
+Set `GHCR_USER` and `GHCR_TOKEN` if Watchtower needs credentials to pull packages.
+
+## Local Development
+
+Run the bot:
 
 ```bash
-# Bot
 dotnet run --project GW2-DonBot/DonBot.csproj
-
-# API
-dotnet run --project DonBot.Api/DonBot.Api.csproj
-
-# Frontend
-cd DonBot.Web
-npm install
-npm run dev     # http://localhost:3000
 ```
 
-### Tests
+Run the API:
+
+```bash
+dotnet run --project DonBot.Api/DonBot.Api.csproj
+```
+
+Run the web app:
+
+```bash
+cd DonBot.Web
+npm install
+npm run dev
+```
+
+The web app runs at `http://localhost:3000` by default. The API runs at `http://localhost:5001` by default.
+
+## Tests
 
 ```bash
 dotnet test
 ```
 
-xUnit suite in `DonBot.Tests/`. Covers raid report aggregation, scheduler, polling retry and key-clearing rules, rotation anomaly detection, GW2 guild name cache, extension helpers, the per-guild admin endpoints, the API endpoint surface (account, points, stats, leaderboard, in-process via SQLite), and the generic database layer.
-
-### Database Migrations
-
-Migrations are managed with EF Core and apply automatically on startup.
+Useful focused runs:
 
 ```bash
-# Install the EF Core CLI tool (once)
+dotnet test --filter "FullyQualifiedName~DpsReportGetJsonMapperTests"
+dotnet test --filter "FullyQualifiedName~PointsEndpointsIntegrationTests"
+```
+
+Frontend production build:
+
+```bash
+cd DonBot.Web
+npm run build
+```
+
+## Database
+
+Migrations are managed by EF Core and apply on startup.
+
+Manual commands:
+
+```bash
 dotnet tool install --global dotnet-ef
-
-# Apply all pending migrations manually
 dotnet ef database update --project GW2-DonBot/DonBot.csproj
-
-# Create a new migration after changing an entity
 dotnet ef migrations add DescriptiveName --project GW2-DonBot/DonBot.csproj
 ```
 
-Always commit the entity change and its generated migration together.
+Commit entity changes and generated migrations together.
+
+## Tech Stack
+
+- .NET 10
+- Discord.Net
+- ASP.NET Core minimal APIs
+- Entity Framework Core and PostgreSQL
+- Nuxt 4
+- PrimeVue
+- Chart.js
+- Docker

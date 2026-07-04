@@ -2,24 +2,20 @@ using System.Globalization;
 using Discord;
 using Discord.WebSocket;
 using DonBot.Core.Models.Entities;
-using DonBot.Core.Models.Enums;
 using DonBot.Core.Models.GuildWars2;
-using DonBot.Core.Services;
+using DonBot.Core.Services.GuildWars2;
 using DonBot.Extensions;
 using DonBot.Models.Statics;
-using DonBot.Services.DatabaseServices;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
 namespace DonBot.Services.GuildWarsServices.MessageGeneration;
 
 public sealed class WvWFightSummaryService(
-    IEntityService entityService,
     IPlayerService playerService,
     IFooterService footerService,
-    IDbContextFactory<DatabaseContext> dbContextFactory,
     IPointsAwardService pointsAwardService,
-    IConfiguration configuration) : IWvWFightSummaryService
+    IConfiguration configuration,
+    FightLogIngestionService fightLogIngestionService) : IWvWFightSummaryService
 {
     private const int NameWidth = DiscordDisplayConstants.PlayerNameWidth;
 
@@ -163,96 +159,16 @@ public sealed class WvWFightSummaryService(
         friendlyOverview += DiscordTable.Row(FriendlyColumns, "Foe", enemyCountStr.Trim(), enemyDamageStr.Trim(), enemyDpsStr.Trim(), enemyDownsStr.Trim(), enemyDeathsStr.Trim());
         friendlyOverview += "```";
 
-        var dateStartString = data.FightEliteInsightDataModel.Start;
-        var dateTimeStart = DateTime.ParseExact(dateStartString, "yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
-
-        var dateEndString = data.FightEliteInsightDataModel.End;
-        var dateTimeEnd = DateTime.ParseExact(dateEndString, "yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
-
-        var duration = dateTimeEnd - dateTimeStart;
-
         FightLog? fightLog = null;
         if (!advancedLog)
         {
-            fightLog = await entityService.FightLog.GetFirstOrDefaultAsync(s => s.Url == data.FightEliteInsightDataModel.Url);
-
-            if (fightLog == null)
+            var ingestionResult = await fightLogIngestionService.IngestAsync(new FightLogIngestionRequest(data, fightPhase, gw2Players)
             {
-                await using var ctx = await dbContextFactory.CreateDbContextAsync();
-                fightLog = await FightLogDeduplication.FindByContentAsync(
-                    ctx, (short)FightTypesEnum.WvW, dateTimeStart,
-                    gw2Players.Select(p => p.AccountName));
-            }
-
-            if (fightLog == null)
-            {
-                fightLog = new FightLog
-                {
-                    GuildId = guild.GuildId,
-                    Url = data.FightEliteInsightDataModel.Url,
-                    FightType = (short)FightTypesEnum.WvW,
-                    FightStart = dateTimeStart,
-                    FightDurationInMs = (long)duration.TotalMilliseconds,
-                    IsSuccess = data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false,
-                    Source = FightLogHelpers.GetLogSource(data.FightEliteInsightDataModel.Url)
-                };
-
-                await entityService.FightLog.AddAsync(fightLog);
-
-                var averageGroupDps = PlayerFightLogRoleClassifier.GetAverageGroupDps(gw2Players, fightLog.FightDurationInMs);
-                var wvwBenchmarks = PlayerFightLogPlaystyleClassifier.BuildWvwBenchmarks(gw2Players, fightLog.FightDurationInMs);
-                var playerFights = gw2Players.Select(gw2Player =>
-                {
-                    var boonRole = PlayerFightLogRoleClassifier.ResolveBoonRole(gw2Player, fightLog.FightDurationInMs, averageGroupDps);
-                    return new PlayerFightLog
-                    {
-                        FightLogId = fightLog.FightLogId,
-                        GuildWarsAccountName = gw2Player.AccountName,
-                        CharacterName = gw2Player.CharacterName,
-                        Damage = gw2Player.Damage,
-                        Cleave = gw2Player.Cleave,
-                        Kills = gw2Player.Kills,
-                        Downs = gw2Player.Downs,
-                        Deaths = gw2Player.Deaths,
-                        QuicknessDuration = Convert.ToDecimal(gw2Player.TotalQuick),
-                        AlacDuration = Convert.ToDecimal(gw2Player.TotalAlac),
-                        QuicknessGenGroup = Convert.ToDecimal(gw2Player.QuicknessGenGroup),
-                        AlacGenGroup = Convert.ToDecimal(gw2Player.AlacGenGroup),
-                        BoonRole = boonRole,
-                        Playstyle = PlayerFightLogPlaystyleClassifier.ResolveWvwPlaystyle(gw2Player, fightLog.FightDurationInMs, wvwBenchmarks),
-                        SubGroup = gw2Player.SubGroup,
-                        DamageDownContribution = gw2Player.DamageDownContribution,
-                        Cleanses = Convert.ToInt64(gw2Player.Cleanses),
-                        Strips = Convert.ToInt64(gw2Player.Strips),
-                        StabGenOnGroup = Convert.ToDecimal(gw2Player.StabOnGroup),
-                        StabGenOffGroup = Convert.ToDecimal(gw2Player.StabOffGroup),
-                        Healing = gw2Player.Healing,
-                        BarrierGenerated = gw2Player.BarrierGenerated,
-                        DistanceFromTag = Convert.ToDecimal(gw2Player.DistanceFromTag),
-                        TimesDowned = Convert.ToInt32(gw2Player.TimesDowned),
-                        Interrupts = gw2Player.Interrupts,
-                        NumberOfHitsWhileBlinded = gw2Player.NumberOfHitsWhileBlinded,
-                        NumberOfMissesAgainst = Convert.ToInt64(gw2Player.NumberOfMissesAgainst),
-                        NumberOfTimesBlockedAttack = Convert.ToInt64(gw2Player.NumberOfTimesBlockedAttack),
-                        NumberOfTimesEnemyBlockedAttack = gw2Player.NumberOfTimesEnemyBlockedAttack,
-                        NumberOfBoonsRipped = Convert.ToInt64(gw2Player.NumberOfBoonsRipped),
-                        DamageTaken = Convert.ToInt64(gw2Player.DamageTaken),
-                        BarrierMitigation = Convert.ToInt64(gw2Player.BarrierMitigation),
-                        TimesInterrupted = gw2Player.TimesInterrupted,
-                        ResurrectionTime = gw2Player.ResurrectionTime,
-                        TimeOfDeath = gw2Player.TimeOfDeath,
-                    };
-                })
-                    .ToList();
-
-                await entityService.PlayerFightLog.AddRangeAsync(playerFights);
-            }
-
-            if (fightLog != null)
-            {
-                await FightLogHelpers.UpsertRawDataAsync(entityService, fightLog.FightLogId, data);
-                await pointsAwardService.AwardFightAsync(fightLog.FightLogId);
-            }
+                GuildId = guild.GuildId,
+                ExistingLogUpdateMode = ExistingFightLogUpdateMode.RawDataOnly
+            });
+            fightLog = ingestionResult.FightLog;
+            await pointsAwardService.AwardFightAsync(fightLog.FightLogId);
         }
 
         var webAppBaseUrl = configuration["WebApp:BaseUrl"];

@@ -6,6 +6,7 @@ using Discord.WebSocket;
 using DonBot.Core.Models.Entities;
 using DonBot.Core.Models.Enums;
 using DonBot.Core.Models.Scheduling;
+using DonBot.Core.Services.Scheduling;
 using DonBot.Services.DatabaseServices;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -23,56 +24,6 @@ public sealed class SchedulerService(
     private static readonly AllowedMentions SignupNotificationAllowedMentions = new(AllowedMentionTypes.Users);
     private static readonly Regex UserMentionRegex = new(@"<@!?(\d+)>", RegexOptions.Compiled);
     private readonly ConcurrentDictionary<long, (ScheduledEvent Event, DateTime NextFireTime)> _scheduledEvents = new();
-
-    private sealed record ScheduledEventSnapshot(
-        long ScheduledEventId,
-        long GuildId,
-        short EventType,
-        long ChannelId,
-        long? MessageId,
-        DateTime? PostedEventTime,
-        DateTime? LastNotificationEventTime,
-        short Day,
-        short Hour,
-        DateTime UtcEventTime,
-        short RepeatIntervalDays,
-        short NotificationMinutesBeforeStart,
-        string Message,
-        string ResponseOptionsJson)
-    {
-        public static ScheduledEventSnapshot Capture(ScheduledEvent scheduledEvent) =>
-            new(
-                scheduledEvent.ScheduledEventId,
-                scheduledEvent.GuildId,
-                scheduledEvent.EventType,
-                scheduledEvent.ChannelId,
-                scheduledEvent.MessageId,
-                scheduledEvent.PostedEventTime,
-                scheduledEvent.LastNotificationEventTime,
-                scheduledEvent.Day,
-                scheduledEvent.Hour,
-                scheduledEvent.UtcEventTime,
-                scheduledEvent.RepeatIntervalDays,
-                scheduledEvent.NotificationMinutesBeforeStart,
-                scheduledEvent.Message,
-                scheduledEvent.ResponseOptionsJson);
-
-        public bool Matches(ScheduledEvent scheduledEvent) =>
-            ScheduledEventId == scheduledEvent.ScheduledEventId
-            && GuildId == scheduledEvent.GuildId
-            && EventType == scheduledEvent.EventType
-            && ChannelId == scheduledEvent.ChannelId
-            && MessageId == scheduledEvent.MessageId
-            && PostedEventTime == scheduledEvent.PostedEventTime
-            && LastNotificationEventTime == scheduledEvent.LastNotificationEventTime
-            && Day == scheduledEvent.Day
-            && Hour == scheduledEvent.Hour
-            && UtcEventTime == scheduledEvent.UtcEventTime
-            && RepeatIntervalDays == scheduledEvent.RepeatIntervalDays
-            && NotificationMinutesBeforeStart == scheduledEvent.NotificationMinutesBeforeStart
-            && Message == scheduledEvent.Message
-            && ResponseOptionsJson == scheduledEvent.ResponseOptionsJson;
-    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -113,7 +64,7 @@ public sealed class SchedulerService(
         foreach (var scheduledEvent in scheduledEvents)
         {
             await FastForwardEventIfBehind(scheduledEvent, now);
-            var nextFireTime = GetNextEventTime(scheduledEvent, now);
+            var nextFireTime = ScheduledEventRecurrence.GetNextEventTime(scheduledEvent, now);
             _scheduledEvents[scheduledEvent.ScheduledEventId] = (scheduledEvent, nextFireTime);
             logger.LogInformation("Scheduled event {ScheduledEventId} (type={EventType}) for {NextFireTime}.",
                 scheduledEvent.ScheduledEventId, (ScheduledEventTypeEnum)scheduledEvent.EventType, nextFireTime);
@@ -147,7 +98,7 @@ public sealed class SchedulerService(
                     if (cached.NextFireTime != DateTime.MaxValue && HasScheduledEventChanged(cached.Event, scheduledEvent))
                     {
                         await FastForwardEventIfBehind(scheduledEvent, now);
-                        var refreshedNextFireTime = GetNextEventTime(scheduledEvent, now);
+                        var refreshedNextFireTime = ScheduledEventRecurrence.GetNextEventTime(scheduledEvent, now);
                         _scheduledEvents[scheduledEvent.ScheduledEventId] = (scheduledEvent, refreshedNextFireTime);
 
                         logger.LogInformation("Updated scheduled event {ScheduledEventId} in scheduler cache for {NextFireTime}.",
@@ -158,7 +109,7 @@ public sealed class SchedulerService(
                 }
 
                 await FastForwardEventIfBehind(scheduledEvent, now);
-                var nextFireTime = GetNextEventTime(scheduledEvent, now);
+                var nextFireTime = ScheduledEventRecurrence.GetNextEventTime(scheduledEvent, now);
                 _scheduledEvents[scheduledEvent.ScheduledEventId] = (scheduledEvent, nextFireTime);
                 newCount++;
 
@@ -185,7 +136,7 @@ public sealed class SchedulerService(
     {
         var dueEvents = _scheduledEvents
             .Select(kvp => kvp.Value.Event)
-            .Where(e => ShouldCheckSignupNotification(e, now))
+            .Where(e => ScheduledEventRules.ShouldCheckSignupNotification(e, now))
             .OrderBy(e => e.PostedEventTime)
             .ToList();
 
@@ -193,27 +144,6 @@ public sealed class SchedulerService(
         {
             await SendSignupNotificationAsync(scheduledEvent, now);
         }
-    }
-
-    internal static bool ShouldCheckSignupNotification(ScheduledEvent scheduledEvent, DateTime now)
-    {
-        if (!ScheduledEventResponseOptions.IsSignupEvent(scheduledEvent.EventType)
-            || scheduledEvent.NotificationMinutesBeforeStart < 1
-            || !scheduledEvent.MessageId.HasValue
-            || !scheduledEvent.PostedEventTime.HasValue)
-        {
-            return false;
-        }
-
-        var eventTime = DateTime.SpecifyKind(scheduledEvent.PostedEventTime.Value, DateTimeKind.Utc);
-        if (scheduledEvent.LastNotificationEventTime.HasValue
-            && scheduledEvent.LastNotificationEventTime.Value == eventTime)
-        {
-            return false;
-        }
-
-        var notificationTime = eventTime.AddMinutes(-scheduledEvent.NotificationMinutesBeforeStart);
-        return notificationTime <= now && now < eventTime;
     }
 
     private async Task SendSignupNotificationAsync(ScheduledEvent scheduledEvent, DateTime now)
@@ -235,13 +165,13 @@ public sealed class SchedulerService(
                 scheduledEvent = currentScheduledEvent;
             }
 
-            if (!ShouldCheckSignupNotification(scheduledEvent, now))
+            if (!ScheduledEventRules.ShouldCheckSignupNotification(scheduledEvent, now))
             {
                 RefreshCachedEvent(scheduledEvent, now);
                 return;
             }
 
-            if (!HasSignupNotificationResponseTypes(scheduledEvent))
+            if (!ScheduledEventRules.HasSignupNotificationResponseTypes(scheduledEvent))
             {
                 logger.LogInformation(
                     "Skipped signup notification for event {ScheduledEventId} because no response types are notify-enabled.",
@@ -308,15 +238,10 @@ public sealed class SchedulerService(
 
     private async Task MarkSignupNotificationCheckedAsync(ScheduledEvent scheduledEvent, DateTime now)
     {
-        scheduledEvent.LastNotificationEventTime = DateTime.SpecifyKind(scheduledEvent.PostedEventTime!.Value, DateTimeKind.Utc);
+        ScheduledEventRules.MarkSignupNotificationChecked(scheduledEvent);
         await entityService.ScheduledEvent.UpdateAsync(scheduledEvent);
         RefreshCachedEvent(scheduledEvent, now);
     }
-
-    internal static bool HasSignupNotificationResponseTypes(ScheduledEvent scheduledEvent) =>
-        ScheduledEventResponseOptions
-            .ForEvent(scheduledEvent.EventType, scheduledEvent.ResponseOptionsJson)
-            .Any(o => o.Notify);
 
     internal static IReadOnlyList<string> GetSignupNotificationLines(ScheduledEvent scheduledEvent, IEmbed? embed)
     {
@@ -429,7 +354,7 @@ public sealed class SchedulerService(
 
     private void RefreshCachedEvent(ScheduledEvent scheduledEvent, DateTime now)
     {
-        var nextFireTime = GetNextEventTime(scheduledEvent, now);
+        var nextFireTime = ScheduledEventRecurrence.GetNextEventTime(scheduledEvent, now);
         _scheduledEvents[scheduledEvent.ScheduledEventId] = (scheduledEvent, nextFireTime);
     }
 
@@ -478,7 +403,7 @@ public sealed class SchedulerService(
                 eventType = (ScheduledEventTypeEnum)scheduledEvent.EventType;
             }
 
-            if (!IsScheduledForFireTime(scheduledEvent, selectedFireTime))
+            if (!ScheduledEventRecurrence.IsScheduledForFireTime(scheduledEvent, selectedFireTime))
             {
                 logger.LogInformation(
                     "Scheduled event {ScheduledEventId} changed after it was selected for {SelectedFireTime}; skipping stale fire.",
@@ -495,7 +420,7 @@ public sealed class SchedulerService(
             {
                 logger.LogWarning("Event {ScheduledEventId} has stale UtcEventTime {UtcEventTime} at fire time - fast-forwarding before sending.",
                     scheduledEvent.ScheduledEventId, scheduledEvent.UtcEventTime);
-                AdvanceEventIfBehind(scheduledEvent, fireNow);
+                ScheduledEventRecurrence.AdvanceEventIfBehind(scheduledEvent, fireNow);
             }
 
             scheduledEvent.PostedEventTime = scheduledEvent.UtcEventTime;
@@ -539,8 +464,7 @@ public sealed class SchedulerService(
 
             currentBeforeSave.MessageId = scheduledEvent.MessageId;
             currentBeforeSave.PostedEventTime = scheduledEvent.PostedEventTime;
-            currentBeforeSave.UtcEventTime = scheduledEvent.UtcEventTime.AddDays(currentBeforeSave.RepeatIntervalDays);
-            currentBeforeSave.Day = (short)((scheduledEvent.Day + currentBeforeSave.RepeatIntervalDays) % 7);
+            ScheduledEventRecurrence.AdvanceAfterFire(currentBeforeSave, scheduledEvent);
             await entityService.ScheduledEvent.UpdateAsync(currentBeforeSave);
             scheduledEvent = currentBeforeSave;
         }
@@ -580,26 +504,14 @@ public sealed class SchedulerService(
         }
 
         var now = DateTime.UtcNow;
-        var nextFireTime = GetNextEventTime(scheduledEvent, now);
+        var nextFireTime = ScheduledEventRecurrence.GetNextEventTime(scheduledEvent, now);
         _scheduledEvents[scheduledEvent.ScheduledEventId] = (scheduledEvent, nextFireTime);
         logger.LogInformation("Scheduled event {ScheduledEventId} (type={EventType}) for {NextFireTime}.",
             scheduledEvent.ScheduledEventId, (ScheduledEventTypeEnum)scheduledEvent.EventType, nextFireTime);
     }
 
     private static bool HasScheduledEventChanged(ScheduledEvent cached, ScheduledEvent current) =>
-        cached.EventType != current.EventType
-        || cached.GuildId != current.GuildId
-        || cached.ChannelId != current.ChannelId
-        || cached.MessageId != current.MessageId
-        || cached.PostedEventTime != current.PostedEventTime
-        || cached.LastNotificationEventTime != current.LastNotificationEventTime
-        || cached.Day != current.Day
-        || cached.Hour != current.Hour
-        || cached.UtcEventTime != current.UtcEventTime
-        || cached.RepeatIntervalDays != current.RepeatIntervalDays
-        || cached.NotificationMinutesBeforeStart != current.NotificationMinutesBeforeStart
-        || cached.Message != current.Message
-        || cached.ResponseOptionsJson != current.ResponseOptionsJson;
+        !ScheduledEventSnapshot.Capture(cached).Matches(current);
 
     private async Task DeletePostedSignupMessageIfNewAsync(
         ScheduledEvent scheduledEvent,
@@ -636,7 +548,7 @@ public sealed class SchedulerService(
 
     internal async Task FastForwardEventIfBehind(ScheduledEvent scheduledEvent, DateTime now)
     {
-        if (!AdvanceEventIfBehind(scheduledEvent, now))
+        if (!ScheduledEventRecurrence.AdvanceEventIfBehind(scheduledEvent, now))
         {
             return;
         }
@@ -653,41 +565,4 @@ public sealed class SchedulerService(
         logger.LogInformation("Fast-forwarded event {ScheduledEventId} to UtcEventTime={UtcEventTime} Day={Day}.",
             scheduledEvent.ScheduledEventId, scheduledEvent.UtcEventTime, scheduledEvent.Day);
     }
-
-    private static bool AdvanceEventIfBehind(ScheduledEvent scheduledEvent, DateTime now)
-    {
-        if (scheduledEvent.RepeatIntervalDays <= 0 || scheduledEvent.UtcEventTime > now)
-        {
-            return false;
-        }
-
-        while (scheduledEvent.UtcEventTime <= now)
-        {
-            scheduledEvent.UtcEventTime = scheduledEvent.UtcEventTime.AddDays(scheduledEvent.RepeatIntervalDays);
-            scheduledEvent.Day = (short)((scheduledEvent.Day + scheduledEvent.RepeatIntervalDays) % 7);
-        }
-
-        return true;
-    }
-
-    internal static DateTime GetNextEventTime(ScheduledEvent scheduledEvent, DateTime now)
-    {
-        if (scheduledEvent.RepeatIntervalDays <= 0)
-        {
-            return DateTime.MaxValue;
-        }
-
-        var nextEventTime = new DateTime(now.Year, now.Month, now.Day, scheduledEvent.Hour, 0, 0, DateTimeKind.Utc);
-        while ((int)nextEventTime.DayOfWeek != scheduledEvent.Day || nextEventTime <= now)
-        {
-            nextEventTime = nextEventTime.AddDays(1);
-        }
-
-        return nextEventTime;
-    }
-
-    internal static bool IsScheduledForFireTime(ScheduledEvent scheduledEvent, DateTime fireTime) =>
-        scheduledEvent.RepeatIntervalDays > 0
-        && scheduledEvent.Day == (short)fireTime.DayOfWeek
-        && scheduledEvent.Hour == fireTime.Hour;
 }

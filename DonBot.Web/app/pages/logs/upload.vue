@@ -142,7 +142,7 @@
         </Column>
         <Column header="Name" field="fileName" :sortable="true" />
         <Column header="Date" sort-field="createdAt" :sortable="true">
-          <template #body="{ data }">{{ new Date(data.createdAt).toLocaleString() }}</template>
+          <template #body="{ data }">{{ formatDateTime(data.createdAt) }}</template>
         </Column>
         <Column header="Links">
           <template #body="{ data }">
@@ -181,12 +181,14 @@
 
 <script setup lang="ts">
 import * as tus from 'tus-js-client'
+import { formatDateTime } from '~/composables/useFormatters'
 
 definePageMeta({ middleware: 'auth' })
 
 const config = useRuntimeConfig()
 const api = useApi()
 const toast = useToast()
+const { openEventSource } = useEventSource()
 const fileInput = ref<HTMLInputElement | null>(null)
 const isDragging = ref(false)
 const urlInput = ref('')
@@ -268,12 +270,10 @@ const submitUrls = async () => {
   if (lines.length === 0) return
   submittingUrls.value = true
   try {
-    const created: { logUploadId: number; fileName: string; sourceType: 'url' }[] = await $fetch('/api/upload/urls', {
-      baseURL: config.public.apiBase,
+    const created = await api('/api/upload/urls', {
       method: 'POST',
       body: { urls: lines, wingman: uploadToWingman.value },
-      credentials: 'include'
-    })
+    }) as { logUploadId: number; fileName: string; sourceType: 'url' }[]
     urlInput.value = ''
     for (const item of created) addUploadEntry(item)
   } catch (err: any) {
@@ -388,40 +388,42 @@ const addUploadEntry = (item: { logUploadId: number; fileName: string; sourceTyp
 
 const subscribeToProgress = (uploadId: number, localId: number) => {
   const url = `${config.public.apiBase}/api/upload/stream/${uploadId}`
-  const es = new EventSource(url, { withCredentials: true })
-
-  es.onmessage = (e) => {
-    try {
-      const data = JSON.parse(e.data)
+  let stream: { close: () => void } | null = null
+  stream = openEventSource(url, {
+    message: data => {
       const entry = uploads.value.find(u => u.localId === localId)
       if (!entry) return
 
-      entry.status = data.stage
-      entry.message = data.message ?? ''
-      if (data.dpsReportUrl) entry.dpsReportUrl = data.dpsReportUrl
-      if (data.fightLogId) entry.fightLogId = data.fightLogId
-
-      const idx = STAGE_ORDER.indexOf(data.stage)
-      const reachedIdx = STAGE_ORDER.indexOf(entry.stageReached)
-      if (idx > reachedIdx) entry.stageReached = data.stage
-
-      if (data.stage === 'complete' || data.stage === 'failed') {
-        es.close()
-        if (data.stage === 'complete') refreshHistory()
+      const progress = data as {
+        stage: string
+        message?: string
+        dpsReportUrl?: string
+        fightLogId?: number
       }
-    } catch {}
-  }
+      entry.status = progress.stage
+      entry.message = progress.message ?? ''
+      if (progress.dpsReportUrl) entry.dpsReportUrl = progress.dpsReportUrl
+      if (progress.fightLogId) entry.fightLogId = progress.fightLogId
 
-  es.onerror = () => es.close()
+      const idx = STAGE_ORDER.indexOf(progress.stage)
+      const reachedIdx = STAGE_ORDER.indexOf(entry.stageReached)
+      if (idx > reachedIdx) entry.stageReached = progress.stage
+
+      if (progress.stage === 'complete' || progress.stage === 'failed') {
+        stream?.close()
+        if (progress.stage === 'complete') refreshHistory()
+      }
+    },
+    closeOnError: true,
+    onParseError: () => {},
+  })
 }
 
 const submitOneToWingman = async (logUploadId: number) => {
   wingmanPending.value = new Set([...wingmanPending.value, logUploadId])
   try {
-    await $fetch(`/api/upload/wingman/${logUploadId}`, {
-      baseURL: config.public.apiBase,
+    await api(`/api/upload/wingman/${logUploadId}`, {
       method: 'POST',
-      credentials: 'include'
     })
     toast.add({ severity: 'success', summary: 'Submitted to Wingman', detail: 'Log queued for import.', life: 3000 })
   } catch (err) {
@@ -437,11 +439,9 @@ const submitOneToWingman = async (logUploadId: number) => {
 const submitBulkToWingman = async () => {
   submittingBulkWingman.value = true
   try {
-    const result = await $fetch<{ submitted: number }>('/api/upload/wingman/bulk', {
-      baseURL: config.public.apiBase,
+    const result = await api('/api/upload/wingman/bulk', {
       method: 'POST',
-      credentials: 'include'
-    })
+    }) as { submitted: number }
     toast.add({
       severity: 'success',
       summary: 'Submitted to Wingman',

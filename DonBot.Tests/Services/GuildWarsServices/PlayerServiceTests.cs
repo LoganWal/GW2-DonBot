@@ -1,5 +1,4 @@
 using DonBot.Core.Models.GuildWars2;
-using DonBot.Models.Statics;
 using DonBot.Services.GuildWarsServices;
 
 namespace DonBot.Tests.Services.GuildWarsServices;

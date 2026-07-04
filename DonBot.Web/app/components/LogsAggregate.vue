@@ -7,7 +7,7 @@
         <div style="display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem;">
           <h2 style="margin: 0; font-size: 1.25rem; font-weight: 600;">{{ fightName(singleLog.fightType) }}</h2>
           <span style="color: var(--p-text-muted-color); font-size: 0.875rem;">
-            {{ new Date(singleLog.fightStart).toLocaleString() }} · {{ formatDuration(singleLog.fightDurationInMs) }}
+            {{ formatDateTime(singleLog.fightStart) }} · {{ formatDuration(singleLog.fightDurationInMs) }}
           </span>
           <Tag
             v-if="singleLog.fightType !== 0"
@@ -33,21 +33,21 @@
           <StatCard label="Fight Time" :value="formatDuration(displayResult.totalDurationMs, true)" />
           <StatCard label="Type" :value="displayResult.type === 'wvw' ? 'WvW' : 'PvE'" />
           <StatCard label="Players" :value="displayResult.players.length" />
-          <StatCard v-if="displayResult.type === 'wvw' && enemyData" label="Enemy Count" :value="(enemyData.totalTargets ?? 0).toLocaleString()" />
+          <StatCard v-if="displayResult.type === 'wvw' && enemyData" label="Enemy Count" :value="fmtN(enemyData.totalTargets ?? 0)" />
           <template v-if="displayResult.type !== 'wvw'">
-            <StatCard label="Group DPS" :value="groupDps.toLocaleString()" />
+            <StatCard label="Group DPS" :value="fmtN(groupDps)" />
             <StatCard label="Avg Quick" :value="`${avgQuick.toFixed(1)}%`" />
             <StatCard label="Avg Alac" :value="`${avgAlac.toFixed(1)}%`" />
             <StatCard label="Avg Quick Gen" :value="`${avgQuickGen.toFixed(1)}%`" />
             <StatCard label="Avg Alac Gen" :value="`${avgAlacGen.toFixed(1)}%`" />
           </template>
           <template v-else>
-            <StatCard label="Damage Dealt" :value="wvwTotals.damage.toLocaleString()" />
-            <StatCard label="Damage Taken" :value="wvwTotals.damageTaken.toLocaleString()" />
-            <StatCard label="Enemies Killed" :value="wvwTotals.kills.toLocaleString()" />
-            <StatCard label="Enemies Downed" :value="wvwTotals.downs.toLocaleString()" />
-            <StatCard label="Group Deaths" :value="wvwTotals.deaths.toLocaleString()" />
-            <StatCard label="Group Downed" :value="wvwTotals.timesDowned.toLocaleString()" />
+            <StatCard label="Damage Dealt" :value="fmtN(wvwTotals.damage)" />
+            <StatCard label="Damage Taken" :value="fmtN(wvwTotals.damageTaken)" />
+            <StatCard label="Enemies Killed" :value="fmtN(wvwTotals.kills)" />
+            <StatCard label="Enemies Downed" :value="fmtN(wvwTotals.downs)" />
+            <StatCard label="Group Deaths" :value="fmtN(wvwTotals.deaths)" />
+            <StatCard label="Group Downed" :value="fmtN(wvwTotals.timesDowned)" />
             <StatCard label="Avg Quick Gen" :value="`${avgQuickGen.toFixed(1)}%`" />
             <StatCard label="Avg Alac Gen" :value="`${avgAlacGen.toFixed(1)}%`" />
           </template>
@@ -61,21 +61,21 @@
         <StatCard v-if="displayResult.sessionDurationMs && displayResult.sessionDurationMs > displayResult.totalDurationMs" label="Downtime" :value="formatDuration(displayResult.sessionDurationMs - displayResult.totalDurationMs, true)" />
         <StatCard label="Type" :value="displayResult.type === 'wvw' ? 'WvW' : 'PvE'" />
         <StatCard label="Players" :value="displayResult.players.length" />
-        <StatCard v-if="displayResult.type === 'wvw' && enemyData" label="Enemy Count" :value="(enemyData.totalTargets ?? 0).toLocaleString()" />
+        <StatCard v-if="displayResult.type === 'wvw' && enemyData" label="Enemy Count" :value="fmtN(enemyData.totalTargets ?? 0)" />
         <template v-if="displayResult.type === 'wvw'">
           <StatCard label="Win / Loss" :value="`${wvwWinLoss.wins}W / ${wvwWinLoss.losses}L`" />
-          <StatCard label="Damage Dealt" :value="wvwTotals.damage.toLocaleString()" />
-          <StatCard label="Damage Taken" :value="wvwTotals.damageTaken.toLocaleString()" />
-          <StatCard label="Enemies Killed" :value="wvwTotals.kills.toLocaleString()" />
-          <StatCard label="Enemies Downed" :value="wvwTotals.downs.toLocaleString()" />
-          <StatCard label="Group Deaths" :value="wvwTotals.deaths.toLocaleString()" />
-          <StatCard label="Group Downed" :value="wvwTotals.timesDowned.toLocaleString()" />
+          <StatCard label="Damage Dealt" :value="fmtN(wvwTotals.damage)" />
+          <StatCard label="Damage Taken" :value="fmtN(wvwTotals.damageTaken)" />
+          <StatCard label="Enemies Killed" :value="fmtN(wvwTotals.kills)" />
+          <StatCard label="Enemies Downed" :value="fmtN(wvwTotals.downs)" />
+          <StatCard label="Group Deaths" :value="fmtN(wvwTotals.deaths)" />
+          <StatCard label="Group Downed" :value="fmtN(wvwTotals.timesDowned)" />
           <StatCard label="Avg Quick Gen" :value="`${avgQuickGen.toFixed(1)}%`" />
           <StatCard label="Avg Alac Gen" :value="`${avgAlacGen.toFixed(1)}%`" />
         </template>
         <template v-else>
           <StatCard label="Kills / Wipes" :value="`${pveKillsWipes.kills}K / ${pveKillsWipes.wipes}W`" />
-          <StatCard label="Group DPS" :value="groupDps.toLocaleString()" />
+          <StatCard label="Group DPS" :value="fmtN(groupDps)" />
           <StatCard label="Avg Quick" :value="`${avgQuick.toFixed(1)}%`" />
           <StatCard label="Avg Alac" :value="`${avgAlac.toFixed(1)}%`" />
           <StatCard label="Avg Quick Gen" :value="`${avgQuickGen.toFixed(1)}%`" />
@@ -157,7 +157,7 @@
                 <template #body="{ data }">{{ fightName(data.fightType) }}</template>
               </Column>
               <Column header="Date">
-                <template #body="{ data }">{{ new Date(data.fightStart)?.toLocaleString() ?? '0' }}</template>
+                <template #body="{ data }">{{ formatDateTime(data.fightStart) }}</template>
               </Column>
               <Column header="Duration">
                 <template #body="{ data }">{{ formatDuration(data.fightDurationInMs) }}</template>
@@ -811,6 +811,8 @@
 <script setup lang="ts">
 import { fightName, groupByFightType, formatDuration } from '~/composables/useFightTypes'
 import { successFilterOptions, difficultyFilterOptions, type SuccessFilter, type DifficultyFilter } from '~/composables/useLogFilters'
+import { playstyleLabel, playstyleSeverity, playstyleTooltip } from '~/composables/usePlaystyles'
+import { formatDateTime, formatDecimal, formatInteger, formatPercent, formatPointValue } from '~/composables/useFormatters'
 import CollapsibleSection from '~/components/CollapsibleSection.vue'
 
 type AggregateResult = any
@@ -1014,71 +1016,10 @@ const buildSummary = (players: any[], spec: Record<string, AggMode>) => {
   return rows
 }
 
-const fmtN = (v: number) => Math.round(v ?? 0).toLocaleString()
-const fmtPct = (v: number) => `${(v ?? 0).toFixed(2)}%`
-const fmtDec = (v: number, d = 2) => (v ?? 0).toFixed(d)
-const fmtSec = (v: number) => ((v ?? 0) / 1000).toFixed(1)
-const formatPointValue = (v: number) => Number(v ?? 0).toLocaleString(undefined, { maximumFractionDigits: 3 })
-
-const playstyleLabels: Record<string, string> = {
-  dps: 'DPS',
-  'boon-dps': 'Boon DPS',
-  'boon-healer': 'Boon Healer',
-  mechanic: 'Mechanic',
-  'support-dps': 'Support DPS',
-  support: 'Support',
-  'heal-support': 'Heal Support',
-}
-
-const playstyleKeyFromRow = (row: any) => {
-  const breakdown = row?.playstyleBreakdown ?? []
-  if (breakdown.length === 1) {
-    return breakdown[0].key as string
-  }
-  const raw = String(row?.playstyle ?? '')
-  if (playstyleLabels[raw]) {
-    return raw
-  }
-  const match = Object.entries(playstyleLabels).find(([, label]) => label === raw)
-  return match?.[0] ?? raw
-}
-
-const playstyleLabel = (row: any) => {
-  const raw = String(row?.playstyle ?? '')
-  if (raw === 'Mixed') {
-    return raw
-  }
-  const key = playstyleKeyFromRow(row)
-  return playstyleLabels[key] ?? raw
-}
-
-const playstyleTooltip = (row: any) => {
-  const breakdown = row?.playstyleBreakdown ?? []
-  if (breakdown.length <= 1) {
-    return null
-  }
-  return breakdown.map((r: any) => `${r.count} ${r.label}`).join('\n')
-}
-
-const playstyleSeverity = (row: any) => {
-  const key = playstyleKeyFromRow(row)
-  if (String(row?.playstyle ?? '') === 'Mixed') {
-    return 'secondary'
-  }
-  if (key === 'boon-healer' || key === 'heal-support') {
-    return 'info'
-  }
-  if (key === 'boon-dps' || key === 'support-dps') {
-    return 'success'
-  }
-  if (key === 'support') {
-    return 'warn'
-  }
-  if (key === 'mechanic') {
-    return 'contrast'
-  }
-  return 'secondary'
-}
+const fmtN = (v: number) => formatInteger(v)
+const fmtPct = (v: number) => formatPercent(v)
+const fmtDec = (v: number, d = 2) => formatDecimal(v, d)
+const fmtSec = (v: number) => formatDecimal((v ?? 0) / 1000, 1)
 
 const damageWvwSummary = computed(() => buildSummary(displayResult.value?.players ?? [], {
   damage: 'sum', damageDownContribution: 'sum', kills: 'sum', downs: 'sum',

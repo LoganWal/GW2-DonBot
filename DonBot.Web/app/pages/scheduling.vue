@@ -17,14 +17,13 @@
         <template #content>
           <div class="guild-picker">
             <label for="guild-select">Server</label>
-            <Select
-              id="guild-select"
+            <ServerSelect
+              input-id="guild-select"
               v-model="selectedGuildId"
               :options="guilds"
               option-label="name"
-              option-value="guildId"
               placeholder="Select a server"
-              style="width: min(320px, 100%);"
+              :select-style="{ width: 'min(320px, 100%)' }"
             />
           </div>
         </template>
@@ -164,7 +163,7 @@
         </div>
         <div class="field">
           <label for="ev-repeat">Repeat every (days)</label>
-          <InputNumber id="ev-repeat" v-model="form.repeatIntervalDays" :min="1" :max="365" show-buttons fluid />
+          <InputNumber id="ev-repeat" v-model="form.repeatIntervalDays" :min="minRepeatIntervalDays" :max="maxRepeatIntervalDays" show-buttons fluid />
         </div>
         <div class="field">
           <label for="ev-message">Message (optional)</label>
@@ -251,7 +250,7 @@
             <InputNumber
               id="ev-notify-before"
               v-model="form.notificationMinutesBeforeStart"
-              :min="1"
+              :min="minNotificationMinutesBeforeStart"
               :max="maxNotificationMinutesBeforeStart"
               show-buttons
               fluid
@@ -291,12 +290,27 @@ type GuildSummary = { guildId: string; name: string; iconUrl: string | null }
 type Channel = { id: string; name: string }
 type Role = { id: string; name: string }
 type ResponseOption = { label: string; emoji: string; notify?: boolean }
+type ScheduledEventTypeMetadata = { eventType: number; name: string; supportsResponseOptions: boolean }
+type SchedulingMetadata = {
+  maxMessageLength: number
+  minRepeatIntervalDays: number
+  maxRepeatIntervalDays: number
+  defaultNotificationMinutesBeforeStart: number
+  minNotificationMinutesBeforeStart: number
+  maxNotificationMinutesBeforeStart: number
+  maxResponseOptions: number
+  maxResponseOptionLabelLength: number
+  maxResponseOptionEmojiLength: number
+  eventTypes: ScheduledEventTypeMetadata[]
+  defaultSignupResponseOptions: ResponseOption[]
+}
 type Context = {
   guildId: string
   guildName: string
   channels: Channel[]
   roles: Role[]
   defaultSignupResponseOptions: ResponseOption[]
+  scheduling?: SchedulingMetadata
 }
 type ScheduledEvent = {
   scheduledEventId: number
@@ -323,31 +337,49 @@ type FormState = {
   notificationMinutesBeforeStart: number
 }
 
-const maxMessageLength = 256
-const maxResponseOptions = 10
-const maxResponseLabelLength = 80
-const maxResponseEmojiLength = 64
-const defaultNotificationMinutesBeforeStart = 15
-const maxNotificationMinutesBeforeStart = 10080
+const schedulingMetadata = computed(() => context.value?.scheduling)
+const maxMessageLength = computed(() => schedulingMetadata.value?.maxMessageLength ?? 256)
+const minRepeatIntervalDays = computed(() => schedulingMetadata.value?.minRepeatIntervalDays ?? 1)
+const maxRepeatIntervalDays = computed(() => schedulingMetadata.value?.maxRepeatIntervalDays ?? 365)
+const maxResponseOptions = computed(() => schedulingMetadata.value?.maxResponseOptions ?? 10)
+const maxResponseLabelLength = computed(() => schedulingMetadata.value?.maxResponseOptionLabelLength ?? 80)
+const maxResponseEmojiLength = computed(() => schedulingMetadata.value?.maxResponseOptionEmojiLength ?? 64)
+const defaultNotificationMinutesBeforeStart = computed(() => schedulingMetadata.value?.defaultNotificationMinutesBeforeStart ?? 15)
+const minNotificationMinutesBeforeStart = computed(() => schedulingMetadata.value?.minNotificationMinutesBeforeStart ?? 1)
+const maxNotificationMinutesBeforeStart = computed(() => schedulingMetadata.value?.maxNotificationMinutesBeforeStart ?? 10080)
 
 const commonResponseEmojis = [
   '✅', '❌', '🛠️', '⏰', '⚔️', '🛡️', '💚', '💛', '🔥', '❓',
   '👍', '👎', '🙌', '👀', '🎯', '📣', '⭐', '🌙', '☀️', '🍕',
 ]
 
-const eventTypeOptions = [
-  { value: 0, label: 'Raid signup' },
-  { value: 1, label: 'WvW leaderboard' },
-  { value: 2, label: 'PvE leaderboard' },
+const fallbackEventTypeOptions = [
+  { value: 0, label: 'Raid signup', supportsResponseOptions: true },
+  { value: 1, label: 'WvW leaderboard', supportsResponseOptions: false },
+  { value: 2, label: 'PvE leaderboard', supportsResponseOptions: false },
 ]
 
-const eventTypeLabel = (t: number) => eventTypeOptions.find(o => o.value === t)?.label ?? `Type ${t}`
+const eventTypeOptions = computed(() =>
+  schedulingMetadata.value?.eventTypes?.length
+    ? schedulingMetadata.value.eventTypes.map(type => ({
+        value: type.eventType,
+        label: type.name.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, c => c.toUpperCase()),
+        supportsResponseOptions: type.supportsResponseOptions,
+      }))
+    : fallbackEventTypeOptions
+)
 
-const isSignupEvent = (eventType: number) => eventType === 0
+const eventTypeLabel = (t: number) => eventTypeOptions.value.find(o => o.value === t)?.label ?? `Type ${t}`
+
+const isSignupEvent = (eventType: number) =>
+  eventTypeOptions.value.find(option => option.value === eventType)?.supportsResponseOptions ?? eventType === 0
 
 const defaultResponseOptions = (): ResponseOption[] => {
-  if (context.value?.defaultSignupResponseOptions?.length) {
-    return normalizeResponseOptions(context.value.defaultSignupResponseOptions)
+  const defaults = schedulingMetadata.value?.defaultSignupResponseOptions?.length
+    ? schedulingMetadata.value.defaultSignupResponseOptions
+    : context.value?.defaultSignupResponseOptions
+  if (defaults?.length) {
+    return normalizeResponseOptions(defaults)
   }
 
   return [
@@ -358,7 +390,7 @@ const defaultResponseOptions = (): ResponseOption[] => {
 }
 
 const normalizeResponseOptions = (options: ResponseOption[]): ResponseOption[] => options
-  .slice(0, maxResponseOptions)
+  .slice(0, maxResponseOptions.value)
   .map(o => ({ label: o.label.trim(), emoji: o.emoji.trim(), notify: !!o.notify }))
 
 const responseOptionsMatch = (left: ResponseOption[], right: ResponseOption[]) => {
@@ -421,7 +453,7 @@ const localDayHourToUtc = (localDay: number, localHour: number): { day: number; 
   return { day: candidate.getUTCDay(), hour: candidate.getUTCHours() }
 }
 
-const { selectedGuildId, ensureSelection } = useSelectedGuild()
+const { selectedGuildId, ensureSelection } = useGuildSelection()
 
 const { data: guilds, pending: guildsPending } = await useAsyncData(
   'scheduling-guilds',
@@ -497,7 +529,7 @@ const startCreate = () => {
     repeatIntervalDays: 7,
     message: '',
     responseOptions: defaultResponseOptions(),
-    notificationMinutesBeforeStart: defaultNotificationMinutesBeforeStart,
+    notificationMinutesBeforeStart: defaultNotificationMinutesBeforeStart.value,
   }
   roleMentionPicker.value = null
   dialogVisible.value = true
@@ -515,7 +547,7 @@ const startEdit = (e: ScheduledEvent) => {
     repeatIntervalDays: e.repeatIntervalDays,
     message: e.message ?? '',
     responseOptions: e.responseOptions?.length ? normalizeResponseOptions(e.responseOptions) : defaultResponseOptions(),
-    notificationMinutesBeforeStart: e.notificationMinutesBeforeStart || defaultNotificationMinutesBeforeStart,
+    notificationMinutesBeforeStart: e.notificationMinutesBeforeStart || defaultNotificationMinutesBeforeStart.value,
   }
   roleMentionPicker.value = null
   dialogVisible.value = true
@@ -526,21 +558,22 @@ const canSave = computed(() => {
   const normalizedResponseOptions = normalizeResponseOptions(form.value.responseOptions)
   const responseOptionsValid = !isSignupEvent(form.value.eventType)
     || (normalizedResponseOptions.length >= 1
-      && normalizedResponseOptions.length <= maxResponseOptions
+      && normalizedResponseOptions.length <= maxResponseOptions.value
       && normalizedResponseOptions.every(o =>
         o.label.trim().length > 0
-        && o.label.trim().length <= maxResponseLabelLength
+        && o.label.trim().length <= maxResponseLabelLength.value
         && o.emoji.trim().length > 0
-        && o.emoji.trim().length <= maxResponseEmojiLength
+        && o.emoji.trim().length <= maxResponseEmojiLength.value
         && isValidResponseEmoji(o.emoji))
       && !hasDuplicateResponseOptions(normalizedResponseOptions))
 
   return !!form.value.channelId
     && !!form.value.localFireDate
     && form.value.localFireDate.getTime() > Date.now()
-    && form.value.repeatIntervalDays >= 1 && form.value.repeatIntervalDays <= 365
-    && form.value.notificationMinutesBeforeStart >= 1
-    && form.value.notificationMinutesBeforeStart <= maxNotificationMinutesBeforeStart
+    && form.value.repeatIntervalDays >= minRepeatIntervalDays.value
+    && form.value.repeatIntervalDays <= maxRepeatIntervalDays.value
+    && form.value.notificationMinutesBeforeStart >= minNotificationMinutesBeforeStart.value
+    && form.value.notificationMinutesBeforeStart <= maxNotificationMinutesBeforeStart.value
     && responseOptionsValid
 })
 
@@ -574,7 +607,7 @@ const emojiPopoverRef = ref<any>(null)
 const emojiTargetIndex = ref<number | null>(null)
 
 const addResponseOption = () => {
-  if (!form.value || form.value.responseOptions.length >= maxResponseOptions) return
+  if (!form.value || form.value.responseOptions.length >= maxResponseOptions.value) return
   form.value.responseOptions.push({ label: '', emoji: '✅', notify: false })
 }
 
@@ -608,7 +641,7 @@ const onInsertRoleMention = () => {
     const start = textarea.selectionStart
     const end = textarea.selectionEnd ?? start
     const next = current.slice(0, start) + mention + current.slice(end)
-    if (next.length > maxMessageLength) {
+    if (next.length > maxMessageLength.value) {
       roleMentionPicker.value = null
       return
     }
@@ -620,7 +653,7 @@ const onInsertRoleMention = () => {
     })
   } else {
     const next = (current ? current + ' ' : '') + mention
-    if (next.length <= maxMessageLength) {
+    if (next.length <= maxMessageLength.value) {
       form.value.message = next
     }
   }

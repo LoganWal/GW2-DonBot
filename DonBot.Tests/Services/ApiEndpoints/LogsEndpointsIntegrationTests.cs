@@ -473,13 +473,40 @@ public class LogsEndpointsIntegrationTests
     }
 
     [Fact]
+    public async Task SubmitToWingman_HttpDpsReportUrl_IsNotEligible()
+    {
+        using var host = NewHost();
+        await using (var db = await host.DbFactory.CreateDbContextAsync())
+        {
+            db.FightLog.Add(new FightLog
+            {
+                FightLogId = 1,
+                FightType = 1,
+                FightStart = DateTime.UtcNow,
+                Url = "http://dps.report/abc"
+            });
+            await db.SaveChangesAsync();
+        }
+        host.AuthenticateAs(123L);
+
+        var response = await host.Client.PostAsJsonAsync("/api/logs/wingman", new { LogIds = new[] { 1L } });
+        var body = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(body);
+
+        Assert.Equal(0, doc.RootElement.GetProperty("submitted").GetInt32());
+    }
+
+    [Fact]
     public async Task SubmitToWingman_EligiblePveLogs_SubmittedToStubbedHttp()
     {
         var calls = 0;
+        var requestedUrls = new List<string>();
         var handler = new ApiStubHandler(req =>
         {
             calls++;
-            Assert.Contains("gw2wingman.nevermindcreations.de/api/importLogQueued", req.RequestUri!.ToString());
+            var requestedUrl = req.RequestUri!.ToString();
+            requestedUrls.Add(requestedUrl);
+            Assert.Contains("gw2wingman.nevermindcreations.de/api/importLogQueued", requestedUrl);
             return new HttpResponseMessage(HttpStatusCode.OK);
         });
         using var host = NewHost(handler);
@@ -487,17 +514,21 @@ public class LogsEndpointsIntegrationTests
         {
             db.FightLog.AddRange(
                 new FightLog { FightLogId = 1, FightType = 1, FightStart = DateTime.UtcNow, Url = "https://b.dps.report/abc" },
-                new FightLog { FightLogId = 2, FightType = 5, FightStart = DateTime.UtcNow, Url = "https://dps.report/xyz" });
+                new FightLog { FightLogId = 2, FightType = 5, FightStart = DateTime.UtcNow, Url = "https://dps.report/xyz" },
+                new FightLog { FightLogId = 3, FightType = 6, FightStart = DateTime.UtcNow, Url = "https://dps.report/getJson?permalink=json" });
             await db.SaveChangesAsync();
         }
         host.AuthenticateAs(123L);
 
-        var response = await host.Client.PostAsJsonAsync("/api/logs/wingman", new { LogIds = new[] { 1L, 2L } });
+        var response = await host.Client.PostAsJsonAsync("/api/logs/wingman", new { LogIds = new[] { 1L, 2L, 3L } });
         var body = await response.Content.ReadAsStringAsync();
         var doc = JsonDocument.Parse(body);
 
-        Assert.Equal(2, doc.RootElement.GetProperty("submitted").GetInt32());
-        Assert.Equal(2, calls);
+        Assert.Equal(3, doc.RootElement.GetProperty("submitted").GetInt32());
+        Assert.Equal(3, calls);
+        Assert.Contains(requestedUrls, url => url.Contains(Uri.EscapeDataString("https://dps.report/abc")));
+        Assert.Contains(requestedUrls, url => url.Contains(Uri.EscapeDataString("https://dps.report/xyz")));
+        Assert.Contains(requestedUrls, url => url.Contains(Uri.EscapeDataString("https://dps.report/json")));
     }
 
     [Fact]

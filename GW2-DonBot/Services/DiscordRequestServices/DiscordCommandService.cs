@@ -1,6 +1,7 @@
 using Discord.WebSocket;
 using DonBot.Core.Models.Entities;
 using DonBot.Core.Models.Enums;
+using DonBot.Core.Services.Scheduling;
 using DonBot.Services.DatabaseServices;
 
 namespace DonBot.Services.DiscordRequestServices;
@@ -250,16 +251,15 @@ public sealed class DiscordCommandService(IEntityService entityService) : IDisco
         }
         var nextMonday = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0, DateTimeKind.Utc).AddDays(daysUntilMonday);
 
-        return new ScheduledEvent
-        {
-            GuildId = guildId,
-            ChannelId = channelId,
-            EventType = (short)eventType,
-            Day = (short)DayOfWeek.Monday,
-            Hour = 0,
-            RepeatIntervalDays = 7,
-            UtcEventTime = nextMonday,
-            Message = string.Empty
-        };
+        return ScheduledEventPlanner.BuildEvent(
+            guildId,
+            new ScheduledEventWriteRequest(
+                (short)eventType,
+                channelId,
+                (short)DayOfWeek.Monday,
+                0,
+                nextMonday,
+                7,
+                string.Empty));
     }
 }

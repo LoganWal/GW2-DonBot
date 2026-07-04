@@ -2,15 +2,12 @@
   <div>
     <div class="header-row">
       <h1 class="page-title" style="margin: 0;">Raffles & Points</h1>
-      <Select
+      <ServerSelect
         v-model="selectedGuildId"
         :options="guildOptions ?? []"
-        option-label="guildName"
-        option-value="guildId"
         :placeholder="guildsPending ? 'Loading servers...' : 'Select a server'"
         :loading="guildsPending"
         :disabled="guildsPending"
-        style="min-width: 260px;"
       />
       <Button icon="pi pi-refresh" severity="secondary" text aria-label="Refresh" :disabled="statePending || !selectedGuildId" @click="refreshAll" />
     </div>
@@ -37,15 +34,15 @@
           label="Create Raffle"
           icon="pi pi-plus"
           class="accent-button"
-          :disabled="!state.permissions.canCreateRaffle || hasRaffleType(0) || actionPending"
-          @click="openCreate(0)"
+          :disabled="!state.permissions.canCreateRaffle || hasRaffleType(RaffleTypes.Standard) || actionPending"
+          @click="openCreate(RaffleTypes.Standard)"
         />
         <Button
           label="Create Event Raffle"
           icon="pi pi-calendar-plus"
           class="accent-button"
-          :disabled="!state.permissions.canCreateEventRaffle || hasRaffleType(1) || actionPending"
-          @click="openCreate(1)"
+          :disabled="!state.permissions.canCreateEventRaffle || hasRaffleType(RaffleTypes.Event) || actionPending"
+          @click="openCreate(RaffleTypes.Event)"
         />
       </div>
 
@@ -114,7 +111,7 @@
 
               <div class="raffle-actions">
                 <Button
-                  v-if="raffle.raffleType === 0"
+                  v-if="!isEventRaffle(raffle.raffleType)"
                   label="Complete"
                   icon="pi pi-check"
                   severity="success"
@@ -135,7 +132,7 @@
 
               <div v-if="raffle.canEdit" class="edit-panel">
                 <Textarea v-model="editMessages[raffle.id]" rows="4" auto-resize style="width: 100%;" />
-                <Button label="Update Discord Message" icon="pi pi-save" severity="secondary" :disabled="actionPending" @click="updateRaffle(raffle)" />
+                <Button label="Update Discord Message" icon="pi pi-save" severity="secondary" :disabled="actionPending" @click="updateRaffle(raffle, editMessages[raffle.id])" />
               </div>
             </div>
           </template>
@@ -271,7 +268,7 @@
       </section>
     </template>
 
-    <Dialog v-model:visible="createVisible" modal :header="createType === 1 ? 'Create Event Raffle' : 'Create Raffle'" style="width: min(560px, 92vw);">
+    <Dialog v-model:visible="createVisible" modal :header="isEventRaffle(createType) ? 'Create Event Raffle' : 'Create Raffle'" style="width: min(560px, 92vw);">
       <div class="dialog-body">
         <Textarea v-model="createDescription" rows="5" auto-resize style="width: 100%;" />
         <div class="dialog-actions">
@@ -307,101 +304,16 @@
 
 <script setup lang="ts">
 import { fightName } from '~/composables/useFightTypes'
+import { formatDate, formatPointValue, formatPoints } from '~/composables/useFormatters'
+import { isEventRaffle, RaffleTypes } from '~/composables/useRaffles'
+import type { GuildOption, PointHistoryResponse, RaffleType, WinnerEvent } from '~/types/api'
 
 definePageMeta({ middleware: 'auth' })
 
 usePageTitle()
 
-type GuildOption = { guildId: string; guildName: string }
-type RaffleBid = { discordId: string; displayName: string; pointsSpent: number }
-type RaffleHistoryBid = RaffleBid & { isWinner: boolean }
-type Raffle = {
-  id: number
-  raffleType: number
-  type: string
-  description: string
-  isActive: boolean
-  canEdit: boolean
-  userBid: number
-  totalPoints: number
-  topBidders: RaffleBid[]
-}
-type RaffleHistory = {
-  id: number
-  raffleType: number
-  type: string
-  description: string
-  totalPoints: number
-  winners: RaffleHistoryBid[]
-  bids: RaffleHistoryBid[]
-}
-type RaffleState = {
-  guildId: string
-  guildName: string
-  account: { points: number; availablePoints: number } | null
-  raffles: Raffle[]
-  lastRaffles: RaffleHistory[]
-  permissions: {
-    canEnterRaffle: boolean
-    canEnterEventRaffle: boolean
-    canCreateRaffle: boolean
-    canCreateEventRaffle: boolean
-    canCompleteRaffle: boolean
-    canCompleteEventRaffle: boolean
-    canReopenRaffle: boolean
-    canReopenEventRaffle: boolean
-  }
-  availability: {
-    hasPreviousRaffle: boolean
-    hasPreviousEventRaffle: boolean
-  }
-}
-type WinnerEvent = {
-  raffleId: number
-  raffleType: number
-  type: string
-  description: string
-  drawAtUtc?: string
-  winners: RaffleBid[]
-}
-type PointComponent = {
-  metric: string
-  metricLabel: string
-  metricValue: number
-  percentileValue: number
-  basePoints: number
-  multiplier: number
-  points: number
-  reason: string
-}
-type PointHistoryResponse = {
-  account: { points: number; availablePoints: number } | null
-  summary: {
-    totalEarned: number
-    availablePoints: number
-    spentPoints: number
-    earnedLast30Days: number
-    awardedLogs: number
-    lastAwardAt: string | null
-  }
-  byComponent: { metric: string; metricLabel: string; points: number; count: number }[]
-  byFightType: { fightType: number; points: number; count: number }[]
-  recent: {
-    fightLogId: number
-    playerFightLogId: number
-    accountName: string
-    fightType: number
-    fightStart: string
-    url: string
-    totalPoints: number
-    components: PointComponent[]
-  }[]
-}
-
 const api = useApi()
-const apiBase = useRuntimeConfig().public.apiBase as string
-const toast = useToast()
-const { selectedGuildId, ensureSelection } = useSelectedGuild()
+const { selectedGuildId, ensureSelection } = useGuildSelection()
 
 const { data: guildOptions, pending: guildsPending } = useLazyAsyncData(
   'raffle-guilds',
@@ -430,252 +342,76 @@ const { data: pointHistory, pending: pointHistoryPending, refresh: refreshPointH
   }
 )
 
-const availableGuildIds = computed(() => (guildOptions.value ?? []).map(g => g.guildId))
-const selectedGuildIsAvailable = computed(() => !!selectedGuildId.value && availableGuildIds.value.includes(selectedGuildId.value))
-
-watch(guildOptions, (opts) => {
-  if (!opts?.length) return
-  ensureSelection(availableGuildIds.value, opts[0]?.guildId ?? null)
-}, { immediate: true })
-
-const state = ref<RaffleState | null>(null)
-const statePending = ref(false)
-const actionPending = ref(false)
-const entryPoints = reactive<Record<number, number>>({})
-const editMessages = reactive<Record<number, string>>({})
-const eventWinnerCounts = reactive<Record<number, number>>({})
-const quickAmounts = [1, 50, 100, 1000]
-const historyPanes = [
-  { type: 0, label: 'Raffle' },
-  { type: 1, label: 'Event Raffle' },
-]
-const spentBalance = computed(() => {
-  const earned = Number(state.value?.account?.points ?? pointHistory.value?.summary.totalEarned ?? 0)
-  const available = Number(state.value?.account?.availablePoints ?? pointHistory.value?.summary.availablePoints ?? 0)
-  return Math.max(earned - available, 0)
-})
-
-let source: EventSource | null = null
 let countdownTimer: ReturnType<typeof setInterval> | null = null
 
 const createVisible = ref(false)
-const createType = ref(0)
+const createType = ref<RaffleType>(RaffleTypes.Standard)
 const createDescription = ref('')
 const winnerVisible = ref(false)
 const winnerCountdown = ref(0)
 const winnerEvent = ref<WinnerEvent | null>(null)
 const winnerEventKey = ref<string | null>(null)
 
-const loadState = async () => {
-  if (!selectedGuildId.value) {
-    state.value = null
-    return
-  }
-  if (!availableGuildIds.value.includes(selectedGuildId.value)) {
-    state.value = null
-    return
-  }
-  statePending.value = true
-  try {
-    applyState(await api(`/api/raffles/${selectedGuildId.value}`) as RaffleState)
-  } catch (e: any) {
-    showErrorToast('Load failed', apiErrorMessage(e, 'Failed to load raffles.'))
-  } finally {
-    statePending.value = false
-  }
-}
+const {
+  state,
+  statePending,
+  actionPending,
+  entryPoints,
+  editMessages,
+  eventWinnerCounts,
+  quickAmounts,
+  availableGuildIds,
+  selectedGuildIsAvailable,
+  raffleHistoryPanes: historyPanes,
+  refreshAll,
+  hasRaffleType,
+  lastRaffle,
+  canShowReopen,
+  canReopen,
+  canEnter,
+  createRaffle: submitCreateRaffle,
+  reopenRaffle,
+  enterRaffle,
+  completeRaffle,
+  updateRaffle,
+} = useRaffles({
+  selectedGuildId,
+  guildOptions,
+  guildsPending,
+  refreshPointHistory,
+  onWinnerEvent: startWinnerCountdown,
+})
 
-const refreshAll = async () => {
-  await Promise.all([loadState(), refreshPointHistory()])
-}
-
-const applyState = (next: RaffleState) => {
-  state.value = next
-  for (const raffle of next.raffles) {
-    entryPoints[raffle.id] ??= 1
-    editMessages[raffle.id] = editMessages[raffle.id] ?? raffle.description
-    eventWinnerCounts[raffle.id] ??= 1
-  }
-}
-
-const closeStream = () => {
-  if (source) {
-    source.close()
-    source = null
-  }
-}
-
-const openStream = () => {
-  closeStream()
-  if (!selectedGuildId.value || typeof EventSource === 'undefined') {
-    return
-  }
-  source = new EventSource(`${apiBase}/api/raffles/${selectedGuildId.value}/stream`, { withCredentials: true })
-  source.addEventListener('state', (e: MessageEvent) => {
-    try {
-      applyState(JSON.parse(e.data) as RaffleState)
-    } catch (err) {
-      console.warn('raffles: failed to parse state event', err)
-    }
-  })
-  source.addEventListener('completed', (e: MessageEvent) => {
-    try {
-      startWinnerCountdown(JSON.parse(e.data) as WinnerEvent)
-    } catch (err) {
-      console.warn('raffles: failed to parse completed event', err)
-    }
-  })
-  source.onerror = () => {}
-}
-
-watch([selectedGuildId, guildOptions, guildsPending], async ([id, opts, pending]) => {
-  closeStream()
-  state.value = null
-  if (!id || pending || !opts?.some(g => g.guildId === id)) {
-    return
-  }
-  await loadState()
-  openStream()
+watch(guildOptions, (opts) => {
+  if (!opts?.length) return
+  ensureSelection(availableGuildIds.value, opts[0]?.guildId ?? null)
 }, { immediate: true })
 
+const spentBalance = computed(() => {
+  const earned = Number(state.value?.account?.points ?? pointHistory.value?.summary.totalEarned ?? 0)
+  const available = Number(state.value?.account?.availablePoints ?? pointHistory.value?.summary.availablePoints ?? 0)
+  return Math.max(earned - available, 0)
+})
+
 onUnmounted(() => {
-  closeStream()
   if (countdownTimer) {
     clearInterval(countdownTimer)
   }
 })
 
-const hasRaffleType = (type: number) => state.value?.raffles.some(r => r.raffleType === type) ?? false
-
-const lastRaffle = (type: number) => state.value?.lastRaffles.find(r => r.raffleType === type) ?? null
-
-const canShowReopen = (type: number) => {
-  if (!state.value || hasRaffleType(type)) {
-    return false
-  }
-  return type === 1
-    ? state.value.availability.hasPreviousEventRaffle
-    : state.value.availability.hasPreviousRaffle
-}
-
-const canReopen = (type: number) => {
-  if (!state.value) {
-    return false
-  }
-  return type === 1
-    ? state.value.permissions.canReopenEventRaffle
-    : state.value.permissions.canReopenRaffle
-}
-
-const canEnter = (raffle: Raffle) => {
-  if (!state.value) {
-    return false
-  }
-  return raffle.raffleType === 1
-    ? state.value.permissions.canEnterEventRaffle
-    : state.value.permissions.canEnterRaffle
-}
-
-const openCreate = (type: number) => {
+const openCreate = (type: RaffleType) => {
   createType.value = type
   createDescription.value = ''
   createVisible.value = true
 }
 
 const createRaffle = async () => {
-  await runAction(async () => {
-    await api(`/api/raffles/${selectedGuildId.value}/create`, {
-      method: 'POST',
-      body: { raffleType: createType.value, description: createDescription.value },
-    })
+  if (await submitCreateRaffle(createType.value, createDescription.value)) {
     createVisible.value = false
-    await loadState()
-    toast.add({
-      severity: 'success',
-      summary: 'Created',
-      detail: createType.value === 1 ? 'Event raffle created.' : 'Raffle created.',
-      life: 2500,
-    })
-  }, 'Failed to create raffle.')
-}
-
-const reopenRaffle = async (raffleType: number) => {
-  await runAction(async () => {
-    await api(`/api/raffles/${selectedGuildId.value}/reopen`, {
-      method: 'POST',
-      body: { raffleType },
-    })
-    await loadState()
-    toast.add({
-      severity: 'success',
-      summary: 'Reopened',
-      detail: raffleType === 1 ? 'Event raffle reopened.' : 'Raffle reopened.',
-      life: 2500,
-    })
-  }, 'Failed to reopen raffle.')
-}
-
-const enterRaffle = async (raffle: Raffle) => {
-  await runAction(async () => {
-    await api(`/api/raffles/${selectedGuildId.value}/enter`, {
-      method: 'POST',
-      body: { raffleId: raffle.id, points: entryPoints[raffle.id] ?? 1 },
-    })
-    await loadState()
-    toast.add({ severity: 'success', summary: 'Entered', detail: 'Points added to the raffle.', life: 2500 })
-  }, 'Failed to enter raffle.')
-}
-
-const completeRaffle = async (raffle: Raffle, winnersCount: number) => {
-  await runAction(async () => {
-    const completed = await api(`/api/raffles/${selectedGuildId.value}/complete`, {
-      method: 'POST',
-      body: { raffleType: raffle.raffleType, winnersCount },
-    }) as WinnerEvent
-    startWinnerCountdown(completed)
-    await loadState()
-    toast.add({ severity: 'success', summary: 'Completed', detail: 'Raffle completed.', life: 2500 })
-  }, 'Failed to complete raffle.')
-}
-
-const updateRaffle = async (raffle: Raffle) => {
-  await runAction(async () => {
-    await api(`/api/raffles/${selectedGuildId.value}/${raffle.id}`, {
-      method: 'PUT',
-      body: { raffleType: raffle.raffleType, description: editMessages[raffle.id] },
-    })
-    await loadState()
-    toast.add({ severity: 'success', summary: 'Updated', detail: 'Discord message updated.', life: 2500 })
-  }, 'Failed to update raffle message.')
-}
-
-const runAction = async (fn: () => Promise<void>, fallback: string) => {
-  if (!selectedGuildId.value) return
-  actionPending.value = true
-  try {
-    await fn()
-  } catch (e: any) {
-    showErrorToast('Action failed', apiErrorMessage(e, fallback))
-  } finally {
-    actionPending.value = false
   }
 }
 
-function showErrorToast(summary: string, detail: string) {
-  toast.add({ severity: 'error', summary, detail, life: 5000 })
-}
-
-function apiErrorMessage(e: any, fallback: string) {
-  if (e?.data?.error) {
-    return e.data.error
-  }
-  if (e?.statusCode === 403 || e?.response?.status === 403) {
-    return 'You do not have access to that action for this server.'
-  }
-  return e?.message ?? fallback
-}
-
-const startWinnerCountdown = (event: WinnerEvent) => {
+function startWinnerCountdown(event: WinnerEvent) {
   const key = `${event.raffleId}:${event.raffleType}:${event.drawAtUtc ?? ''}`
   if (winnerEventKey.value === key) {
     return
@@ -704,13 +440,7 @@ const startWinnerCountdown = (event: WinnerEvent) => {
   }, 1000)
 }
 
-const formatPoints = (value: number) => Math.floor(value).toLocaleString()
-const formatAwardPoints = (value: number) =>
-  Number(value ?? 0).toLocaleString(undefined, { maximumFractionDigits: 3 })
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString()
-}
+const formatAwardPoints = formatPointValue
 
 const confettiStyle = (i: number) => ({
   left: `${(i * 37) % 100}%`,

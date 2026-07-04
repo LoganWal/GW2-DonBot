@@ -2,20 +2,17 @@
   <div>
     <div class="header-row">
       <h1 class="page-title" style="margin: 0;">Live Raid</h1>
-      <Select
+      <ServerSelect
         v-model="selectedGuildIdStr"
         :options="guildOptions ?? []"
-        option-label="guildName"
-        option-value="guildId"
         :placeholder="guildsPending ? 'Loading servers...' : 'Select a server'"
         :loading="guildsPending"
         :disabled="guildsPending"
-        style="min-width: 260px;"
       />
       <Tag v-if="report?.isOpen" severity="success" value="LIVE" />
       <Tag v-else-if="report" severity="secondary" :value="`Closed ${formatRelative(report.fightsEnd)}`" />
       <span v-if="report" style="color: var(--p-text-muted-color); font-size: 0.85rem;">
-        Started {{ new Date(report.fightsStart).toLocaleString() }}
+        Started {{ formatDateTime(report.fightsStart) }}
       </span>
       <Tag
         v-if="aggregateSummary?.type === 'wvw'"
@@ -111,21 +108,21 @@
 
 <script setup lang="ts">
 import LogsAggregate from '~/components/LogsAggregate.vue'
+import { formatDateTime } from '~/composables/useFormatters'
 
 definePageMeta({ middleware: 'auth' })
 
 usePageTitle()
 
 const api = useApi()
-const apiBase = useRuntimeConfig().public.apiBase as string
 
 const { data: guildOptions, pending: guildsPending } = useLazyAsyncData(
   'live-raid-guilds',
-  () => $fetch<{ guildId: string; guildName: string }[]>(`${apiBase}/api/live-raid/guilds`, { credentials: 'include' }),
+  () => api('/api/live-raid/guilds') as Promise<{ guildId: string; guildName: string }[]>,
   { default: () => [] }
 )
 
-const { selectedGuildId: selectedGuildIdStr, ensureSelection } = useSelectedGuild()
+const { selectedGuildId: selectedGuildIdStr, ensureSelection } = useGuildSelection()
 
 watch(guildOptions, (opts) => {
   if (!opts?.length) return
@@ -169,14 +166,14 @@ const onSelectLog = (fightLogId: number) => {
 
 const fetchAggregate = (logIds?: number[]) => {
   const qs = logIds && logIds.length > 0 ? `?logIds=${logIds.join(',')}` : ''
-  return $fetch(`${apiBase}/api/live-raid/${guildIdStr.value}/aggregate${qs}`, { credentials: 'include' })
+  return api(`/api/live-raid/${guildIdStr.value}/aggregate${qs}`)
 }
 
 const fetchSingleLogAggregate = () => {
   if (!selectedFightLogId.value) {
     return Promise.resolve(null)
   }
-  return $fetch(`${apiBase}/api/live-raid/${guildIdStr.value}/aggregate?logIds=${selectedFightLogId.value}`, { credentials: 'include' })
+  return api(`/api/live-raid/${guildIdStr.value}/aggregate?logIds=${selectedFightLogId.value}`)
 }
 
 const actionPending = ref(false)

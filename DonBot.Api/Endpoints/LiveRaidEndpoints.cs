@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using System.Text.Json;
 using DonBot.Api.Services;
 using DonBot.Core.Models.Entities;
 using DonBot.Core.Services.RaidLifecycle;
@@ -39,28 +38,23 @@ public static class LiveRaidEndpoints
 
     private static async Task<IResult> ListGuilds(
         ClaimsPrincipal user,
-        [FromServices] IUserGuildsService userGuilds,
         [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory,
-        [FromServices] IMemoryCache cache)
+        [FromServices] AccessibleGuildsCache accessibleGuildsCache,
+        CancellationToken ct)
     {
-        var discordId = user.FindFirst("discord_id")?.Value;
-        if (string.IsNullOrEmpty(discordId))
+        var result = await accessibleGuildsCache.GetAsync<GuildListItem>(
+            user,
+            "live-raid:guilds-response",
+            GuildListCacheTtl,
+            GuildListErrorTtl,
+            async (userGuildList, cancellationToken) =>
         {
-            return Results.Unauthorized();
-        }
+            var userGuildIds = userGuildList
+                .Where(g => g.Id <= long.MaxValue)
+                .Select(g => (long)g.Id)
+                .ToHashSet();
 
-        var cacheKey = $"live-raid:guilds-response:{discordId}";
-        var result = await cache.GetOrCoalesceAsync(cacheKey, GuildListCacheTtl, GuildListErrorTtl, async () =>
-        {
-            var userGuildList = await userGuilds.GetForPrincipalAsync(user);
-            if (userGuildList is null)
-            {
-                return [];
-            }
-
-            var userGuildIds = userGuildList.Select(g => (long)g.Id).ToHashSet();
-
-            await using var ctx = await dbContextFactory.CreateDbContextAsync();
+            await using var ctx = await dbContextFactory.CreateDbContextAsync(cancellationToken);
             var guildIdsWithReports = ctx.FightsReport
                 .Where(r => r.GuildId > 0)
                 .Select(r => r.GuildId)
@@ -75,20 +69,26 @@ public static class LiveRaidEndpoints
                 .Where(guild => userGuildIds.Contains(guild.GuildId))
                 .OrderBy(guild => guild.GuildName)
                 .Select(guild => new GuildListItem(guild.GuildId.ToString(), guild.GuildName ?? guild.GuildId.ToString()))
-                .ToListAsync();
-        });
+                .ToListAsync(cancellationToken);
+        },
+            ct);
 
-        return Results.Ok(result);
+        if (result.IsUnauthorized)
+        {
+            return Results.Unauthorized();
+        }
+
+        return Results.Ok(result.Guilds);
     }
 
     private static async Task<IResult> GetLatestRaid(
         long guildId,
         ClaimsPrincipal user,
-        [FromServices] IUserGuildsService userGuilds,
+        [FromServices] GuildAccessGuard accessGuard,
         [FromServices] IRaidLifecycleService raidLifecycle,
         [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory)
     {
-        if (await EnsureAuthorizedAsync(user, guildId, userGuilds) is { } denied)
+        if (await accessGuard.RequireMemberAsync(user, guildId) is { } denied)
         {
             return denied;
         }
@@ -117,13 +117,13 @@ public static class LiveRaidEndpoints
     private static async Task<IResult> GetAggregate(
         long guildId,
         ClaimsPrincipal user,
-        [FromServices] IUserGuildsService userGuilds,
+        [FromServices] GuildAccessGuard accessGuard,
         [FromServices] IRaidLifecycleService raidLifecycle,
         [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory,
         HttpContext httpContext,
         string? logIds = null)
     {
-        if (await EnsureAuthorizedAsync(user, guildId, userGuilds) is { } denied)
+        if (await accessGuard.RequireMemberAsync(user, guildId) is { } denied)
         {
             return denied;
         }
@@ -163,7 +163,7 @@ public static class LiveRaidEndpoints
     private static async Task StreamUpdates(
         long guildId,
         ClaimsPrincipal user,
-        [FromServices] IUserGuildsService userGuilds,
+        [FromServices] GuildAccessGuard accessGuard,
         [FromServices] IRaidLifecycleService raidLifecycle,
         [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory,
         [FromServices] IHostApplicationLifetime lifetime,
@@ -174,15 +174,13 @@ public static class LiveRaidEndpoints
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, lifetime.ApplicationStopping);
         ct = linkedCts.Token;
 
-        if (!await userGuilds.IsMemberAsync(user, (ulong)guildId, ct))
+        if (await accessGuard.RequireMemberAsync(user, guildId, ct) is { } denied)
         {
-            httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await denied.ExecuteAsync(httpContext);
             return;
         }
 
-        httpContext.Response.ContentType = "text/event-stream";
-        httpContext.Response.Headers["Cache-Control"] = "no-cache";
-        httpContext.Response.Headers["X-Accel-Buffering"] = "no";
+        SseWriter.Prepare(httpContext.Response);
 
         long lastReportId = 0;
         var knownFightIds = new HashSet<long>();
@@ -202,13 +200,13 @@ public static class LiveRaidEndpoints
                     {
                         lastReportId = report.FightsReportId;
                         knownFightIds.Clear();
-                        await WriteEvent(httpContext, "report-changed", new
+                        await SseWriter.WriteJsonEventAsync(httpContext.Response, "report-changed", new
                         {
                             reportId = report.FightsReportId,
                             fightsStart = report.FightsStart,
                             fightsEnd = report.FightsEnd,
                             isOpen = report.FightsEnd == null
-                        }, ct);
+                        }, ct: ct);
                         lastWasOpen = report.FightsEnd == null;
                     }
 
@@ -218,26 +216,25 @@ public static class LiveRaidEndpoints
                     {
                         if (knownFightIds.Add(id))
                         {
-                            await WriteEvent(httpContext, "fight-added", new { fightLogId = id }, ct);
+                            await SseWriter.WriteJsonEventAsync(httpContext.Response, "fight-added", new { fightLogId = id }, ct: ct);
                         }
                     }
 
                     var isOpenNow = report.FightsEnd == null;
                     if (lastWasOpen && !isOpenNow)
                     {
-                        await WriteEvent(httpContext, "closed", new
+                        await SseWriter.WriteJsonEventAsync(httpContext.Response, "closed", new
                         {
                             reportId = report.FightsReportId,
                             fightsEnd = report.FightsEnd
-                        }, ct);
+                        }, ct: ct);
                     }
                     lastWasOpen = isOpenNow;
                 }
 
                 if (DateTime.UtcNow - lastHeartbeat >= heartbeatInterval)
                 {
-                    await httpContext.Response.WriteAsync(": heartbeat\n\n", ct);
-                    await httpContext.Response.Body.FlushAsync(ct);
+                    await SseWriter.WriteCommentAsync(httpContext.Response, "heartbeat", ct);
                     lastHeartbeat = DateTime.UtcNow;
                 }
 
@@ -254,21 +251,14 @@ public static class LiveRaidEndpoints
         }
     }
 
-    private static async Task WriteEvent(HttpContext httpContext, string eventName, object payload, CancellationToken ct)
-    {
-        var json = JsonSerializer.Serialize(payload);
-        await httpContext.Response.WriteAsync($"event: {eventName}\ndata: {json}\n\n", ct);
-        await httpContext.Response.Body.FlushAsync(ct);
-    }
-
     private static async Task<IResult> StartRaid(
         long guildId,
         ClaimsPrincipal user,
-        [FromServices] IUserGuildsService userGuilds,
+        [FromServices] GuildAccessGuard accessGuard,
         [FromServices] IRaidLifecycleService raidLifecycle,
         [FromServices] IRaidNotifier raidNotifier)
     {
-        if (await EnsureAuthorizedAsync(user, guildId, userGuilds) is { } denied)
+        if (await accessGuard.RequireMemberAsync(user, guildId) is { } denied)
         {
             return denied;
         }
@@ -295,11 +285,11 @@ public static class LiveRaidEndpoints
     private static async Task<IResult> StopRaid(
         long guildId,
         ClaimsPrincipal user,
-        [FromServices] IUserGuildsService userGuilds,
+        [FromServices] GuildAccessGuard accessGuard,
         [FromServices] IRaidLifecycleService raidLifecycle,
         [FromServices] IRaidNotifier raidNotifier)
     {
-        if (await EnsureAuthorizedAsync(user, guildId, userGuilds) is { } denied)
+        if (await accessGuard.RequireMemberAsync(user, guildId) is { } denied)
         {
             return denied;
         }
@@ -320,12 +310,6 @@ public static class LiveRaidEndpoints
             }),
             _ => Results.StatusCode(500)
         };
-    }
-
-    private static async Task<IResult?> EnsureAuthorizedAsync(
-        ClaimsPrincipal user, long guildId, IUserGuildsService userGuilds)
-    {
-        return await userGuilds.IsMemberAsync(user, (ulong)guildId) ? null : Results.Forbid();
     }
 
     private static async Task<List<long>> GetFightLogIdsInWindowAsync(

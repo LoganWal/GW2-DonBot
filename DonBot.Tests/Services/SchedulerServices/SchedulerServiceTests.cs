@@ -4,6 +4,7 @@ using Discord.WebSocket;
 using DonBot.Core.Models.Entities;
 using DonBot.Core.Models.Enums;
 using DonBot.Core.Models.Scheduling;
+using DonBot.Core.Services.Scheduling;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.SchedulerServices;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -45,7 +46,7 @@ public class SchedulerServiceTests
     {
         var ev = MakeWeeklyEvent(day: 5, hour: 4, repeatIntervalDays: 0);
 
-        var result = SchedulerService.GetNextEventTime(ev, Now);
+        var result = ScheduledEventRecurrence.GetNextEventTime(ev, Now);
 
         Assert.Equal(DateTime.MaxValue, result);
     }
@@ -55,7 +56,7 @@ public class SchedulerServiceTests
     {
         var ev = MakeWeeklyEvent(day: 5, hour: 4, repeatIntervalDays: -1);
 
-        var result = SchedulerService.GetNextEventTime(ev, Now);
+        var result = ScheduledEventRecurrence.GetNextEventTime(ev, Now);
 
         Assert.Equal(DateTime.MaxValue, result);
     }
@@ -65,7 +66,7 @@ public class SchedulerServiceTests
     {
         var ev = MakeWeeklyEvent(day: 6, hour: 4);
 
-        var result = SchedulerService.GetNextEventTime(ev, Now);
+        var result = ScheduledEventRecurrence.GetNextEventTime(ev, Now);
 
         Assert.Equal(DayOfWeek.Saturday, result.DayOfWeek);
         Assert.Equal(4, result.Hour);
@@ -80,7 +81,7 @@ public class SchedulerServiceTests
     {
         var ev = MakeWeeklyEvent(day: 1, hour: 8);
 
-        var result = SchedulerService.GetNextEventTime(ev, Now);
+        var result = ScheduledEventRecurrence.GetNextEventTime(ev, Now);
 
         Assert.Equal(DayOfWeek.Monday, result.DayOfWeek);
         Assert.Equal(8, result.Hour);
@@ -92,7 +93,7 @@ public class SchedulerServiceTests
     {
         var ev = MakeWeeklyEvent(day: 5, hour: 14);
 
-        var result = SchedulerService.GetNextEventTime(ev, Now);
+        var result = ScheduledEventRecurrence.GetNextEventTime(ev, Now);
 
         Assert.Equal(Now.Date.AddHours(14), result);
         Assert.Equal(DayOfWeek.Friday, result.DayOfWeek);
@@ -103,7 +104,7 @@ public class SchedulerServiceTests
     {
         var ev = MakeWeeklyEvent(day: 5, hour: 4);
 
-        var result = SchedulerService.GetNextEventTime(ev, Now);
+        var result = ScheduledEventRecurrence.GetNextEventTime(ev, Now);
 
         Assert.Equal(DayOfWeek.Friday, result.DayOfWeek);
         Assert.Equal(4, result.Hour);
@@ -115,7 +116,7 @@ public class SchedulerServiceTests
     {
         var ev = MakeWeeklyEvent(day: 5, hour: 10);
 
-        var result = SchedulerService.GetNextEventTime(ev, Now);
+        var result = ScheduledEventRecurrence.GetNextEventTime(ev, Now);
 
         Assert.Equal(DayOfWeek.Friday, result.DayOfWeek);
         Assert.True(result > Now);
@@ -127,7 +128,7 @@ public class SchedulerServiceTests
     {
         var ev = MakeWeeklyEvent(day: 2, hour: 4);
 
-        var result = SchedulerService.GetNextEventTime(ev, Now);
+        var result = ScheduledEventRecurrence.GetNextEventTime(ev, Now);
 
         Assert.Equal(DayOfWeek.Tuesday, result.DayOfWeek);
         Assert.Equal(4, result.Hour);
@@ -139,7 +140,7 @@ public class SchedulerServiceTests
     {
         var ev = MakeWeeklyEvent(day: 6, hour: 0);
 
-        var result = SchedulerService.GetNextEventTime(ev, Now);
+        var result = ScheduledEventRecurrence.GetNextEventTime(ev, Now);
 
         Assert.Equal(0, result.Hour);
         Assert.Equal(DayOfWeek.Saturday, result.DayOfWeek);
@@ -150,7 +151,7 @@ public class SchedulerServiceTests
     {
         var ev = MakeWeeklyEvent(day: 6, hour: 23);
 
-        var result = SchedulerService.GetNextEventTime(ev, Now);
+        var result = ScheduledEventRecurrence.GetNextEventTime(ev, Now);
 
         Assert.Equal(23, result.Hour);
         Assert.Equal(DayOfWeek.Saturday, result.DayOfWeek);
@@ -161,7 +162,7 @@ public class SchedulerServiceTests
     {
         var ev = MakeWeeklyEvent(day: 0, hour: 12);
 
-        var result = SchedulerService.GetNextEventTime(ev, Now);
+        var result = ScheduledEventRecurrence.GetNextEventTime(ev, Now);
 
         Assert.Equal(DayOfWeek.Sunday, result.DayOfWeek);
         Assert.Equal(12, result.Hour);
@@ -173,7 +174,7 @@ public class SchedulerServiceTests
     {
         var ev = MakeWeeklyEvent(day: (short)Now.DayOfWeek, hour: (short)Now.Hour);
 
-        Assert.True(SchedulerService.IsScheduledForFireTime(ev, Now));
+        Assert.True(ScheduledEventRecurrence.IsScheduledForFireTime(ev, Now));
     }
 
     [Fact]
@@ -181,7 +182,7 @@ public class SchedulerServiceTests
     {
         var ev = MakeWeeklyEvent(day: (short)Now.DayOfWeek, hour: (short)(Now.Hour + 1));
 
-        Assert.False(SchedulerService.IsScheduledForFireTime(ev, Now));
+        Assert.False(ScheduledEventRecurrence.IsScheduledForFireTime(ev, Now));
     }
 
     [Theory]
@@ -196,7 +197,7 @@ public class SchedulerServiceTests
     {
         var ev = MakeWeeklyEvent(day: (short)day, hour: 10);
 
-        var result = SchedulerService.GetNextEventTime(ev, Now);
+        var result = ScheduledEventRecurrence.GetNextEventTime(ev, Now);
 
         Assert.True(result > Now, $"Day={day}: expected result to be strictly after now but got {result}");
     }
@@ -410,7 +411,7 @@ public class SchedulerServiceTests
             new ScheduledEventResponseOption("Join", "✅", true)
         ]);
 
-        Assert.True(SchedulerService.ShouldCheckSignupNotification(ev, Now));
+        Assert.True(ScheduledEventRules.ShouldCheckSignupNotification(ev, Now));
     }
 
     [Fact]
@@ -424,7 +425,7 @@ public class SchedulerServiceTests
             new ScheduledEventResponseOption("Join", "✅", false)
         ]);
 
-        Assert.True(SchedulerService.ShouldCheckSignupNotification(ev, Now));
+        Assert.True(ScheduledEventRules.ShouldCheckSignupNotification(ev, Now));
     }
 
     [Fact]
@@ -440,7 +441,7 @@ public class SchedulerServiceTests
             new ScheduledEventResponseOption("Join", "✅", true)
         ]);
 
-        Assert.False(SchedulerService.ShouldCheckSignupNotification(ev, Now));
+        Assert.False(ScheduledEventRules.ShouldCheckSignupNotification(ev, Now));
     }
 
     [Fact]
@@ -452,7 +453,7 @@ public class SchedulerServiceTests
             new ScheduledEventResponseOption("Can Fill", "🛠️", false)
         ]);
 
-        Assert.False(SchedulerService.HasSignupNotificationResponseTypes(ev));
+        Assert.False(ScheduledEventRules.HasSignupNotificationResponseTypes(ev));
     }
 
     [Fact]

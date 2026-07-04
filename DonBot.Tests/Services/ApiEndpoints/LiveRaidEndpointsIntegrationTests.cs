@@ -148,6 +148,16 @@ public class LiveRaidEndpointsIntegrationTests
     }
 
     [Fact]
+    public async Task GetLatestRaid_NegativeGuildId_ReturnsBadRequest()
+    {
+        using var host = NewHost();
+
+        var response = await host.Client.GetAsync("/api/live-raid/-1");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task GetLatestRaid_MemberOfGuild_ReturnsMostRecentReport()
     {
         using var host = NewHost();

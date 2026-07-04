@@ -414,6 +414,9 @@
 
 <script setup lang="ts">
 import { fightName, formatDuration } from '~/composables/useFightTypes'
+import { normalizePlaystyleRows, playstyleFillClass, playstyleWidth, type PlaystyleBreakdownRow } from '~/composables/usePlaystyles'
+import { formatDate, formatShortDate } from '~/composables/useFormatters'
+import type { ApiResult } from '~/composables/useApiRequest'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -457,13 +460,6 @@ type StatsResponse = {
   wvw: (Record<string, any> & { playstyleBreakdown?: PlaystyleBreakdownRow[] }) | null
   pve: (Record<string, any> & { playstyleBreakdown?: PlaystyleBreakdownRow[] }) | null
   characters?: { characterName: string; pveLogs: number; wvwLogs: number }[]
-}
-
-type PlaystyleBreakdownRow = {
-  key: string
-  label: string
-  count: number
-  percent: number
 }
 
 type BestEntry = {
@@ -572,12 +568,7 @@ type DashboardVisuals = {
   unavailable: DashboardPanelFailure[]
 }
 
-type ApiResult<T> = {
-  data: T
-  failed: boolean
-}
-
-const api = useApi()
+const { safeRequest } = useApiRequest()
 
 const DASHBOARD_PERIOD_DAYS = 30
 const TREND_DAYS = 365
@@ -1042,15 +1033,7 @@ async function fetchLogsSince(startDateTime: string): Promise<ApiResult<LogsResp
 }
 
 async function safeApi<T>(url: string, fallback: T): Promise<ApiResult<T>> {
-  try
-  {
-    return { data: await api(url) as T, failed: false }
-  }
-  catch (error)
-  {
-    console.warn(`Dashboard request failed: ${url}`, error)
-    return { data: fallback, failed: true }
-  }
+  return await safeRequest(url, fallback, 'Dashboard request')
 }
 
 function panelFailure<T>(result: ApiResult<T>, key: string, label: string) {
@@ -1161,49 +1144,10 @@ function metricWidth(value: number) {
   return `${Math.max(6, Math.round((value / maxCombatMetric.value) * 100))}%`
 }
 
-function normalizePlaystyleRows(rows?: PlaystyleBreakdownRow[]) {
-  return (rows ?? [])
-    .map(row => ({
-      key: row.key,
-      label: row.label,
-      count: Number(row.count ?? 0),
-      percent: Number(row.percent ?? 0),
-    }))
-    .filter(row => row.count > 0)
-}
-
-function playstyleWidth(percent: number) {
-  return `${Math.max(6, Math.min(100, percent))}%`
-}
-
-function playstyleFillClass(key: string) {
-  switch (key) {
-    case 'boon-dps':
-    case 'support-dps':
-      return 'fill-teal'
-    case 'boon-healer':
-    case 'heal-support':
-      return 'fill-green'
-    case 'mechanic':
-    case 'support':
-      return 'fill-amber'
-    default:
-      return 'fill-blue'
-  }
-}
-
 function openLog(fightLogId?: number | null) {
   if (fightLogId) {
     navigateTo(`/logs/${fightLogId}`)
   }
-}
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString()
-}
-
-function formatShortDate(value: string) {
-  return new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 </script>
 

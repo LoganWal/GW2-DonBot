@@ -1,13 +1,10 @@
 using System.Diagnostics;
-using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 using System.Threading.Channels;
 using DonBot.Core.Models.Entities;
-using DonBot.Core.Models.Enums;
 using DonBot.Core.Models.GuildWars2;
-using DonBot.Core.Services;
+using DonBot.Core.Services.GuildWars2;
 using DonBot.Services.GuildWarsServices;
 using Microsoft.EntityFrameworkCore;
 
@@ -21,9 +18,7 @@ public sealed class LogUploadPipelineService : BackgroundService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _configuration;
     private readonly ILogger<LogUploadPipelineService> _logger;
-
-    private static readonly Regex DpsReportUrlPattern =
-        new(@"https?://(b\.dps|dps|wvw)\.report/\S+", RegexOptions.Compiled);
+    private readonly FightLogIngestionService _fightLogIngestionService;
 
     private readonly Channel<long> _queue = Channel.CreateUnbounded<long>(new UnboundedChannelOptions { SingleReader = true });
     private readonly SemaphoreSlim _concurrency;
@@ -34,7 +29,8 @@ public sealed class LogUploadPipelineService : BackgroundService
         IServiceScopeFactory scopeFactory,
         IHttpClientFactory httpClientFactory,
         IConfiguration configuration,
-        ILogger<LogUploadPipelineService> logger)
+        ILogger<LogUploadPipelineService> logger,
+        FightLogIngestionService fightLogIngestionService)
     {
         this._progress = progress;
         this._dbContextFactory = dbContextFactory;
@@ -42,6 +38,7 @@ public sealed class LogUploadPipelineService : BackgroundService
         this._httpClientFactory = httpClientFactory;
         this._configuration = configuration;
         this._logger = logger;
+        this._fightLogIngestionService = fightLogIngestionService;
         var concurrency = configuration.GetValue("Upload:MaxConcurrentProcessing", 3);
         _concurrency = new SemaphoreSlim(concurrency, concurrency);
     }
@@ -107,6 +104,7 @@ public sealed class LogUploadPipelineService : BackgroundService
         var modelUrl = string.IsNullOrWhiteSpace(model.FightEliteInsightDataModel.Url)
             ? url
             : model.FightEliteInsightDataModel.Url;
+        modelUrl = ReportUrlHelper.CanonicalizeReportUrl(modelUrl, requireHttps: true);
 
         await UpdateStatus(ctx, upload, "saving", ct);
         _progress.Publish(uploadId, "saving", "Saving log data...");
@@ -208,6 +206,7 @@ public sealed class LogUploadPipelineService : BackgroundService
             var modelUrl = string.IsNullOrWhiteSpace(model.FightEliteInsightDataModel.Url)
                 ? dpsReportUrl
                 : model.FightEliteInsightDataModel.Url;
+            modelUrl = ReportUrlHelper.CanonicalizeReportUrl(modelUrl, requireHttps: true);
             var fightLogId = await SaveFightLogAsync(model, playerService, pointsAwardService, ct, upload.GuildId);
 
             await FinalizeAsync(uploadId, modelUrl, fightLogId, ct);
@@ -236,8 +235,7 @@ public sealed class LogUploadPipelineService : BackgroundService
 
     private static string? ExtractDpsReportUrl(string text)
     {
-        var match = DpsReportUrlPattern.Match(text);
-        return match.Success ? match.Value.TrimEnd('.', ',', ')') : null;
+        return ReportUrlHelper.ExtractFirstReportUrl(text, requireHttps: false);
     }
 
     private static string? ExtractDpsReportUrlFromLogFiles(string outputDir)
@@ -323,8 +321,9 @@ public sealed class LogUploadPipelineService : BackgroundService
         {
             try
             {
+                var reportUrl = ReportUrlHelper.CanonicalizeReportUrl(dpsReportUrl, requireHttps: true);
                 var client = _httpClientFactory.CreateClient();
-                var wingmanUrl = $"https://gw2wingman.nevermindcreations.de/api/importLogQueued?link={Uri.EscapeDataString(dpsReportUrl)}";
+                var wingmanUrl = $"https://gw2wingman.nevermindcreations.de/api/importLogQueued?link={Uri.EscapeDataString(reportUrl)}";
                 await client.GetAsync(wingmanUrl);
             }
             catch (Exception ex)
@@ -379,312 +378,18 @@ public sealed class LogUploadPipelineService : BackgroundService
 
     private async Task<long> SaveFightLogAsync(EliteInsightDataModel data, IPlayerService playerService, IPointsAwardService pointsAwardService, CancellationToken ct, long guildId = 0)
     {
-        var fightPhase = data.FightEliteInsightDataModel.Phases?.Any() == true
-            ? data.FightEliteInsightDataModel.Phases[0]
-            : new ArcDpsPhase();
-
-        await using var ctx = await _dbContextFactory.CreateDbContextAsync(ct);
-
-        var url = data.FightEliteInsightDataModel.Url;
-        FightLog? existing = null;
-
-        if (!string.IsNullOrEmpty(url))
-        {
-            existing = await ctx.FightLog.FirstOrDefaultAsync(f => f.Url == url, ct);
-        }
-
-        if (existing == null)
-        {
-            var fightStart = ParseStart(data.FightEliteInsightDataModel.Start);
-            var fightType = data.FightEliteInsightDataModel.Wvw
-                ? (short)FightTypesEnum.WvW
-                : GetPvEEncounterType(data.FightEliteInsightDataModel.FightId).encounterType;
-            existing = await FightLogDeduplication.FindByContentAsync(
-                ctx, fightType, fightStart,
-                playerService.GetGw2Players(data, fightPhase).Select(p => p.AccountName), ct);
-        }
-
-        var fightLogId = data.FightEliteInsightDataModel.Wvw
-            ? await SaveWvWFightLogAsync(ctx, data, fightPhase, existing, playerService, ct, guildId)
-            : await SavePvEFightLogAsync(ctx, data, fightPhase, existing, playerService, ct, guildId);
-        await pointsAwardService.AwardFightAsync(fightLogId, ct);
-        return fightLogId;
-    }
-
-    private async Task<long> SaveWvWFightLogAsync(DatabaseContext ctx, EliteInsightDataModel data, ArcDpsPhase fightPhase, FightLog? existing, IPlayerService playerService, CancellationToken ct, long guildId = 0)
-    {
-        if (existing != null)
-        {
-            await AttachGuildToExistingLogAsync(ctx, existing, guildId, ct);
-            await UpsertRawDataAsync(ctx, existing.FightLogId, data, ct);
-            return existing.FightLogId;
-        }
-
-        var dateTimeStart = ParseStart(data.FightEliteInsightDataModel.Start);
-        long durationMs;
-        var dateEndString = data.FightEliteInsightDataModel.End;
-        if (!string.IsNullOrEmpty(dateEndString))
-        {
-            var dateTimeEnd = DateTime.ParseExact(dateEndString, "yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
-            durationMs = (long)(dateTimeEnd - dateTimeStart).TotalMilliseconds;
-        }
-        else
-        {
-            durationMs = fightPhase.Duration;
-        }
-
-        var fightLog = new FightLog
+        var fightPhase = FightLogMaterializer.ResolveFightPhase(data);
+        var gw2Players = playerService.GetGw2Players(data, fightPhase, FightLogMaterializer.ShouldSumAllTargets(data));
+        var result = await _fightLogIngestionService.IngestAsync(new FightLogIngestionRequest(data, fightPhase, gw2Players)
         {
             GuildId = guildId,
-            Url = data.FightEliteInsightDataModel.Url,
-            FightType = (short)FightTypesEnum.WvW,
-            FightStart = dateTimeStart,
-            FightDurationInMs = durationMs,
-            IsSuccess = data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false,
-            Source = GetLogSource(data.FightEliteInsightDataModel.Url)
-        };
-        ctx.FightLog.Add(fightLog);
-        await ctx.SaveChangesAsync(ct);
+            ExistingLogUpdateMode = ExistingFightLogUpdateMode.AttachGuildAndRawData,
+            SourceFallback = "upload"
+        }, ct);
 
-        await UpsertRawDataAsync(ctx, fightLog.FightLogId, data, ct);
-
-        var gw2Players = playerService.GetGw2Players(data, fightPhase);
-        var averageGroupDps = PlayerFightLogRoleClassifier.GetAverageGroupDps(gw2Players, fightLog.FightDurationInMs);
-        var wvwBenchmarks = PlayerFightLogPlaystyleClassifier.BuildWvwBenchmarks(gw2Players, fightLog.FightDurationInMs);
-        ctx.PlayerFightLog.AddRange(gw2Players.Select(p => BuildPlayerFightLog(
-            p,
-            fightLog.FightLogId,
-            fightLog.FightDurationInMs,
-            averageGroupDps,
-            isWvW: true,
-            wvwBenchmarks)));
-        await ctx.SaveChangesAsync(ct);
-
-        return fightLog.FightLogId;
+        await pointsAwardService.AwardFightAsync(result.FightLogId, ct);
+        return result.FightLogId;
     }
-
-    private async Task<long> SavePvEFightLogAsync(DatabaseContext ctx, EliteInsightDataModel data, ArcDpsPhase fightPhase, FightLog? existing, IPlayerService playerService, CancellationToken ct, long guildId = 0)
-    {
-        if (existing != null)
-        {
-            await AttachGuildToExistingLogAsync(ctx, existing, guildId, ct);
-            await UpsertRawDataAsync(ctx, existing.FightLogId, data, ct);
-            return existing.FightLogId;
-        }
-
-        var dateTimeStart = ParseStart(data.FightEliteInsightDataModel.Start);
-        var (encounterType, sumAllTargets) = GetPvEEncounterType(data.FightEliteInsightDataModel.FightId);
-
-        var fightMode = FightLogProgressCalculator.ResolveFightMode(data.FightEliteInsightDataModel, fightPhase);
-        var fightProgress = FightLogProgressCalculator.Calculate(data.FightEliteInsightDataModel, encounterType, fightMode);
-
-        var fightLog = new FightLog
-        {
-            GuildId = guildId,
-            Url = data.FightEliteInsightDataModel.Url,
-            FightType = encounterType,
-            FightStart = dateTimeStart,
-            FightDurationInMs = fightPhase.Duration,
-            IsSuccess = data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false,
-            FightPercent = fightProgress.FightPercent,
-            FightPhase = fightProgress.FightPhase,
-            FightMode = fightMode,
-            Source = GetLogSource(data.FightEliteInsightDataModel.Url)
-        };
-        ctx.FightLog.Add(fightLog);
-        await ctx.SaveChangesAsync(ct);
-
-        await UpsertRawDataAsync(ctx, fightLog.FightLogId, data, ct);
-
-        var gw2Players = playerService.GetGw2Players(data, fightPhase, sumAllTargets);
-        var averageGroupDps = PlayerFightLogRoleClassifier.GetAverageGroupDps(gw2Players, fightLog.FightDurationInMs);
-        var playerFightLogs = gw2Players.Select(p => BuildPlayerFightLog(
-            p,
-            fightLog.FightLogId,
-            fightLog.FightDurationInMs,
-            averageGroupDps,
-            isWvW: false)).ToList();
-        ctx.PlayerFightLog.AddRange(playerFightLogs);
-        await ctx.SaveChangesAsync(ct);
-
-        var mechanicRecords = playerFightLogs
-            .SelectMany(pfl =>
-            {
-                var player = gw2Players.FirstOrDefault(p => p.AccountName == pfl.GuildWarsAccountName);
-                return player?.Mechanics.Select(m => new PlayerFightLogMechanic
-                {
-                    PlayerFightLogId = pfl.PlayerFightLogId,
-                    MechanicName = m.Key,
-                    MechanicCount = m.Value
-                }) ?? [];
-            }).ToList();
-
-        if (mechanicRecords.Count > 0)
-        {
-            ctx.PlayerFightLogMechanic.AddRange(mechanicRecords);
-            await ctx.SaveChangesAsync(ct);
-        }
-
-        return fightLog.FightLogId;
-    }
-
-    private static async Task AttachGuildToExistingLogAsync(DatabaseContext ctx, FightLog existing, long guildId, CancellationToken ct)
-    {
-        if (guildId <= 0 || existing.GuildId != 0)
-        {
-            return;
-        }
-
-        existing.GuildId = guildId;
-        ctx.FightLog.Update(existing);
-        await ctx.SaveChangesAsync(ct);
-    }
-
-    private static async Task UpsertRawDataAsync(DatabaseContext ctx, long fightLogId, EliteInsightDataModel data, CancellationToken ct)
-    {
-        var existing = await ctx.FightLogRawData.FirstOrDefaultAsync(r => r.FightLogId == fightLogId, ct);
-        if (existing != null)
-        {
-            existing.RawFightData = data.RawFightData;
-            existing.RawHealingData = data.RawHealingData;
-            existing.RawBarrierData = data.RawBarrierData;
-            ctx.FightLogRawData.Update(existing);
-        }
-        else
-        {
-            ctx.FightLogRawData.Add(new FightLogRawData
-            {
-                FightLogId = fightLogId,
-                RawFightData = data.RawFightData,
-                RawHealingData = data.RawHealingData,
-                RawBarrierData = data.RawBarrierData
-            });
-        }
-
-        await ctx.SaveChangesAsync(ct);
-    }
-
-    private static DateTime ParseStart(string? dateStartString) =>
-        string.IsNullOrEmpty(dateStartString)
-            ? DateTime.UtcNow
-            : DateTime.ParseExact(dateStartString, "yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
-
-    private static decimal D(double v, int decimals = 2) =>
-        double.IsFinite(v) ? Math.Round((decimal)v, decimals) : 0m;
-
-    private static PlayerFightLog BuildPlayerFightLog(
-        Gw2Player p,
-        long fightLogId,
-        long fightDurationInMs,
-        double averageGroupDps,
-        bool isWvW,
-        WvwPlaystyleBenchmarks? wvwBenchmarks = null)
-    {
-        var boonRole = PlayerFightLogRoleClassifier.ResolveBoonRole(p, fightDurationInMs, averageGroupDps);
-        return new PlayerFightLog
-        {
-            FightLogId = fightLogId,
-            GuildWarsAccountName = p.AccountName,
-            CharacterName = p.CharacterName,
-            Damage = p.Damage,
-            Cleave = p.Cleave,
-            Kills = p.Kills,
-            Downs = p.Downs,
-            Deaths = p.Deaths,
-            QuicknessDuration = D(p.TotalQuick),
-            AlacDuration = D(p.TotalAlac),
-            QuicknessGenGroup = D(p.QuicknessGenGroup),
-            AlacGenGroup = D(p.AlacGenGroup),
-            BoonRole = boonRole,
-            Playstyle = isWvW
-                ? PlayerFightLogPlaystyleClassifier.ResolveWvwPlaystyle(p, fightDurationInMs, wvwBenchmarks ?? PlayerFightLogPlaystyleClassifier.BuildWvwBenchmarks([p], fightDurationInMs))
-                : PlayerFightLogPlaystyleClassifier.ResolvePvePlaystyle(p, fightDurationInMs, averageGroupDps),
-            SubGroup = p.SubGroup,
-            DamageDownContribution = p.DamageDownContribution,
-            Cleanses = Convert.ToInt64(p.Cleanses),
-            Strips = Convert.ToInt64(p.Strips),
-            StabGenOnGroup = D(p.StabOnGroup),
-            StabGenOffGroup = D(p.StabOffGroup),
-            Healing = p.Healing,
-            BarrierGenerated = p.BarrierGenerated,
-            DistanceFromTag = D(p.DistanceFromTag),
-            TimesDowned = Convert.ToInt32(p.TimesDowned),
-            Interrupts = p.Interrupts,
-            NumberOfHitsWhileBlinded = p.NumberOfHitsWhileBlinded,
-            NumberOfMissesAgainst = Convert.ToInt64(p.NumberOfMissesAgainst),
-            NumberOfTimesBlockedAttack = Convert.ToInt64(p.NumberOfTimesBlockedAttack),
-            NumberOfTimesEnemyBlockedAttack = p.NumberOfTimesEnemyBlockedAttack,
-            NumberOfBoonsRipped = Convert.ToInt64(p.NumberOfBoonsRipped),
-            DamageTaken = Convert.ToInt64(p.DamageTaken),
-            BarrierMitigation = Convert.ToInt64(p.BarrierMitigation),
-            TimesInterrupted = p.TimesInterrupted,
-            ResurrectionTime = p.ResurrectionTime,
-            TimeOfDeath = p.TimeOfDeath
-        };
-    }
-
-    private static (short encounterType, bool sumAllTargets) GetPvEEncounterType(long fightId) => fightId switch
-    {
-        131329 => ((short)FightTypesEnum.Vale, false),
-        131332 => ((short)FightTypesEnum.Spirit, true),
-        131330 => ((short)FightTypesEnum.Gorseval, false),
-        131331 => ((short)FightTypesEnum.Sabetha, false),
-        131585 => ((short)FightTypesEnum.Sloth, false),
-        131586 => ((short)FightTypesEnum.Trio, false),
-        131587 => ((short)FightTypesEnum.Matthias, false),
-        131841 => ((short)FightTypesEnum.Escort, false),
-        131842 => ((short)FightTypesEnum.Kc, false),
-        131843 => ((short)FightTypesEnum.Tc, false),
-        131844 => ((short)FightTypesEnum.Xera, false),
-        132097 => ((short)FightTypesEnum.Cairn, false),
-        132098 => ((short)FightTypesEnum.Mo, false),
-        132099 => ((short)FightTypesEnum.Samarog, false),
-        132100 => ((short)FightTypesEnum.Deimos, false),
-        132353 => ((short)FightTypesEnum.Sh, false),
-        132354 => ((short)FightTypesEnum.River, false),
-        132355 => ((short)FightTypesEnum.Bk, false),
-        132356 => ((short)FightTypesEnum.EoS, false),
-        132357 => ((short)FightTypesEnum.SoD, false),
-        132358 => ((short)FightTypesEnum.Dhuum, false),
-        132609 => ((short)FightTypesEnum.Ca, false),
-        132610 => ((short)FightTypesEnum.Largos, true),
-        132611 => ((short)FightTypesEnum.Qadim, false),
-        132865 => ((short)FightTypesEnum.Adina, false),
-        132866 => ((short)FightTypesEnum.Sabir, false),
-        132867 => ((short)FightTypesEnum.Peerless, false),
-        133121 => ((short)FightTypesEnum.Greer, false),
-        133122 => ((short)FightTypesEnum.Decima, false),
-        133123 => ((short)FightTypesEnum.Ura, false),
-        262657 => ((short)FightTypesEnum.Icebrood, true),
-        262658 => ((short)FightTypesEnum.Fraenir, true),
-        262659 => ((short)FightTypesEnum.Kodan, true),
-        262661 => ((short)FightTypesEnum.Whisper, true),
-        262660 => ((short)FightTypesEnum.Boneskinner, true),
-        262913 => ((short)FightTypesEnum.Ah, true),
-        262914 => ((short)FightTypesEnum.Xjj, true),
-        262915 => ((short)FightTypesEnum.Ko, true),
-        262916 => ((short)FightTypesEnum.Ht, true),
-        262917 => ((short)FightTypesEnum.Olc, true),
-        263425 => ((short)FightTypesEnum.Co, true),
-        263426 => ((short)FightTypesEnum.ToF, true),
-        196865 => ((short)FightTypesEnum.Mama, true),
-        196866 => ((short)FightTypesEnum.Siax, true),
-        196867 => ((short)FightTypesEnum.Ensolyss, true),
-        197121 => ((short)FightTypesEnum.Skorvald, true),
-        197122 => ((short)FightTypesEnum.Artsariiv, true),
-        197123 => ((short)FightTypesEnum.Arkk, true),
-        197378 => ((short)FightTypesEnum.AiEle, true),
-        197379 => ((short)FightTypesEnum.AiDark, true),
-        197377 => ((short)FightTypesEnum.AiBoth, true),
-        197633 => ((short)FightTypesEnum.Kanaxai, true),
-        197890 => ((short)FightTypesEnum.Eparch, true),
-        198145 => ((short)FightTypesEnum.Shadow, true),
-        263681 => ((short)FightTypesEnum.Kela, true),
-        _ => ((short)FightTypesEnum.Unkn, true)
-    };
-
-    private static string GetLogSource(string url) =>
-        Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host : "upload";
 
     private static void Cleanup(string? evtcPath, string? jobOutputDir)
     {

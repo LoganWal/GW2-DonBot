@@ -1,8 +1,8 @@
 using System.Security.Claims;
-using System.Text.RegularExpressions;
 using DonBot.Core.Models.Entities;
 using DonBot.Core.Models.Enums;
 using DonBot.Core.Services;
+using DonBot.Core.Services.GuildWars2;
 using DonBot.Services.GuildWarsServices;
 using Microsoft.EntityFrameworkCore;
 
@@ -39,8 +39,14 @@ public static class LogsEndpoints
             .Select(fl => new { fl.FightLogId, fl.Url })
             .ToListAsync();
 
-        var dpsReportPattern = new Regex(@"https://(?:b\.dps|wvw|dps)\.report/\S+");
-        var eligible = logs.Where(l => dpsReportPattern.IsMatch(l.Url)).ToList();
+        var eligible = new List<(long FightLogId, string Url, string WingmanUrl)>();
+        foreach (var log in logs)
+        {
+            if (ReportUrlHelper.TryParseReportUrl(log.Url, out var parsed, requireHttps: true))
+            {
+                eligible.Add((log.FightLogId, log.Url, parsed.CanonicalUrl));
+            }
+        }
 
         if (eligible.Count == 0)
         {
@@ -54,7 +60,7 @@ public static class LogsEndpoints
         {
             try
             {
-                var wingmanUrl = $"https://gw2wingman.nevermindcreations.de/api/importLogQueued?link={Uri.EscapeDataString(log.Url)}";
+                var wingmanUrl = $"https://gw2wingman.nevermindcreations.de/api/importLogQueued?link={Uri.EscapeDataString(log.WingmanUrl)}";
                 var response = await client.GetAsync(wingmanUrl);
                 results.Add(new { log.FightLogId, log.Url, success = response.IsSuccessStatusCode });
             }

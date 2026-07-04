@@ -7,6 +7,7 @@ using DonBot.Api.Services;
 using DonBot.Core.Models.Entities;
 using DonBot.Core.Models.Enums;
 using DonBot.Core.Services;
+using DonBot.Core.Services.Raffles;
 using DonBot.Services.GuildWarsServices.MessageGeneration;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -36,8 +37,6 @@ public static class PointsEndpoints
         var dashboardGroup = app.MapGroup("/api/dashboard").RequireAuthorization();
         dashboardGroup.MapGet("/", GetDashboard);
     }
-
-    private const int MaxRaffleDescriptionLength = 4000;
 
     private static readonly TimeSpan GuildListCacheTtl = TimeSpan.FromSeconds(60);
 
@@ -200,6 +199,8 @@ public static class PointsEndpoints
         public DateTimeOffset DrawAtUtc { get; } = drawAtUtc;
         public IReadOnlyList<RaffleWinnerDto> Winners { get; } = winners;
     }
+
+    private sealed class RaffleAnnouncementException(string message) : Exception(message);
     // ReSharper restore UnusedMember.Local
     // ReSharper restore UnusedAutoPropertyAccessor.Local
     // ReSharper restore ClassNeverInstantiated.Local
@@ -363,47 +364,48 @@ public static class PointsEndpoints
 
     private static async Task<IResult> ListRaffleGuilds(
         ClaimsPrincipal user,
-        [FromServices] IUserGuildsService userGuilds,
         [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory,
-        [FromServices] IMemoryCache cache)
+        [FromServices] AccessibleGuildsCache accessibleGuildsCache,
+        CancellationToken ct)
     {
-        var discordId = user.FindFirst("discord_id")?.Value;
-        if (string.IsNullOrEmpty(discordId))
+        var result = await accessibleGuildsCache.GetAsync<GuildSummaryDto>(
+            user,
+            "raffle:guilds",
+            GuildListCacheTtl,
+            GuildListErrorTtl,
+            async (userGuildList, cancellationToken) =>
         {
-            return Results.Unauthorized();
-        }
+            var userGuildIds = userGuildList
+                .Where(g => g.Id <= long.MaxValue)
+                .Select(g => (long)g.Id)
+                .ToHashSet();
 
-        var cacheKey = $"raffle:guilds:{discordId}";
-        var result = await cache.GetOrCoalesceAsync(cacheKey, GuildListCacheTtl, GuildListErrorTtl, async () =>
-        {
-            var userGuildList = await userGuilds.GetForPrincipalAsync(user);
-            if (userGuildList is null)
-            {
-                return [];
-            }
-
-            var userGuildIds = userGuildList.Select(g => (long)g.Id).ToHashSet();
-
-            await using var ctx = await dbContextFactory.CreateDbContextAsync();
+            await using var ctx = await dbContextFactory.CreateDbContextAsync(cancellationToken);
             return await ctx.Guild
                 .Where(g => userGuildIds.Contains(g.GuildId))
                 .OrderBy(g => g.GuildName)
                 .Select(g => new GuildSummaryDto(g.GuildId.ToString(), g.GuildName ?? g.GuildId.ToString()))
-                .ToListAsync();
-        });
+                .ToListAsync(cancellationToken);
+        },
+            ct);
 
-        return Results.Ok(result);
+        if (result.IsUnauthorized)
+        {
+            return Results.Unauthorized();
+        }
+
+        return Results.Ok(result.Guilds);
     }
 
     private static async Task<IResult> GetRaffleState(
         long guildId,
         ClaimsPrincipal user,
-        [FromServices] IUserGuildsService userGuilds,
+        [FromServices] GuildAccessGuard accessGuard,
         [FromServices] IDiscordCommandAccessService commandAccess,
         [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory,
         CancellationToken ct)
     {
-        if (await EnsureMemberAsync(user, guildId, userGuilds, ct) is { } denied)
+        if (await RequireRaffleMemberAsync(user, guildId, accessGuard, ct) is { } denied)
         {
             return denied;
         }
@@ -414,7 +416,7 @@ public static class PointsEndpoints
     private static async Task StreamRaffleUpdates(
         long guildId,
         ClaimsPrincipal user,
-        [FromServices] IUserGuildsService userGuilds,
+        [FromServices] GuildAccessGuard accessGuard,
         [FromServices] IDiscordCommandAccessService commandAccess,
         [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory,
         [FromServices] IRaffleEventHub eventHub,
@@ -425,15 +427,19 @@ public static class PointsEndpoints
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, lifetime.ApplicationStopping);
         ct = linkedCts.Token;
 
-        if (!await userGuilds.IsMemberAsync(user, (ulong)guildId, ct))
+        if (!GuildRouteParser.TryNormalize(guildId, out _))
+        {
+            httpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+            return;
+        }
+
+        if (await accessGuard.RequireMemberAsync(user, guildId, ct) is not null)
         {
             httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
             return;
         }
 
-        httpContext.Response.ContentType = "text/event-stream";
-        httpContext.Response.Headers["Cache-Control"] = "no-cache";
-        httpContext.Response.Headers["X-Accel-Buffering"] = "no";
+        SseWriter.Prepare(httpContext.Response);
 
         using var subscription = eventHub.Subscribe(guildId);
         var pollInterval = TimeSpan.FromSeconds(2);
@@ -450,12 +456,12 @@ public static class PointsEndpoints
                 if (stateJson != lastStateJson)
                 {
                     lastStateJson = stateJson;
-                    await WriteEvent(httpContext, "state", state, ct);
+                    await WriteEvent(httpContext.Response, "state", state, ct);
                 }
 
                 while (subscription.Reader.TryRead(out var message))
                 {
-                    await WriteEvent(httpContext, message.Name, message.Payload, ct);
+                    await WriteEvent(httpContext.Response, message.Name, message.Payload, ct);
                 }
 
                 using var waitCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -483,8 +489,7 @@ public static class PointsEndpoints
 
                 if (DateTime.UtcNow - lastHeartbeat >= heartbeatInterval)
                 {
-                    await httpContext.Response.WriteAsync(": heartbeat\n\n", ct);
-                    await httpContext.Response.Body.FlushAsync(ct);
+                    await SseWriter.WriteCommentAsync(httpContext.Response, "heartbeat", ct);
                     lastHeartbeat = DateTime.UtcNow;
                 }
             }
@@ -501,12 +506,12 @@ public static class PointsEndpoints
         long guildId,
         EnterRaffleDto body,
         ClaimsPrincipal user,
-        [FromServices] IUserGuildsService userGuilds,
+        [FromServices] GuildAccessGuard accessGuard,
         [FromServices] IDiscordCommandAccessService commandAccess,
-        [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory,
+        [FromServices] RaffleService raffleService,
         CancellationToken ct)
     {
-        if (await EnsureMemberAsync(user, guildId, userGuilds, ct) is { } denied)
+        if (await RequireRaffleMemberAsync(user, guildId, accessGuard, ct) is { } denied)
         {
             return denied;
         }
@@ -519,78 +524,47 @@ public static class PointsEndpoints
             return Results.BadRequest(new { error = "Spend at least 1 point." });
         }
 
-        await using var ctx = await dbContextFactory.CreateDbContextAsync(ct);
-        await using var tx = await ctx.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
-
-        var raffle = await ctx.Raffle
-            .Select(r => new { r.Id, r.GuildId, r.IsActive, r.RaffleType })
-            .FirstOrDefaultAsync(r => r.Id == body.RaffleId && r.GuildId == guildId && r.IsActive, ct);
-        if (raffle is null)
+        var raffleType = await raffleService.GetActiveRaffleTypeAsync(guildId, body.RaffleId, ct);
+        if (raffleType is null)
         {
             return Results.NotFound(new { error = "That raffle is no longer active." });
         }
 
-        var commandName = raffle.RaffleType == (int)RaffleTypeEnum.Event ? "enter_event_raffle" : "enter_raffle";
-        if (!await commandAccess.HasCommandAccessAsync(user, (ulong)guildId, commandName, ct))
+        var commandName = RaffleRules.IsEventRaffle(raffleType.Value) ? "enter_event_raffle" : "enter_raffle";
+        if (!await HasCommandAccessAsync(commandAccess, user, guildId, commandName, ct))
         {
             return CommandForbidden(commandName);
         }
 
-        var account = await ctx.Account.AsTracking().FirstOrDefaultAsync(a => a.DiscordId == discordId, ct);
-        if (account is null)
+        var result = await raffleService.EnterAsync(new RaffleEnterRequest(guildId, body.RaffleId, discordId, body.Points), ct);
+        return result.Status switch
         {
-            return Results.BadRequest(new { error = "Verify a GW2 account before entering raffles." });
-        }
-
-        var hasGw2Account = await ctx.GuildWarsAccount.AnyAsync(a => a.DiscordId == discordId, ct);
-        if (!hasGw2Account)
-        {
-            return Results.BadRequest(new { error = "Verify a GW2 account before entering raffles." });
-        }
-
-        if (account.AvailablePoints < body.Points)
-        {
-            return Results.BadRequest(new { error = $"You only have {Math.Floor(account.AvailablePoints)} points available." });
-        }
-
-        var bid = await ctx.PlayerRaffleBid.AsTracking()
-            .FirstOrDefaultAsync(b => b.RaffleId == raffle.Id && b.DiscordId == discordId, ct);
-        if (bid is null)
-        {
-            bid = new PlayerRaffleBid
-            {
-                RaffleId = raffle.Id,
-                DiscordId = discordId,
-                PointsSpent = body.Points
-            };
-            ctx.PlayerRaffleBid.Add(bid);
-        }
-        else
-        {
-            bid.PointsSpent += body.Points;
-        }
-
-        account.AvailablePoints -= body.Points;
-        await ctx.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
-
-        return Results.Ok(new { bid.PointsSpent, account.AvailablePoints });
+            RaffleOperationStatus.Success => Results.Ok(new { result.Bid!.PointsSpent, result.AvailablePoints }),
+            RaffleOperationStatus.InvalidPoints => Results.BadRequest(new { error = "Spend at least 1 point." }),
+            RaffleOperationStatus.RaffleNotFound => Results.NotFound(new { error = "That raffle is no longer active." }),
+            RaffleOperationStatus.AccountNotFound or RaffleOperationStatus.GuildWarsAccountRequired =>
+                Results.BadRequest(new { error = "Verify a GW2 account before entering raffles." }),
+            RaffleOperationStatus.InsufficientPoints =>
+                Results.BadRequest(new { error = $"You only have {Math.Floor(result.AvailablePoints)} points available." }),
+            _ => Results.BadRequest(new { error = "Unable to enter raffle." })
+        };
     }
 
     private static async Task<IResult> CreateRaffle(
         long guildId,
         RaffleWriteDto body,
         ClaimsPrincipal user,
-        [FromServices] IUserGuildsService userGuilds,
+        [FromServices] GuildAccessGuard accessGuard,
         [FromServices] IDiscordCommandAccessService commandAccess,
         [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory,
+        [FromServices] RaffleService raffleService,
         [FromServices] DiscordRestClientProvider clientProvider,
         [FromServices] IFooterService footerService,
         [FromServices] IConfiguration configuration,
         HttpContext httpContext,
         CancellationToken ct)
     {
-        if (await EnsureMemberAsync(user, guildId, userGuilds, ct) is { } denied)
+        if (await RequireRaffleMemberAsync(user, guildId, accessGuard, ct) is { } denied)
         {
             return denied;
         }
@@ -598,56 +572,63 @@ public static class PointsEndpoints
         {
             return Results.Unauthorized();
         }
-        if (!IsValidRaffleType(body.RaffleType))
+        if (!RaffleRules.IsValidRaffleType(body.RaffleType))
         {
             return Results.BadRequest(new { error = "Invalid raffle type." });
         }
 
-        var commandName = body.RaffleType == (int)RaffleTypeEnum.Event ? "create_event_raffle" : "create_raffle";
-        if (!await commandAccess.HasCommandAccessAsync(user, (ulong)guildId, commandName, ct))
+        var commandName = RaffleRules.IsEventRaffle(body.RaffleType) ? "create_event_raffle" : "create_raffle";
+        if (!await HasCommandAccessAsync(commandAccess, user, guildId, commandName, ct))
         {
             return CommandForbidden(commandName);
         }
 
-        var description = NormalizeDescription(body.Description);
-        if (description is null)
+        RaffleCreateResult result;
+        try
         {
-            return Results.BadRequest(new { error = "Raffle message is required." });
+            result = await raffleService.CreateWithMessageReferenceAsync(
+                new RaffleCreateRequest(
+                    guildId,
+                    body.RaffleType,
+                    body.Description,
+                    discordId),
+                async (raffle, cancellationToken) =>
+                {
+                    await using var callbackCtx = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+                    var guild = await callbackCtx.Guild.FirstOrDefaultAsync(g => g.GuildId == guildId, cancellationToken);
+                    var channel = await ResolveAnnouncementChannelAsync(guild, clientProvider);
+                    if (guild is null || channel is null)
+                    {
+                        throw new RaffleAnnouncementException("This server needs an announcement channel configured.");
+                    }
+
+                    var sent = await channel.SendMessageAsync(
+                        text: BuildRaffleMention(guild),
+                        embeds: [await BuildRaffleEmbedAsync(raffle, guild.GuildId, footerService)],
+                        components: BuildRaffleComponents(raffle.RaffleType, guildId, configuration, httpContext));
+                    return new RaffleMessageReference(
+                        raffle.Id,
+                        (long)channel.Id,
+                        (long)sent.Id);
+                },
+                ct);
+        }
+        catch (RaffleAnnouncementException ex)
+        {
+            return Results.BadRequest(new { error = ex.Message });
+        }
+        if (result.Status != RaffleOperationStatus.Success)
+        {
+            return result.Status switch
+            {
+                RaffleOperationStatus.DescriptionRequired => Results.BadRequest(new { error = "Raffle message is required." }),
+                RaffleOperationStatus.ActiveRaffleExists => Results.Conflict(new { error = "There is already an active raffle of this type." }),
+                RaffleOperationStatus.InvalidRaffleType => Results.BadRequest(new { error = "Invalid raffle type." }),
+                _ => Results.BadRequest(new { error = "Unable to create raffle." })
+            };
         }
 
-        await using var ctx = await dbContextFactory.CreateDbContextAsync(ct);
-        var existingActive = await ctx.Raffle.AnyAsync(r =>
-            r.GuildId == guildId && r.RaffleType == body.RaffleType && r.IsActive, ct);
-        if (existingActive)
-        {
-            return Results.Conflict(new { error = "There is already an active raffle of this type." });
-        }
-
-        var guild = await ctx.Guild.FirstOrDefaultAsync(g => g.GuildId == guildId, ct);
-        var channel = await ResolveAnnouncementChannelAsync(guild, clientProvider);
-        if (guild is null || channel is null)
-        {
-            return Results.BadRequest(new { error = "This server needs an announcement channel configured." });
-        }
-
-        var raffle = new Raffle
-        {
-            Description = description,
-            GuildId = guildId,
-            IsActive = true,
-            RaffleType = body.RaffleType,
-            CreatorDiscordId = discordId
-        };
-
-        var sent = await channel.SendMessageAsync(
-            text: BuildRaffleMention(guild),
-            embeds: [await BuildRaffleEmbedAsync(raffle, guild.GuildId, footerService)],
-            components: BuildRaffleComponents(raffle.RaffleType, guildId, configuration, httpContext));
-
-        raffle.MessageChannelId = (long)channel.Id;
-        raffle.MessageId = (long)sent.Id;
-        ctx.Raffle.Add(raffle);
-        await ctx.SaveChangesAsync(ct);
+        var raffle = result.Raffle!;
 
         return Results.Ok(new { raffle.Id });
     }
@@ -656,77 +637,84 @@ public static class PointsEndpoints
         long guildId,
         CompleteRaffleDto body,
         ClaimsPrincipal user,
-        [FromServices] IUserGuildsService userGuilds,
+        [FromServices] GuildAccessGuard accessGuard,
         [FromServices] IDiscordCommandAccessService commandAccess,
         [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory,
+        [FromServices] RaffleService raffleService,
         [FromServices] DiscordRestClientProvider clientProvider,
         [FromServices] IFooterService footerService,
         [FromServices] IRaffleEventHub eventHub,
         CancellationToken ct)
     {
-        if (await EnsureMemberAsync(user, guildId, userGuilds, ct) is { } denied)
+        if (await RequireRaffleMemberAsync(user, guildId, accessGuard, ct) is { } denied)
         {
             return denied;
         }
-        if (!IsValidRaffleType(body.RaffleType))
+        if (!RaffleRules.IsValidRaffleType(body.RaffleType))
         {
             return Results.BadRequest(new { error = "Invalid raffle type." });
         }
 
-        var isEvent = body.RaffleType == (int)RaffleTypeEnum.Event;
+        var isEvent = RaffleRules.IsEventRaffle(body.RaffleType);
         var commandName = isEvent ? "complete_event_raffle" : "complete_raffle";
-        if (!await commandAccess.HasCommandAccessAsync(user, (ulong)guildId, commandName, ct))
+        if (!await HasCommandAccessAsync(commandAccess, user, guildId, commandName, ct))
         {
             return CommandForbidden(commandName);
         }
 
-        var winnersCount = isEvent ? Math.Max(1, body.WinnersCount ?? 1) : 1;
-
-        await using var ctx = await dbContextFactory.CreateDbContextAsync(ct);
-        await using var tx = await ctx.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
-
-        var raffle = await ctx.Raffle.AsTracking().FirstOrDefaultAsync(r =>
-            r.GuildId == guildId && r.RaffleType == body.RaffleType && r.IsActive, ct);
-        if (raffle is null)
+        IReadOnlyList<RaffleWinnerDto> winnerDtos = [];
+        RaffleCompleteResult result;
+        try
         {
-            return Results.NotFound(new { error = "There is no active raffle of this type." });
+            result = await raffleService.CompleteWithAnnouncementAsync(
+                new RaffleCompleteRequest(
+                    guildId,
+                    body.RaffleType,
+                    body.WinnersCount),
+                async (raffle, bids, winners, cancellationToken) =>
+                {
+                    await using var callbackCtx = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+                    var guild = await callbackCtx.Guild.FirstOrDefaultAsync(g => g.GuildId == guildId, cancellationToken);
+                    winnerDtos = await BuildWinnerDtosAsync(callbackCtx, winners, cancellationToken);
+                    if (guild is null)
+                    {
+                        return;
+                    }
+
+                    var channel = await ResolveAnnouncementChannelAsync(guild, clientProvider);
+                    if (channel is null)
+                    {
+                        return;
+                    }
+
+                    await channel.SendMessageAsync(
+                        text: BuildRaffleMention(guild),
+                        embeds: [await BuildRaffleResultEmbedAsync(raffle, guildId, winnerDtos, bids, footerService, callbackCtx, cancellationToken)]);
+                },
+                ct);
+        }
+        catch (RaffleAnnouncementException ex)
+        {
+            return Results.BadRequest(new { error = ex.Message });
         }
 
-        var bids = await ctx.PlayerRaffleBid
-            .AsTracking()
-            .Where(b => b.RaffleId == raffle.Id && b.PointsSpent > 0)
-            .OrderByDescending(b => b.PointsSpent)
-            .ToListAsync(ct);
-        if (bids.Count == 0)
+        if (result.Status != RaffleOperationStatus.Success)
         {
-            return Results.BadRequest(new { error = "No one has entered this raffle yet." });
+            return result.Status switch
+            {
+                RaffleOperationStatus.RaffleNotFound => Results.NotFound(new { error = "There is no active raffle of this type." }),
+                RaffleOperationStatus.NoEntries => Results.BadRequest(new { error = "No one has entered this raffle yet." }),
+                RaffleOperationStatus.InvalidRaffleType => Results.BadRequest(new { error = "Invalid raffle type." }),
+                _ => Results.BadRequest(new { error = "Unable to complete raffle." })
+            };
         }
 
-        var winners = PickWinners(bids, winnersCount);
-        var winnerDiscordIds = winners.Select(w => w.DiscordId).ToHashSet();
-        foreach (var bid in bids)
-        {
-            bid.IsWinner = winnerDiscordIds.Contains(bid.DiscordId);
-        }
-
-        raffle.IsActive = false;
-        await ctx.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
-
-        var guild = await ctx.Guild.FirstOrDefaultAsync(g => g.GuildId == guildId, ct);
-        var channel = await ResolveAnnouncementChannelAsync(guild, clientProvider);
-        var winnerDtos = await BuildWinnerDtosAsync(ctx, winners, ct);
-        if (guild is not null && channel is not null)
-        {
-            await channel.SendMessageAsync(
-                text: BuildRaffleMention(guild),
-                embeds: [await BuildRaffleResultEmbedAsync(raffle, guildId, winnerDtos, bids, footerService, ctx, ct)]);
-        }
+        var raffle = result.Raffle!;
 
         var payload = new RaffleCompletedDto(
             raffle.Id,
             raffle.RaffleType,
-            RaffleTypeName(raffle.RaffleType),
+            RaffleRules.TypeName(raffle.RaffleType),
             raffle.Description ?? "",
             DateTimeOffset.UtcNow.AddSeconds(5),
             winnerDtos);
@@ -739,16 +727,17 @@ public static class PointsEndpoints
         long guildId,
         RaffleWriteDto body,
         ClaimsPrincipal user,
-        [FromServices] IUserGuildsService userGuilds,
+        [FromServices] GuildAccessGuard accessGuard,
         [FromServices] IDiscordCommandAccessService commandAccess,
         [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory,
+        [FromServices] RaffleService raffleService,
         [FromServices] DiscordRestClientProvider clientProvider,
         [FromServices] IFooterService footerService,
         [FromServices] IConfiguration configuration,
         HttpContext httpContext,
         CancellationToken ct)
     {
-        if (await EnsureMemberAsync(user, guildId, userGuilds, ct) is { } denied)
+        if (await RequireRaffleMemberAsync(user, guildId, accessGuard, ct) is { } denied)
         {
             return denied;
         }
@@ -756,53 +745,62 @@ public static class PointsEndpoints
         {
             return Results.Unauthorized();
         }
-        if (!IsValidRaffleType(body.RaffleType))
+        if (!RaffleRules.IsValidRaffleType(body.RaffleType))
         {
             return Results.BadRequest(new { error = "Invalid raffle type." });
         }
 
-        var commandName = body.RaffleType == (int)RaffleTypeEnum.Event ? "reopen_event_raffle" : "reopen_raffle";
-        if (!await commandAccess.HasCommandAccessAsync(user, (ulong)guildId, commandName, ct))
+        var commandName = RaffleRules.IsEventRaffle(body.RaffleType) ? "reopen_event_raffle" : "reopen_raffle";
+        if (!await HasCommandAccessAsync(commandAccess, user, guildId, commandName, ct))
         {
             return CommandForbidden(commandName);
         }
 
-        await using var ctx = await dbContextFactory.CreateDbContextAsync(ct);
-        var existingActive = await ctx.Raffle.AnyAsync(r =>
-            r.GuildId == guildId && r.RaffleType == body.RaffleType && r.IsActive, ct);
-        if (existingActive)
+        RaffleReopenResult result;
+        try
         {
-            return Results.Conflict(new { error = "There is already an active raffle of this type." });
+            result = await raffleService.ReopenWithMessageReferenceAsync(
+                new RaffleReopenRequest(
+                    guildId,
+                    body.RaffleType,
+                    discordId),
+                async (raffle, cancellationToken) =>
+                {
+                    await using var callbackCtx = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+                    var guild = await callbackCtx.Guild.FirstOrDefaultAsync(g => g.GuildId == guildId, cancellationToken);
+                    var channel = await ResolveAnnouncementChannelAsync(guild, clientProvider);
+                    if (guild is null || channel is null)
+                    {
+                        throw new RaffleAnnouncementException("This server needs an announcement channel configured.");
+                    }
+
+                    var sent = await channel.SendMessageAsync(
+                        text: BuildRaffleMention(guild),
+                        embeds: [await BuildRaffleEmbedAsync(raffle, guildId, footerService, reopened: true)],
+                        components: BuildRaffleComponents(raffle.RaffleType, guildId, configuration, httpContext));
+                    return new RaffleMessageReference(
+                        raffle.Id,
+                        (long)channel.Id,
+                        (long)sent.Id);
+                },
+                ct);
+        }
+        catch (RaffleAnnouncementException ex)
+        {
+            return Results.BadRequest(new { error = ex.Message });
+        }
+        if (result.Status != RaffleOperationStatus.Success)
+        {
+            return result.Status switch
+            {
+                RaffleOperationStatus.ActiveRaffleExists => Results.Conflict(new { error = "There is already an active raffle of this type." }),
+                RaffleOperationStatus.PreviousRaffleNotFound => Results.NotFound(new { error = "There is no previous raffle of this type." }),
+                RaffleOperationStatus.InvalidRaffleType => Results.BadRequest(new { error = "Invalid raffle type." }),
+                _ => Results.BadRequest(new { error = "Unable to reopen raffle." })
+            };
         }
 
-        var raffle = await ctx.Raffle.AsTracking()
-            .Where(r => r.GuildId == guildId && r.RaffleType == body.RaffleType)
-            .OrderByDescending(r => r.Id)
-            .FirstOrDefaultAsync(ct);
-        if (raffle is null)
-        {
-            return Results.NotFound(new { error = "There is no previous raffle of this type." });
-        }
-
-        var guild = await ctx.Guild.FirstOrDefaultAsync(g => g.GuildId == guildId, ct);
-        var channel = await ResolveAnnouncementChannelAsync(guild, clientProvider);
-        if (guild is null || channel is null)
-        {
-            return Results.BadRequest(new { error = "This server needs an announcement channel configured." });
-        }
-
-        raffle.IsActive = true;
-        raffle.CreatorDiscordId ??= discordId;
-        await ResetRaffleWinnersAsync(ctx, raffle.Id, ct);
-
-        var sent = await channel.SendMessageAsync(
-            text: BuildRaffleMention(guild),
-            embeds: [await BuildRaffleEmbedAsync(raffle, guildId, footerService, reopened: true)],
-            components: BuildRaffleComponents(raffle.RaffleType, guildId, configuration, httpContext));
-
-        raffle.MessageChannelId = (long)channel.Id;
-        raffle.MessageId = (long)sent.Id;
-        await ctx.SaveChangesAsync(ct);
+        var raffle = result.Raffle!;
 
         return Results.Ok(new { raffle.Id });
     }
@@ -812,8 +810,9 @@ public static class PointsEndpoints
         int raffleId,
         RaffleWriteDto body,
         ClaimsPrincipal user,
-        [FromServices] IUserGuildsService userGuilds,
+        [FromServices] GuildAccessGuard accessGuard,
         [FromServices] IDbContextFactory<DatabaseContext> dbContextFactory,
+        [FromServices] RaffleService raffleService,
         [FromServices] DiscordRestClientProvider clientProvider,
         [FromServices] IFooterService footerService,
         [FromServices] IConfiguration configuration,
@@ -821,7 +820,7 @@ public static class PointsEndpoints
         HttpContext httpContext,
         CancellationToken ct)
     {
-        if (await EnsureMemberAsync(user, guildId, userGuilds, ct) is { } denied)
+        if (await RequireRaffleMemberAsync(user, guildId, accessGuard, ct) is { } denied)
         {
             return denied;
         }
@@ -830,29 +829,31 @@ public static class PointsEndpoints
             return Results.Unauthorized();
         }
 
-        var description = NormalizeDescription(body.Description);
-        if (description is null)
+        var updateResult = await raffleService.UpdateAsync(new RaffleUpdateRequest(
+            guildId,
+            raffleId,
+            discordId,
+            body.Description), ct);
+        if (updateResult.Status == RaffleOperationStatus.DescriptionRequired)
         {
             return Results.BadRequest(new { error = "Raffle message is required." });
         }
-
-        await using var ctx = await dbContextFactory.CreateDbContextAsync(ct);
-        var raffle = await ctx.Raffle.AsTracking().FirstOrDefaultAsync(r =>
-            r.Id == raffleId && r.GuildId == guildId && r.IsActive, ct);
-        if (raffle is null)
+        if (updateResult.Status == RaffleOperationStatus.RaffleNotFound)
         {
             return Results.NotFound(new { error = "That raffle is no longer active." });
         }
-        if (raffle.CreatorDiscordId != discordId)
+        if (updateResult.Status == RaffleOperationStatus.CreatorMismatch)
         {
             return Results.Json(
                 new { error = "Only the user who created this raffle can edit its Discord message." },
                 statusCode: StatusCodes.Status403Forbidden);
         }
+        if (updateResult.Status != RaffleOperationStatus.Success)
+        {
+            return Results.BadRequest(new { error = "Unable to update raffle." });
+        }
 
-        raffle.Description = description;
-        await ctx.SaveChangesAsync(ct);
-
+        var raffle = updateResult.Raffle!;
         await TryUpdateDiscordRaffleMessageAsync(
             raffle,
             guildId,
@@ -862,6 +863,7 @@ public static class PointsEndpoints
             httpContext,
             loggerFactory.CreateLogger("DonBot.Api.Endpoints.PointsEndpoints"));
 
+        await using var ctx = await dbContextFactory.CreateDbContextAsync(ct);
         return Results.Ok(await ToRaffleDtoAsync(ctx, raffle, discordId, ct));
     }
 
@@ -918,14 +920,14 @@ public static class PointsEndpoints
             raffleDtos,
             lastRaffles,
             new RafflePermissionsDto(
-                await commandAccess.HasCommandAccessAsync(user, (ulong)guildId, "enter_raffle", ct),
-                await commandAccess.HasCommandAccessAsync(user, (ulong)guildId, "enter_event_raffle", ct),
-                await commandAccess.HasCommandAccessAsync(user, (ulong)guildId, "create_raffle", ct),
-                await commandAccess.HasCommandAccessAsync(user, (ulong)guildId, "create_event_raffle", ct),
-                await commandAccess.HasCommandAccessAsync(user, (ulong)guildId, "complete_raffle", ct),
-                await commandAccess.HasCommandAccessAsync(user, (ulong)guildId, "complete_event_raffle", ct),
-                await commandAccess.HasCommandAccessAsync(user, (ulong)guildId, "reopen_raffle", ct),
-                await commandAccess.HasCommandAccessAsync(user, (ulong)guildId, "reopen_event_raffle", ct)),
+                await HasCommandAccessAsync(commandAccess, user, guildId, "enter_raffle", ct),
+                await HasCommandAccessAsync(commandAccess, user, guildId, "enter_event_raffle", ct),
+                await HasCommandAccessAsync(commandAccess, user, guildId, "create_raffle", ct),
+                await HasCommandAccessAsync(commandAccess, user, guildId, "create_event_raffle", ct),
+                await HasCommandAccessAsync(commandAccess, user, guildId, "complete_raffle", ct),
+                await HasCommandAccessAsync(commandAccess, user, guildId, "complete_event_raffle", ct),
+                await HasCommandAccessAsync(commandAccess, user, guildId, "reopen_raffle", ct),
+                await HasCommandAccessAsync(commandAccess, user, guildId, "reopen_event_raffle", ct)),
             new RaffleAvailabilityDto(
                 previousTypes.Contains((int)RaffleTypeEnum.Normal),
                 previousTypes.Contains((int)RaffleTypeEnum.Event)));
@@ -947,7 +949,7 @@ public static class PointsEndpoints
         return new RaffleDto(
             raffle.Id,
             raffle.RaffleType,
-            RaffleTypeName(raffle.RaffleType),
+            RaffleRules.TypeName(raffle.RaffleType),
             raffle.Description ?? "",
             raffle.IsActive,
             raffle.CreatorDiscordId == discordId,
@@ -970,7 +972,7 @@ public static class PointsEndpoints
         return new RaffleHistoryDto(
             raffle.Id,
             raffle.RaffleType,
-            RaffleTypeName(raffle.RaffleType),
+            RaffleRules.TypeName(raffle.RaffleType),
             raffle.Description ?? "",
             bids.Sum(b => b.PointsSpent),
             bidDtos.Where(b => b.IsWinner).ToList(),
@@ -1025,18 +1027,6 @@ public static class PointsEndpoints
             .ToList();
     }
 
-    private static async Task ResetRaffleWinnersAsync(DatabaseContext ctx, int raffleId, CancellationToken ct)
-    {
-        var winnerBids = await ctx.PlayerRaffleBid
-            .AsTracking()
-            .Where(b => b.RaffleId == raffleId && b.IsWinner)
-            .ToListAsync(ct);
-        foreach (var bid in winnerBids)
-        {
-            bid.IsWinner = false;
-        }
-    }
-
     private static async Task<Dictionary<long, string>> GetGw2NamesByDiscordIdAsync(DatabaseContext ctx, IReadOnlyList<long> discordIds, CancellationToken ct)
     {
         var accounts = await ctx.GuildWarsAccount
@@ -1056,48 +1046,13 @@ public static class PointsEndpoints
             ? names
             : $"Discord {discordId}";
 
-    private static IReadOnlyList<PlayerRaffleBid> PickWinners(IReadOnlyList<PlayerRaffleBid> bids, int requestedCount)
-    {
-        var remaining = bids.Select(b => new PlayerRaffleBid
-        {
-            RaffleId = b.RaffleId,
-            DiscordId = b.DiscordId,
-            PointsSpent = b.PointsSpent
-        }).ToList();
-        var winners = new List<PlayerRaffleBid>();
-
-        while (remaining.Count > 0 && winners.Count < requestedCount)
-        {
-            var total = remaining.Sum(b => b.PointsSpent);
-            if (total <= 0)
-            {
-                break;
-            }
-
-            var picked = (decimal)Random.Shared.NextDouble() * total;
-            var rolling = 0m;
-            for (var i = 0; i < remaining.Count; i++)
-            {
-                rolling += remaining[i].PointsSpent;
-                if (picked <= rolling)
-                {
-                    winners.Add(remaining[i]);
-                    remaining.RemoveAt(i);
-                    break;
-                }
-            }
-        }
-
-        return winners;
-    }
-
     private static async Task<Embed> BuildRaffleEmbedAsync(
         Raffle raffle,
         long guildId,
         IFooterService footerService,
         bool reopened = false)
     {
-        var isEvent = raffle.RaffleType == (int)RaffleTypeEnum.Event;
+        var isEvent = RaffleRules.IsEventRaffle(raffle.RaffleType);
         var title = isEvent ? "Event Raffle!" : "Raffle!";
         var enterCommand = isEvent ? "/enter_event_raffle" : "/enter_raffle";
         var prefix = reopened ? "Reopened raffle. " : "";
@@ -1128,7 +1083,7 @@ public static class PointsEndpoints
     {
         var top = await BuildTopBiddersAsync(ctx, bids, 5, ct);
         var description = new StringBuilder();
-        if (raffle.RaffleType == (int)RaffleTypeEnum.Event)
+        if (RaffleRules.IsEventRaffle(raffle.RaffleType))
         {
             description.AppendLine("And the winners are:");
             for (var i = 0; i < winners.Count; i++)
@@ -1151,7 +1106,7 @@ public static class PointsEndpoints
 
         return new EmbedBuilder
         {
-            Title = raffle.RaffleType == (int)RaffleTypeEnum.Event ? "Event Raffle Results!" : "Raffle!",
+            Title = RaffleRules.IsEventRaffle(raffle.RaffleType) ? "Event Raffle Results!" : "Raffle!",
             Description = description.ToString(),
             Color = (Color)System.Drawing.Color.FromArgb(230, 231, 232),
             Author = DonBotAuthor(),
@@ -1170,7 +1125,7 @@ public static class PointsEndpoints
         IConfiguration configuration,
         HttpContext? httpContext = null)
     {
-        var isEvent = raffleType == (int)RaffleTypeEnum.Event;
+        var isEvent = RaffleRules.IsEventRaffle(raffleType);
         var builder = new ComponentBuilder()
             .WithButton("Points", "Raffle_Points", ButtonStyle.Success)
             .WithButton("1 Point", isEvent ? "Spend_Event_1_Raffle" : "Spend_1_Raffle")
@@ -1268,57 +1223,42 @@ public static class PointsEndpoints
     private static string BuildRaffleMention(Guild guild) =>
         guild.DiscordVerifiedRoleId.HasValue ? $"<@&{guild.DiscordVerifiedRoleId.Value}>" : "";
 
-    private static string? NormalizeDescription(string? description)
-    {
-        var trimmed = description?.Trim();
-        if (string.IsNullOrEmpty(trimmed))
-        {
-            return null;
-        }
-        return trimmed.Length <= MaxRaffleDescriptionLength
-            ? trimmed
-            : trimmed[..MaxRaffleDescriptionLength];
-    }
-
-    private static bool IsValidRaffleType(int raffleType) =>
-        raffleType is (int)RaffleTypeEnum.Normal or (int)RaffleTypeEnum.Event;
-
-    private static string RaffleTypeName(int raffleType) =>
-        raffleType == (int)RaffleTypeEnum.Event ? "Event" : "Normal";
-
     private static bool TryGetDiscordId(ClaimsPrincipal user, out long discordId)
     {
         var discordIdStr = user.FindFirst("discord_id")?.Value;
         return long.TryParse(discordIdStr, out discordId);
     }
 
-    private static async Task<IResult?> EnsureMemberAsync(
+    private static async Task<IResult?> RequireRaffleMemberAsync(
         ClaimsPrincipal user,
         long guildId,
-        IUserGuildsService userGuilds,
+        GuildAccessGuard accessGuard,
         CancellationToken ct)
-    {
-        if (await userGuilds.IsMemberAsync(user, (ulong)guildId, ct))
-        {
-            return null;
-        }
-
-        return Results.Json(
-            new { error = "You do not have access to this server." },
-            statusCode: StatusCodes.Status403Forbidden);
-    }
+        => await accessGuard.RequireMemberAsync(
+            user,
+            guildId,
+            ct,
+            new { error = "You do not have access to this server." });
 
     private static IResult CommandForbidden(string commandName) =>
         Results.Json(
             new { error = $"Discord does not allow your account to use /{commandName} in this server." },
             statusCode: StatusCodes.Status403Forbidden);
 
-    private static async Task WriteEvent(HttpContext httpContext, string eventName, object payload, CancellationToken ct)
+    private static Task<bool> HasCommandAccessAsync(
+        IDiscordCommandAccessService commandAccess,
+        ClaimsPrincipal user,
+        long guildId,
+        string commandName,
+        CancellationToken ct)
     {
-        var json = JsonSerializer.Serialize(payload, SseJsonOptions);
-        await httpContext.Response.WriteAsync($"event: {eventName}\ndata: {json}\n\n", ct);
-        await httpContext.Response.Body.FlushAsync(ct);
+        return GuildRouteParser.TryNormalize(guildId, out var route)
+            ? commandAccess.HasCommandAccessAsync(user, route.UnsignedValue, commandName, ct)
+            : Task.FromResult(false);
     }
+
+    private static Task WriteEvent(HttpResponse response, string eventName, object payload, CancellationToken ct) =>
+        SseWriter.WriteJsonEventAsync(response, eventName, payload, SseJsonOptions, ct);
 
     private static async Task<IResult> GetDashboard(
         ClaimsPrincipal user,

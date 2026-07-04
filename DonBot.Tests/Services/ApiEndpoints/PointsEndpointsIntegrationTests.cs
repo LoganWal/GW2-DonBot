@@ -125,6 +125,38 @@ public class PointsEndpointsIntegrationTests
     }
 
     [Fact]
+    public async Task GetRaffleState_NegativeGuildId_ReturnsBadRequest()
+    {
+        using var host = NewRaffleHost();
+
+        var response = await host.Client.GetAsync("/api/raffles/-1");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task StreamRaffleUpdates_NegativeGuildId_ReturnsBareBadRequest()
+    {
+        using var host = NewRaffleHost();
+
+        var response = await host.Client.GetAsync("/api/raffles/-1/stream");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(string.Empty, await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task StreamRaffleUpdates_NotMember_ReturnsBareForbidden()
+    {
+        using var host = NewRaffleHost();
+
+        var response = await host.Client.GetAsync("/api/raffles/42/stream");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(string.Empty, await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
     public async Task GetMyPoints_NoAccount_Returns404()
     {
         using var host = NewHost();
@@ -357,7 +389,20 @@ public class PointsEndpointsIntegrationTests
     }
 
     [Fact]
-    public async Task CompleteRaffle_WithCommandAccessReturnsWinnerPayloadAndClosesRaffle()
+    public async Task EnterRaffle_InvalidPoints_ReturnsBadRequestBeforeRaffleLookupOrCommandAccess()
+    {
+        using var host = NewRaffleHost();
+        host.AllowMembership(42L);
+
+        var response = await host.Client.PostAsJsonAsync("/api/raffles/42/enter", new { raffleId = 999, points = 0 });
+        var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("Spend at least 1 point.", doc.GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task CompleteRaffle_NoAnnouncementChannel_CompletesAndSkipsAnnouncement()
     {
         using var host = NewRaffleHost();
         host.AllowMembership(42L);
@@ -392,11 +437,8 @@ public class PointsEndpointsIntegrationTests
         var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(7, doc.GetProperty("raffleId").GetInt32());
-        Assert.Equal("Normal", doc.GetProperty("type").GetString());
-        Assert.InRange((doc.GetProperty("drawAtUtc").GetDateTimeOffset() - DateTimeOffset.UtcNow).TotalSeconds, 0, 10);
-        Assert.Single(doc.GetProperty("winners").EnumerateArray());
-        Assert.Equal("123", doc.GetProperty("winners")[0].GetProperty("discordId").GetString());
+        Assert.Equal(7, doc.GetProperty("raffleId").GetInt64());
+        Assert.Equal(TestDiscordId.ToString(), doc.GetProperty("winners")[0].GetProperty("discordId").GetString());
 
         await using var verifyDb = await host.DbFactory.CreateDbContextAsync();
         var raffle = await verifyDb.Raffle.FindAsync(7);

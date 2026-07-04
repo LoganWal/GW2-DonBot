@@ -194,7 +194,12 @@
 </template>
 
 <script setup lang="ts">
+import { isWvwFight as isWvwFightType } from '~/composables/useFightTypes'
 import { successFilterOptions, difficultyFilterOptions, type SuccessFilter, type DifficultyFilter } from '~/composables/useLogFilters'
+import { buildProgressionUrl } from '~/composables/useLogQuery'
+import { playstyleOptionsForFightType, playstyleValuesForFightType } from '~/composables/usePlaystyles'
+import { chartLineColor, createClickableChartOptions, makeNumericDataset } from '~/composables/useChartOptions'
+import { formatDate } from '~/composables/useFormatters'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -215,7 +220,7 @@ const difficultyFilter = ref<DifficultyFilter>(null)
 const dayGroupMode = ref<'logs' | 'days'>('logs')
 const logsPerDay = ref<number | null>(3)
 
-const isWvWFight = computed(() => selectedFightType.value === 0)
+const isWvWFight = computed(() => isWvwFightType(selectedFightType.value))
 
 const timeRangeOptions = [
   { label: 'All time', value: 'all' },
@@ -229,24 +234,10 @@ const dayGroupOptions = [
   { label: 'By day', value: 'days' },
 ] as const
 
-const pvePlaystyleOptions = [
-  { label: 'DPS', value: 'dps' },
-  { label: 'Boon DPS', value: 'boon-dps' },
-  { label: 'Boon Healer', value: 'boon-healer' },
-  { label: 'Mechanic', value: 'mechanic' },
-]
-
-const wvwPlaystyleOptions = [
-  { label: 'DPS', value: 'dps' },
-  { label: 'Support DPS', value: 'support-dps' },
-  { label: 'Support', value: 'support' },
-  { label: 'Heal Support', value: 'heal-support' },
-]
-
-const currentPlaystyleOptions = computed(() => isWvWFight.value ? wvwPlaystyleOptions : pvePlaystyleOptions)
+const currentPlaystyleOptions = computed(() => playstyleOptionsForFightType(selectedFightType.value))
 
 const selectAllPlaystyles = () => {
-  selectedPlaystyles.value = currentPlaystyleOptions.value.map(option => option.value)
+  selectedPlaystyles.value = playstyleValuesForFightType(selectedFightType.value)
 }
 
 const load = async (resetCharacters = false) => {
@@ -269,18 +260,19 @@ const load = async (resetCharacters = false) => {
   }
   try
   {
-    let url = `/api/stats/progression?fightType=${selectedFightType.value}`
-    url += `&playstyles=${selectedPlaystyles.value.map(encodeURIComponent).join(',')}`
+    let startDateTime: string | undefined
     if (timeRange.value !== 'all') {
       const msMap = { week: 7, month: 30, year: 365 }
       const since = new Date(Date.now() - msMap[timeRange.value] * 24 * 60 * 60 * 1000)
-      url += `&startDateTime=${since.toISOString()}`
+      startDateTime = since.toISOString()
     }
-    if (!isWvWFight.value) {
-      if (successFilter.value === 'kills') url += '&isSuccess=true'
-      else if (successFilter.value === 'wipes') url += '&isSuccess=false'
-      if (difficultyFilter.value !== null) url += `&fightMode=${difficultyFilter.value}`
-    }
+    const url = buildProgressionUrl({
+      fightType: selectedFightType.value,
+      playstyles: selectedPlaystyles.value,
+      startDateTime,
+      successFilter: isWvWFight.value ? undefined : successFilter.value,
+      difficultyFilter: isWvWFight.value ? undefined : difficultyFilter.value,
+    })
     points.value = await api(url) as any[]
     if (resetCharacters)
       allCharacters.value = [...new Set((points.value as any[]).map((p: any) => p.characterName).filter(Boolean))]
@@ -298,7 +290,7 @@ onMounted(() => {
   }
 })
 
-const isWvW = computed(() => selectedFightType.value === 0)
+const isWvW = isWvWFight
 
 const filteredPoints = computed(() =>
   selectedCharacters.value.length > 0
@@ -343,7 +335,7 @@ const displayPoints = computed(() => {
 })
 
 const labels = computed(() =>
-  displayPoints.value.map(p => new Date(p.date).toLocaleDateString())
+  displayPoints.value.map(p => formatDate(p.date))
 )
 
 const avgOf = (field: string) => {
@@ -354,18 +346,8 @@ const avgOf = (field: string) => {
 const maxOf = (field: string) =>
   displayPoints.value.length ? Math.max(...displayPoints.value.map(p => Number(p[field]) || 0)) : 0
 
-const lineColor = (r: number, g: number, b: number, a = 1) => `rgba(${r},${g},${b},${a})`
-
-const makeDataset = (label: string, field: string, r: number, g: number, b: number) => ({
-  label,
-  data: displayPoints.value.map(p => Number(p[field]) || 0),
-  borderColor: lineColor(r, g, b),
-  backgroundColor: lineColor(r, g, b, 0.15),
-  tension: 0.3,
-  pointRadius: 4,
-  pointHoverRadius: 7,
-  fill: false,
-})
+const makeDataset = (label: string, field: string, r: number, g: number, b: number) =>
+  makeNumericDataset(displayPoints.value, label, field, r, g, b)
 
 const bossHpChartData = computed(() => ({
   labels: labels.value,
@@ -486,8 +468,8 @@ const mechanicChartDataMap = computed(() => {
       datasets: [{
         label: name,
         data: displayPoints.value.map(p => Number(((p as any).mechanics ?? {})[name] ?? 0)),
-        borderColor: lineColor(168, 85, 247),
-        backgroundColor: lineColor(168, 85, 247, 0.15),
+        borderColor: chartLineColor(168, 85, 247),
+        backgroundColor: chartLineColor(168, 85, 247, 0.15),
         tension: 0.3,
         pointRadius: 4,
         pointHoverRadius: 7,
@@ -498,39 +480,10 @@ const mechanicChartDataMap = computed(() => {
   return map
 })
 
-const handleChartClick = (_event: any, elements: any[]) => {
-  if (!elements.length) return
-  const point = displayPoints.value[elements[0].index]
+const chartOptions = createClickableChartOptions(index => {
+  const point = displayPoints.value[index]
   if (point?.fightLogId) navigateTo(`/logs/${point.fightLogId}`)
-}
-
-const chartOptions = computed(() => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  onClick: handleChartClick,
-  plugins: {
-    legend: {
-      labels: { color: '#94a3b8', boxWidth: 12 }
-    },
-    tooltip: {
-      mode: 'index' as const,
-      intersect: false,
-      callbacks: {
-        footer: () => ['Click to open log'],
-      },
-    },
-  },
-  scales: {
-    x: {
-      ticks: { color: '#64748b', maxTicksLimit: 10 },
-      grid: { color: 'rgba(255,255,255,0.05)' }
-    },
-    y: {
-      ticks: { color: '#64748b' },
-      grid: { color: 'rgba(255,255,255,0.05)' }
-    }
-  }
-}))
+})
 </script>
 
 <style scoped>

@@ -1,3 +1,5 @@
+import { formatMilliseconds } from './useFormatters'
+
 export const FIGHT_NAMES: Record<number, string> = {
   0: 'WvW',
   1: 'Vale Guardian', 2: 'Gorseval', 3: 'Sabetha', 53: 'Spirit Woods',
@@ -53,8 +55,26 @@ const SUPER_CATEGORIES: { label: string; groups: string[] }[] = [
   { label: 'Other', groups: ['Golem', 'Other'] },
 ]
 
+const RAID_GROUPS = new Set(['Wing 1', 'Wing 2', 'Wing 3', 'Wing 4', 'Wing 5', 'Wing 6', 'Wing 7', 'Wing 8', 'Wing 9'])
+const STRIKE_GROUPS = new Set(['EoD Strikes', 'Core Strikes', 'SotO Strikes', 'Icebrood Strikes'])
+
+export const wvwTypes = [0]
+export const raidTypes = GROUPS.filter(g => RAID_GROUPS.has(g.label)).flatMap(g => g.values)
+export const strikeTypes = GROUPS.filter(g => STRIKE_GROUPS.has(g.label)).flatMap(g => g.values)
+export const fractalTypes = GROUPS.find(g => g.label === 'Fractals')?.values ?? []
+export const pveTypes = [...raidTypes, ...strikeTypes, ...fractalTypes]
+
+export const fightTypeQuickCategories = [
+  { label: 'All PvE', types: pveTypes },
+  { label: 'WvW', types: wvwTypes },
+  { label: 'Strikes', types: strikeTypes },
+  { label: 'Raids (Wings)', types: raidTypes },
+  { label: 'Fractals', types: fractalTypes },
+]
+
 export const fightName = (type: number) => FIGHT_NAMES[type] ?? 'Unknown'
 export const fightGroup = (type: number) => FIGHT_TYPE_TO_GROUP[type] ?? 'Other'
+export const isWvwFight = (type: number | null | undefined) => type === 0
 
 export const fightTypeGroupedOptions = [
   { label: 'WvW', items: [{ label: 'WvW', value: 0, group: 'WvW' }] },
@@ -91,14 +111,5 @@ export function groupBySuperCategory<T extends { fightType: number }>(
 }
 
 export function formatDuration(ms: number, long = false): string {
-  const s = Math.floor(ms / 1000)
-  if (long) {
-    const m = Math.floor(s / 60)
-    const h = Math.floor(m / 60)
-    if (h > 0) {
-      return `${h}h ${m % 60}m ${s % 60}s`
-    }
-    return `${m}m ${s % 60}s`
-  }
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+  return formatMilliseconds(ms, long)
 }

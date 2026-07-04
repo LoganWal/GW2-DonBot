@@ -8,8 +8,8 @@ public sealed record ScheduledEventResponseOption(string? Label, string? Emoji, 
 public static class ScheduledEventResponseOptions
 {
     public const int MaxCount = 10;
-    private const int MaxLabelLength = 80;
-    private const int MaxEmojiLength = 64;
+    public const int MaxLabelLength = 80;
+    public const int MaxEmojiLength = 64;
     private const int MaxJsonLength = 4000;
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);

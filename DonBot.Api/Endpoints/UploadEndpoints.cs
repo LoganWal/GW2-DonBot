@@ -1,9 +1,9 @@
 using System.Net;
 using System.Security.Claims;
 using System.Text;
-using System.Text.RegularExpressions;
 using DonBot.Api.Services;
 using DonBot.Core.Models.Entities;
+using DonBot.Core.Services.GuildWars2;
 using Microsoft.EntityFrameworkCore;
 using tusdotnet;
 using tusdotnet.Interfaces;
@@ -25,9 +25,6 @@ public static class UploadEndpoints
         group.MapPost("/wingman/bulk", SubmitBulkToWingman);
         group.MapTus("/tus", _ => BuildTusConfigurationAsync(app));
     }
-
-    private static readonly Regex DpsReportUrlPattern =
-        new(@"^https?://(b\.dps|dps|wvw)\.report/\S+$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static Task<DefaultTusConfiguration> BuildTusConfigurationAsync(WebApplication app)
     {
@@ -247,8 +244,9 @@ public static class UploadEndpoints
 
         var validUrls = urls
             .Select(u => u.Trim())
-            .Where(u => DpsReportUrlPattern.IsMatch(u))
-            .Distinct()
+            .Select(u => ReportUrlHelper.TryParseReportUrl(u, out var parsed) ? parsed : null)
+            .OfType<ParsedReportUrl>()
+            .DistinctBy(u => u.CanonicalUrl, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         if (validUrls.Count == 0)
@@ -259,11 +257,10 @@ public static class UploadEndpoints
         await using var ctx = await dbContextFactory.CreateDbContextAsync();
         var created = new List<object>();
 
-        foreach (var url in validUrls)
+        foreach (var parsedUrl in validUrls)
         {
-            var displayName = Uri.TryCreate(url, UriKind.Absolute, out var uri)
-                ? uri.Segments.LastOrDefault()?.Trim('/') ?? url
-                : url;
+            var url = parsedUrl.CanonicalUrl;
+            var displayName = parsedUrl.Permalink;
 
             var upload = new LogUpload
             {
@@ -292,14 +289,11 @@ public static class UploadEndpoints
         HttpContext ctx,
         CancellationToken ct)
     {
-        ctx.Response.ContentType = "text/event-stream";
-        ctx.Response.Headers["Cache-Control"] = "no-cache";
-        ctx.Response.Headers["X-Accel-Buffering"] = "no";
+        SseWriter.Prepare(ctx.Response);
 
         await foreach (var msg in progress.Subscribe(id, ct))
         {
-            await ctx.Response.WriteAsync($"data: {msg}\n\n", ct);
-            await ctx.Response.Body.FlushAsync(ct);
+            await SseWriter.WriteDataAsync(ctx.Response, msg, ct);
         }
     }
 

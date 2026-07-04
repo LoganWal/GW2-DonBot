@@ -1,24 +1,19 @@
 using System.Globalization;
 using Discord;
-using DonBot.Core.Models.Entities;
-using DonBot.Core.Models.Enums;
 using DonBot.Core.Models.GuildWars2;
-using DonBot.Core.Services;
+using DonBot.Core.Services.GuildWars2;
 using DonBot.Extensions;
-using DonBot.Services.DatabaseServices;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
 namespace DonBot.Services.GuildWarsServices.MessageGeneration;
 
 public sealed class PvEFightSummaryService(
-    IEntityService entityService,
     IFooterService footerService,
     IPlayerService playerService,
     IRotationAnalysisService rotationAnalysisService,
-    IDbContextFactory<DatabaseContext> dbContextFactory,
     IPointsAwardService pointsAwardService,
-    IConfiguration configuration) : IPvEFightSummaryService
+    IConfiguration configuration,
+    FightLogIngestionService fightLogIngestionService) : IPvEFightSummaryService
 {
     public async Task<(Embed Embed, string? WebAppUrl, long FightLogId)> GenerateSimple(EliteInsightDataModel data, long guildId)
     {
@@ -32,343 +27,25 @@ public sealed class PvEFightSummaryService(
             catch (Exception ex) { _ = ex; }
         });
 
-        var fightPhase = data.FightEliteInsightDataModel.Phases?.Any() ?? false
-            ? data.FightEliteInsightDataModel.Phases[0]
-            : new ArcDpsPhase();
-
-        var dateStartString = data.FightEliteInsightDataModel.Start;
-        var dateTimeStart = string.IsNullOrEmpty(dateStartString)
-            ? DateTime.UtcNow
-            : DateTime.ParseExact(dateStartString, "yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
-
-        var duration = fightPhase.Duration;
-        var sumAllTargets = true;
-
-        short encounterType;
-        switch (data.FightEliteInsightDataModel.FightId)
+        var fightPhase = FightLogMaterializer.ResolveFightPhase(data);
+        var gw2Players = playerService.GetGw2Players(data, fightPhase, FightLogMaterializer.ShouldSumAllTargets(data));
+        var ingestionResult = await fightLogIngestionService.IngestAsync(new FightLogIngestionRequest(data, fightPhase, gw2Players)
         {
-            case 131329:
-                encounterType = (short)FightTypesEnum.Vale;
-                sumAllTargets = false;
-                break;
-            case 131332:
-                encounterType = (short)FightTypesEnum.Spirit;
-                break;
-            case 131330:
-                encounterType = (short)FightTypesEnum.Gorseval;
-                sumAllTargets = false;
-                break;
-            case 131331:
-                encounterType = (short)FightTypesEnum.Sabetha;
-                sumAllTargets = false;
-                break;
-            case 131585:
-                encounterType = (short)FightTypesEnum.Sloth;
-                sumAllTargets = false;
-                break;
-            case 131586:
-                encounterType = (short)FightTypesEnum.Trio;
-                sumAllTargets = false;
-                break;
-            case 131587:
-                encounterType = (short)FightTypesEnum.Matthias;
-                sumAllTargets = false;
-                break;
-            case 131841:
-                encounterType = (short)FightTypesEnum.Escort;
-                sumAllTargets = false;
-                break;
-            case 131842:
-                encounterType = (short)FightTypesEnum.Kc;
-                sumAllTargets = false;
-                break;
-            case 131843:
-                encounterType = (short)FightTypesEnum.Tc;
-                sumAllTargets = false;
-                break;
-            case 131844:
-                encounterType = (short)FightTypesEnum.Xera;
-                sumAllTargets = false;
-                break;
-            case 132097:
-                encounterType = (short)FightTypesEnum.Cairn;
-                sumAllTargets = false;
-                break;
-            case 132098:
-                encounterType = (short)FightTypesEnum.Mo;
-                sumAllTargets = false;
-                break;
-            case 132099:
-                encounterType = (short)FightTypesEnum.Samarog;
-                sumAllTargets = false;
-                break;
-            case 132100:
-                encounterType = (short)FightTypesEnum.Deimos;
-                sumAllTargets = false;
-                break;
-            case 132353:
-                encounterType = (short)FightTypesEnum.Sh;
-                sumAllTargets = false;
-                break;
-            case 132354:
-                encounterType = (short)FightTypesEnum.River;
-                sumAllTargets = false;
-                break;
-            case 132355:
-                encounterType = (short)FightTypesEnum.Bk;
-                sumAllTargets = false;
-                break;
-            case 132356:
-                encounterType = (short)FightTypesEnum.EoS;
-                sumAllTargets = false;
-                break;
-            case 132357:
-                encounterType = (short)FightTypesEnum.SoD;
-                sumAllTargets = false;
-                break;
-            case 132358:
-                encounterType = (short)FightTypesEnum.Dhuum;
-                sumAllTargets = false;
-                break;
-            case 132609:
-                encounterType = (short)FightTypesEnum.Ca;
-                sumAllTargets = false;
-                break;
-            case 132610:
-                encounterType = (short)FightTypesEnum.Largos;
-                break;
-            case 132611:
-                encounterType = (short)FightTypesEnum.Qadim;
-                sumAllTargets = false;
-                break;
-            case 132865:
-                encounterType = (short)FightTypesEnum.Adina;
-                sumAllTargets = false;
-                break;
-            case 132866:
-                encounterType = (short)FightTypesEnum.Sabir;
-                sumAllTargets = false;
-                break;
-            case 132867:
-                encounterType = (short)FightTypesEnum.Peerless;
-                sumAllTargets = false;
-                break;
-            case 133121:
-                encounterType = (short)FightTypesEnum.Greer;
-                sumAllTargets = false;
-                break;
-            case 133122:
-                encounterType = (short)FightTypesEnum.Decima;
-                sumAllTargets = false;
-                break;
-            case 133123:
-                encounterType = (short)FightTypesEnum.Ura;
-                sumAllTargets = false;
-                break;
-            case 262657:
-                encounterType = (short)FightTypesEnum.Icebrood;
-                break;
-            case 262658:
-                encounterType = (short)FightTypesEnum.Fraenir;
-                break;
-            case 262659:
-                encounterType = (short)FightTypesEnum.Kodan;
-                break;
-            case 262661:
-                encounterType = (short)FightTypesEnum.Whisper;
-                break;
-            case 262660:
-                encounterType = (short)FightTypesEnum.Boneskinner;
-                break;
-            case 262913:
-                encounterType = (short)FightTypesEnum.Ah;
-                break;
-            case 262914:
-                encounterType = (short)FightTypesEnum.Xjj;
-                break;
-            case 262915:
-                encounterType = (short)FightTypesEnum.Ko;
-                break;
-            case 262916:
-                encounterType = (short)FightTypesEnum.Ht;
-                break;
-            case 262917:
-                encounterType = (short)FightTypesEnum.Olc;
-                break;
-            case 263425:
-                encounterType = (short)FightTypesEnum.Co;
-                break;
-            case 263426:
-                encounterType = (short)FightTypesEnum.ToF;
-                break;
-            case 196865:
-                encounterType = (short)FightTypesEnum.Mama;
-                break;
-            case 196866:
-                encounterType = (short)FightTypesEnum.Siax;
-                break;
-            case 196867:
-                encounterType = (short)FightTypesEnum.Ensolyss;
-                break;
-            case 197121:
-                encounterType = (short)FightTypesEnum.Skorvald;
-                break;
-            case 197122:
-                encounterType = (short)FightTypesEnum.Artsariiv;
-                break;
-            case 197123:
-                encounterType = (short)FightTypesEnum.Arkk;
-                break;
-            case 197378:
-                encounterType = (short)FightTypesEnum.AiEle;
-                break;
-            case 197379:
-                encounterType = (short)FightTypesEnum.AiDark;
-                break;
-            case 197377:
-                encounterType = (short)FightTypesEnum.AiBoth;
-                break;
-            case 197633:
-                encounterType = (short)FightTypesEnum.Kanaxai;
-                break;
-            case 197890:
-                encounterType = (short)FightTypesEnum.Eparch;
-                break;
-            case 198145:
-                encounterType = (short)FightTypesEnum.Shadow;
-                break;
-            case 263681:
-                encounterType = (short)FightTypesEnum.Kela;
-                break;
-            default:
-                encounterType = (short)FightTypesEnum.Unkn;
-                break;
-        }
+            GuildId = guildId,
+            ExistingLogUpdateMode = ExistingFightLogUpdateMode.RefreshMetadataAndRawData
+        });
+        var fightLog = ingestionResult.FightLog;
 
-        var gw2Players = playerService.GetGw2Players(data, fightPhase, sumAllTargets);
-        var fightMode = FightLogProgressCalculator.ResolveFightMode(data.FightEliteInsightDataModel, fightPhase);
-        var fightProgress = FightLogProgressCalculator.Calculate(data.FightEliteInsightDataModel, encounterType, fightMode);
-
-        var existingFightLog = await entityService.FightLog.GetFirstOrDefaultAsync(s => s.Url == data.FightEliteInsightDataModel.Url);
-
-        if (existingFightLog == null)
-        {
-            await using var ctx = await dbContextFactory.CreateDbContextAsync();
-            existingFightLog = await FightLogDeduplication.FindByContentAsync(
-                ctx, encounterType, dateTimeStart,
-                gw2Players.Select(p => p.AccountName));
-        }
-
-        if (existingFightLog != null)
-        {
-            existingFightLog.GuildId = guildId;
-            existingFightLog.FightType = encounterType;
-            existingFightLog.FightStart = dateTimeStart;
-            existingFightLog.FightDurationInMs = duration;
-            existingFightLog.IsSuccess = data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false;
-            existingFightLog.FightPercent = fightProgress.FightPercent;
-            existingFightLog.FightPhase = fightProgress.FightPhase;
-            existingFightLog.FightMode = fightMode;
-            existingFightLog.Source = FightLogHelpers.GetLogSource(data.FightEliteInsightDataModel.Url);
-
-            await entityService.FightLog.UpdateAsync(existingFightLog);
-            await FightLogHelpers.UpsertRawDataAsync(entityService, existingFightLog.FightLogId, data);
-        }
-        else
-        {
-            var fightLog = new FightLog
-            {
-                GuildId = guildId,
-                Url = data.FightEliteInsightDataModel.Url,
-                FightType = encounterType,
-                FightStart = dateTimeStart,
-                FightDurationInMs = duration,
-                IsSuccess = data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false,
-                FightPercent = fightProgress.FightPercent,
-                FightPhase = fightProgress.FightPhase,
-                FightMode = fightMode,
-                Source = FightLogHelpers.GetLogSource(data.FightEliteInsightDataModel.Url)
-            };
-
-            await entityService.FightLog.AddAsync(fightLog);
-
-            var averageGroupDps = PlayerFightLogRoleClassifier.GetAverageGroupDps(gw2Players, fightLog.FightDurationInMs);
-            var playerFights = gw2Players.Select(gw2Player =>
-            {
-                var boonRole = PlayerFightLogRoleClassifier.ResolveBoonRole(gw2Player, fightLog.FightDurationInMs, averageGroupDps);
-                return new PlayerFightLog
-                {
-                    FightLogId = fightLog.FightLogId,
-                    GuildWarsAccountName = gw2Player.AccountName,
-                    CharacterName = gw2Player.CharacterName,
-                    Damage = gw2Player.Damage,
-                    Cleave = gw2Player.Cleave,
-                    Kills = gw2Player.Kills,
-                    Downs = gw2Player.Downs,
-                    Deaths = gw2Player.Deaths,
-                    QuicknessDuration = Convert.ToDecimal(gw2Player.TotalQuick),
-                    AlacDuration = Convert.ToDecimal(gw2Player.TotalAlac),
-                    QuicknessGenGroup = Convert.ToDecimal(gw2Player.QuicknessGenGroup),
-                    AlacGenGroup = Convert.ToDecimal(gw2Player.AlacGenGroup),
-                    BoonRole = boonRole,
-                    Playstyle = PlayerFightLogPlaystyleClassifier.ResolvePvePlaystyle(gw2Player, fightLog.FightDurationInMs, averageGroupDps),
-                    SubGroup = gw2Player.SubGroup,
-                    DamageDownContribution = gw2Player.DamageDownContribution,
-                    Cleanses = Convert.ToInt64(gw2Player.Cleanses),
-                    Strips = Convert.ToInt64(gw2Player.Strips),
-                    StabGenOnGroup = Convert.ToDecimal(gw2Player.StabOnGroup),
-                    StabGenOffGroup = Convert.ToDecimal(gw2Player.StabOffGroup),
-                    Healing = gw2Player.Healing,
-                    BarrierGenerated = gw2Player.BarrierGenerated,
-                    DistanceFromTag = Convert.ToDecimal(gw2Player.DistanceFromTag),
-                    TimesDowned = Convert.ToInt32(gw2Player.TimesDowned),
-                    Interrupts = gw2Player.Interrupts,
-                    NumberOfHitsWhileBlinded = gw2Player.NumberOfHitsWhileBlinded,
-                    NumberOfMissesAgainst = Convert.ToInt64(gw2Player.NumberOfMissesAgainst),
-                    NumberOfTimesBlockedAttack = Convert.ToInt64(gw2Player.NumberOfTimesBlockedAttack),
-                    NumberOfTimesEnemyBlockedAttack = gw2Player.NumberOfTimesEnemyBlockedAttack,
-                    NumberOfBoonsRipped = Convert.ToInt64(gw2Player.NumberOfBoonsRipped),
-                    DamageTaken = Convert.ToInt64(gw2Player.DamageTaken),
-                    BarrierMitigation = Convert.ToInt64(gw2Player.BarrierMitigation),
-                    TimesInterrupted = gw2Player.TimesInterrupted,
-                    ResurrectionTime = gw2Player.ResurrectionTime,
-                    TimeOfDeath = gw2Player.TimeOfDeath
-                };
-            }).ToList();
-
-            await entityService.PlayerFightLog.AddRangeAsync(playerFights);
-
-            var mechanicRecords = playerFights
-                .SelectMany(pfl =>
-                {
-                    var player = gw2Players.FirstOrDefault(p => p.AccountName == pfl.GuildWarsAccountName);
-                    return player?.Mechanics.Select(m => new PlayerFightLogMechanic
-                    {
-                        PlayerFightLogId = pfl.PlayerFightLogId,
-                        MechanicName = m.Key,
-                        MechanicCount = m.Value
-                    }) ?? [];
-                }).ToList();
-            if (mechanicRecords.Count > 0)
-            {
-                await entityService.PlayerFightLogMechanic.AddRangeAsync(mechanicRecords);
-            }
-
-            await FightLogHelpers.UpsertRawDataAsync(entityService, fightLog.FightLogId, data);
-
-            existingFightLog = fightLog;
-        }
-
-        await pointsAwardService.AwardFightAsync(existingFightLog.FightLogId);
+        await pointsAwardService.AwardFightAsync(fightLog.FightLogId);
 
         var webAppBaseUrl = configuration["WebApp:BaseUrl"];
         var webAppUrl = !string.IsNullOrEmpty(webAppBaseUrl)
-            ? $"{webAppBaseUrl}/logs/{existingFightLog.FightLogId}"
+            ? $"{webAppBaseUrl}/logs/{fightLog.FightLogId}"
             : null;
         var isSuccess = data.FightEliteInsightDataModel.Success ?? fightPhase.Success ?? false;
         var wipeProgressText = isSuccess
             ? string.Empty
-            : $" {FormatFightProgress(existingFightLog.FightPhase, existingFightLog.FightPercent)}";
+            : $" {FormatFightProgress(fightLog.FightPhase, fightLog.FightPercent)}";
 
         var message = new EmbedBuilder
         {
@@ -390,7 +67,7 @@ public sealed class PvEFightSummaryService(
             Timestamp = DateTime.Now
         };
 
-        var fightInSeconds = existingFightLog.FightDurationInMs / 1000f;
+        var fightInSeconds = fightLog.FightDurationInMs / 1000f;
         var playerOverview = "```Player         Dmg       Cleave    Alac    Quick                                                         \n";
         foreach (var gw2Player in gw2Players.OrderByDescending(s => s.Damage))
         {
@@ -424,7 +101,7 @@ public sealed class PvEFightSummaryService(
         footerService.AddWidthSpacer(message);
         footerService.AddInviteLink(message);
 
-        return (message.Build(), webAppUrl, existingFightLog.FightLogId);
+        return (message.Build(), webAppUrl, fightLog.FightLogId);
     }
 
     private static string FormatFightProgress(int? fightPhase, decimal fightPercent) =>

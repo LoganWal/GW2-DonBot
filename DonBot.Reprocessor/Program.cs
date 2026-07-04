@@ -6,12 +6,12 @@ using DonBot.Core.Models.Entities;
 using DonBot.Core.Models.Enums;
 using DonBot.Core.Models.GuildWars2;
 using DonBot.Core.Services;
+using DonBot.Core.Services.GuildWars2;
 using DonBot.Services.GuildWarsServices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
-using Newtonsoft.Json;
 using Npgsql;
 
 namespace DonBot.Reprocessor;
@@ -373,7 +373,8 @@ internal static class PlaytypeBackfillRunner
 
                     var dataModel = DeserializeFightData(fightRow);
                     var fightPhase = dataModel.FightEliteInsightDataModel.Phases?.FirstOrDefault() ?? new ArcDpsPhase();
-                    var shouldSumAllTargets = fightRow.FightType == (short)FightTypesEnum.WvW || ShouldSumAllTargets(fightRow.FightType);
+                    var shouldSumAllTargets = fightRow.FightType == (short)FightTypesEnum.WvW ||
+                        EncounterCatalog.ShouldSumAllTargets(fightRow.FightType);
                     var gw2Players = playerService.GetGw2Players(dataModel, fightPhase, shouldSumAllTargets);
 
                     if (gw2Players.Count == 0)
@@ -383,35 +384,29 @@ internal static class PlaytypeBackfillRunner
                         continue;
                     }
 
-                    var averageGroupDps = PlayerFightLogRoleClassifier.GetAverageGroupDps(gw2Players, fightRow.FightDuration);
-                    var wvwBenchmarks = fightRow.FightType == (short)FightTypesEnum.WvW
-                        ? PlayerFightLogPlaystyleClassifier.BuildWvwBenchmarks(gw2Players, fightRow.FightDuration)
-                        : null;
-                    var gw2PlayersByAccount = gw2Players
-                        .GroupBy(player => player.AccountName, StringComparer.OrdinalIgnoreCase)
+                    var materializedPlayerLogs = fightRow.FightType == (short)FightTypesEnum.WvW
+                        ? PlayerFightLogFactory.CreateWvw(gw2Players, fightRow.FightLogId, fightRow.FightDuration)
+                        : PlayerFightLogFactory.CreatePve(gw2Players, fightRow.FightLogId, fightRow.FightDuration);
+                    var materializedLogsByAccount = materializedPlayerLogs
+                        .GroupBy(player => player.GuildWarsAccountName, StringComparer.OrdinalIgnoreCase)
                         .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
 
                     foreach (var playerLog in fightPlayerLogs)
                     {
-                        if (gw2PlayersByAccount.TryGetValue(playerLog.GuildWarsAccountName, out var gw2Player) is false)
+                        if (materializedLogsByAccount.TryGetValue(playerLog.GuildWarsAccountName, out var materializedLog) is false)
                         {
                             skippedPlayers++;
                             continue;
                         }
 
-                        var boonRole = PlayerFightLogRoleClassifier.ResolveBoonRole(gw2Player, fightRow.FightDuration, averageGroupDps);
-                        var playstyle = fightRow.FightType == (short)FightTypesEnum.WvW
-                            ? PlayerFightLogPlaystyleClassifier.ResolveWvwPlaystyle(gw2Player, fightRow.FightDuration, wvwBenchmarks!)
-                            : PlayerFightLogPlaystyleClassifier.ResolvePvePlaystyle(gw2Player, fightRow.FightDuration, averageGroupDps);
-
                         updates.Add(new PlayerLogUpdate(
                             playerLog.PlayerFightLogId,
-                            ToDatabaseDecimal(gw2Player.StabOnGroup),
-                            ToDatabaseDecimal(gw2Player.StabOffGroup),
-                            ToDatabaseDecimal(gw2Player.QuicknessGenGroup),
-                            ToDatabaseDecimal(gw2Player.AlacGenGroup),
-                            boonRole,
-                            playstyle));
+                            materializedLog.StabGenOnGroup,
+                            materializedLog.StabGenOffGroup,
+                            materializedLog.QuicknessGenGroup,
+                            materializedLog.AlacGenGroup,
+                            materializedLog.BoonRole,
+                            materializedLog.Playstyle));
                     }
 
                     processedLogs++;
@@ -488,23 +483,7 @@ internal static class PlaytypeBackfillRunner
     }
 
     private static EliteInsightDataModel DeserializeFightData(FightRawBatchRow row)
-    {
-        var fightData = JsonConvert.DeserializeObject<FightEliteInsightDataModel>(row.RawFightData) ?? new FightEliteInsightDataModel();
-        var healingData = string.IsNullOrWhiteSpace(row.RawHealingData)
-            ? new HealingEliteInsightDataModel()
-            : JsonConvert.DeserializeObject<HealingEliteInsightDataModel>(row.RawHealingData) ?? new HealingEliteInsightDataModel();
-        var barrierData = string.IsNullOrWhiteSpace(row.RawBarrierData)
-            ? new BarrierEliteInsightDataModel()
-            : JsonConvert.DeserializeObject<BarrierEliteInsightDataModel>(row.RawBarrierData) ?? new BarrierEliteInsightDataModel();
-
-        return new EliteInsightDataModel(
-            fightData,
-            healingData,
-            barrierData,
-            row.RawFightData,
-            row.RawHealingData,
-            row.RawBarrierData);
-    }
+        => ReprocessorRawData.DeserializeFightData(row);
 
     private static async Task BulkUpdatePlayerLogsAsync(DatabaseContext context, IReadOnlyList<PlayerLogUpdate> updates, CancellationToken cancellationToken)
     {
@@ -545,50 +524,6 @@ internal static class PlaytypeBackfillRunner
         await context.Database.ExecuteSqlRawAsync(sql, parameters, cancellationToken);
     }
 
-    private static decimal ToDatabaseDecimal(double value)
-    {
-        if (double.IsFinite(value) is false)
-        {
-            return 0m;
-        }
-
-        return Convert.ToDecimal(value);
-    }
-
-    private static bool ShouldSumAllTargets(short fightType)
-    {
-        return (FightTypesEnum)fightType switch
-        {
-            FightTypesEnum.Spirit => true,
-            FightTypesEnum.Largos => true,
-            FightTypesEnum.Icebrood => true,
-            FightTypesEnum.Fraenir => true,
-            FightTypesEnum.Kodan => true,
-            FightTypesEnum.Whisper => true,
-            FightTypesEnum.Boneskinner => true,
-            FightTypesEnum.Ah => true,
-            FightTypesEnum.Xjj => true,
-            FightTypesEnum.Ko => true,
-            FightTypesEnum.Ht => true,
-            FightTypesEnum.Olc => true,
-            FightTypesEnum.Co => true,
-            FightTypesEnum.ToF => true,
-            FightTypesEnum.Mama => true,
-            FightTypesEnum.Siax => true,
-            FightTypesEnum.Ensolyss => true,
-            FightTypesEnum.Skorvald => true,
-            FightTypesEnum.Artsariiv => true,
-            FightTypesEnum.Arkk => true,
-            FightTypesEnum.AiEle => true,
-            FightTypesEnum.AiDark => true,
-            FightTypesEnum.AiBoth => true,
-            FightTypesEnum.Kanaxai => true,
-            FightTypesEnum.Eparch => true,
-            FightTypesEnum.Shadow => true,
-            FightTypesEnum.Kela => true,
-            _ => false
-        };
-    }
 }
 
 internal static class MissingPointsRunner
@@ -743,7 +678,7 @@ internal static class UraProgressBackfillRunner
             {
                 try
                 {
-                    var fightData = JsonConvert.DeserializeObject<FightEliteInsightDataModel>(fightRow.RawFightData) ?? new FightEliteInsightDataModel();
+                    var fightData = EliteInsightRawDataSerializer.DeserializeFight(fightRow.RawFightData);
                     if (fightData.Targets is not { Count: > 0 })
                     {
                         skippedLogs++;
@@ -921,7 +856,7 @@ internal static class HarvestTempleProgressBackfillRunner
             {
                 try
                 {
-                    var fightData = JsonConvert.DeserializeObject<FightEliteInsightDataModel>(fightRow.RawFightData) ?? new FightEliteInsightDataModel();
+                    var fightData = EliteInsightRawDataSerializer.DeserializeFight(fightRow.RawFightData);
                     if (fightData.Targets is not { Count: > 0 })
                     {
                         skippedLogs++;
@@ -1117,6 +1052,15 @@ internal sealed record FightRawBatchRow(
     string RawFightData,
     string? RawHealingData,
     string? RawBarrierData);
+
+internal static class ReprocessorRawData
+{
+    public static EliteInsightDataModel DeserializeFightData(FightRawBatchRow row)
+        => EliteInsightRawDataSerializer.Deserialize(
+            row.RawFightData,
+            row.RawHealingData,
+            row.RawBarrierData);
+}
 
 internal sealed record PlayerLogLite(
     long PlayerFightLogId,

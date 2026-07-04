@@ -4,7 +4,9 @@ using System.Text;
 using DonBot.Api.Services;
 using DonBot.Core.Models.Entities;
 using DonBot.Core.Services.GuildWars2;
+using DonBot.Models.Apis.GuildWars2Api;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 using tusdotnet;
 using tusdotnet.Interfaces;
 using tusdotnet.Models;
@@ -15,15 +17,19 @@ namespace DonBot.Api.Endpoints;
 
 public static class UploadEndpoints
 {
+    private const string Gw2ApiKeyHeader = "X-GW2-API-Key";
+    private const string TusUploadIdentityItemKey = "donbot:tus-upload-identity";
+
     public static void MapUploadEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/upload").RequireAuthorization();
-        group.MapPost("/urls", SubmitUrls);
-        group.MapGet("/history", GetHistory);
+        var group = app.MapGroup("/api/upload");
+        group.MapPost("/urls", SubmitUrls).RequireAuthorization();
+        group.MapGet("/history", GetHistory).RequireAuthorization();
         group.MapGet("/stream/{id:long}", StreamProgress).AllowAnonymous();
-        group.MapPost("/wingman/{id:long}", SubmitOneToWingman);
-        group.MapPost("/wingman/bulk", SubmitBulkToWingman);
-        group.MapTus("/tus", _ => BuildTusConfigurationAsync(app));
+        group.MapPost("/wingman/{id:long}", SubmitOneToWingman).RequireAuthorization();
+        group.MapPost("/wingman/bulk", SubmitBulkToWingman).RequireAuthorization();
+        group.MapPost("/gw2/guilds", ListGw2UploadGuilds).AllowAnonymous();
+        group.MapTus("/tus", _ => BuildTusConfigurationAsync(app)).AllowAnonymous();
     }
 
     private static Task<DefaultTusConfiguration> BuildTusConfigurationAsync(WebApplication app)
@@ -49,12 +55,7 @@ public static class UploadEndpoints
                         return;
                     }
 
-                    var guildService = ctx.HttpContext.RequestServices.GetRequiredService<IUserGuildsService>();
-                    var guildResult = await ResolveTusGuildIdAsync(
-                        ctx.Metadata,
-                        ctx.HttpContext.User,
-                        guildService,
-                        ctx.CancellationToken);
+                    var guildResult = await ResolveTusGuildIdAsync(ctx.HttpContext, ctx.Metadata, ctx.CancellationToken);
 
                     if (guildResult.FailureStatus is { } status)
                     {
@@ -63,8 +64,8 @@ public static class UploadEndpoints
                 },
                 OnCreateCompleteAsync = async ctx =>
                 {
-                    var discordIdStr = ctx.HttpContext.User.FindFirst("discord_id")?.Value;
-                    if (!long.TryParse(discordIdStr, out var discordId))
+                    var identityResult = await ResolveTusUploadIdentityAsync(ctx.HttpContext, ctx.CancellationToken);
+                    if (identityResult.Identity is not { } identity)
                     {
                         return;
                     }
@@ -76,12 +77,7 @@ public static class UploadEndpoints
                     var wingman = TryGetMetadataString(ctx.Metadata, "wingman", out var wingmanRaw) &&
                         string.Equals(wingmanRaw, "true", StringComparison.OrdinalIgnoreCase);
 
-                    var guildService = ctx.HttpContext.RequestServices.GetRequiredService<IUserGuildsService>();
-                    var guildResult = await ResolveTusGuildIdAsync(
-                        ctx.Metadata,
-                        ctx.HttpContext.User,
-                        guildService,
-                        ctx.CancellationToken);
+                    var guildResult = await ResolveTusGuildIdAsync(ctx.HttpContext, ctx.Metadata, ctx.CancellationToken);
 
                     if (guildResult.FailureStatus is not null)
                     {
@@ -94,7 +90,7 @@ public static class UploadEndpoints
 
                     var upload = new LogUpload
                     {
-                        DiscordId = discordId,
+                        DiscordId = identity.DiscordId,
                         FileName = safeName,
                         SourceType = "file",
                         Status = "receiving",
@@ -201,6 +197,267 @@ public static class UploadEndpoints
         return new TusGuildResolution(guildId);
     }
 
+    internal static TusGuildResolution ResolveTusGuildIdAsync(
+        IReadOnlyDictionary<string, Metadata> metadata,
+        IReadOnlySet<long> allowedGuildIds)
+    {
+        if (!TryGetMetadataString(metadata, "guildid", out var guildIdRaw) &&
+            !TryGetMetadataString(metadata, "guildId", out guildIdRaw))
+        {
+            return TusGuildResolution.Failed(HttpStatusCode.BadRequest, "Guild id is required.");
+        }
+
+        if (!long.TryParse(guildIdRaw, out var guildId) || guildId <= 0)
+        {
+            return TusGuildResolution.Failed(HttpStatusCode.BadRequest, "Invalid guild id.");
+        }
+
+        if (!allowedGuildIds.Contains(guildId))
+        {
+            return TusGuildResolution.Failed(HttpStatusCode.Forbidden, "You are not allowed to upload to that guild.");
+        }
+
+        return new TusGuildResolution(guildId);
+    }
+
+    private static async Task<TusGuildResolution> ResolveTusGuildIdAsync(
+        HttpContext httpContext,
+        IReadOnlyDictionary<string, Metadata> metadata,
+        CancellationToken ct)
+    {
+        var identityResult = await ResolveTusUploadIdentityAsync(httpContext, ct);
+        if (identityResult.Identity is not { } identity)
+        {
+            return TusGuildResolution.Failed(
+                identityResult.FailureStatus ?? HttpStatusCode.Unauthorized,
+                identityResult.FailureMessage ?? "Unauthorized.");
+        }
+
+        if (identity.AllowedGuildIds is not null)
+        {
+            return ResolveTusGuildIdAsync(metadata, identity.AllowedGuildIds);
+        }
+
+        var guildService = httpContext.RequestServices.GetRequiredService<IUserGuildsService>();
+        return await ResolveTusGuildIdAsync(metadata, httpContext.User, guildService, ct);
+    }
+
+    private static async Task<TusUploadIdentityResult> ResolveTusUploadIdentityAsync(
+        HttpContext httpContext,
+        CancellationToken ct)
+    {
+        if (httpContext.Items.TryGetValue(TusUploadIdentityItemKey, out var cached) &&
+            cached is TusUploadIdentityResult cachedResult)
+        {
+            return cachedResult;
+        }
+
+        TusUploadIdentityResult result;
+        if (TryGetDiscordId(httpContext.User, out var discordId))
+        {
+            result = TusUploadIdentityResult.Success(new TusUploadIdentity(discordId, null));
+        }
+        else if (TryGetGw2ApiKey(httpContext.Request, out var apiKey))
+        {
+            var access = await ResolveGw2UploadAccessAsync(
+                apiKey,
+                httpContext.RequestServices.GetRequiredService<IDbContextFactory<DatabaseContext>>(),
+                httpContext.RequestServices.GetRequiredService<IHttpClientFactory>(),
+                ct);
+
+            result = access.Access is { } identity
+                ? TusUploadIdentityResult.Success(new TusUploadIdentity(
+                    identity.DiscordId,
+                    identity.Guilds
+                        .Select(g => long.TryParse(g.GuildId, out var guildId) ? guildId : 0)
+                        .Where(guildId => guildId > 0)
+                        .ToHashSet()))
+                : TusUploadIdentityResult.Failed(
+                    access.FailureStatus ?? HttpStatusCode.Unauthorized,
+                    access.FailureMessage ?? "Unauthorized.");
+        }
+        else
+        {
+            result = TusUploadIdentityResult.Failed(HttpStatusCode.Unauthorized, "Unauthorized.");
+        }
+
+        httpContext.Items[TusUploadIdentityItemKey] = result;
+        return result;
+    }
+
+    private static bool TryGetGw2ApiKey(HttpRequest request, out string apiKey)
+    {
+        apiKey = string.Empty;
+        if (!request.Headers.TryGetValue(Gw2ApiKeyHeader, out var values))
+        {
+            return false;
+        }
+
+        apiKey = values.FirstOrDefault()?.Trim() ?? string.Empty;
+        return !string.IsNullOrWhiteSpace(apiKey);
+    }
+
+    private static async Task<Gw2UploadAccessResult> ResolveGw2UploadAccessAsync(
+        string? apiKey,
+        IDbContextFactory<DatabaseContext> dbContextFactory,
+        IHttpClientFactory httpClientFactory,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            return Gw2UploadAccessResult.Failed(HttpStatusCode.BadRequest, "GW2 API key is required.");
+        }
+
+        var accountResult = await FetchGw2AccountAsync(apiKey.Trim(), httpClientFactory, ct);
+        if (accountResult.Access is not { } accountData)
+        {
+            return Gw2UploadAccessResult.Failed(
+                accountResult.FailureStatus ?? HttpStatusCode.BadRequest,
+                accountResult.FailureMessage ?? "Invalid GW2 API key.");
+        }
+
+        var accountName = accountData.Name?.Trim() ?? string.Empty;
+        if (accountData.Id == Guid.Empty || string.IsNullOrWhiteSpace(accountName))
+        {
+            return Gw2UploadAccessResult.Failed(HttpStatusCode.BadRequest, "Invalid GW2 API account response.");
+        }
+
+        await using var context = await dbContextFactory.CreateDbContextAsync(ct);
+        var linkedAccount = await context.GuildWarsAccount
+            .AsNoTracking()
+            .Where(a => a.GuildWarsAccountId == accountData.Id || a.GuildWarsAccountName == accountName)
+            .Select(a => new { a.DiscordId })
+            .FirstOrDefaultAsync(ct);
+
+        if (linkedAccount is null)
+        {
+            return Gw2UploadAccessResult.Failed(HttpStatusCode.Forbidden, "GW2 account is not linked to DonBot.");
+        }
+
+        var gw2GuildIds = ParseGw2GuildIds(accountData.Guilds);
+        var guilds = await ListUploadGuildsForGw2GuildsAsync(context, gw2GuildIds, ct);
+
+        return Gw2UploadAccessResult.Success(new Gw2UploadAccess(linkedAccount.DiscordId, accountName, guilds));
+    }
+
+    private static async Task<Gw2AccountResult> FetchGw2AccountAsync(
+        string apiKey,
+        IHttpClientFactory httpClientFactory,
+        CancellationToken ct)
+    {
+        HttpResponseMessage response;
+        try
+        {
+            var client = httpClientFactory.CreateClient();
+            response = await client.GetAsync(
+                $"https://api.guildwars2.com/v2/account/?access_token={Uri.EscapeDataString(apiKey)}",
+                ct);
+        }
+        catch (HttpRequestException)
+        {
+            return Gw2AccountResult.Failed(HttpStatusCode.BadGateway, "Could not reach the GW2 API.");
+        }
+        catch (TaskCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return Gw2AccountResult.Failed(HttpStatusCode.BadGateway, "GW2 API request timed out.");
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return Gw2AccountResult.Failed(HttpStatusCode.BadRequest, "Invalid GW2 API key.");
+        }
+
+        var json = await response.Content.ReadAsStringAsync(ct);
+        try
+        {
+            return Gw2AccountResult.Success(
+                JsonConvert.DeserializeObject<GuildWars2AccountDataModel>(json) ?? new GuildWars2AccountDataModel());
+        }
+        catch (JsonException)
+        {
+            return Gw2AccountResult.Failed(HttpStatusCode.BadGateway, "GW2 API returned invalid account data.");
+        }
+    }
+
+    private static HashSet<string> ParseGw2GuildIds(IEnumerable<string?> liveGuildIds)
+    {
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var guildId in liveGuildIds)
+        {
+            AddGw2GuildId(ids, guildId);
+        }
+
+        return ids;
+    }
+
+    private static async Task<IReadOnlyList<GuildSummaryDto>> ListUploadGuildsForGw2GuildsAsync(
+        DatabaseContext context,
+        IReadOnlySet<string> gw2GuildIds,
+        CancellationToken ct)
+    {
+        if (gw2GuildIds.Count == 0)
+        {
+            return [];
+        }
+
+        var configuredGuilds = await context.Guild
+            .AsNoTracking()
+            .Select(g => new
+            {
+                g.GuildId,
+                g.GuildName,
+                g.Gw2GuildMemberRoleId,
+                g.Gw2SecondaryMemberRoleIds
+            })
+            .ToListAsync(ct);
+
+        return configuredGuilds
+            .Where(g => MatchesConfiguredGw2Guild(gw2GuildIds, g.Gw2GuildMemberRoleId, g.Gw2SecondaryMemberRoleIds))
+            .OrderBy(g => g.GuildName ?? g.GuildId.ToString())
+            .Select(g => new GuildSummaryDto(g.GuildId.ToString(), g.GuildName ?? g.GuildId.ToString()))
+            .ToList();
+    }
+
+    private static bool MatchesConfiguredGw2Guild(
+        IReadOnlySet<string> gw2GuildIds,
+        string? primaryGuildId,
+        string? secondaryGuildIds)
+    {
+        foreach (var guildId in SplitCsv(primaryGuildId).Concat(SplitCsv(secondaryGuildIds)))
+        {
+            if (gw2GuildIds.Contains(guildId))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<string> SplitCsv(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            yield break;
+        }
+
+        foreach (var item in value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!string.IsNullOrWhiteSpace(item))
+            {
+                yield return item;
+            }
+        }
+    }
+
+    private static void AddGw2GuildId(HashSet<string> ids, string? guildId)
+    {
+        if (!string.IsNullOrWhiteSpace(guildId))
+        {
+            ids.Add(guildId.Trim());
+        }
+    }
+
     private static bool TryGetMetadataString(
         IReadOnlyDictionary<string, Metadata> metadata,
         string key,
@@ -222,6 +479,36 @@ public static class UploadEndpoints
         string? FailureMessage = null)
     {
         public static TusGuildResolution Failed(HttpStatusCode status, string message) => new(0, status, message);
+    }
+
+    private static async Task<IResult> ListGw2UploadGuilds(
+        Gw2UploadGuildsRequest request,
+        IDbContextFactory<DatabaseContext> dbContextFactory,
+        IHttpClientFactory httpClientFactory,
+        CancellationToken ct)
+    {
+        var result = await ResolveGw2UploadAccessAsync(request.ApiKey, dbContextFactory, httpClientFactory, ct);
+        if (result.Access is not { } access)
+        {
+            return UploadAuthFailure(result.FailureStatus ?? HttpStatusCode.BadRequest, result.FailureMessage);
+        }
+
+        return Results.Ok(new Gw2UploadGuildsResponse(access.AccountName, access.Guilds));
+    }
+
+    private static IResult UploadAuthFailure(HttpStatusCode status, string? message)
+    {
+        return status switch
+        {
+            HttpStatusCode.BadRequest => Results.BadRequest(message ?? "Bad request."),
+            HttpStatusCode.Unauthorized => Results.Unauthorized(),
+            HttpStatusCode.Forbidden => Results.Json(
+                message ?? "Forbidden.",
+                statusCode: StatusCodes.Status403Forbidden),
+            _ => Results.Json(
+                message ?? "Upload authorization failed.",
+                statusCode: (int)status)
+        };
     }
 
     private static async Task<IResult> SubmitUrls(
@@ -400,9 +687,12 @@ public static class UploadEndpoints
             return;
         }
 
-        if (!TryGetDiscordId(ctx.HttpContext.User, out var discordId))
+        var identityResult = await ResolveTusUploadIdentityAsync(ctx.HttpContext, ctx.HttpContext.RequestAborted);
+        if (identityResult.Identity is not { } identity)
         {
-            ctx.FailRequest(HttpStatusCode.Unauthorized, "Unauthorized.");
+            ctx.FailRequest(
+                identityResult.FailureStatus ?? HttpStatusCode.Unauthorized,
+                identityResult.FailureMessage ?? "Unauthorized.");
             return;
         }
 
@@ -418,7 +708,7 @@ public static class UploadEndpoints
         }
 
         var dbFactory = ctx.HttpContext.RequestServices.GetRequiredService<IDbContextFactory<DatabaseContext>>();
-        if (!await IsTusUploadOwnerAsync(dbFactory, ctx.FileId, discordId, ctx.HttpContext.RequestAborted))
+        if (!await IsTusUploadOwnerAsync(dbFactory, ctx.FileId, identity.DiscordId, ctx.HttpContext.RequestAborted))
         {
             ctx.FailRequest(HttpStatusCode.Forbidden, "You do not own this upload.");
         }
@@ -432,6 +722,59 @@ public static class UploadEndpoints
         public string[]? Urls { get; init; }
 
         public bool Wingman { get; init; } = true;
+    }
+
+    private sealed class Gw2UploadGuildsRequest
+    {
+        public string? ApiKey { get; init; }
+    }
+
+    private sealed class Gw2UploadGuildsResponse(string accountName, IReadOnlyList<GuildSummaryDto> guilds)
+    {
+        public string AccountName { get; } = accountName;
+
+        public IReadOnlyList<GuildSummaryDto> Guilds { get; } = guilds;
+    }
+
+    private sealed class GuildSummaryDto(string guildId, string guildName)
+    {
+        public string GuildId { get; } = guildId;
+
+        public string GuildName { get; } = guildName;
+    }
+
+    private sealed record TusUploadIdentity(long DiscordId, IReadOnlySet<long>? AllowedGuildIds);
+
+    private sealed record TusUploadIdentityResult(
+        TusUploadIdentity? Identity,
+        HttpStatusCode? FailureStatus,
+        string? FailureMessage)
+    {
+        public static TusUploadIdentityResult Success(TusUploadIdentity identity) => new(identity, null, null);
+
+        public static TusUploadIdentityResult Failed(HttpStatusCode status, string message) => new(null, status, message);
+    }
+
+    private sealed record Gw2UploadAccess(long DiscordId, string AccountName, IReadOnlyList<GuildSummaryDto> Guilds);
+
+    private sealed record Gw2UploadAccessResult(
+        Gw2UploadAccess? Access,
+        HttpStatusCode? FailureStatus,
+        string? FailureMessage)
+    {
+        public static Gw2UploadAccessResult Success(Gw2UploadAccess access) => new(access, null, null);
+
+        public static Gw2UploadAccessResult Failed(HttpStatusCode status, string message) => new(null, status, message);
+    }
+
+    private sealed record Gw2AccountResult(
+        GuildWars2AccountDataModel? Access,
+        HttpStatusCode? FailureStatus,
+        string? FailureMessage)
+    {
+        public static Gw2AccountResult Success(GuildWars2AccountDataModel account) => new(account, null, null);
+
+        public static Gw2AccountResult Failed(HttpStatusCode status, string message) => new(null, status, message);
     }
     // ReSharper restore UnusedAutoPropertyAccessor.Local
     // ReSharper restore ClassNeverInstantiated.Local

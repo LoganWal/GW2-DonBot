@@ -168,6 +168,37 @@ public class UploadEndpointsTests
     }
 
     [Fact]
+    public void ResolveTusGuildIdAsync_Gw2KeyAllowedGuild_ReturnsGuildId()
+    {
+        var result = UploadEndpoints.ResolveTusGuildIdAsync(
+            Metadata(("guildid", "42")),
+            new HashSet<long> { 42 });
+
+        Assert.Equal(42, result.GuildId);
+        Assert.Null(result.FailureStatus);
+    }
+
+    [Fact]
+    public void ResolveTusGuildIdAsync_Gw2KeyNoGuildMetadata_ReturnsBadRequest()
+    {
+        var result = UploadEndpoints.ResolveTusGuildIdAsync(
+            new Dictionary<string, Metadata>(),
+            new HashSet<long> { 42 });
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.FailureStatus);
+    }
+
+    [Fact]
+    public void ResolveTusGuildIdAsync_Gw2KeyDisallowedGuild_ReturnsForbidden()
+    {
+        var result = UploadEndpoints.ResolveTusGuildIdAsync(
+            Metadata(("guildid", "42")),
+            new HashSet<long> { 43 });
+
+        Assert.Equal(HttpStatusCode.Forbidden, result.FailureStatus);
+    }
+
+    [Fact]
     public async Task IsTusUploadOwnerAsync_MatchingDiscordId_ReturnsTrue()
     {
         using var db = new SqliteTestDb();
@@ -219,14 +250,99 @@ public class UploadEndpointsTests
         Assert.False(result);
     }
 
-    private static MinimalApiHost NewHost() =>
+    [Fact]
+    public async Task ListGw2UploadGuilds_ValidLinkedKey_ReturnsMatchingGuilds()
+    {
+        var accountId = Guid.NewGuid();
+        var handler = new ApiStubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                $$"""{"id":"{{accountId}}","name":"Player.1234","world":2202,"guilds":["live-guild"]}""",
+                Encoding.UTF8,
+                "application/json")
+        });
+        using var host = NewHost(handler);
+        await using (var db = await host.DbFactory.CreateDbContextAsync())
+        {
+            db.GuildWarsAccount.Add(new GuildWarsAccount
+            {
+                GuildWarsAccountId = accountId,
+                DiscordId = 123,
+                GuildWarsAccountName = "Player.1234",
+                GuildWarsGuilds = "stored-guild"
+            });
+            db.Guild.AddRange(
+                new Guild
+                {
+                    GuildId = 10,
+                    GuildName = "Live Guild",
+                    Gw2GuildMemberRoleId = "live-guild"
+                },
+                new Guild
+                {
+                    GuildId = 11,
+                    GuildName = "Stored Guild",
+                    Gw2SecondaryMemberRoleIds = "stored-guild"
+                },
+                new Guild
+                {
+                    GuildId = 12,
+                    GuildName = "Other Guild",
+                    Gw2GuildMemberRoleId = "other-guild"
+                });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await host.Client.PostAsJsonAsync("/api/upload/gw2/guilds", new { ApiKey = "valid-key" });
+        var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("Player.1234", json.RootElement.GetProperty("accountName").GetString());
+        var guilds = json.RootElement.GetProperty("guilds").EnumerateArray().ToList();
+        Assert.Single(guilds);
+        Assert.Contains(guilds, g => g.GetProperty("guildId").GetString() == "10");
+        Assert.DoesNotContain(guilds, g => g.GetProperty("guildId").GetString() == "11");
+        Assert.DoesNotContain(guilds, g => g.GetProperty("guildId").GetString() == "12");
+    }
+
+    [Fact]
+    public async Task ListGw2UploadGuilds_InvalidKey_ReturnsBadRequest()
+    {
+        var handler = new ApiStubHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+        using var host = NewHost(handler);
+
+        var response = await host.Client.PostAsJsonAsync("/api/upload/gw2/guilds", new { ApiKey = "bad-key" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ListGw2UploadGuilds_UnlinkedAccount_ReturnsForbidden()
+    {
+        var accountId = Guid.NewGuid();
+        var handler = new ApiStubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                $$"""{"id":"{{accountId}}","name":"Player.1234","world":2202,"guilds":["live-guild"]}""",
+                Encoding.UTF8,
+                "application/json")
+        });
+        using var host = NewHost(handler);
+
+        var response = await host.Client.PostAsJsonAsync("/api/upload/gw2/guilds", new { ApiKey = "valid-key" });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    private static MinimalApiHost NewHost(HttpMessageHandler? gw2Handler = null) =>
         new(
             app => app.MapUploadEndpoints(),
             services =>
             {
                 services.AddSingleton<ILogUploadProgressService, LogUploadProgressService>();
                 services.AddSingleton<LogUploadPipelineService>();
-            });
+            },
+            httpHandler: gw2Handler);
 
     private static Dictionary<string, Metadata> Metadata(params (string Key, string Value)[] values)
     {
@@ -236,5 +352,11 @@ public class UploadEndpointsTests
                 $"{value.Key} {Convert.ToBase64String(Encoding.UTF8.GetBytes(value.Value))}"));
 
         return tusdotnet.Models.Metadata.Parse(header);
+    }
+
+    private sealed class ApiStubHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(respond(request));
     }
 }

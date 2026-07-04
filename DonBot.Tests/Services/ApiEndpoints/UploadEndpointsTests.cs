@@ -35,6 +35,22 @@ public class UploadEndpointsTests
             .ToList();
     }
 
+    private sealed class FakeDiscordGuildMembershipService : IDiscordGuildMembershipService
+    {
+        public HashSet<long> GuildIds { get; } = [];
+
+        public Task<IReadOnlySet<long>> GetMemberGuildIdsAsync(
+            long discordId,
+            IReadOnlyCollection<long> guildIds,
+            CancellationToken ct = default)
+        {
+            var result = guildIds
+                .Where(GuildIds.Contains)
+                .ToHashSet();
+            return Task.FromResult<IReadOnlySet<long>>(result);
+        }
+    }
+
     [Fact]
     public async Task SubmitUrls_ReportUrlWithTrailingPunctuation_StoresCanonicalUrl()
     {
@@ -251,7 +267,7 @@ public class UploadEndpointsTests
     }
 
     [Fact]
-    public async Task ListGw2UploadGuilds_ValidLinkedKey_ReturnsMatchingGuilds()
+    public async Task ListGw2UploadGuilds_ValidLinkedKey_ReturnsDiscordMemberGuilds()
     {
         var accountId = Guid.NewGuid();
         var handler = new ApiStubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
@@ -261,7 +277,9 @@ public class UploadEndpointsTests
                 Encoding.UTF8,
                 "application/json")
         });
-        using var host = NewHost(handler);
+        var discordGuilds = new FakeDiscordGuildMembershipService();
+        discordGuilds.GuildIds.UnionWith([10, 11]);
+        using var host = NewHost(handler, discordGuilds);
         await using (var db = await host.DbFactory.CreateDbContextAsync())
         {
             db.GuildWarsAccount.Add(new GuildWarsAccount
@@ -299,9 +317,9 @@ public class UploadEndpointsTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("Player.1234", json.RootElement.GetProperty("accountName").GetString());
         var guilds = json.RootElement.GetProperty("guilds").EnumerateArray().ToList();
-        Assert.Single(guilds);
+        Assert.Equal(2, guilds.Count);
         Assert.Contains(guilds, g => g.GetProperty("guildId").GetString() == "10");
-        Assert.DoesNotContain(guilds, g => g.GetProperty("guildId").GetString() == "11");
+        Assert.Contains(guilds, g => g.GetProperty("guildId").GetString() == "11");
         Assert.DoesNotContain(guilds, g => g.GetProperty("guildId").GetString() == "12");
     }
 
@@ -334,13 +352,16 @@ public class UploadEndpointsTests
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
-    private static MinimalApiHost NewHost(HttpMessageHandler? gw2Handler = null) =>
+    private static MinimalApiHost NewHost(
+        HttpMessageHandler? gw2Handler = null,
+        FakeDiscordGuildMembershipService? discordGuilds = null) =>
         new(
             app => app.MapUploadEndpoints(),
             services =>
             {
                 services.AddSingleton<ILogUploadProgressService, LogUploadProgressService>();
                 services.AddSingleton<LogUploadPipelineService>();
+                services.AddSingleton<IDiscordGuildMembershipService>(discordGuilds ?? new FakeDiscordGuildMembershipService());
             },
             httpHandler: gw2Handler);
 

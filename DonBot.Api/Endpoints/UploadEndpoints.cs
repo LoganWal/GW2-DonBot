@@ -263,6 +263,7 @@ public static class UploadEndpoints
                 apiKey,
                 httpContext.RequestServices.GetRequiredService<IDbContextFactory<DatabaseContext>>(),
                 httpContext.RequestServices.GetRequiredService<IHttpClientFactory>(),
+                httpContext.RequestServices.GetRequiredService<IDiscordGuildMembershipService>(),
                 ct);
 
             result = access.Access is { } identity
@@ -301,6 +302,7 @@ public static class UploadEndpoints
         string? apiKey,
         IDbContextFactory<DatabaseContext> dbContextFactory,
         IHttpClientFactory httpClientFactory,
+        IDiscordGuildMembershipService guildMembershipService,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(apiKey))
@@ -334,8 +336,11 @@ public static class UploadEndpoints
             return Gw2UploadAccessResult.Failed(HttpStatusCode.Forbidden, "GW2 account is not linked to DonBot.");
         }
 
-        var gw2GuildIds = ParseGw2GuildIds(accountData.Guilds);
-        var guilds = await ListUploadGuildsForGw2GuildsAsync(context, gw2GuildIds, ct);
+        var guilds = await ListUploadGuildsForDiscordUserAsync(
+            context,
+            linkedAccount.DiscordId,
+            guildMembershipService,
+            ct);
 
         return Gw2UploadAccessResult.Success(new Gw2UploadAccess(linkedAccount.DiscordId, accountName, guilds));
     }
@@ -379,83 +384,31 @@ public static class UploadEndpoints
         }
     }
 
-    private static HashSet<string> ParseGw2GuildIds(IEnumerable<string?> liveGuildIds)
-    {
-        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var guildId in liveGuildIds)
-        {
-            AddGw2GuildId(ids, guildId);
-        }
-
-        return ids;
-    }
-
-    private static async Task<IReadOnlyList<GuildSummaryDto>> ListUploadGuildsForGw2GuildsAsync(
+    private static async Task<IReadOnlyList<GuildSummaryDto>> ListUploadGuildsForDiscordUserAsync(
         DatabaseContext context,
-        IReadOnlySet<string> gw2GuildIds,
+        long discordId,
+        IDiscordGuildMembershipService guildMembershipService,
         CancellationToken ct)
     {
-        if (gw2GuildIds.Count == 0)
-        {
-            return [];
-        }
-
         var configuredGuilds = await context.Guild
             .AsNoTracking()
             .Select(g => new
             {
                 g.GuildId,
-                g.GuildName,
-                g.Gw2GuildMemberRoleId,
-                g.Gw2SecondaryMemberRoleIds
+                g.GuildName
             })
             .ToListAsync(ct);
 
+        var configuredGuildIds = configuredGuilds
+            .Select(g => g.GuildId)
+            .ToArray();
+        var memberGuildIds = await guildMembershipService.GetMemberGuildIdsAsync(discordId, configuredGuildIds, ct);
+
         return configuredGuilds
-            .Where(g => MatchesConfiguredGw2Guild(gw2GuildIds, g.Gw2GuildMemberRoleId, g.Gw2SecondaryMemberRoleIds))
+            .Where(g => memberGuildIds.Contains(g.GuildId))
             .OrderBy(g => g.GuildName ?? g.GuildId.ToString())
             .Select(g => new GuildSummaryDto(g.GuildId.ToString(), g.GuildName ?? g.GuildId.ToString()))
             .ToList();
-    }
-
-    private static bool MatchesConfiguredGw2Guild(
-        IReadOnlySet<string> gw2GuildIds,
-        string? primaryGuildId,
-        string? secondaryGuildIds)
-    {
-        foreach (var guildId in SplitCsv(primaryGuildId).Concat(SplitCsv(secondaryGuildIds)))
-        {
-            if (gw2GuildIds.Contains(guildId))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static IEnumerable<string> SplitCsv(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            yield break;
-        }
-
-        foreach (var item in value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        {
-            if (!string.IsNullOrWhiteSpace(item))
-            {
-                yield return item;
-            }
-        }
-    }
-
-    private static void AddGw2GuildId(HashSet<string> ids, string? guildId)
-    {
-        if (!string.IsNullOrWhiteSpace(guildId))
-        {
-            ids.Add(guildId.Trim());
-        }
     }
 
     private static bool TryGetMetadataString(
@@ -485,9 +438,15 @@ public static class UploadEndpoints
         Gw2UploadGuildsRequest request,
         IDbContextFactory<DatabaseContext> dbContextFactory,
         IHttpClientFactory httpClientFactory,
+        IDiscordGuildMembershipService guildMembershipService,
         CancellationToken ct)
     {
-        var result = await ResolveGw2UploadAccessAsync(request.ApiKey, dbContextFactory, httpClientFactory, ct);
+        var result = await ResolveGw2UploadAccessAsync(
+            request.ApiKey,
+            dbContextFactory,
+            httpClientFactory,
+            guildMembershipService,
+            ct);
         if (result.Access is not { } access)
         {
             return UploadAuthFailure(result.FailureStatus ?? HttpStatusCode.BadRequest, result.FailureMessage);

@@ -55,6 +55,7 @@ public static class ApiServiceRegister
         services.AddSingleton<RaffleService>();
         services.AddSingleton<LogUploadPipelineService>();
         services.AddSingleton<DiscordRestClientProvider>();
+        services.AddSingleton<IDiscordGuildMembershipService, DiscordGuildMembershipService>();
         services.AddSingleton<IUserGuildsService, UserGuildsService>();
         services.AddSingleton<IDiscordCommandAccessService, DiscordCommandAccessService>();
         services.AddSingleton<GuildAccessGuard>();

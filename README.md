@@ -4,6 +4,8 @@
 
 DonBot is a Discord bot and web app for Guild Wars 2 communities. It turns combat logs into summaries, tracks player stats, manages points and raffles, and gives server admins a web interface for common guild settings.
 
+![Website](https://i.imgur.com/JAsd9LI.png)
+
 [Add DonBot to your server](https://discord.com/api/oauth2/authorize?client_id=1021682849797111838&permissions=8&scope=bot)
 
 ## What It Does

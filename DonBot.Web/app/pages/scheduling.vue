@@ -78,6 +78,8 @@
                       v-for="(option, index) in data.responseOptions"
                       :key="`${data.scheduledEventId}-${index}`"
                       :value="`${option.emoji} ${option.label}`"
+                      :icon="option.allowedRoleIds?.length ? 'pi pi-lock' : undefined"
+                      :title="responseRoleSummary(option)"
                       severity="secondary"
                     />
                   </div>
@@ -241,6 +243,27 @@
               <small v-if="!!option.emoji.trim() && !isValidResponseEmoji(option.emoji)" class="field-error">
                 Use a Unicode emoji or a server emoji like &lt;:name:id&gt;.
               </small>
+              <div class="response-role-restriction">
+                <label class="role-limit-toggle" :for="`limit-response-${index}`">
+                  <ToggleSwitch v-model="option.restrictToRoles" :input-id="`limit-response-${index}`" />
+                  <span>Limit to roles</span>
+                </label>
+                <MultiSelect
+                  v-if="option.restrictToRoles"
+                  v-model="option.allowedRoleIds"
+                  :options="context?.roles ?? []"
+                  option-label="name"
+                  option-value="id"
+                  placeholder="Choose allowed roles"
+                  display="chip"
+                  filter
+                  class="response-role-select"
+                  :invalid="option.allowedRoleIds.length === 0"
+                />
+                <small v-if="option.restrictToRoles && option.allowedRoleIds.length === 0" class="field-error">
+                  Choose at least one role, or turn off the restriction to allow anyone.
+                </small>
+              </div>
             </div>
           </div>
           <div class="muted-sub">{{ form.responseOptions.length }}/{{ maxResponseOptions }} buttons</div>
@@ -289,7 +312,14 @@ const { confirmDelete } = useConfirmAction()
 type GuildSummary = { guildId: string; name: string; iconUrl: string | null }
 type Channel = { id: string; name: string }
 type Role = { id: string; name: string }
-type ResponseOption = { label: string; emoji: string; notify?: boolean }
+type ResponseOption = { label: string; emoji: string; notify?: boolean; allowedRoleIds?: string[] }
+type FormResponseOption = {
+  label: string
+  emoji: string
+  notify: boolean
+  allowedRoleIds: string[]
+  restrictToRoles: boolean
+}
 type ScheduledEventTypeMetadata = { eventType: number; name: string; supportsResponseOptions: boolean }
 type SchedulingMetadata = {
   maxMessageLength: number
@@ -333,7 +363,7 @@ type FormState = {
   localFireDate: Date | null
   repeatIntervalDays: number
   message: string
-  responseOptions: ResponseOption[]
+  responseOptions: FormResponseOption[]
   notificationMinutesBeforeStart: number
 }
 
@@ -374,7 +404,7 @@ const eventTypeLabel = (t: number) => eventTypeOptions.value.find(o => o.value =
 const isSignupEvent = (eventType: number) =>
   eventTypeOptions.value.find(option => option.value === eventType)?.supportsResponseOptions ?? eventType === 0
 
-const defaultResponseOptions = (): ResponseOption[] => {
+const defaultResponseOptions = (): FormResponseOption[] => {
   const defaults = schedulingMetadata.value?.defaultSignupResponseOptions?.length
     ? schedulingMetadata.value.defaultSignupResponseOptions
     : context.value?.defaultSignupResponseOptions
@@ -382,27 +412,39 @@ const defaultResponseOptions = (): ResponseOption[] => {
     return normalizeResponseOptions(defaults)
   }
 
-  return [
+  return normalizeResponseOptions([
     { label: 'Join', emoji: '✅' },
     { label: "Can't Join", emoji: '❌' },
     { label: 'Can Fill', emoji: '🛠️' },
-  ]
+  ])
 }
 
-const normalizeResponseOptions = (options: ResponseOption[]): ResponseOption[] => options
+const normalizeResponseOptions = (options: Array<ResponseOption | FormResponseOption>): FormResponseOption[] => options
   .slice(0, maxResponseOptions.value)
-  .map(o => ({ label: o.label.trim(), emoji: o.emoji.trim(), notify: !!o.notify }))
+  .map(o => {
+    const allowedRoleIds = [...new Set((o.allowedRoleIds ?? []).map(roleId => roleId.trim()).filter(Boolean))]
+    return {
+      label: o.label.trim(),
+      emoji: o.emoji.trim(),
+      notify: !!o.notify,
+      allowedRoleIds,
+      restrictToRoles: 'restrictToRoles' in o ? o.restrictToRoles : allowedRoleIds.length > 0,
+    }
+  })
 
-const responseOptionsMatch = (left: ResponseOption[], right: ResponseOption[]) => {
+const responseOptionsMatch = (left: Array<ResponseOption | FormResponseOption>, right: Array<ResponseOption | FormResponseOption>) => {
   const a = normalizeResponseOptions(left)
   const b = normalizeResponseOptions(right)
   return a.length === b.length && a.every((option, index) =>
     option.label === b[index]?.label
     && option.emoji === b[index]?.emoji
-    && option.notify === !!b[index]?.notify)
+    && option.notify === !!b[index]?.notify
+    && option.restrictToRoles === b[index]?.restrictToRoles
+    && option.allowedRoleIds.length === b[index]?.allowedRoleIds.length
+    && option.allowedRoleIds.every(roleId => b[index]?.allowedRoleIds.includes(roleId)))
 }
 
-const hasDuplicateResponseOptions = (options: ResponseOption[]) => {
+const hasDuplicateResponseOptions = (options: Array<ResponseOption | FormResponseOption>) => {
   const keys = normalizeResponseOptions(options)
     .filter(o => o.label.length > 0 && o.emoji.length > 0)
     .map(o => `${o.emoji} ${o.label}`.toLocaleLowerCase())
@@ -472,6 +514,12 @@ const eventsPending = ref(false)
 const deletingId = ref<number | null>(null)
 
 const channelName = (id: string) => context.value?.channels.find(c => c.id === id)?.name ?? id
+
+const responseRoleSummary = (option: ResponseOption) => {
+  if (!option.allowedRoleIds?.length) return 'Anyone can use this response'
+  const roleNames = option.allowedRoleIds.map(id => context.value?.roles.find(role => role.id === id)?.name ?? id)
+  return `Limited to: ${roleNames.join(', ')}`
+}
 
 // Sort "Posts at" by local weekday and hour.
 const eventsForTable = computed(() => events.value.map(e => {
@@ -564,7 +612,8 @@ const canSave = computed(() => {
         && o.label.trim().length <= maxResponseLabelLength.value
         && o.emoji.trim().length > 0
         && o.emoji.trim().length <= maxResponseEmojiLength.value
-        && isValidResponseEmoji(o.emoji))
+        && isValidResponseEmoji(o.emoji)
+        && (!o.restrictToRoles || o.allowedRoleIds.length > 0))
       && !hasDuplicateResponseOptions(normalizedResponseOptions))
 
   return !!form.value.channelId
@@ -608,7 +657,13 @@ const emojiTargetIndex = ref<number | null>(null)
 
 const addResponseOption = () => {
   if (!form.value || form.value.responseOptions.length >= maxResponseOptions.value) return
-  form.value.responseOptions.push({ label: '', emoji: '✅', notify: false })
+  form.value.responseOptions.push({
+    label: '',
+    emoji: '✅',
+    notify: false,
+    allowedRoleIds: [],
+    restrictToRoles: false,
+  })
 }
 
 const removeResponseOption = (index: number) => {
@@ -673,7 +728,12 @@ const save = async () => {
     repeatIntervalDays: form.value.repeatIntervalDays,
     message: form.value.message?.trim() || null,
     responseOptions: isSignupEvent(form.value.eventType)
-      ? normalizeResponseOptions(form.value.responseOptions)
+      ? normalizeResponseOptions(form.value.responseOptions).map(option => ({
+          label: option.label,
+          emoji: option.emoji,
+          notify: option.notify,
+          allowedRoleIds: option.restrictToRoles ? option.allowedRoleIds : [],
+        }))
       : [],
     notificationMinutesBeforeStart: form.value.notificationMinutesBeforeStart,
   }
@@ -810,7 +870,10 @@ const onDelete = async (e: ScheduledEvent) => {
 .response-option-item {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.35rem;
+  padding: 0.65rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: var(--p-border-radius-md);
 }
 
 .response-option-row {
@@ -831,6 +894,20 @@ const onDelete = async (e: ScheduledEvent) => {
 .notify-toggle {
   justify-content: center;
   white-space: nowrap;
+}
+
+.response-role-restriction {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.role-limit-toggle {
+  align-self: flex-start;
+}
+
+.response-role-select {
+  width: 100%;
 }
 
 .notification-time-field {

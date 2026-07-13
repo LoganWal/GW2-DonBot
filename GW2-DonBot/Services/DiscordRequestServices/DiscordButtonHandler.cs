@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Discord;
 using Discord.WebSocket;
 using DonBot.Core.Models.Entities;
+using DonBot.Core.Models.Scheduling;
 using DonBot.Models.Statics;
 using DonBot.Services.DatabaseServices;
 using DonBot.Services.DiscordServices;
@@ -180,19 +181,19 @@ public class DiscordButtonHandler(
             }
             else if (customId.StartsWith("join_"))
             {
-                await HandleLegacyEventButton(buttonComponent, "✅ Roster");
+                await HandleLegacyEventButton(buttonComponent, "✅ Roster", 0);
             }
             else if (customId.StartsWith("cantjoin_"))
             {
-                await HandleLegacyEventButton(buttonComponent, "❌ Can't Join");
+                await HandleLegacyEventButton(buttonComponent, "❌ Can't Join", 1);
             }
             else if (customId.StartsWith("canfill_"))
             {
-                await HandleLegacyEventButton(buttonComponent, "🛠️ Fillers");
+                await HandleLegacyEventButton(buttonComponent, "🛠️ Fillers", 2);
             }
             else if (customId.StartsWith("willlate_"))
             {
-                await HandleLegacyEventButton(buttonComponent, "⏰ Will Be Late");
+                await HandleLegacyEventButton(buttonComponent, "⏰ Will Be Late", 2);
             }
         }
         catch (Exception ex)
@@ -321,16 +322,33 @@ public class DiscordButtonHandler(
             return;
         }
 
-        if (await GetCurrentScheduledEvent(buttonComponent, scheduledEventId) is null)
+        var scheduledEvent = await GetCurrentScheduledEvent(buttonComponent, scheduledEventId);
+        if (scheduledEvent is null)
         {
             return;
         }
 
         var fieldKey = parts.Length == 3 ? parts[2] : null;
+        var responseOption = ResolveResponseOption(scheduledEvent, optionIndex, fieldKey);
+        if (responseOption is null)
+        {
+            await TryFollowupAsync(buttonComponent, "This event button is no longer available.");
+            return;
+        }
+
+        if (!CanUseResponseOption(GetUserRoleIds(buttonComponent.User), responseOption))
+        {
+            await TryFollowupAsync(buttonComponent, "You need one of the roles allowed for this response.");
+            return;
+        }
+
         await ApplyEventButton(buttonComponent, optionIndex, fieldKey);
     }
 
-    private async Task HandleLegacyEventButton(SocketMessageComponent buttonComponent, string fieldName)
+    private async Task HandleLegacyEventButton(
+        SocketMessageComponent buttonComponent,
+        string fieldName,
+        int optionIndex)
     {
         var customId = buttonComponent.Data.CustomId;
         var parts = customId.Split('_', 2);
@@ -340,8 +358,22 @@ public class DiscordButtonHandler(
             return;
         }
 
-        if (await GetCurrentScheduledEvent(buttonComponent, scheduledEventId) is null)
+        var scheduledEvent = await GetCurrentScheduledEvent(buttonComponent, scheduledEventId);
+        if (scheduledEvent is null)
         {
+            return;
+        }
+
+        var responseOption = ResolveResponseOption(scheduledEvent, optionIndex, fieldKey: null);
+        if (responseOption is null)
+        {
+            await TryFollowupAsync(buttonComponent, "This event button is no longer available.");
+            return;
+        }
+
+        if (!CanUseResponseOption(GetUserRoleIds(buttonComponent.User), responseOption))
+        {
+            await TryFollowupAsync(buttonComponent, "You need one of the roles allowed for this response.");
             return;
         }
 
@@ -373,6 +405,31 @@ public class DiscordButtonHandler(
             buttonComponent,
             fields => ResolveResponseField(fields, fieldIndex, fieldKey));
     }
+
+    internal static ScheduledEventResponseOption? ResolveResponseOption(
+        ScheduledEvent scheduledEvent,
+        int optionIndex,
+        string? fieldKey)
+    {
+        var options = ScheduledEventResponseOptions.ForEvent(
+            scheduledEvent.EventType,
+            scheduledEvent.ResponseOptionsJson);
+
+        if (!string.IsNullOrWhiteSpace(fieldKey))
+        {
+            return options.FirstOrDefault(option => SignupMessageBuilder.FieldKey(option) == fieldKey);
+        }
+
+        return optionIndex < options.Count ? options[optionIndex] : null;
+    }
+
+    internal static bool CanUseResponseOption(
+        IEnumerable<ulong> userRoleIds,
+        ScheduledEventResponseOption responseOption) =>
+        ScheduledEventResponseOptions.CanRespond(responseOption, userRoleIds);
+
+    private static IEnumerable<ulong> GetUserRoleIds(IUser user) =>
+        user is IGuildUser guildUser ? guildUser.RoleIds : [];
 
     private static EmbedFieldBuilder? ResolveResponseField(
         IReadOnlyList<EmbedFieldBuilder> fields,

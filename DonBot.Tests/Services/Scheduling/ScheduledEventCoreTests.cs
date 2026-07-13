@@ -95,6 +95,50 @@ public sealed class ScheduledEventCoreTests
     }
 
     [Fact]
+    public void ResponseOptions_SerializeAndNormalizeAllowedRoles()
+    {
+        var json = ScheduledEventResponseOptions.Serialize([
+            new ScheduledEventResponseOption("Join", "✅", AllowedRoleIds: [" 100 ", "200", "100", ""])
+        ]);
+
+        var option = Assert.Single(ScheduledEventResponseOptions.ForEvent(
+            (short)ScheduledEventTypeEnum.RaidSignup,
+            json));
+
+        Assert.Equal(["100", "200"], option.AllowedRoleIds);
+    }
+
+    [Fact]
+    public void ResponseOptions_CanRespond_AllowsAnyoneWhenNoRolesConfigured()
+    {
+        var option = new ScheduledEventResponseOption("Join", "✅");
+
+        Assert.True(ScheduledEventResponseOptions.CanRespond(option, []));
+    }
+
+    [Fact]
+    public void ResponseOptions_CanRespond_RequiresAtLeastOneConfiguredRole()
+    {
+        var option = new ScheduledEventResponseOption("Join", "✅", AllowedRoleIds: ["100", "200"]);
+
+        Assert.True(ScheduledEventResponseOptions.CanRespond(option, [50UL, 200UL]));
+        Assert.False(ScheduledEventResponseOptions.CanRespond(option, [50UL, 60UL]));
+    }
+
+    [Fact]
+    public void ValidateWriteRequest_RejectsInvalidAllowedRoleId()
+    {
+        var error = ScheduledEventRules.ValidateWriteRequest(
+            ValidRequest(responseOptions:
+            [
+                new ScheduledEventResponseOption("Join", "✅", AllowedRoleIds: ["not-a-role"])
+            ]),
+            Now);
+
+        Assert.Contains("role ids", error);
+    }
+
+    [Fact]
     public void Snapshot_CanDetectChangesAndRestoreMutableState()
     {
         var entity = ScheduledEventPlanner.BuildEvent(999, ValidRequest());

@@ -1,9 +1,15 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using DonBot.Core.Models.Enums;
 
 namespace DonBot.Core.Models.Scheduling;
 
-public sealed record ScheduledEventResponseOption(string? Label, string? Emoji, bool Notify = false);
+public sealed record ScheduledEventResponseOption(
+    string? Label,
+    string? Emoji,
+    bool Notify = false,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    IReadOnlyList<string>? AllowedRoleIds = null);
 
 public static class ScheduledEventResponseOptions
 {
@@ -59,7 +65,8 @@ public static class ScheduledEventResponseOptions
                 : new ScheduledEventResponseOption(
                     (o.Label ?? string.Empty).Trim(),
                     (o.Emoji ?? string.Empty).Trim(),
-                    o.Notify))
+                    o.Notify,
+                    NormalizeRoleIds(o.AllowedRoleIds)))
             .ToList();
     }
 
@@ -129,6 +136,11 @@ public static class ScheduledEventResponseOptions
             {
                 return "Response options must be unique.";
             }
+
+            if (option.AllowedRoleIds?.Any(roleId => !ulong.TryParse(roleId, out var parsedRoleId) || parsedRoleId == 0) == true)
+            {
+                return "Allowed response roles must be valid Discord role ids.";
+            }
         }
 
         if (Serialize(normalized).Length > MaxJsonLength)
@@ -150,6 +162,39 @@ public static class ScheduledEventResponseOptions
 
     public static string FieldName(ScheduledEventResponseOption option) =>
         $"{(option.Emoji ?? string.Empty).Trim()} {(option.Label ?? string.Empty).Trim()}".Trim();
+
+    public static bool CanRespond(
+        ScheduledEventResponseOption option,
+        IEnumerable<ulong> userRoleIds)
+    {
+        if (option.AllowedRoleIds is null || option.AllowedRoleIds.Count == 0)
+        {
+            return true;
+        }
+
+        var allowedRoleIds = option.AllowedRoleIds
+            .Select(roleId => ulong.TryParse(roleId, out var parsedRoleId) ? parsedRoleId : 0)
+            .Where(roleId => roleId > 0)
+            .ToHashSet();
+
+        return allowedRoleIds.Count > 0 && userRoleIds.Any(allowedRoleIds.Contains);
+    }
+
+    private static IReadOnlyList<string>? NormalizeRoleIds(IEnumerable<string>? roleIds)
+    {
+        if (roleIds is null)
+        {
+            return null;
+        }
+
+        var normalized = roleIds
+            .Select(roleId => roleId?.Trim() ?? string.Empty)
+            .Where(roleId => roleId.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        return normalized.Count == 0 ? null : normalized;
+    }
 
     private static IReadOnlyList<ScheduledEventResponseOption> Deserialize(string? json)
     {

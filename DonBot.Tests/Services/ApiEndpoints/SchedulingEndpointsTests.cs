@@ -260,6 +260,36 @@ public class SchedulingEndpointsTests
     }
 
     [Fact]
+    public void ValidateEvent_SignupResponseOptionAllowedRoleInGuild_ReturnsNull()
+    {
+        var body = ValidBody() with
+        {
+            ResponseOptions =
+            [
+                new ScheduledEventResponseOption("Join", "✅", AllowedRoleIds: ["300"])
+            ]
+        };
+
+        Assert.Null(SchedulingEndpoints.ValidateEvent(body, Channels, validRoleIds: [300UL]));
+    }
+
+    [Fact]
+    public void ValidateEvent_SignupResponseOptionAllowedRoleOutsideGuild_ReturnsError()
+    {
+        var body = ValidBody() with
+        {
+            ResponseOptions =
+            [
+                new ScheduledEventResponseOption("Join", "✅", AllowedRoleIds: ["999"])
+            ]
+        };
+
+        Assert.Contains(
+            "belong to this guild",
+            SchedulingEndpoints.ValidateEvent(body, Channels, validRoleIds: [300UL]) ?? "");
+    }
+
+    [Fact]
     public void ValidateEvent_LeaderboardIgnoresResponseOptions_ReturnsNull()
     {
         var options = Enumerable.Range(1, ScheduledEventResponseOptions.MaxCount + 1)
@@ -302,7 +332,7 @@ public class SchedulingEndpointsTests
             NotificationMinutesBeforeStart = 30,
             Message = "be there",
             ResponseOptionsJson = ScheduledEventResponseOptions.Serialize([
-                new ScheduledEventResponseOption("Scout", "👀", true)
+                new ScheduledEventResponseOption("Scout", "👀", true, ["98765"])
             ]),
             UtcEventTime = fire,
         };
@@ -321,6 +351,7 @@ public class SchedulingEndpointsTests
         Assert.Equal("Scout", option.Label);
         Assert.Equal("👀", option.Emoji);
         Assert.True(option.Notify);
+        Assert.Equal(["98765"], option.AllowedRoleIds);
     }
 
     [Fact]

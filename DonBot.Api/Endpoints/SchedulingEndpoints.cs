@@ -167,7 +167,7 @@ public static class SchedulingEndpoints
             .ToList();
 
         var roles = botGuild.Roles
-            .Where(r => r.Id != botGuild.EveryoneRole.Id && !r.IsManaged)
+            .Where(r => r.Id != botGuild.EveryoneRole.Id)
             .OrderByDescending(r => r.Position)
             .Select(r => new RoleDto(r.Id.ToString(), r.Name))
             .ToList();
@@ -229,7 +229,12 @@ public static class SchedulingEndpoints
             return Results.NotFound("Bot is not in that guild.");
         }
 
-        var error = ValidateEvent(body, guildValidation.ChannelIds, guildValidation.EmojiIds, out var channelId);
+        var error = ValidateEvent(
+            body,
+            guildValidation.ChannelIds,
+            guildValidation.EmojiIds,
+            guildValidation.RoleIds,
+            out var channelId);
         if (error is not null)
         {
             return Results.BadRequest(error);
@@ -267,7 +272,12 @@ public static class SchedulingEndpoints
             return Results.NotFound("Bot is not in that guild.");
         }
 
-        var error = ValidateEvent(body, guildValidation.ChannelIds, guildValidation.EmojiIds, out var channelId);
+        var error = ValidateEvent(
+            body,
+            guildValidation.ChannelIds,
+            guildValidation.EmojiIds,
+            guildValidation.RoleIds,
+            out var channelId);
         if (error is not null)
         {
             return Results.BadRequest(error);
@@ -586,19 +596,25 @@ public static class SchedulingEndpoints
         }
         var channels = (await botGuild.GetTextChannelsAsync()).Select(c => c.Id).ToHashSet();
         var emotes = (await botGuild.GetEmotesAsync()).Select(e => e.Id).ToHashSet();
-        return new GuildValidationContext(channels, emotes);
+        var roles = botGuild.Roles
+            .Where(r => r.Id != botGuild.EveryoneRole.Id)
+            .Select(r => r.Id)
+            .ToHashSet();
+        return new GuildValidationContext(channels, emotes, roles);
     }
 
     internal static string? ValidateEvent(
         EventWriteDto body,
         HashSet<ulong> validChannelIds,
-        HashSet<ulong>? validCustomEmojiIds = null) =>
-        ValidateEvent(body, validChannelIds, validCustomEmojiIds, out _);
+        HashSet<ulong>? validCustomEmojiIds = null,
+        HashSet<ulong>? validRoleIds = null) =>
+        ValidateEvent(body, validChannelIds, validCustomEmojiIds, validRoleIds, out _);
 
     private static string? ValidateEvent(
         EventWriteDto body,
         HashSet<ulong> validChannelIds,
         HashSet<ulong>? validCustomEmojiIds,
+        HashSet<ulong>? validRoleIds,
         out long channelId)
     {
         channelId = 0;
@@ -632,6 +648,14 @@ public static class SchedulingEndpoints
                 if (!TryParseResponseEmoji(responseOption.Emoji ?? string.Empty, validCustomEmojiIds))
                 {
                     return "Response option emojis must be valid Unicode or server custom emojis.";
+                }
+
+                if (validRoleIds is not null
+                    && responseOption.AllowedRoleIds?.Any(roleId =>
+                        !ulong.TryParse(roleId, out var parsedRoleId)
+                        || !validRoleIds.Contains(parsedRoleId)) == true)
+                {
+                    return "Allowed response roles must belong to this guild.";
                 }
             }
         }
@@ -742,6 +766,9 @@ public static class SchedulingEndpoints
     // ReSharper restore UnusedAutoPropertyAccessor.Local
     // ReSharper restore UnusedMember.Local
 
-    private sealed record GuildValidationContext(HashSet<ulong> ChannelIds, HashSet<ulong> EmojiIds);
+    private sealed record GuildValidationContext(
+        HashSet<ulong> ChannelIds,
+        HashSet<ulong> EmojiIds,
+        HashSet<ulong> RoleIds);
 
 }

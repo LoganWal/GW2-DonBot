@@ -4,6 +4,7 @@ using System.Text.Json;
 using DonBot.Api.Endpoints;
 using DonBot.Core.Models.Entities;
 using DonBot.Tests.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 
 namespace DonBot.Tests.Services.ApiEndpoints;
 
@@ -128,6 +129,61 @@ public class LogsEndpointsIntegrationTests
     }
 
     [Fact]
+    public async Task GetLogs_InvalidPaging_ReturnsNormalizedMetadata()
+    {
+        using var host = NewHost();
+        await SeedAccountAndFights(host, "Mine.1234", (1, 0, true, DateTime.UtcNow));
+        host.AuthenticateAs(123L);
+
+        var body = await host.Client.GetStringAsync("/api/logs/?page=-2&pageSize=0");
+        var doc = JsonDocument.Parse(body).RootElement;
+
+        Assert.Equal(1, doc.GetProperty("page").GetInt32());
+        Assert.Equal(1, doc.GetProperty("pageSize").GetInt32());
+        Assert.Single(doc.GetProperty("data").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task GetLogs_VeryLargePage_ReturnsEmptyPageWithoutOverflowing()
+    {
+        using var host = NewHost();
+        await SeedAccountAndFights(host, "Mine.1234", (1, 0, true, DateTime.UtcNow));
+        host.AuthenticateAs(123L);
+
+        var body = await host.Client.GetStringAsync("/api/logs/?page=2147483647&pageSize=500");
+        var doc = JsonDocument.Parse(body).RootElement;
+
+        Assert.Equal(1, doc.GetProperty("total").GetInt32());
+        Assert.Empty(doc.GetProperty("data").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task GetLogs_DurationRangeAndSort_AreAppliedBeforePaging()
+    {
+        using var host = NewHost();
+        await SeedAccountAndFights(host, "Mine.1234",
+            (1, 1, true, DateTime.UtcNow),
+            (2, 1, true, DateTime.UtcNow),
+            (3, 1, true, DateTime.UtcNow));
+        await using (var db = await host.DbFactory.CreateDbContextAsync())
+        {
+            var fights = await db.FightLog.OrderBy(fight => fight.FightLogId).ToListAsync();
+            fights[0].FightDurationInMs = 10_000;
+            fights[1].FightDurationInMs = 20_000;
+            fights[2].FightDurationInMs = 30_000;
+            db.FightLog.UpdateRange(fights);
+            await db.SaveChangesAsync();
+        }
+        host.AuthenticateAs(123L);
+
+        var body = await host.Client.GetStringAsync("/api/logs/?minDurationSeconds=15&maxDurationSeconds=30&sortField=fightDurationInMs&sortOrder=asc&pageSize=1");
+        var doc = JsonDocument.Parse(body).RootElement;
+
+        Assert.Equal(2, doc.GetProperty("total").GetInt32());
+        Assert.Equal(2, doc.GetProperty("data")[0].GetProperty("fightLogId").GetInt64());
+    }
+
+    [Fact]
     public async Task GetLogs_PlaystyleFilter_ReturnsMatchingRoleAndLabel()
     {
         using var host = NewHost();
@@ -171,6 +227,124 @@ public class LogsEndpointsIntegrationTests
         Assert.Equal(2, data[0].GetProperty("fightLogId").GetInt64());
         Assert.Equal("boon-dps", data[0].GetProperty("playstyle").GetString());
         Assert.Equal("Boon DPS", data[0].GetProperty("playstyleLabel").GetString());
+    }
+
+    [Fact]
+    public async Task GetLogs_PlaystyleSort_UsesDisplayedLabel()
+    {
+        using var host = NewHost();
+        await using (var db = await host.DbFactory.CreateDbContextAsync())
+        {
+            db.GuildWarsAccount.Add(new GuildWarsAccount { GuildWarsAccountId = Guid.NewGuid(), DiscordId = 123L, GuildWarsAccountName = "Mine.1234" });
+            db.FightLog.AddRange(
+                new FightLog { FightLogId = 1, FightType = 1, FightStart = DateTime.UtcNow, Url = "u1" },
+                new FightLog { FightLogId = 2, FightType = 1, FightStart = DateTime.UtcNow, Url = "u2" });
+            db.PlayerFightLog.AddRange(
+                new PlayerFightLog { PlayerFightLogId = 1, FightLogId = 1, GuildWarsAccountName = "Mine.1234", CharacterName = "Dps", Playstyle = "dps" },
+                new PlayerFightLog { PlayerFightLogId = 2, FightLogId = 2, GuildWarsAccountName = "Mine.1234", CharacterName = "Boon", Playstyle = "boon-dps" });
+            await db.SaveChangesAsync();
+        }
+        host.AuthenticateAs(123L);
+
+        var body = await host.Client.GetStringAsync("/api/logs/?sortField=playstyleLabel&sortOrder=asc");
+        var data = JsonDocument.Parse(body).RootElement.GetProperty("data");
+
+        Assert.Equal("Boon DPS", data[0].GetProperty("playstyleLabel").GetString());
+        Assert.Equal("DPS", data[1].GetProperty("playstyleLabel").GetString());
+    }
+
+    [Fact]
+    public async Task GetLogs_InvalidPlaystyle_DoesNotChangeCharacterSort()
+    {
+        using var host = NewHost();
+        await SeedAccountAndFights(host, "Mine.1234",
+            (1, 1, true, DateTime.UtcNow),
+            (2, 1, true, DateTime.UtcNow));
+        await using (var db = await host.DbFactory.CreateDbContextAsync())
+        {
+            await db.PlayerFightLog.Where(player => player.FightLogId == 1)
+                .ExecuteUpdateAsync(update => update.SetProperty(player => player.CharacterName, "Zulu"));
+            await db.PlayerFightLog.Where(player => player.FightLogId == 2)
+                .ExecuteUpdateAsync(update => update.SetProperty(player => player.CharacterName, "Alpha"));
+        }
+        host.AuthenticateAs(123L);
+
+        var body = await host.Client.GetStringAsync("/api/logs/?playstyles=bogus&sortField=characterName&sortOrder=asc");
+        var data = JsonDocument.Parse(body).RootElement.GetProperty("data");
+
+        Assert.Equal("Alpha", data[0].GetProperty("characterName").GetString());
+        Assert.Equal("Zulu", data[1].GetProperty("characterName").GetString());
+    }
+
+    [Fact]
+    public async Task GetLogs_FightSort_UsesDisplayedNameInsteadOfNumericValue()
+    {
+        using var host = NewHost();
+        await SeedAccountAndFights(host, "Mine.1234",
+            (1, 0, true, DateTime.UtcNow),
+            (2, 27, true, DateTime.UtcNow),
+            (3, 40, true, DateTime.UtcNow));
+        host.AuthenticateAs(123L);
+
+        var body = await host.Client.GetStringAsync("/api/logs/?sortField=fightType&sortOrder=asc");
+        var data = JsonDocument.Parse(body).RootElement.GetProperty("data");
+
+        Assert.Equal(27, data[0].GetProperty("fightType").GetInt32());
+        Assert.Equal(40, data[1].GetProperty("fightType").GetInt32());
+        Assert.Equal(0, data[2].GetProperty("fightType").GetInt32());
+    }
+
+    [Fact]
+    public async Task GetLogs_ComputedWvwPlaystyle_UsesHistoryForPageAndFiltering()
+    {
+        using var host = NewHost();
+        await using (var db = await host.DbFactory.CreateDbContextAsync())
+        {
+            db.GuildWarsAccount.Add(new GuildWarsAccount { GuildWarsAccountId = Guid.NewGuid(), DiscordId = 123L, GuildWarsAccountName = "Mine.1234" });
+            db.FightLog.AddRange(
+                new FightLog { FightLogId = 1, FightType = 0, FightDurationInMs = 60_000, FightStart = DateTime.UtcNow, Url = "heal" },
+                new FightLog { FightLogId = 2, FightType = 0, FightDurationInMs = 60_000, FightStart = DateTime.UtcNow.AddMinutes(-1), Url = "dps" });
+            db.PlayerFightLog.AddRange(
+                new PlayerFightLog { PlayerFightLogId = 1, FightLogId = 1, GuildWarsAccountName = "Mine.1234", CharacterName = "Healer", Healing = 60_000 },
+                new PlayerFightLog { PlayerFightLogId = 2, FightLogId = 2, GuildWarsAccountName = "Mine.1234", CharacterName = "Damage", Damage = 60_000 });
+            await db.SaveChangesAsync();
+        }
+        host.AuthenticateAs(123L);
+
+        var pageBody = await host.Client.GetStringAsync("/api/logs/?pageSize=1");
+        var pageRow = JsonDocument.Parse(pageBody).RootElement.GetProperty("data")[0];
+        var filteredBody = await host.Client.GetStringAsync("/api/logs/?playstyles=heal-support&sortField=characterName&sortOrder=asc");
+        var filtered = JsonDocument.Parse(filteredBody).RootElement;
+
+        Assert.Equal("heal-support", pageRow.GetProperty("playstyle").GetString());
+        Assert.Equal("Heal Support", pageRow.GetProperty("playstyleLabel").GetString());
+        Assert.Equal(1, filtered.GetProperty("total").GetInt32());
+        Assert.Equal("Healer", filtered.GetProperty("data")[0].GetProperty("characterName").GetString());
+    }
+
+    [Fact]
+    public async Task GetLogs_CharacterSort_UsesFilteredDisplayedCharacter()
+    {
+        using var host = NewHost();
+        await using (var db = await host.DbFactory.CreateDbContextAsync())
+        {
+            db.GuildWarsAccount.Add(new GuildWarsAccount { GuildWarsAccountId = Guid.NewGuid(), DiscordId = 123L, GuildWarsAccountName = "Mine.1234" });
+            db.FightLog.AddRange(
+                new FightLog { FightLogId = 1, FightType = 1, FightStart = DateTime.UtcNow, Url = "u1" },
+                new FightLog { FightLogId = 2, FightType = 1, FightStart = DateTime.UtcNow, Url = "u2" });
+            db.PlayerFightLog.AddRange(
+                new PlayerFightLog { PlayerFightLogId = 1, FightLogId = 1, GuildWarsAccountName = "Mine.1234", CharacterName = "Aardvark", Playstyle = "boon-dps" },
+                new PlayerFightLog { PlayerFightLogId = 2, FightLogId = 1, GuildWarsAccountName = "Mine.1234", CharacterName = "Zulu", Playstyle = "dps" },
+                new PlayerFightLog { PlayerFightLogId = 3, FightLogId = 2, GuildWarsAccountName = "Mine.1234", CharacterName = "Beta", Playstyle = "dps" });
+            await db.SaveChangesAsync();
+        }
+        host.AuthenticateAs(123L);
+
+        var body = await host.Client.GetStringAsync("/api/logs/?playstyles=dps&sortField=characterName&sortOrder=asc");
+        var data = JsonDocument.Parse(body).RootElement.GetProperty("data");
+
+        Assert.Equal("Beta", data[0].GetProperty("characterName").GetString());
+        Assert.Equal("Zulu", data[1].GetProperty("characterName").GetString());
     }
 
     [Fact]
@@ -220,6 +394,58 @@ public class LogsEndpointsIntegrationTests
         Assert.Equal(2, doc.RootElement.GetArrayLength());
         Assert.Equal("Alpha", doc.RootElement[0].GetString());
         Assert.Equal("Charlie", doc.RootElement[1].GetString());
+    }
+
+    [Fact]
+    public async Task GetMyGuilds_GlobalFirst_AndGuildFilterLimitsLogs()
+    {
+        using var host = NewHost();
+        await SeedAccountAndFights(host, "Mine.1234",
+            (1, 1, true, DateTime.UtcNow),
+            (2, 1, true, DateTime.UtcNow));
+        await using (var db = await host.DbFactory.CreateDbContextAsync())
+        {
+            var fights = await db.FightLog.OrderBy(fight => fight.FightLogId).ToListAsync();
+            fights[0].GuildId = -1;
+            fights[1].GuildId = 42;
+            db.FightLog.UpdateRange(fights);
+            db.Guild.Add(new Guild { GuildId = 42, GuildName = "Test Guild" });
+            await db.SaveChangesAsync();
+        }
+        host.AuthenticateAs(123L);
+
+        var guildBody = await host.Client.GetStringAsync("/api/logs/guilds");
+        var guilds = JsonDocument.Parse(guildBody).RootElement;
+        var logsBody = await host.Client.GetStringAsync("/api/logs/?guildIds=-1");
+        var logs = JsonDocument.Parse(logsBody).RootElement.GetProperty("data");
+
+        Assert.Equal("-1", guilds[0].GetProperty("guildId").GetString());
+        Assert.Equal("Global", guilds[0].GetProperty("guildName").GetString());
+        Assert.Single(logs.EnumerateArray());
+        Assert.Equal("Global", logs[0].GetProperty("guildName").GetString());
+    }
+
+    [Fact]
+    public async Task GetLogs_GuildSort_UsesDisplayedGlobalName()
+    {
+        using var host = NewHost();
+        await SeedAccountAndFights(host, "Mine.1234", (1, 1, true, DateTime.UtcNow), (2, 1, true, DateTime.UtcNow));
+        await using (var db = await host.DbFactory.CreateDbContextAsync())
+        {
+            var fights = await db.FightLog.OrderBy(fight => fight.FightLogId).ToListAsync();
+            fights[0].GuildId = -1;
+            fights[1].GuildId = 42;
+            db.FightLog.UpdateRange(fights);
+            db.Guild.Add(new Guild { GuildId = 42, GuildName = "Alpha Guild" });
+            await db.SaveChangesAsync();
+        }
+        host.AuthenticateAs(123L);
+
+        var body = await host.Client.GetStringAsync("/api/logs/?sortField=guildName&sortOrder=asc");
+        var data = JsonDocument.Parse(body).RootElement.GetProperty("data");
+
+        Assert.Equal("Alpha Guild", data[0].GetProperty("guildName").GetString());
+        Assert.Equal("Global", data[1].GetProperty("guildName").GetString());
     }
 
     [Fact]

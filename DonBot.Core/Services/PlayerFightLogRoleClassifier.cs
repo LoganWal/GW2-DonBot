@@ -44,6 +44,15 @@ public static class PlayerFightLogRoleClassifier
     public static bool HasProviderLevelBoonGeneration(double boonGeneration) =>
         boonGeneration > BoonGenerationThreshold;
 
+    public static double AverageProviderLevelBoonGeneration(IEnumerable<decimal> values)
+    {
+        var providerValues = values
+            .Where(value => HasProviderLevelBoonGeneration((double)value))
+            .Select(value => (double)value)
+            .ToList();
+        return providerValues.Count > 0 ? providerValues.Average() : 0d;
+    }
+
     public static bool IsLowDps(Gw2Player player, long fightDurationInMs, double averageGroupDps)
     {
         if (averageGroupDps <= 0d)

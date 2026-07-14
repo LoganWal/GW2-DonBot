@@ -94,6 +94,7 @@ DonBot.Web/.output/
 DonBot.Web/.data/
 DonBot.Web/.nitro/
 DonBot.Web/.cache/
+DonBot.Web/urls/
 .npm/
 .pnpm-store/
 npm-debug.log*

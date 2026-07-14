@@ -6,6 +6,7 @@
       size="small"
       :label="opt.label"
       :severity="modelValue === opt.value ? (opt.severity ?? 'primary') : 'secondary'"
+      :aria-pressed="modelValue === opt.value"
       @click="$emit('update:modelValue', opt.value)"
     />
   </div>

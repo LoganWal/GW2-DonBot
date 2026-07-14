@@ -65,6 +65,34 @@ public class StatsEndpointsIntegrationTests
     }
 
     [Fact]
+    public async Task GetMyStats_BoonGeneration_AveragesProviderValuesOnly()
+    {
+        using var host = NewHost();
+        await using (var db = await host.DbFactory.CreateDbContextAsync())
+        {
+            db.GuildWarsAccount.Add(new GuildWarsAccount
+            {
+                GuildWarsAccountId = Guid.NewGuid(),
+                DiscordId = 123L,
+                GuildWarsAccountName = "Player.1234"
+            });
+            db.FightLog.AddRange(Fight(1, 1), Fight(2, 1), Fight(3, 1));
+            db.PlayerFightLog.AddRange(
+                new PlayerFightLog { PlayerFightLogId = 1, FightLogId = 1, GuildWarsAccountName = "Player.1234", CharacterName = "C", QuicknessGenGroup = 0m, AlacGenGroup = 20m },
+                new PlayerFightLog { PlayerFightLogId = 2, FightLogId = 2, GuildWarsAccountName = "Player.1234", CharacterName = "C", QuicknessGenGroup = 60m, AlacGenGroup = 70m },
+                new PlayerFightLog { PlayerFightLogId = 3, FightLogId = 3, GuildWarsAccountName = "Player.1234", CharacterName = "C", QuicknessGenGroup = 80m, AlacGenGroup = 90m });
+            await db.SaveChangesAsync();
+        }
+        host.AuthenticateAs(123L);
+
+        var body = await host.Client.GetStringAsync("/api/stats/me");
+        var pve = JsonDocument.Parse(body).RootElement.GetProperty("pve");
+
+        Assert.Equal(70d, pve.GetProperty("avgQuicknessGen").GetDouble(), precision: 3);
+        Assert.Equal(80d, pve.GetProperty("avgAlacGen").GetDouble(), precision: 3);
+    }
+
+    [Fact]
     public async Task GetMyStats_ReturnsPveAndWvwPlaystyleBreakdowns()
     {
         using var host = NewHost();

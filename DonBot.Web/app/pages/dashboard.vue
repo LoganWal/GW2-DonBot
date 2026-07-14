@@ -4,17 +4,14 @@
       <div>
         <h1 class="page-title dashboard-title">Dashboard</h1>
         <p v-if="dashboard" class="dashboard-subtitle">
-          {{ dashboard.lastFightDate ? `Last seen ${formatDate(dashboard.lastFightDate)}` : 'No fight activity yet' }}
+          {{ dashboardSummary }}
         </p>
       </div>
-      <Button
-        icon="pi pi-refresh"
-        severity="secondary"
-        text
-        rounded
-        :loading="pending"
-        @click="refresh()"
-      />
+      <div class="dashboard-actions">
+        <Button label="Fight logs" icon="pi pi-list" severity="secondary" size="small" @click="navigateTo('/logs')" />
+        <Button label="Upload" icon="pi pi-upload" size="small" @click="navigateTo('/logs/upload')" />
+        <Button icon="pi pi-refresh" severity="secondary" text rounded :loading="pending" aria-label="Refresh dashboard" v-tooltip.bottom="'Refresh dashboard'" @click="refreshDashboard" />
+      </div>
     </div>
 
     <Message v-if="unavailablePanelLabels" severity="warn" :closable="false" class="dashboard-notice">
@@ -24,13 +21,20 @@
     <ProgressSpinner v-if="pending && !visuals" />
 
     <template v-else-if="dashboard">
+      <div class="section-heading">
+        <div>
+          <span class="section-kicker">At a glance</span>
+          <h2>Your account</h2>
+        </div>
+        <span>Lifetime totals unless marked otherwise</span>
+      </div>
       <div class="stat-grid dashboard-stat-grid">
-        <StatCard label="Available Points" :value="availablePoints" />
-        <StatCard label="Total Points Earned" :value="totalPoints" />
-        <StatCard label="30 Day Point Gain" :value="periodPointGain" />
-        <StatCard label="Awarded Logs" :value="dashboard.points?.awardedLogs ?? 0" />
+        <StatCard label="Available Points" :value="formatCompact(availablePoints)" />
+        <StatCard label="Points Earned" :value="formatCompact(totalPoints)" />
+        <StatCard label="Points · 30 days" :value="formatCompact(periodPointGain)" />
         <StatCard label="Total Fights" :value="dashboard.fights?.total ?? 0" />
         <StatCard label="Characters" :value="dashboard.characterCount ?? 0" />
+        <StatCard label="Logs Awarded" :value="dashboard.points?.awardedLogs ?? 0" />
         <Card v-if="dashboard.gw2Accounts?.length" class="stat-card account-card">
           <template #content>
             <div class="stat-label account-card-title">GW2 Accounts</div>
@@ -46,8 +50,21 @@
         </Card>
       </div>
 
-      <div class="dashboard-grid">
-        <Card v-if="recentLogs.length" class="dashboard-panel">
+      <div v-if="dashboard.points?.topComponent" class="dashboard-insight">
+        <i class="pi pi-star-fill" />
+        <div>
+          <span>Top point contribution</span>
+          <strong>{{ dashboard.points.topComponent.metricLabel }}</strong>
+          <small>{{ formatCompact(dashboard.points.topComponent.points) }} points across {{ formatCompact(dashboard.points.topComponent.count) }} awards</small>
+        </div>
+      </div>
+
+      <div class="section-heading">
+        <div><span class="section-kicker">What’s happening</span><h2>Recent activity</h2></div>
+        <NuxtLink to="/logs">View all logs <i class="pi pi-arrow-right" /></NuxtLink>
+      </div>
+      <div class="dashboard-grid activity-overview-grid">
+        <Card v-if="recentLogs.length" class="dashboard-panel recent-logs-panel">
           <template #title>
             <div class="panel-title-row">
               <span>Recent Logs</span>
@@ -98,26 +115,36 @@
             </div>
           </template>
         </Card>
+      </div>
 
-        <Card v-if="pvePlaystyles.length" class="dashboard-panel">
+      <div class="section-heading">
+        <div><span class="section-kicker">Performance breakdown</span><h2>{{ combatSectionTitle }}</h2></div>
+        <div class="section-actions">
+          <div class="range-toggle" role="group" aria-label="Combat profile time range">
+            <Button
+              v-for="option in playstyleRangeOptions"
+              :key="option.value"
+              :label="option.label"
+              size="small"
+              :severity="playstyleRange === option.value ? 'primary' : 'secondary'"
+              :aria-pressed="playstyleRange === option.value"
+              outlined
+              @click="playstyleRange = option.value"
+            />
+          </div>
+          <NuxtLink to="/stats">Open detailed stats <i class="pi pi-arrow-right" /></NuxtLink>
+        </div>
+      </div>
+      <div class="dashboard-grid combat-grid">
+        <Card class="dashboard-panel">
           <template #title>
             <div class="panel-title-row">
               <span>PvE Playstyle</span>
-              <div class="panel-title-actions">
-                <Button
-                  v-for="option in playstyleRangeOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  size="small"
-                  :severity="playstyleRange === option.value ? 'primary' : 'secondary'"
-                  outlined
-                  @click="playstyleRange = option.value"
-                />
-              </div>
+              <Tag :value="combatRangeLabel" severity="secondary" class="limit-tag" />
             </div>
           </template>
           <template #content>
-            <div class="playstyle-stack">
+            <div v-if="pvePlaystyles.length" class="playstyle-stack">
               <div v-for="style in pvePlaystyles" :key="style.key" class="playstyle-row">
                 <div class="playstyle-copy">
                   <span>{{ style.label }}</span>
@@ -133,28 +160,20 @@
                 <small>{{ style.percent.toFixed(1) }}%</small>
               </div>
             </div>
+            <Message v-else-if="selectedPlaystyleUnavailable" severity="warn" :closable="false">PvE playstyle data is temporarily unavailable.</Message>
+            <Message v-else severity="secondary" :closable="false">No PvE fights in this range.</Message>
           </template>
         </Card>
 
-        <Card v-if="wvwPlaystyles.length" class="dashboard-panel">
+        <Card class="dashboard-panel">
           <template #title>
             <div class="panel-title-row">
               <span>WvW Playstyle</span>
-              <div class="panel-title-actions">
-                <Button
-                  v-for="option in playstyleRangeOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  size="small"
-                  :severity="playstyleRange === option.value ? 'primary' : 'secondary'"
-                  outlined
-                  @click="playstyleRange = option.value"
-                />
-              </div>
+              <Tag :value="combatRangeLabel" severity="secondary" class="limit-tag" />
             </div>
           </template>
           <template #content>
-            <div class="playstyle-stack">
+            <div v-if="wvwPlaystyles.length" class="playstyle-stack">
               <div v-for="style in wvwPlaystyles" :key="style.key" class="playstyle-row">
                 <div class="playstyle-copy">
                   <span>{{ style.label }}</span>
@@ -170,25 +189,8 @@
                 <small>{{ style.percent.toFixed(1) }}%</small>
               </div>
             </div>
-          </template>
-        </Card>
-
-        <Card v-if="totalPoints > 0" class="dashboard-panel">
-          <template #title>Points Balance</template>
-          <template #content>
-            <div class="doughnut-layout">
-              <Chart type="doughnut" :data="pointsChartData" :options="doughnutOptions" class="doughnut-chart" />
-              <div class="balance-copy">
-                <div>
-                  <span>Available</span>
-                  <strong>{{ formatCompact(availablePoints) }}</strong>
-                </div>
-                <div>
-                  <span>Spent</span>
-                  <strong>{{ formatCompact(spentPoints) }}</strong>
-                </div>
-              </div>
-            </div>
+            <Message v-else-if="selectedPlaystyleUnavailable" severity="warn" :closable="false">WvW playstyle data is temporarily unavailable.</Message>
+            <Message v-else severity="secondary" :closable="false">No WvW fights in this range.</Message>
           </template>
         </Card>
 
@@ -196,7 +198,7 @@
           <template #title>
             <div class="panel-title-row">
               <span>Boon Uptime</span>
-              <Tag :value="periodLimitLabel" severity="secondary" class="limit-tag" />
+              <Tag :value="combatRangeLabel" severity="secondary" class="limit-tag" />
             </div>
           </template>
           <template #content>
@@ -218,7 +220,7 @@
           <template #title>
             <div class="panel-title-row">
               <span>Combat Stats</span>
-              <Tag :value="periodLimitLabel" severity="secondary" class="limit-tag" />
+              <Tag :value="combatRangeLabel" severity="secondary" class="limit-tag" />
             </div>
           </template>
           <template #content>
@@ -237,6 +239,10 @@
         </Card>
       </div>
 
+      <div class="section-heading">
+        <div><span class="section-kicker">Standout performances</span><h2>Highlights</h2></div>
+        <NuxtLink to="/bests">See all personal bests <i class="pi pi-arrow-right" /></NuxtLink>
+      </div>
       <div class="wide-grid">
         <Card v-if="bestHighlights.length" class="dashboard-panel">
           <template #title>Personal Bests</template>
@@ -260,6 +266,9 @@
         </Card>
       </div>
 
+      <div class="section-heading">
+        <div><span class="section-kicker">Your roster and position</span><h2>Characters & rankings</h2></div>
+      </div>
       <div class="wide-grid">
         <Card v-if="characterRows.length" class="dashboard-panel">
           <template #title>
@@ -307,6 +316,10 @@
         </Card>
       </div>
 
+      <div class="section-heading">
+        <div><span class="section-kicker">Performance over time</span><h2>Trends</h2></div>
+        <NuxtLink to="/progression">Explore progression <i class="pi pi-arrow-right" /></NuxtLink>
+      </div>
       <div class="trend-grid">
         <Card v-if="logs.length" class="dashboard-panel trend-panel">
           <template #title>
@@ -341,12 +354,31 @@
             </div>
           </template>
           <template #content>
-            <Chart type="bar" :data="activityChartData" :options="activityChartOptions" class="trend-chart" />
+            <Message v-if="panelUnavailable('activity-logs')" severity="warn" :closable="false">
+              Recent activity is temporarily unavailable.
+            </Message>
+            <Chart v-else type="bar" :data="activityChartData" :options="activityChartOptions" class="trend-chart" />
           </template>
         </Card>
       </div>
 
+      <div class="section-heading">
+        <div><span class="section-kicker">Tools and access</span><h2>Account activity</h2></div>
+      </div>
       <div class="dashboard-grid">
+        <Card v-if="totalPoints > 0" class="dashboard-panel">
+          <template #title>Points Balance</template>
+          <template #content>
+            <div class="doughnut-layout">
+              <Chart type="doughnut" :data="pointsChartData" :options="doughnutOptions" class="doughnut-chart" />
+              <div class="balance-copy">
+                <div><span>Available</span><strong>{{ formatCompact(availablePoints) }}</strong></div>
+                <div><span>Spent</span><strong>{{ formatCompact(spentPoints) }}</strong></div>
+              </div>
+            </div>
+          </template>
+        </Card>
+
         <Card v-if="uploadItems.length" class="dashboard-panel">
           <template #title>
             <div class="panel-title-row">
@@ -368,6 +400,7 @@
                   text
                   rounded
                   size="small"
+                  :aria-label="`View log for ${upload.fileName}`"
                   @click="openLog(upload.fightLogId)"
                 />
               </div>
@@ -584,7 +617,6 @@ const LEADERBOARD_GUILD_LIMIT = 5
 const LIVE_RAID_GUILD_PREVIEW_LIMIT = 4
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 
-const periodLimitLabel = `Last ${DASHBOARD_PERIOD_DAYS} days`
 const trendLimitLabel = 'Last 1 year'
 const recentActivityLimitLabel = `Past ${RECENT_ACTIVITY_DAYS} days`
 const uploadLimitLabel = `Latest ${UPLOAD_LIMIT} · Last 24h`
@@ -602,12 +634,28 @@ let trendRequestId = 0
 
 const dashboard = computed(() => visuals.value?.dashboard ?? null)
 const periodDashboard = computed(() => visuals.value?.periodDashboard ?? null)
+const dashboardSummary = computed(() => {
+  const recentFights = Number(periodDashboard.value?.fights?.total ?? 0)
+  const lastSeen = dashboard.value?.lastFightDate
+    ? `Last fight ${formatDate(dashboard.value.lastFightDate)}`
+    : 'No fight activity yet'
+  return recentFights > 0
+    ? `${formatCompact(recentFights)} fights in the last 30 days · ${lastSeen}`
+    : lastSeen
+})
 const stats = computed(() => visuals.value?.stats ?? null)
 const selectedPlaystyleStats = computed(() =>
   playstyleRange.value === 'month'
     ? visuals.value?.periodStats ?? null
     : stats.value
 )
+const selectedCombatDashboard = computed(() =>
+  playstyleRange.value === 'month'
+    ? periodDashboard.value
+    : dashboard.value
+)
+const combatRangeLabel = computed(() => playstyleRange.value === 'month' ? 'Last 30 days' : 'All time')
+const combatSectionTitle = computed(() => `Combat profile · ${combatRangeLabel.value}`)
 const bests = computed(() => visuals.value?.bests ?? null)
 const logs = computed(() => visuals.value?.logs.data ?? [])
 const logsTotal = computed(() => visuals.value?.logs.total ?? logs.value.length)
@@ -624,6 +672,9 @@ const unavailablePanelLabels = computed(() => {
   ]
   return [...new Set(labels)].join(', ')
 })
+const unavailablePanelKeys = computed(() => new Set(visuals.value?.unavailable.map(panel => panel.key) ?? []))
+const panelUnavailable = (key: string) => unavailablePanelKeys.value.has(key)
+const selectedPlaystyleUnavailable = computed(() => panelUnavailable(playstyleRange.value === 'month' ? 'period-stats' : 'stats'))
 
 const totalPoints = computed(() => Number(dashboard.value?.account?.points ?? 0))
 const availablePoints = computed(() => Number(dashboard.value?.account?.availablePoints ?? 0))
@@ -653,7 +704,7 @@ const pointsChartData = computed(() => ({
 }))
 
 const boonBars = computed(() => {
-  const fights = periodDashboard.value?.fights
+  const fights = selectedCombatDashboard.value?.fights
   return [
     { label: 'Quickness', value: Number(fights?.avgQuickness ?? 0), className: 'fill-blue' },
     { label: 'Alacrity', value: Number(fights?.avgAlac ?? 0), className: 'fill-green' },
@@ -663,7 +714,7 @@ const boonBars = computed(() => {
 })
 
 const combatProfile = computed(() => {
-  const fights = periodDashboard.value?.fights
+  const fights = selectedCombatDashboard.value?.fights
   if (!fights) {
     return []
   }
@@ -750,12 +801,13 @@ const recentActivityDays = computed(() => {
   {
     const date = new Date()
     date.setDate(date.getDate() - i)
-    const key = date.toISOString().slice(0, 10)
+    date.setHours(0, 0, 0, 0)
+    const key = localDateKey(date)
     map.set(key, { label: formatShortDate(date.toISOString()), wvw: 0, pve: 0 })
   }
   for (const log of activityLogs.value)
   {
-    const key = new Date(log.fightStart).toISOString().slice(0, 10)
+    const key = localDateKey(new Date(log.fightStart))
     const day = map.get(key)
     if (!day) {
       continue
@@ -937,30 +989,39 @@ watch(selectedTrendFightType, (fightType) => {
 }, { immediate: true })
 
 async function loadDashboardVisuals(): Promise<DashboardVisuals> {
-  const dashboardResult = await safeApi<DashboardResponse | null>('/api/dashboard', null)
   const activityStartDateTime = recentActivityStartDateTime()
 
   const [
+    dashboardResult,
     periodDashboardResult,
     periodStatsResult,
     statsResult,
     bestsResult,
-    logsResult,
     activityLogsResult,
     uploadsResult,
     guildsResult,
     liveRaidGuildsResult,
   ] = await Promise.all([
+    safeApi<DashboardResponse | null>('/api/dashboard', null),
     safeApi<DashboardResponse | null>(`/api/dashboard?days=${DASHBOARD_PERIOD_DAYS}`, null),
     safeApi<StatsResponse | null>(`/api/stats/me?days=${DASHBOARD_PERIOD_DAYS}`, null),
     safeApi<StatsResponse | null>('/api/stats/me', null),
     safeApi<BestsResponse | null>('/api/stats/bests', null),
-    safeApi<LogsResponse>(`/api/logs?page=1&pageSize=${RECENT_LOG_FETCH_LIMIT}`, { total: 0, data: [] }),
     fetchLogsSince(activityStartDateTime),
     safeApi<UploadResponse>(`/api/upload/history?page=1&pageSize=${UPLOAD_LIMIT}`, { items: [] }),
     safeApi<GuildSummary[]>('/api/guilds/mine', []),
     safeApi<GuildSummary[]>('/api/live-raid/guilds', []),
   ])
+
+  const logsResult: ApiResult<LogsResponse> = activityLogsResult.data.data.length >= RECENT_LOG_LIMIT
+    ? {
+        data: {
+          total: dashboardResult.data?.fights?.total ?? activityLogsResult.data.total,
+          data: activityLogsResult.data.data,
+        },
+        failed: activityLogsResult.failed,
+      }
+    : await safeApi<LogsResponse>(`/api/logs?page=1&pageSize=${RECENT_LOG_FETCH_LIMIT}`, { total: 0, data: [] })
 
   const guilds = guildsResult.data
   const leaderboardTargets = [
@@ -1046,9 +1107,24 @@ function compareNullableText(a: string | null | undefined, b: string | null | un
 
 function recentActivityStartDateTime() {
   const start = new Date()
-  start.setUTCDate(start.getUTCDate() - RECENT_ACTIVITY_DAYS + 1)
-  start.setUTCHours(0, 0, 0, 0)
+  start.setDate(start.getDate() - RECENT_ACTIVITY_DAYS + 1)
+  start.setHours(0, 0, 0, 0)
   return start.toISOString()
+}
+
+function localDateKey(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+async function refreshDashboard() {
+  const previousFightType = selectedTrendFightType.value
+  await refresh()
+  if (selectedTrendFightType.value === previousFightType) {
+    await loadTrend(selectedTrendFightType.value)
+  }
 }
 
 async function loadTrend(fightType: number | null) {
@@ -1164,6 +1240,14 @@ function openLog(fightLogId?: number | null) {
   margin-bottom: 1.5rem;
 }
 
+.dashboard-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .dashboard-title {
   margin-bottom: 0.15rem;
 }
@@ -1175,6 +1259,81 @@ function openLog(fightLogId?: number | null) {
 
 .dashboard-notice {
   margin-bottom: 1rem;
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 2rem 0 0.8rem;
+}
+
+.section-heading:first-of-type {
+  margin-top: 0;
+}
+
+.section-heading h2 {
+  margin: 0.1rem 0 0;
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+
+.section-heading > span,
+.section-heading a {
+  color: var(--p-text-muted-color);
+  font-size: 0.8rem;
+  text-decoration: none;
+}
+
+.section-heading a:hover {
+  color: var(--p-primary-color);
+}
+
+.section-actions,
+.range-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.section-kicker {
+  color: var(--p-primary-color);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dashboard-insight {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-top: 0.8rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--p-primary-color) 35%, var(--p-surface-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--p-primary-color) 7%, transparent);
+}
+
+.dashboard-insight > i {
+  color: var(--p-primary-color);
+  font-size: 1.1rem;
+}
+
+.dashboard-insight > div {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.dashboard-insight span,
+.dashboard-insight small {
+  color: var(--p-text-muted-color);
+  font-size: 0.78rem;
 }
 
 .dashboard-stat-grid {
@@ -1206,6 +1365,14 @@ function openLog(fightLogId?: number | null) {
 
 .dashboard-grid {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.activity-overview-grid {
+  grid-template-columns: minmax(0, 1.7fr) minmax(260px, 0.8fr);
+}
+
+.combat-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .wide-grid {
@@ -1575,7 +1742,26 @@ function openLog(fightLogId?: number | null) {
 
 @media (max-width: 640px) {
   .dashboard-heading {
-    align-items: center;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dashboard-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .section-actions {
+    align-items: flex-start;
+    justify-content: flex-start;
+    flex-direction: column;
+    width: 100%;
   }
 
   .account-card {
@@ -1583,7 +1769,9 @@ function openLog(fightLogId?: number | null) {
   }
 
   .wide-grid,
-  .trend-grid {
+  .trend-grid,
+  .activity-overview-grid,
+  .combat-grid {
     grid-template-columns: 1fr;
   }
 

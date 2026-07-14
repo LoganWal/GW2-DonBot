@@ -15,6 +15,7 @@ public static class LogsEndpoints
         var group = app.MapGroup("/api/logs").RequireAuthorization();
         group.MapGet("/", GetLogs);
         group.MapGet("/characters", GetMyCharacters);
+        group.MapGet("/guilds", GetMyGuilds);
         group.MapPost("/aggregate", AggregateLogs);
         group.MapPost("/know-my-enemy", KnowMyEnemy);
         group.MapPost("/wingman", SubmitToWingman);
@@ -475,6 +476,7 @@ public static class LogsEndpoints
         ClaimsPrincipal user,
         IDbContextFactory<DatabaseContext> dbContextFactory,
         long? guildId = null,
+        string? guildIds = null,
         string? fightTypes = null,
         string? characters = null,
         string? playstyles = null,
@@ -483,6 +485,12 @@ public static class LogsEndpoints
         string? endDateTime = null,
         bool? isSuccess = null,
         int? fightMode = null,
+        int? minDurationSeconds = null,
+        int? maxDurationSeconds = null,
+        decimal? minFightPercent = null,
+        decimal? maxFightPercent = null,
+        string sortField = "fightStart",
+        string sortOrder = "desc",
         int page = 1,
         int pageSize = 20)
     {
@@ -501,61 +509,85 @@ public static class LogsEndpoints
 
         var playerLogQuery = context.PlayerFightLog
             .Where(pfl => gw2Names.Contains(pfl.GuildWarsAccountName));
+        var selectedCharacterNames = new List<string>();
 
         if (!string.IsNullOrEmpty(characters))
         {
-            var charList = characters.Split(',').Select(c => c.Trim()).Where(c => c.Length > 0).ToList();
-            if (charList.Count > 0)
+            selectedCharacterNames = characters.Split(',').Select(c => c.Trim()).Where(c => c.Length > 0).ToList();
+            if (selectedCharacterNames.Count > 0)
             {
-                playerLogQuery = playerLogQuery.Where(pfl => charList.Contains(pfl.CharacterName));
+                playerLogQuery = playerLogQuery.Where(pfl => selectedCharacterNames.Contains(pfl.CharacterName));
             }
         }
 
-        var userPlayerLogs = await playerLogQuery.ToListAsync();
+        var selectedPlaystyles = (playstyles ?? string.Empty).Split(',')
+            .Select(s => s.Trim())
+            .Where(PlayerFightLogPlaystyleClassifier.IsKnownPlaystyle)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var needsPlaystyleQuery = selectedPlaystyles.Count > 0 || sortField == "playstyleLabel";
+        var requiresFullPlayerHistory = needsPlaystyleQuery && await playerLogQuery
+            .AnyAsync(p => p.Playstyle == string.Empty);
+        if (selectedPlaystyles.Count > 0 && !requiresFullPlayerHistory)
+        {
+            playerLogQuery = playerLogQuery.Where(p => selectedPlaystyles.Contains(p.Playstyle));
+        }
+
+        var userPlayerLogs = requiresFullPlayerHistory
+            ? await SelectPlaystyleFields(playerLogQuery).ToListAsync()
+            : [];
 
         var initialFightLogIds = userPlayerLogs.Select(x => x.FightLogId).Distinct().ToList();
-        var initialFightMeta = await context.FightLog
-            .Where(fl => initialFightLogIds.Contains(fl.FightLogId))
-            .Select(fl => new { fl.FightLogId, fl.FightType, fl.FightDurationInMs })
-            .ToListAsync();
+        var initialFightMeta = requiresFullPlayerHistory
+            ? await context.FightLog
+                .Where(fl => initialFightLogIds.Contains(fl.FightLogId))
+                .Select(fl => new { fl.FightLogId, fl.FightType, fl.FightDurationInMs })
+                .ToListAsync()
+            : [];
         var initialTypeById = initialFightMeta.ToDictionary(fl => fl.FightLogId, fl => fl.FightType);
         var initialDurationById = initialFightMeta.ToDictionary(fl => fl.FightLogId, fl => fl.FightDurationInMs);
         var userWvwBenchmarks = PlayerFightLogPlaystyleClassifier.BuildWvwBenchmarks(
             userPlayerLogs.Where(p => initialTypeById.GetValueOrDefault(p.FightLogId) == (short)FightTypesEnum.WvW),
             initialDurationById);
 
-        if (!string.IsNullOrWhiteSpace(playstyles))
+        if (selectedPlaystyles.Count > 0)
         {
-            var selectedPlaystyles = playstyles.Split(',')
-                .Select(s => s.Trim())
-                .Where(PlayerFightLogPlaystyleClassifier.IsKnownPlaystyle)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            if (selectedPlaystyles.Count > 0)
-            {
-                userPlayerLogs = userPlayerLogs
-                    .Where(p => selectedPlaystyles.Contains(ResolvePlaystyle(p, initialTypeById, initialDurationById, userWvwBenchmarks)))
-                    .ToList();
-            }
+            userPlayerLogs = userPlayerLogs
+                .Where(p => selectedPlaystyles.Contains(ResolvePlaystyle(p, initialTypeById, initialDurationById, userWvwBenchmarks)))
+                .ToList();
         }
 
         var participatedLogIds = userPlayerLogs.Select(x => x.FightLogId).Distinct().ToList();
         var characterByFightLogId = userPlayerLogs
             .GroupBy(x => x.FightLogId)
-            .ToDictionary(g => g.Key, g => g.First().CharacterName);
+            .ToDictionary(g => g.Key, g => g.OrderBy(x => x.CharacterName).First().CharacterName);
         var playstyleByFightLogId = userPlayerLogs
             .GroupBy(x => x.FightLogId)
             .ToDictionary(g => g.Key, g =>
             {
-                var log = g.First();
+                var log = g.OrderBy(x => x.CharacterName).First();
                 return ResolvePlaystyle(log, initialTypeById, initialDurationById, userWvwBenchmarks);
             });
 
-        var query = context.FightLog
-            .Where(fl => participatedLogIds.Contains(fl.FightLogId));
+        var query = requiresFullPlayerHistory
+            ? context.FightLog.Where(fl => participatedLogIds.Contains(fl.FightLogId))
+            : context.FightLog.Where(fl => playerLogQuery.Any(p => p.FightLogId == fl.FightLogId));
 
         if (guildId.HasValue)
         {
             query = query.Where(fl => fl.GuildId == guildId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(guildIds))
+        {
+            var selectedGuildIds = guildIds.Split(',')
+                .Select(value => long.TryParse(value.Trim(), out var parsed) ? (long?)parsed : null)
+                .Where(value => value.HasValue)
+                .Select(value => value!.Value)
+                .ToList();
+            if (selectedGuildIds.Count > 0)
+            {
+                query = query.Where(fl => selectedGuildIds.Contains(fl.GuildId));
+            }
         }
 
         if (!string.IsNullOrEmpty(fightTypes))
@@ -600,16 +632,165 @@ public static class LogsEndpoints
             query = query.Where(fl => fl.FightMode == fightMode.Value);
         }
 
+        if (minDurationSeconds.HasValue)
+        {
+            query = query.Where(fl => fl.FightDurationInMs >= minDurationSeconds.Value * 1000L);
+        }
+
+        if (maxDurationSeconds.HasValue)
+        {
+            query = query.Where(fl => fl.FightDurationInMs <= maxDurationSeconds.Value * 1000L);
+        }
+
+        if (minFightPercent.HasValue)
+        {
+            query = query.Where(fl => fl.FightPercent >= minFightPercent.Value);
+        }
+
+        if (maxFightPercent.HasValue)
+        {
+            query = query.Where(fl => fl.FightPercent <= maxFightPercent.Value);
+        }
+
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 500);
         var total = await query.CountAsync();
-        var logs = await query
-            .OrderByDescending(fl => fl.FightStart)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
+        var offsetLong = ((long)page - 1) * pageSize;
+        var offset = offsetLong < total ? (int)offsetLong : total;
+        var descending = !string.Equals(sortOrder, "asc", StringComparison.OrdinalIgnoreCase);
+        List<FightLog> logs;
+        if (sortField == "fightType" ||
+            (requiresFullPlayerHistory && (sortField == "playstyleLabel" || sortField == "characterName")))
+        {
+            var matchingLogs = await query
+                .Select(fl => new { fl.FightLogId, fl.FightType })
+                .ToListAsync();
+            string SortValue(long id, short fightType) => sortField switch
+            {
+                "fightType" => FightDisplayName(fightType),
+                "characterName" => characterByFightLogId.GetValueOrDefault(id, string.Empty),
+                _ => PlayerFightLogPlaystyleClassifier.GetLabel(playstyleByFightLogId.GetValueOrDefault(id, string.Empty)),
+            };
+            var pageIds = (descending
+                    ? matchingLogs.OrderByDescending(log => SortValue(log.FightLogId, log.FightType)).ThenByDescending(log => log.FightLogId)
+                    : matchingLogs.OrderBy(log => SortValue(log.FightLogId, log.FightType)).ThenBy(log => log.FightLogId))
+                .Skip(offset)
+                .Take(pageSize)
+                .Select(log => log.FightLogId)
+                .ToList();
+            var pageOrder = pageIds.Select((id, index) => (id, index)).ToDictionary(item => item.id, item => item.index);
+            logs = (await context.FightLog.Where(fl => pageIds.Contains(fl.FightLogId)).ToListAsync())
+                .OrderBy(fl => pageOrder[fl.FightLogId])
+                .ToList();
+        }
+        else
+        {
+            IOrderedQueryable<FightLog> orderedQuery = sortField switch
+            {
+                "guildName" => descending
+                    ? query.OrderByDescending(fl => fl.GuildId == -1 ? "Global" : context.Guild.Where(g => g.GuildId == fl.GuildId).Select(g => g.GuildName).FirstOrDefault() ?? fl.GuildId.ToString())
+                    : query.OrderBy(fl => fl.GuildId == -1 ? "Global" : context.Guild.Where(g => g.GuildId == fl.GuildId).Select(g => g.GuildName).FirstOrDefault() ?? fl.GuildId.ToString()),
+                "characterName" => descending
+                    ? query.OrderByDescending(fl => context.PlayerFightLog
+                        .Where(p => p.FightLogId == fl.FightLogId && gw2Names.Contains(p.GuildWarsAccountName) &&
+                            (selectedCharacterNames.Count == 0 || selectedCharacterNames.Contains(p.CharacterName)) &&
+                            (selectedPlaystyles.Count == 0 || selectedPlaystyles.Contains(p.Playstyle)))
+                        .OrderBy(p => p.CharacterName).Select(p => p.CharacterName).FirstOrDefault())
+                    : query.OrderBy(fl => context.PlayerFightLog
+                        .Where(p => p.FightLogId == fl.FightLogId && gw2Names.Contains(p.GuildWarsAccountName) &&
+                            (selectedCharacterNames.Count == 0 || selectedCharacterNames.Contains(p.CharacterName)) &&
+                            (selectedPlaystyles.Count == 0 || selectedPlaystyles.Contains(p.Playstyle)))
+                        .OrderBy(p => p.CharacterName).Select(p => p.CharacterName).FirstOrDefault()),
+                "playstyleLabel" => descending
+                    ? query.OrderByDescending(fl => context.PlayerFightLog
+                        .Where(p => p.FightLogId == fl.FightLogId && gw2Names.Contains(p.GuildWarsAccountName) &&
+                            (selectedCharacterNames.Count == 0 || selectedCharacterNames.Contains(p.CharacterName)) &&
+                            (selectedPlaystyles.Count == 0 || selectedPlaystyles.Contains(p.Playstyle)))
+                        .OrderBy(p => p.CharacterName)
+                        .Select(p => p.Playstyle == PlayerFightLogPlaystyleClassifier.BoonDpsPlaystyle ? "Boon DPS"
+                            : p.Playstyle == PlayerFightLogPlaystyleClassifier.BoonHealerPlaystyle ? "Boon Healer"
+                            : p.Playstyle == PlayerFightLogPlaystyleClassifier.DpsPlaystyle ? "DPS"
+                            : p.Playstyle == PlayerFightLogPlaystyleClassifier.WvwHealSupportPlaystyle ? "Heal Support"
+                            : p.Playstyle == PlayerFightLogPlaystyleClassifier.MechanicPlaystyle ? "Mechanic"
+                            : p.Playstyle == PlayerFightLogPlaystyleClassifier.WvwSupportPlaystyle ? "Support"
+                            : p.Playstyle == PlayerFightLogPlaystyleClassifier.WvwSupportDpsPlaystyle ? "Support DPS"
+                            : p.Playstyle)
+                        .FirstOrDefault())
+                    : query.OrderBy(fl => context.PlayerFightLog
+                        .Where(p => p.FightLogId == fl.FightLogId && gw2Names.Contains(p.GuildWarsAccountName) &&
+                            (selectedCharacterNames.Count == 0 || selectedCharacterNames.Contains(p.CharacterName)) &&
+                            (selectedPlaystyles.Count == 0 || selectedPlaystyles.Contains(p.Playstyle)))
+                        .OrderBy(p => p.CharacterName)
+                        .Select(p => p.Playstyle == PlayerFightLogPlaystyleClassifier.BoonDpsPlaystyle ? "Boon DPS"
+                            : p.Playstyle == PlayerFightLogPlaystyleClassifier.BoonHealerPlaystyle ? "Boon Healer"
+                            : p.Playstyle == PlayerFightLogPlaystyleClassifier.DpsPlaystyle ? "DPS"
+                            : p.Playstyle == PlayerFightLogPlaystyleClassifier.WvwHealSupportPlaystyle ? "Heal Support"
+                            : p.Playstyle == PlayerFightLogPlaystyleClassifier.MechanicPlaystyle ? "Mechanic"
+                            : p.Playstyle == PlayerFightLogPlaystyleClassifier.WvwSupportPlaystyle ? "Support"
+                            : p.Playstyle == PlayerFightLogPlaystyleClassifier.WvwSupportDpsPlaystyle ? "Support DPS"
+                            : p.Playstyle)
+                        .FirstOrDefault()),
+                "fightDurationInMs" => descending ? query.OrderByDescending(fl => fl.FightDurationInMs) : query.OrderBy(fl => fl.FightDurationInMs),
+                "isSuccess" => descending ? query.OrderByDescending(fl => fl.IsSuccess) : query.OrderBy(fl => fl.IsSuccess),
+                "fightPercent" => descending ? query.OrderByDescending(fl => fl.FightPercent) : query.OrderBy(fl => fl.FightPercent),
+                _ => descending ? query.OrderByDescending(fl => fl.FightStart) : query.OrderBy(fl => fl.FightStart),
+            };
+            orderedQuery = descending
+                ? orderedQuery.ThenByDescending(fl => fl.FightLogId)
+                : orderedQuery.ThenBy(fl => fl.FightLogId);
+            logs = await orderedQuery
+                .Skip(offset)
+                .Take(pageSize)
+                .ToListAsync();
+        }
+
+        var pageGuildIds = logs.Select(fl => fl.GuildId).Distinct().ToList();
+        var guildNameById = pageGuildIds.Count > 0
+            ? await context.Guild
+                .Where(g => pageGuildIds.Contains(g.GuildId))
+                .ToDictionaryAsync(g => g.GuildId, g => g.GuildName ?? g.GuildId.ToString())
+            : [];
+        guildNameById[-1] = "Global";
+
+        if (!requiresFullPlayerHistory)
+        {
+            var pageIds = logs.Select(fl => fl.FightLogId).ToList();
+            var pagePlayerLogs = await playerLogQuery
+                .Where(p => pageIds.Contains(p.FightLogId))
+                .ToListAsync();
+            foreach (var log in logs)
+            {
+                initialTypeById[log.FightLogId] = log.FightType;
+                initialDurationById[log.FightLogId] = log.FightDurationInMs;
+            }
+            var needsWvwBenchmarks = pagePlayerLogs.Any(p =>
+                initialTypeById.GetValueOrDefault(p.FightLogId) == (short)FightTypesEnum.WvW &&
+                string.IsNullOrWhiteSpace(p.Playstyle));
+            if (needsWvwBenchmarks)
+            {
+                var wvwPlayerLogs = await SelectPlaystyleFields(playerLogQuery)
+                    .Where(p => context.FightLog.Any(fl => fl.FightLogId == p.FightLogId && fl.FightType == (short)FightTypesEnum.WvW))
+                    .ToListAsync();
+                var wvwFightIds = wvwPlayerLogs.Select(p => p.FightLogId).Distinct().ToList();
+                var wvwDurations = await context.FightLog
+                    .Where(fl => wvwFightIds.Contains(fl.FightLogId))
+                    .ToDictionaryAsync(fl => fl.FightLogId, fl => fl.FightDurationInMs);
+                userWvwBenchmarks = PlayerFightLogPlaystyleClassifier.BuildWvwBenchmarks(wvwPlayerLogs, wvwDurations);
+            }
+            foreach (var group in pagePlayerLogs.GroupBy(p => p.FightLogId))
+            {
+                var playerLog = group.OrderBy(p => p.CharacterName).First();
+                characterByFightLogId[group.Key] = playerLog.CharacterName;
+                playstyleByFightLogId[group.Key] = ResolvePlaystyle(playerLog, initialTypeById, initialDurationById, userWvwBenchmarks);
+            }
+        }
 
         var data = logs.Select(fl => new
         {
             fl.FightLogId,
+            fl.GuildId,
+            guildName = guildNameById.GetValueOrDefault(fl.GuildId, fl.GuildId.ToString()),
+            fl.Url,
             fl.FightType,
             fl.FightMode,
             fl.FightStart,
@@ -623,6 +804,85 @@ public static class LogsEndpoints
 
         return Results.Ok(new { total, page, pageSize, data });
     }
+
+    private static string FightDisplayName(short fightType) => (FightTypesEnum)fightType switch
+    {
+        FightTypesEnum.WvW => "WvW",
+        FightTypesEnum.Vale => "Vale Guardian",
+        FightTypesEnum.Gorseval => "Gorseval",
+        FightTypesEnum.Sabetha => "Sabetha",
+        FightTypesEnum.Spirit => "Spirit Woods",
+        FightTypesEnum.Sloth => "Slothasor",
+        FightTypesEnum.Trio => "Trio",
+        FightTypesEnum.Matthias => "Matthias",
+        FightTypesEnum.Escort => "Escort",
+        FightTypesEnum.Kc => "Keep Construct",
+        FightTypesEnum.Tc => "Twisted Castle",
+        FightTypesEnum.Xera => "Xera",
+        FightTypesEnum.Cairn => "Cairn",
+        FightTypesEnum.Mo => "Mursaat Overseer",
+        FightTypesEnum.Samarog => "Samarog",
+        FightTypesEnum.Deimos => "Deimos",
+        FightTypesEnum.Sh => "Soulless Horror",
+        FightTypesEnum.River => "River of Souls",
+        FightTypesEnum.Bk => "Broken King",
+        FightTypesEnum.EoS => "Eater of Souls",
+        FightTypesEnum.SoD => "Voice in the Void",
+        FightTypesEnum.Dhuum => "Dhuum",
+        FightTypesEnum.Ca => "Conjured Amalgamate",
+        FightTypesEnum.Largos => "Twin Largos",
+        FightTypesEnum.Qadim => "Qadim",
+        FightTypesEnum.Adina => "Cardinal Adina",
+        FightTypesEnum.Sabir => "Cardinal Sabir",
+        FightTypesEnum.Peerless => "Qadim the Peerless",
+        FightTypesEnum.Greer => "Greer",
+        FightTypesEnum.Decima => "Decima",
+        FightTypesEnum.Ura => "Ura",
+        FightTypesEnum.Kela => "Kela",
+        FightTypesEnum.Ah => "Aetherblade Hideout",
+        FightTypesEnum.Xjj => "Xunlai Jade Junkyard",
+        FightTypesEnum.Ko => "Kaineng Overlook",
+        FightTypesEnum.Ht => "Harvest Temple",
+        FightTypesEnum.Olc => "Old Lion's Court",
+        FightTypesEnum.Co => "Cosmic Observatory",
+        FightTypesEnum.ToF => "Temple of Febe",
+        FightTypesEnum.Icebrood => "Icebrood Construct",
+        FightTypesEnum.Fraenir => "Fraenir",
+        FightTypesEnum.Kodan => "Voice of the Fallen",
+        FightTypesEnum.Whisper => "Whisper of Jormag",
+        FightTypesEnum.Boneskinner => "Boneskinner",
+        FightTypesEnum.Mama => "MAMA",
+        FightTypesEnum.Siax => "Siax",
+        FightTypesEnum.Ensolyss => "Ensolyss",
+        FightTypesEnum.Skorvald => "Skorvald",
+        FightTypesEnum.Artsariiv => "Artsariiv",
+        FightTypesEnum.Arkk => "Arkk",
+        FightTypesEnum.AiEle => "Ai (Ele)",
+        FightTypesEnum.AiDark => "Ai (Dark)",
+        FightTypesEnum.AiBoth => "Ai (Both)",
+        FightTypesEnum.Kanaxai => "Kanaxai",
+        FightTypesEnum.Eparch => "Eparch",
+        FightTypesEnum.Shadow => "Shadow of the Dragon",
+        FightTypesEnum.Golem => "Golem",
+        _ => "Unknown",
+    };
+
+    private static IQueryable<PlayerFightLog> SelectPlaystyleFields(IQueryable<PlayerFightLog> query) =>
+        query.Select(p => new PlayerFightLog
+        {
+            PlayerFightLogId = p.PlayerFightLogId,
+            FightLogId = p.FightLogId,
+            GuildWarsAccountName = p.GuildWarsAccountName,
+            CharacterName = p.CharacterName,
+            Damage = p.Damage,
+            Healing = p.Healing,
+            Cleanses = p.Cleanses,
+            Strips = p.Strips,
+            StabGenOnGroup = p.StabGenOnGroup,
+            StabGenOffGroup = p.StabGenOffGroup,
+            BoonRole = p.BoonRole,
+            Playstyle = p.Playstyle,
+        });
 
     private static async Task<IResult> GetMyCharacters(
         ClaimsPrincipal user,
@@ -649,6 +909,47 @@ public static class LogsEndpoints
             .ToListAsync();
 
         return Results.Ok(chars);
+    }
+
+    private static async Task<IResult> GetMyGuilds(
+        ClaimsPrincipal user,
+        IDbContextFactory<DatabaseContext> dbContextFactory)
+    {
+        var discordIdStr = user.FindFirst("discord_id")?.Value;
+        if (!long.TryParse(discordIdStr, out var discordId))
+        {
+            return Results.Unauthorized();
+        }
+
+        await using var context = await dbContextFactory.CreateDbContextAsync();
+        var accountNames = await context.GuildWarsAccount
+            .Where(account => account.DiscordId == discordId)
+            .Select(account => account.GuildWarsAccountName)
+            .ToListAsync();
+        var fightLogIds = context.PlayerFightLog
+            .Where(log => accountNames.Contains(log.GuildWarsAccountName))
+            .Select(log => log.FightLogId);
+        var guildIds = await context.FightLog
+            .Where(log => fightLogIds.Contains(log.FightLogId))
+            .Select(log => log.GuildId)
+            .Distinct()
+            .ToListAsync();
+        var guildNames = await context.Guild
+            .Where(guild => guildIds.Contains(guild.GuildId))
+            .ToDictionaryAsync(guild => guild.GuildId, guild => guild.GuildName);
+        var guilds = guildIds
+            .Select(guildId => new
+            {
+                guildId = guildId.ToString(),
+                guildName = guildId == -1
+                    ? "Global"
+                    : guildNames.GetValueOrDefault(guildId) ?? guildId.ToString(),
+            })
+            .OrderBy(guild => guild.guildId == "-1" ? 0 : 1)
+            .ThenBy(guild => guild.guildName)
+            .ToList();
+
+        return Results.Ok(guilds);
     }
 
     private static async Task<IResult> GetLog(

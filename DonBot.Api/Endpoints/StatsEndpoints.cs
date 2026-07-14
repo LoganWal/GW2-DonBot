@@ -129,8 +129,8 @@ public static class StatsEndpoints
             avgStripsPerSecond = s > 0 ? Math.Round(totalStrips / s, 2) : 0,
             avgQuickness = logs.Average(p => (double)p.QuicknessDuration),
             avgAlac = logs.Average(p => (double)p.AlacDuration),
-            avgQuicknessGen = logs.Average(p => (double)p.QuicknessGenGroup),
-            avgAlacGen = logs.Average(p => (double)p.AlacGenGroup),
+            avgQuicknessGen = PlayerFightLogRoleClassifier.AverageProviderLevelBoonGeneration(logs.Select(p => p.QuicknessGenGroup)),
+            avgAlacGen = PlayerFightLogRoleClassifier.AverageProviderLevelBoonGeneration(logs.Select(p => p.AlacGenGroup)),
             avgStabOnGroup = logs.Average(p => (double)p.StabGenOnGroup),
             avgStabOffGroup = logs.Average(p => (double)p.StabGenOffGroup),
             totalTimesDowned = logs.Sum(p => p.TimesDowned),
@@ -169,8 +169,8 @@ public static class StatsEndpoints
             avgHealingPerSecond = s > 0 ? (long)(totalHealing / s) : 0,
             avgQuickness = logs.Average(p => (double)p.QuicknessDuration),
             avgAlac = logs.Average(p => (double)p.AlacDuration),
-            avgQuicknessGen = logs.Average(p => (double)p.QuicknessGenGroup),
-            avgAlacGen = logs.Average(p => (double)p.AlacGenGroup),
+            avgQuicknessGen = PlayerFightLogRoleClassifier.AverageProviderLevelBoonGeneration(logs.Select(p => p.QuicknessGenGroup)),
+            avgAlacGen = PlayerFightLogRoleClassifier.AverageProviderLevelBoonGeneration(logs.Select(p => p.AlacGenGroup)),
             totalResurrectionTime = logs.Sum(p => p.ResurrectionTime),
             totalDamageTaken = logs.Sum(p => p.DamageTaken),
             totalTimesDowned = logs.Sum(p => p.TimesDowned),
@@ -245,8 +245,8 @@ public static class StatsEndpoints
                     totalStrips = logs.Sum(log => log.Strips),
                     avgStabOnGroup = logs.Count > 0 ? Math.Round(logs.Average(log => (double)log.StabGenOnGroup), 2) : 0d,
                     avgStabOffGroup = logs.Count > 0 ? Math.Round(logs.Average(log => (double)log.StabGenOffGroup), 2) : 0d,
-                    avgQuicknessGen = logs.Count > 0 ? Math.Round(logs.Average(log => (double)log.QuicknessGenGroup), 1) : 0d,
-                    avgAlacGen = logs.Count > 0 ? Math.Round(logs.Average(log => (double)log.AlacGenGroup), 1) : 0d,
+                    avgQuicknessGen = Math.Round(PlayerFightLogRoleClassifier.AverageProviderLevelBoonGeneration(logs.Select(log => log.QuicknessGenGroup)), 1),
+                    avgAlacGen = Math.Round(PlayerFightLogRoleClassifier.AverageProviderLevelBoonGeneration(logs.Select(log => log.AlacGenGroup)), 1),
                 };
             })
             .Where(row => row.count > 0)

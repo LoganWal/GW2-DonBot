@@ -58,15 +58,6 @@ const { data: schedulingGuilds } = useAsyncData(
   { watch: [user] }
 )
 
-// Share the live-raid guilds cache with the page.
-useLazyAsyncData(
-  'live-raid-guilds',
-  () => user.value
-    ? (api('/api/live-raid/guilds') as Promise<{ guildId: string; guildName: string }[]>).catch(() => [])
-    : Promise.resolve([]),
-  { watch: [user], default: () => [] }
-)
-
 const hasAdminGuilds = computed(() => (adminGuilds.value?.length ?? 0) > 0)
 const hasSchedulingGuilds = computed(() => (schedulingGuilds.value?.length ?? 0) > 0)
 

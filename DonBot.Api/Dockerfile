@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-COPY Directory.Build.props ./
+COPY Directory.Build.props Directory.Packages.props ./
 COPY DonBot.Api/DonBot.Api.csproj DonBot.Api/packages.lock.json DonBot.Api/
 COPY GW2-DonBot/DonBot.csproj GW2-DonBot/packages.lock.json GW2-DonBot/
 COPY DonBot.Core/DonBot.Core.csproj DonBot.Core/packages.lock.json DonBot.Core/

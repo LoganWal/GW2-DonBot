@@ -2,6 +2,10 @@
   "name": "donbot-web",
   "private": true,
   "type": "module",
+  "packageManager": "npm@11.16.0",
+  "engines": {
+    "node": ">=24.11.0 <25"
+  },
   "scripts": {
     "build": "nuxt build",
     "dev": "nuxt dev",
@@ -12,12 +16,16 @@
     "@primevue/nuxt-module": "^4.5.5",
     "@primevue/themes": "^4.5.4",
     "chart.js": "^4.5.1",
-    "nuxt": "^4.0.0",
+    "nuxt": "^4.5.1",
     "primeicons": "^7.0.0",
     "primevue": "^4.5.5",
     "tus-js-client": "^4.3.1"
   },
   "overrides": {
     "esbuild": "0.28.1"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "fsevents@2.3.3": true
   }
 }

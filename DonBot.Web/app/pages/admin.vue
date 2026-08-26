@@ -424,6 +424,8 @@ type Config = {
   autoSubmitToWingman: boolean
   autoAggregateLogs: boolean
   autoReplySingleLog: boolean
+  playerPointRankingsEnabled: boolean
+  playerPointRankingsChannelId: string | null
   wvwLeaderboardEnabled: boolean
   wvwLeaderboardChannelId: string | null
   pveLeaderboardEnabled: boolean
@@ -453,6 +455,7 @@ const channelFields: Field[] = [
   { key: 'streamLogChannelId', label: 'Stream log channel', tip: 'Channel for raw streaming log output.' },
   { key: 'raidAlertChannelId', label: 'Raid alert channel', tip: 'Channel where raid alerts are posted when "Raid alerts enabled" is on.' },
   { key: 'removedMessageChannelId', label: 'Removed message channel', tip: 'Where removed spam messages are logged when a spam filter deletes a message.' },
+  { key: 'playerPointRankingsChannelId', label: 'Player point rankings channel', tip: 'Channel updated with latest-fight point gains and total point rankings when enabled.' },
   { key: 'wvwLeaderboardChannelId', label: 'WvW leaderboard channel', tip: 'Channel where the weekly WvW leaderboard is posted when enabled.' },
   { key: 'pveLeaderboardChannelId', label: 'PvE leaderboard channel', tip: 'Channel where the weekly PvE leaderboard is posted when enabled.' },
 ]
@@ -470,6 +473,7 @@ const toggleFields: BooleanField[] = [
   { key: 'autoSubmitToWingman', label: 'Auto-submit logs to Wingman', tip: 'Automatically forward processed dps.report logs to gw2wingman for import.' },
   { key: 'autoAggregateLogs', label: 'Auto-aggregate logs', tip: 'When multiple logs are shared at once, prompt to post a single combined summary.' },
   { key: 'autoReplySingleLog', label: 'Auto-reply to single logs', tip: 'Reply with a fight summary whenever a single log is shared.' },
+  { key: 'playerPointRankingsEnabled', label: 'Player point rankings enabled', tip: 'Update the configured channel after points are awarded for a WvW fight.' },
   { key: 'wvwLeaderboardEnabled', label: 'WvW leaderboard enabled', tip: 'Post the weekly WvW leaderboard automatically.' },
   { key: 'pveLeaderboardEnabled', label: 'PvE leaderboard enabled', tip: 'Post the weekly PvE leaderboard automatically.' },
 ]

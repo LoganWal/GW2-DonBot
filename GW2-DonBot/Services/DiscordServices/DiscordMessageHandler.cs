@@ -22,7 +22,8 @@ public class DiscordMessageHandler(
     DiscordSocketClient client,
     IPendingLogService pendingLogService,
     IArtSpamDetector artSpamDetector,
-    IScheduledMessageDeleteScheduler scheduledMessageDeleteScheduler)
+    IScheduledMessageDeleteScheduler scheduledMessageDeleteScheduler,
+    PlayerPointRankingPublisher playerPointRankingPublisher)
 {
     private static readonly TimeSpan ArtSpamQuestionnaireLifetime = TimeSpan.FromHours(1);
     private readonly HashSet<string> _seenUrls = [];
@@ -333,7 +334,9 @@ public class DiscordMessageHandler(
                     await advanceLogReportChannel.SendMessageAsync(text: "", embeds: [advancedMessage]);
                 }
 
-                var (wvwMessage, wvwWebAppUrl, _) = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, false, guild, client);
+                var (wvwMessage, wvwWebAppUrl, _) = await GenerateWvWSummaryAndPostPointRankings(
+                    eliteInsightDataModel,
+                    guild);
                 message = wvwMessage;
                 var cb = new ComponentBuilder().WithButton("Know My Enemy", ButtonId.KnowMyEnemy);
                 if (wvwWebAppUrl != null)
@@ -414,7 +417,7 @@ public class DiscordMessageHandler(
             {
                 if (eliteInsightDataModel.FightEliteInsightDataModel.Wvw)
                 {
-                    var (_, _, wvwFightLogId) = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, false, guild, client);
+                    var (_, _, wvwFightLogId) = await GenerateWvWSummaryAndPostPointRankings(eliteInsightDataModel, guild);
                     if (wvwFightLogId.HasValue)
                     {
                         resolvedFightLogIds.Add(wvwFightLogId.Value);
@@ -476,7 +479,7 @@ public class DiscordMessageHandler(
             MessageComponent? singleButtonBuilder = null;
             if (eliteInsightDataModel.FightEliteInsightDataModel.Wvw)
             {
-                var (wvwMsg, wvwUrl, _) = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, false, guild, client);
+                var (wvwMsg, wvwUrl, _) = await GenerateWvWSummaryAndPostPointRankings(eliteInsightDataModel, guild);
                 singleMessage = wvwMsg;
                 var cb = new ComponentBuilder().WithButton("Know My Enemy", ButtonId.KnowMyEnemy);
                 if (wvwUrl != null)
@@ -513,6 +516,18 @@ public class DiscordMessageHandler(
         {
             logger.LogWarning(ex, "Failed to delete progress message");
         }
+    }
+
+    private async Task<(Embed Embed, string? WebAppUrl, long? FightLogId)> GenerateWvWSummaryAndPostPointRankings(
+        EliteInsightDataModel data,
+        Guild guild)
+    {
+        var result = await messageGenerationService.GenerateWvWFightSummary(data, false, guild, client);
+        if (result.FightLogId.HasValue)
+        {
+            await playerPointRankingPublisher.PublishAsync(guild, result.FightLogId.Value);
+        }
+        return result;
     }
 
     private async Task SubmitToWingmanAsync(List<string> urls)

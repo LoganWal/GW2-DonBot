@@ -48,6 +48,10 @@ public class Guild
 
     public bool AutoReplySingleLog { get; set; }
 
+    public bool PlayerPointRankingsEnabled { get; set; }
+
+    public long? PlayerPointRankingsChannelId { get; set; }
+
     public bool WvwLeaderboardEnabled { get; set; }
 
     public long? WvwLeaderboardChannelId { get; set; }

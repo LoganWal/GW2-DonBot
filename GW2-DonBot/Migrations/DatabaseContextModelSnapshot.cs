@@ -198,6 +198,12 @@ namespace DonBot.Migrations
                     b.Property<long?>("LogReportChannelId")
                         .HasColumnType("bigint");
 
+                    b.Property<long?>("PlayerPointRankingsChannelId")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("PlayerPointRankingsEnabled")
+                        .HasColumnType("boolean");
+
                     b.Property<long?>("PveLeaderboardChannelId")
                         .HasColumnType("bigint");
 

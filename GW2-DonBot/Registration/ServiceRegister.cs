@@ -25,6 +25,7 @@ public static class ServiceRegister
         services.AddTransient<IWvWFightSummaryService, WvWFightSummaryService>();
         services.AddTransient<IRaidReportService, RaidReportService>();
         services.AddTransient<IWeeklyLeaderboardService, WeeklyLeaderboardService>();
+        services.AddTransient<IPlayerPointRankingService, PlayerPointRankingService>();
         services.AddTransient<IMessageGenerationService, MessageGenerationService>();
 
         services.AddScoped<ISecretService, SecretServices>();
@@ -34,6 +35,7 @@ public static class ServiceRegister
         services.AddScoped<DiscordCommandHandler>();
         services.AddScoped<DiscordButtonHandler>();
         services.AddScoped<DiscordMessageHandler>();
+        services.AddScoped<PlayerPointRankingPublisher>();
         services.AddScoped<ILoggingService, LoggingService>();
         services.AddSingleton<IArtSpamDetector, ArtSpamDetector>();
         services.AddSingleton<IScheduledMessageDeleteClient, DiscordScheduledMessageDeleteClient>();

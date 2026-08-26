@@ -114,6 +114,8 @@ public class GuildAdminEndpointsTests
             AutoSubmitToWingman = false,
             AutoAggregateLogs = false,
             AutoReplySingleLog = true,
+            PlayerPointRankingsEnabled = true,
+            PlayerPointRankingsChannelId = 13,
             WvwLeaderboardEnabled = true,
             WvwLeaderboardChannelId = 11,
             PveLeaderboardEnabled = true,
@@ -133,6 +135,8 @@ public class GuildAdminEndpointsTests
         Assert.False(dto.AutoSubmitToWingman);
         Assert.False(dto.AutoAggregateLogs);
         Assert.True(dto.AutoReplySingleLog);
+        Assert.True(dto.PlayerPointRankingsEnabled);
+        Assert.Equal("13", dto.PlayerPointRankingsChannelId);
         Assert.True(dto.WvwLeaderboardEnabled);
         Assert.True(dto.PveLeaderboardEnabled);
     }
@@ -153,6 +157,8 @@ public class GuildAdminEndpointsTests
         Assert.True(dto.AutoAggregateLogs);
         Assert.False(dto.RaidAlertEnabled);
         Assert.False(dto.ArtSpamFilterEnabled);
+        Assert.False(dto.PlayerPointRankingsEnabled);
+        Assert.Null(dto.PlayerPointRankingsChannelId);
     }
 
     [Fact]
@@ -169,6 +175,8 @@ public class GuildAdminEndpointsTests
             RaidAlertChannelId = 300,
             ArtSpamFilterEnabled = true,
             AutoSubmitToWingman = false,
+            PlayerPointRankingsEnabled = true,
+            PlayerPointRankingsChannelId = 350,
             PveLeaderboardEnabled = true,
             PveLeaderboardChannelId = 400
         };
@@ -185,6 +193,8 @@ public class GuildAdminEndpointsTests
         Assert.Equal(original.RaidAlertChannelId, target.RaidAlertChannelId);
         Assert.Equal(original.ArtSpamFilterEnabled, target.ArtSpamFilterEnabled);
         Assert.Equal(original.AutoSubmitToWingman, target.AutoSubmitToWingman);
+        Assert.Equal(original.PlayerPointRankingsEnabled, target.PlayerPointRankingsEnabled);
+        Assert.Equal(original.PlayerPointRankingsChannelId, target.PlayerPointRankingsChannelId);
         Assert.Equal(original.PveLeaderboardEnabled, target.PveLeaderboardEnabled);
         Assert.Equal(original.PveLeaderboardChannelId, target.PveLeaderboardChannelId);
     }

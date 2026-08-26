@@ -69,6 +69,7 @@ Common settings include:
 - Auto log aggregation and single-log replies.
 - Raid alerts.
 - Spam and art-spam filtering.
+- Player point ranking posts after WvW fights.
 - WvW and PvE leaderboard posting.
 
 ## Web App

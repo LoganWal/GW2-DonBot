@@ -150,6 +150,19 @@ public sealed class DiscordCommandService(IEntityService entityService) : IDisco
                 guild.AutoReplySingleLog = (bool)option.Value;
                 break;
 
+            case "player_point_rankings_enabled":
+                guild.PlayerPointRankingsEnabled = (bool)option.Value;
+                break;
+
+            case "player_point_rankings_channel":
+                if (option.Value is not SocketTextChannel playerPointRankingsChannel)
+                {
+                    await command.FollowupAsync("Please provide a valid text channel.", ephemeral: true);
+                    return;
+                }
+                guild.PlayerPointRankingsChannelId = (long)playerPointRankingsChannel.Id;
+                break;
+
             case "wvw_leaderboard_enabled":
                 {
                     var enabled = (bool)option.Value;

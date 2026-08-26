@@ -45,6 +45,8 @@ public sealed class LogUploadPipelineService : BackgroundService
 
     public void Enqueue(long uploadId) => _queue.Writer.TryWrite(uploadId);
 
+    internal bool TryReadQueuedUpload(out long uploadId) => _queue.Reader.TryRead(out uploadId);
+
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
         await foreach (var uploadId in _queue.Reader.ReadAllAsync(ct))
@@ -58,7 +60,7 @@ public sealed class LogUploadPipelineService : BackgroundService
         }
     }
 
-    private async Task ProcessUploadAsync(long uploadId, CancellationToken ct)
+    internal async Task ProcessUploadAsync(long uploadId, CancellationToken ct)
     {
         try
         {
@@ -85,9 +87,13 @@ public sealed class LogUploadPipelineService : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Upload pipeline failed for upload {id}", uploadId);
-            await MarkFailedAsync(uploadId, ex.Message, ct);
-            _progress.Publish(uploadId, "failed", ex.Message);
+            const string publicMessage = "Upload processing failed.";
+            _logger.LogError(
+                "Upload pipeline failed for upload {id} with exception type {exceptionType}",
+                uploadId,
+                ex.GetType().Name);
+            await MarkFailedAsync(uploadId, publicMessage, ct);
+            _progress.Publish(uploadId, "failed", publicMessage);
             _progress.Complete(uploadId);
         }
     }
@@ -109,7 +115,12 @@ public sealed class LogUploadPipelineService : BackgroundService
         await UpdateStatus(ctx, upload, "saving", ct);
         _progress.Publish(uploadId, "saving", "Saving log data...");
 
-        var fightLogId = await SaveFightLogAsync(model, playerService, pointsAwardService, ct);
+        var fightLogId = await SaveFightLogAsync(
+            model,
+            playerService,
+            pointsAwardService,
+            ct,
+            upload.GuildId);
 
         if (upload.SubmitToWingman)
         {

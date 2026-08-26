@@ -95,6 +95,11 @@ public sealed class DatabaseContext : DbContext
             .HasIndex(lu => lu.TusFileId)
             .IsUnique();
 
+        modelBuilder.Entity<LogUpload>()
+            .HasIndex(lu => new { lu.DiscordId, lu.GuildId, lu.DpsReportUrl })
+            .IsUnique()
+            .HasFilter("\"SourceType\" = 'url' AND \"GuildId\" > 0 AND \"DpsReportUrl\" IS NOT NULL");
+
         modelBuilder.Entity<ScheduledEvent>()
             .Property(se => se.NotificationMinutesBeforeStart)
             .HasDefaultValue((short)15);

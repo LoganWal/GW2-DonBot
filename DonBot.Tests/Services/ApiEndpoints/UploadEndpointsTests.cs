@@ -7,6 +7,7 @@ using DonBot.Api.Endpoints;
 using DonBot.Api.Services;
 using DonBot.Core.Models.Entities;
 using DonBot.Tests.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using tusdotnet.Models;
 
@@ -351,6 +352,323 @@ public class UploadEndpointsTests
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
+
+    [Fact]
+    public async Task SubmitGw2Url_MissingKeyRejectsBeforeMalformedBodyIsRead()
+    {
+        using var host = NewHost();
+        using var content = new StringContent("{malformed", Encoding.UTF8, "application/json");
+
+        var response = await host.Client.PostAsync("/api/upload/gw2/url", content);
+        var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("gw2_api_key_required", json.RootElement.GetProperty("error").GetString());
+        Assert.DoesNotContain("malformed", json.RootElement.ToString());
+    }
+
+    [Fact]
+    public async Task SubmitGw2Url_InvalidKeyReturnsGenericBadRequest()
+    {
+        var handler = new ApiStubHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+        using var host = NewHost(handler);
+
+        var response = await PostGw2UrlAsync(host, apiKey: "secret-invalid-key");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("invalid_gw2_api_key", body);
+        Assert.DoesNotContain("secret-invalid-key", body);
+    }
+
+    [Fact]
+    public async Task SubmitGw2Url_UnlinkedAccountReturnsGenericForbidden()
+    {
+        using var host = NewHost(ValidGw2AccountHandler(Guid.NewGuid()));
+
+        var response = await PostGw2UrlAsync(host, apiKey: "secret-valid-key");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Contains("gw2_account_not_linked", body);
+        Assert.DoesNotContain("secret-valid-key", body);
+        Assert.DoesNotContain("Player.1234", body);
+    }
+
+    [Fact]
+    public async Task SubmitGw2Url_AllowedGuildCreatesExactUploadAndEnqueuesOnce()
+    {
+        using var host = NewLinkedGw2Host();
+
+        var response = await PostGw2UrlAsync(host);
+        var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        Assert.False(json.RootElement.GetProperty("duplicate").GetBoolean());
+        Assert.Equal("pending", json.RootElement.GetProperty("status").GetString());
+        Assert.Equal(JsonValueKind.Null, json.RootElement.GetProperty("fightLogId").ValueKind);
+        var uploadId = json.RootElement.GetProperty("uploadId").GetInt64();
+        Assert.True(uploadId > 0);
+
+        await using var context = await host.DbFactory.CreateDbContextAsync();
+        var upload = Assert.Single(await context.LogUpload.ToListAsync());
+        Assert.Equal(123, upload.DiscordId);
+        Assert.Equal(42, upload.GuildId);
+        Assert.Equal("abc-123", upload.FileName);
+        Assert.Equal("url", upload.SourceType);
+        Assert.Equal("pending", upload.Status);
+        Assert.Equal("https://dps.report/abc-123", upload.DpsReportUrl);
+        Assert.False(upload.SubmitToWingman);
+
+        var pipeline = host.Services.GetRequiredService<LogUploadPipelineService>();
+        Assert.True(pipeline.TryReadQueuedUpload(out var queuedUploadId));
+        Assert.Equal(uploadId, queuedUploadId);
+        Assert.False(pipeline.TryReadQueuedUpload(out _));
+    }
+
+    [Fact]
+    public async Task SubmitGw2Url_ForbiddenGuildDoesNotCreateUpload()
+    {
+        using var host = NewLinkedGw2Host();
+
+        var response = await PostGw2UrlAsync(host, guildId: "43");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        await using var context = await host.DbFactory.CreateDbContextAsync();
+        Assert.Empty(context.LogUpload);
+    }
+
+    [Theory]
+    [InlineData("http://dps.report/abc")]
+    [InlineData("https://b.dps.report/abc")]
+    [InlineData("https://wvw.report/abc")]
+    [InlineData("https://gw2wingman.nevermindcreations.de/log/abc")]
+    [InlineData("https://dps.report.evil.example/abc")]
+    [InlineData("https://user@dps.report/abc")]
+    [InlineData("https://dps.report/abc#fragment")]
+    [InlineData("https://dps.report/abc?query=1")]
+    [InlineData("https://dps.report/getJson?permalink=abc")]
+    [InlineData("https://dps.report/abc\\evil")]
+    [InlineData("https://dps.report/")]
+    [InlineData("https://dps.report/abc\n")]
+    public async Task SubmitGw2Url_NonCanonicalOrHostileUrlReturnsBadRequest(string url)
+    {
+        using var host = NewLinkedGw2Host();
+
+        var response = await PostGw2UrlAsync(host, url: url);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("0")]
+    [InlineData("-1")]
+    [InlineData("+42")]
+    [InlineData("042")]
+    [InlineData(" 42")]
+    [InlineData("9223372036854775808")]
+    public async Task SubmitGw2Url_NonCanonicalGuildIdReturnsBadRequest(string guildId)
+    {
+        using var host = NewLinkedGw2Host();
+
+        var response = await PostGw2UrlAsync(host, guildId: guildId);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SubmitGw2Url_WingmanPropertyReturnsBadRequest()
+    {
+        using var host = NewLinkedGw2Host();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/upload/gw2/url");
+        request.Headers.Add("X-GW2-API-Key", "valid-key");
+        request.Content = JsonContent.Create(new
+        {
+            url = "https://dps.report/abc-123",
+            guildId = "42",
+            wingman = false
+        });
+
+        var response = await host.Client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"url\":\"https://dps.report/abc-123\"}")]
+    [InlineData("{\"guildId\":\"42\"}")]
+    public async Task SubmitGw2Url_MissingRequestFieldReturnsBadRequest(string body)
+    {
+        using var host = NewLinkedGw2Host();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/upload/gw2/url");
+        request.Headers.Add("X-GW2-API-Key", "valid-key");
+        request.Content = new StringContent(body, Encoding.UTF8, "application/json");
+
+        var response = await host.Client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SubmitGw2Url_ActiveDuplicateReturnsExistingReceiptWithoutSecondEnqueue()
+    {
+        using var host = NewLinkedGw2Host();
+        var firstResponse = await PostGw2UrlAsync(host);
+        var firstJson = JsonDocument.Parse(await firstResponse.Content.ReadAsStringAsync());
+        var uploadId = firstJson.RootElement.GetProperty("uploadId").GetInt64();
+        var pipeline = host.Services.GetRequiredService<LogUploadPipelineService>();
+        Assert.True(pipeline.TryReadQueuedUpload(out _));
+
+        var duplicateResponse = await PostGw2UrlAsync(host);
+        var duplicateJson = JsonDocument.Parse(await duplicateResponse.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, duplicateResponse.StatusCode);
+        Assert.Equal(uploadId, duplicateJson.RootElement.GetProperty("uploadId").GetInt64());
+        Assert.True(duplicateJson.RootElement.GetProperty("duplicate").GetBoolean());
+        Assert.Equal("pending", duplicateJson.RootElement.GetProperty("status").GetString());
+        Assert.False(pipeline.TryReadQueuedUpload(out _));
+        await using var context = await host.DbFactory.CreateDbContextAsync();
+        Assert.Single(context.LogUpload);
+    }
+
+    [Fact]
+    public async Task SubmitGw2Url_CompletedDuplicateReturnsRetainedFightReceipt()
+    {
+        using var host = NewLinkedGw2Host();
+        await SeedUrlUploadAsync(host, "complete", fightLogId: 456);
+
+        var response = await PostGw2UrlAsync(host);
+        var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(json.RootElement.GetProperty("duplicate").GetBoolean());
+        Assert.Equal("complete", json.RootElement.GetProperty("status").GetString());
+        Assert.Equal(456, json.RootElement.GetProperty("fightLogId").GetInt64());
+        Assert.False(host.Services.GetRequiredService<LogUploadPipelineService>().TryReadQueuedUpload(out _));
+    }
+
+    [Fact]
+    public async Task SubmitGw2Url_FailedDuplicateReturnsStableConflict()
+    {
+        using var host = NewLinkedGw2Host();
+        await SeedUrlUploadAsync(host, "failed");
+
+        var response = await PostGw2UrlAsync(host);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains("import_failed", body);
+        Assert.DoesNotContain("secret", body);
+        Assert.False(host.Services.GetRequiredService<LogUploadPipelineService>().TryReadQueuedUpload(out _));
+    }
+
+    [Fact]
+    public async Task SubmitGw2Url_ConcurrentIdenticalRequestsCreateOneImport()
+    {
+        using var host = NewLinkedGw2Host();
+
+        var responses = await Task.WhenAll(
+            PostGw2UrlAsync(host),
+            PostGw2UrlAsync(host));
+
+        Assert.Contains(responses, response => response.StatusCode == HttpStatusCode.Accepted);
+        Assert.All(responses, response =>
+            Assert.Contains(response.StatusCode, new[] { HttpStatusCode.Accepted, HttpStatusCode.OK }));
+        await using var context = await host.DbFactory.CreateDbContextAsync();
+        Assert.Single(context.LogUpload);
+        var pipeline = host.Services.GetRequiredService<LogUploadPipelineService>();
+        Assert.True(pipeline.TryReadQueuedUpload(out _));
+        Assert.False(pipeline.TryReadQueuedUpload(out _));
+    }
+
+    [Fact]
+    public async Task LogUpload_Gw2UrlImportIdentityIsUniqueButFileUploadIsExcluded()
+    {
+        using var db = new SqliteTestDb();
+        await using (var context = await db.Factory.CreateDbContextAsync())
+        {
+            context.LogUpload.Add(BuildUrlUpload());
+            await context.SaveChangesAsync();
+        }
+
+        await using (var duplicateContext = await db.Factory.CreateDbContextAsync())
+        {
+            duplicateContext.LogUpload.Add(BuildUrlUpload());
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateContext.SaveChangesAsync());
+        }
+
+        await using (var fileContext = await db.Factory.CreateDbContextAsync())
+        {
+            var fileUpload = BuildUrlUpload();
+            fileUpload.SourceType = "file";
+            fileContext.LogUpload.Add(fileUpload);
+            await fileContext.SaveChangesAsync();
+        }
+    }
+
+    private static MinimalApiHost NewLinkedGw2Host()
+    {
+        var accountId = Guid.NewGuid();
+        var memberships = new FakeDiscordGuildMembershipService();
+        memberships.GuildIds.Add(42);
+        var host = NewHost(ValidGw2AccountHandler(accountId), memberships);
+        using var context = host.DbFactory.CreateDbContext();
+        context.GuildWarsAccount.Add(new GuildWarsAccount
+        {
+            GuildWarsAccountId = accountId,
+            DiscordId = 123,
+            GuildWarsAccountName = "Player.1234"
+        });
+        context.Guild.AddRange(
+            new Guild { GuildId = 42, GuildName = "Allowed Guild" },
+            new Guild { GuildId = 43, GuildName = "Forbidden Guild" });
+        context.SaveChanges();
+        return host;
+    }
+
+    private static HttpMessageHandler ValidGw2AccountHandler(Guid accountId) =>
+        new ApiStubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                $$"""{"id":"{{accountId}}","name":"Player.1234","world":2202}""",
+                Encoding.UTF8,
+                "application/json")
+        });
+
+    private static async Task<HttpResponseMessage> PostGw2UrlAsync(
+        MinimalApiHost host,
+        string url = "https://dps.report/abc-123",
+        string guildId = "42",
+        string apiKey = "valid-key")
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/upload/gw2/url");
+        request.Headers.Add("X-GW2-API-Key", apiKey);
+        request.Content = JsonContent.Create(new { url, guildId });
+        return await host.Client.SendAsync(request);
+    }
+
+    private static async Task SeedUrlUploadAsync(MinimalApiHost host, string status, long? fightLogId = null)
+    {
+        await using var context = await host.DbFactory.CreateDbContextAsync();
+        var upload = BuildUrlUpload();
+        upload.Status = status;
+        upload.FightLogId = fightLogId;
+        context.LogUpload.Add(upload);
+        await context.SaveChangesAsync();
+    }
+
+    private static LogUpload BuildUrlUpload() => new()
+    {
+        DiscordId = 123,
+        GuildId = 42,
+        FileName = "abc-123",
+        SourceType = "url",
+        Status = "pending",
+        DpsReportUrl = "https://dps.report/abc-123",
+        SubmitToWingman = false
+    };
 
     private static MinimalApiHost NewHost(
         HttpMessageHandler? gw2Handler = null,

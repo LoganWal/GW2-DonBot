@@ -17,7 +17,7 @@ namespace DonBot.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.5")
+                .HasAnnotation("ProductVersion", "10.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -305,8 +305,8 @@ namespace DonBot.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<string>("DpsReportUrl")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
 
                     b.Property<string>("ErrorMessage")
                         .HasMaxLength(2000)
@@ -317,8 +317,8 @@ namespace DonBot.Migrations
 
                     b.Property<string>("FileName")
                         .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
 
                     b.Property<long>("GuildId")
                         .HasColumnType("bigint");
@@ -347,6 +347,10 @@ namespace DonBot.Migrations
 
                     b.HasIndex("TusFileId")
                         .IsUnique();
+
+                    b.HasIndex("DiscordId", "GuildId", "DpsReportUrl")
+                        .IsUnique()
+                        .HasFilter("\"SourceType\" = 'url' AND \"GuildId\" > 0 AND \"DpsReportUrl\" IS NOT NULL");
 
                     b.ToTable("LogUpload");
                 });

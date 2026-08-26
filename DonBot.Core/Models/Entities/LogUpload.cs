@@ -9,13 +9,13 @@ public class LogUpload
 
     public long DiscordId { get; set; }
 
-    [MaxLength(500)]
+    [MaxLength(2048)]
     public string FileName { get; set; } = string.Empty;
 
     [MaxLength(50)]
     public string Status { get; set; } = "pending";
 
-    [MaxLength(2000)]
+    [MaxLength(2048)]
     public string? DpsReportUrl { get; set; }
 
     public long? FightLogId { get; set; }

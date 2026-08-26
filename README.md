@@ -95,6 +95,7 @@ Pages include:
 Log upload supports:
 
 - URL uploads from `dps.report` and `wvw.report`.
+- Authenticated GW2 upload clients can import a `dps.report` permalink into a selected Discord server.
 - `.zevtc` file uploads when Elite Insights CLI is configured.
 - Live progress while logs are stored, parsed, uploaded, and saved.
 - Optional Wingman submission for PvE logs.

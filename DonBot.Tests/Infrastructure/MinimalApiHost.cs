@@ -100,6 +100,8 @@ internal sealed class MinimalApiHost : IDisposable
     public IDbContextFactory<DatabaseContext> DbFactory =>
         _server.Services.GetRequiredService<IDbContextFactory<DatabaseContext>>();
 
+    public IServiceProvider Services => _server.Services;
+
     public void AuthenticateAs(long discordId)
     {
         Client.DefaultRequestHeaders.Authorization =

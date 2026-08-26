@@ -29,6 +29,7 @@ public static class UploadEndpoints
         group.MapPost("/wingman/{id:long}", SubmitOneToWingman).RequireAuthorization();
         group.MapPost("/wingman/bulk", SubmitBulkToWingman).RequireAuthorization();
         group.MapPost("/gw2/guilds", ListGw2UploadGuilds).AllowAnonymous();
+        group.MapPost("/gw2/url", SubmitGw2Url).AllowAnonymous();
         group.MapTus("/tus", _ => BuildTusConfigurationAsync(app)).AllowAnonymous();
     }
 
@@ -470,6 +471,216 @@ public static class UploadEndpoints
         };
     }
 
+    private static async Task<IResult> SubmitGw2Url(
+        HttpContext httpContext,
+        IDbContextFactory<DatabaseContext> dbContextFactory,
+        IHttpClientFactory httpClientFactory,
+        IDiscordGuildMembershipService guildMembershipService,
+        LogUploadPipelineService pipeline,
+        CancellationToken ct)
+    {
+        if (!TryGetGw2ApiKey(httpContext.Request, out var apiKey))
+        {
+            return Gw2UrlError(StatusCodes.Status400BadRequest, "gw2_api_key_required");
+        }
+
+        Gw2UploadAccessResult accessResult;
+        try
+        {
+            accessResult = await ResolveGw2UploadAccessAsync(
+                apiKey,
+                dbContextFactory,
+                httpClientFactory,
+                guildMembershipService,
+                ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            return Gw2UrlError(StatusCodes.Status500InternalServerError, "server_error");
+        }
+
+        if (accessResult.Access is not { } access)
+        {
+            var statusCode = accessResult.FailureStatus switch
+            {
+                HttpStatusCode.Forbidden => StatusCodes.Status403Forbidden,
+                HttpStatusCode.Unauthorized => StatusCodes.Status401Unauthorized,
+                HttpStatusCode.BadRequest => StatusCodes.Status400BadRequest,
+                HttpStatusCode.BadGateway => StatusCodes.Status502BadGateway,
+                _ => StatusCodes.Status500InternalServerError
+            };
+            var errorCode = statusCode switch
+            {
+                StatusCodes.Status403Forbidden => "gw2_account_not_linked",
+                StatusCodes.Status400BadRequest or StatusCodes.Status401Unauthorized => "invalid_gw2_api_key",
+                _ => "upload_authorization_failed"
+            };
+            return Gw2UrlError(statusCode, errorCode);
+        }
+
+        SubmitGw2UrlRequest? request;
+        try
+        {
+            request = await httpContext.Request.ReadFromJsonAsync<SubmitGw2UrlRequest>(cancellationToken: ct);
+        }
+        catch (Exception ex) when (ex is
+            System.Text.Json.JsonException or
+            BadHttpRequestException or
+            NotSupportedException or
+            InvalidOperationException)
+        {
+            return Gw2UrlError(StatusCodes.Status400BadRequest, "invalid_request");
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            return Gw2UrlError(StatusCodes.Status500InternalServerError, "server_error");
+        }
+
+        if (request is null ||
+            request.AdditionalProperties?.Keys.Any(
+                property => string.Equals(property, "wingman", StringComparison.OrdinalIgnoreCase)) == true ||
+            !TryParseCanonicalDpsReportPermalink(request.Url, out var parsedUrl) ||
+            !TryParseCanonicalPositiveInt64(request.GuildId, out var guildId))
+        {
+            return Gw2UrlError(StatusCodes.Status400BadRequest, "invalid_request");
+        }
+
+        if (!access.Guilds.Any(guild => string.Equals(guild.GuildId, request.GuildId, StringComparison.Ordinal)))
+        {
+            return Gw2UrlError(StatusCodes.Status403Forbidden, "guild_forbidden");
+        }
+
+        try
+        {
+            await using var context = await dbContextFactory.CreateDbContextAsync(ct);
+            var existing = await FindGw2UrlImportAsync(
+                context,
+                access.DiscordId,
+                guildId,
+                parsedUrl.CanonicalUrl,
+                ct);
+            if (existing is not null)
+            {
+                return ExistingGw2UrlImport(existing);
+            }
+
+            var now = DateTime.UtcNow;
+            var upload = new LogUpload
+            {
+                DiscordId = access.DiscordId,
+                GuildId = guildId,
+                FileName = parsedUrl.Permalink,
+                SourceType = "url",
+                Status = "pending",
+                DpsReportUrl = parsedUrl.CanonicalUrl,
+                SubmitToWingman = false,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+            context.LogUpload.Add(upload);
+
+            try
+            {
+                await context.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException)
+            {
+                context.ChangeTracker.Clear();
+                existing = await FindGw2UrlImportAsync(
+                    context,
+                    access.DiscordId,
+                    guildId,
+                    parsedUrl.CanonicalUrl,
+                    ct);
+                if (existing is null)
+                {
+                    return Gw2UrlError(StatusCodes.Status500InternalServerError, "server_error");
+                }
+
+                return ExistingGw2UrlImport(existing);
+            }
+
+            pipeline.Enqueue(upload.LogUploadId);
+            return Results.Accepted(value: Gw2UrlResponse.From(upload, duplicate: false));
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            return Gw2UrlError(StatusCodes.Status500InternalServerError, "server_error");
+        }
+    }
+
+    private static bool TryParseCanonicalDpsReportPermalink(string? url, out ParsedReportUrl parsedUrl)
+    {
+        parsedUrl = null!;
+        if (string.IsNullOrEmpty(url) ||
+            Encoding.UTF8.GetByteCount(url) > 2048 ||
+            url.Any(character => character == '\\' || char.IsControl(character)) ||
+            !Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+            !string.IsNullOrEmpty(uri.UserInfo) ||
+            !string.IsNullOrEmpty(uri.Fragment) ||
+            !string.IsNullOrEmpty(uri.Query) ||
+            !uri.IsDefaultPort ||
+            !ReportUrlHelper.TryParseReportUrl(url, out parsedUrl, requireHttps: true) ||
+            parsedUrl.Kind != ReportUrlKind.DpsReport ||
+            !string.Equals(parsedUrl.Host, "dps.report", StringComparison.Ordinal) ||
+            !string.Equals(url, parsedUrl.CanonicalUrl, StringComparison.Ordinal))
+        {
+            parsedUrl = null!;
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool TryParseCanonicalPositiveInt64(string? value, out long result)
+    {
+        result = 0;
+        return !string.IsNullOrEmpty(value) &&
+            long.TryParse(value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out result) &&
+            result > 0 &&
+            string.Equals(value, result.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
+    }
+
+    private static Task<LogUpload?> FindGw2UrlImportAsync(
+        DatabaseContext context,
+        long discordId,
+        long guildId,
+        string canonicalUrl,
+        CancellationToken ct) =>
+        context.LogUpload
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                upload => upload.DiscordId == discordId &&
+                    upload.GuildId == guildId &&
+                    upload.DpsReportUrl == canonicalUrl &&
+                    upload.SourceType == "url",
+                ct);
+
+    private static IResult ExistingGw2UrlImport(LogUpload upload)
+    {
+        if (string.Equals(upload.Status, "failed", StringComparison.Ordinal))
+        {
+            return Gw2UrlError(StatusCodes.Status409Conflict, "import_failed");
+        }
+
+        return Results.Ok(Gw2UrlResponse.From(upload, duplicate: true));
+    }
+
+    private static IResult Gw2UrlError(int statusCode, string errorCode) =>
+        Results.Json(new Gw2UrlErrorResponse(errorCode), statusCode: statusCode);
+
     private static async Task<IResult> SubmitUrls(
         SubmitUrlsRequest request,
         ClaimsPrincipal user,
@@ -687,6 +898,28 @@ public static class UploadEndpoints
     {
         public string? ApiKey { get; init; }
     }
+
+    private sealed class SubmitGw2UrlRequest
+    {
+        public string? Url { get; init; }
+
+        public string? GuildId { get; init; }
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public Dictionary<string, System.Text.Json.JsonElement>? AdditionalProperties { get; init; }
+    }
+
+    private sealed record Gw2UrlResponse(long UploadId, long? FightLogId, string Status, bool Duplicate)
+    {
+        public static Gw2UrlResponse From(LogUpload upload, bool duplicate) =>
+            new(
+                upload.LogUploadId,
+                upload.FightLogId is > 0 ? upload.FightLogId : null,
+                upload.Status,
+                duplicate);
+    }
+
+    private sealed record Gw2UrlErrorResponse(string Error);
 
     private sealed class Gw2UploadGuildsResponse(string accountName, IReadOnlyList<GuildSummaryDto> guilds)
     {

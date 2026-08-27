@@ -164,4 +164,10 @@ public class StringExtensionsTests
     {
         Assert.Equal(3661f, "1hr 1m 1s".TimeToSeconds(), 3);
     }
+
+    [Fact]
+    public void TimeToSeconds_TimeSpanFormat_ConvertsToSeconds()
+    {
+        Assert.Equal(94.599f, "00:01:34.599".TimeToSeconds(), 3);
+    }
 }

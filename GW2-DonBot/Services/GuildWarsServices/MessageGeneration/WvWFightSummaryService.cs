@@ -91,7 +91,7 @@ public sealed class WvWFightSummaryService(
                 ? player.Details?.DmgDistributions[0].ContributedDamage
                 : 0) ?? 0;
 
-        var enemyDps = enemyDamage / logLength;
+        var enemyDps = CalculateDps(enemyDamage, logLength);
 
         var fightPhase = data.FightEliteInsightDataModel.Phases?.Any() ?? false
             ? data.FightEliteInsightDataModel.Phases[0]
@@ -100,7 +100,7 @@ public sealed class WvWFightSummaryService(
         var gw2Players = playerService.GetGw2Players(data, fightPhase);
 
         var friendlyDamage = gw2Players.Sum(s => s.Damage);
-        var friendlyDps = friendlyDamage / logLength;
+        var friendlyDps = CalculateDps(friendlyDamage, logLength);
 
         var friendlyCountStr = $"{friendlyCount}({squadMemberCount})".PadCenter(7);
         var friendlyDamageStr = friendlyDamage.FormatNumber().PadCenter(7);
@@ -200,6 +200,11 @@ public sealed class WvWFightSummaryService(
         var embed = await GenerateMessage(advancedLog, playerCount, gw2Players, message, guild.GuildId);
         return (embed, webAppUrl, fightLog?.FightLogId);
     }
+
+    internal static float CalculateDps(long damage, float durationSeconds) =>
+        durationSeconds > 0 && float.IsFinite(durationSeconds)
+            ? damage / durationSeconds
+            : 0;
 
     public async Task<Embed> GenerateMessage(bool advancedLog, int playerCount, List<Gw2Player> gw2Players, EmbedBuilder message, long guildId, StatTotals? statTotals = null)
     {

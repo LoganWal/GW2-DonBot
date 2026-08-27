@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace DonBot.Extensions;
 
 public static class StringExtensions
@@ -33,6 +35,11 @@ public static class StringExtensions
 
     public static float TimeToSeconds(this string timeString)
     {
+        if (TimeSpan.TryParse(timeString, CultureInfo.InvariantCulture, out var duration))
+        {
+            return (float)duration.TotalSeconds;
+        }
+
         var splits = timeString.Split(' ');
         var time = 0.0f;
         foreach (var split in splits)

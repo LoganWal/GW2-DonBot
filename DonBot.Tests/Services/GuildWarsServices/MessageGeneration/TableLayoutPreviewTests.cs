@@ -66,10 +66,10 @@ public class TableLayoutPreviewTests(ITestOutputHelper output)
             ["01", "(8) WalmsLo.8437", "4.3M"]);
 
         Preview("Player Points - Latest Fight", PlayerPointRankingService.LatestFightColumns,
-            ["001", "SliferAlpha.9999", "(+12.375)"]);
+            ["001", "SliferAlpha.9999", "+12.375"]);
 
         Preview("Player Points - Total", PlayerPointRankingService.TotalPointsColumns,
-            ["001", "SliferAlpha.9999", "123456(+12.375)"]);
+            ["001", "SliferAlpha.9999", "123,456"]);
 
         Preview("Know My Enemy", FightLogService.EnemyColumns,
             ["Spellbreaker", "8", "1.2M", "980.4K", "240.1K"],

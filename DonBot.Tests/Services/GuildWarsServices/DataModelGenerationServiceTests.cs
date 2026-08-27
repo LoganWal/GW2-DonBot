@@ -300,6 +300,42 @@ public class DataModelGenerationServiceTests
     }
 
     [Fact]
+    public async Task GenerateFromUrl_GetJsonAlwaysInvalid_FallsBackToReportHtml()
+    {
+        const string reportHtml = """
+            <html><script>
+            const _logData = {
+                "wvw": true,
+                "logName": "Detailed WvW",
+                "players": [
+                    {
+                        "group": 1,
+                        "acc": "Player.1234",
+                        "profession": "Guardian",
+                        "notInSquad": false,
+                        "name": "Player"
+                    }
+                ],
+                "phases": []
+            };
+            </script></html>
+            """;
+        var handler = new RecordingHandler(request => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(request.RequestUri!.AbsolutePath == "/getJson" ? "not json" : reportHtml)
+        });
+        var svc = NewService(handler);
+
+        var result = await svc.GenerateEliteInsightDataModelFromUrl("https://wvw.report/jg4G-20260827-205457_wvw");
+
+        Assert.Equal(3, handler.Requests.Count(request => request.AbsolutePath == "/getJson"));
+        Assert.Equal("https://wvw.report/jg4G-20260827-205457_wvw", handler.Requests.Last().ToString());
+        Assert.True(result.FightEliteInsightDataModel.Wvw);
+        Assert.Equal("Detailed WvW", result.FightEliteInsightDataModel.LogName);
+        Assert.Equal("Player.1234", Assert.Single(result.FightEliteInsightDataModel.Players!).Acc);
+    }
+
+    [Fact]
     public async Task GenerateFromUrl_WvwReportUrl_FetchesWvwGetJsonEndpoint()
     {
         var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)

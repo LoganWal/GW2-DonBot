@@ -24,8 +24,8 @@ public sealed class PlayerPointRankingService(IEntityService entityService, IFoo
     internal static readonly DiscordTable.Column[] TotalPointsColumns =
     [
         new("#", 3),
-        new("Name", 18),
-        new("Points", 17, DiscordTable.Align.Right)
+        new("Name", 21),
+        new("Points", 12, DiscordTable.Align.Right)
     ];
 
     public async Task<IReadOnlyList<Embed>> Generate(Guild guild, long fightLogId)
@@ -42,7 +42,6 @@ public sealed class PlayerPointRankingService(IEntityService entityService, IFoo
             .ThenBy(row => row.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var latestPoints = latestRows.ToDictionary(row => row.DiscordId, row => row.Points);
         var guildWarsAccounts = (await entityService.GuildWarsAccount.GetAllAsync())
             .Where(account => !string.IsNullOrWhiteSpace(account.GuildWarsAccountName))
             .GroupBy(account => account.DiscordId)
@@ -72,16 +71,16 @@ public sealed class PlayerPointRankingService(IEntityService entityService, IFoo
             "Latest Fight Points",
             LatestFightColumns,
             latestRows,
-            row => $"(+{FormatPoints(row.Points)})");
+            row => $"+{FormatPoints(row.Points)}");
         CompleteEmbed(latestEmbed, footer);
 
-        var totalEmbed = BuildBaseEmbed("**WvW player Details:**\n");
+        var totalEmbed = BuildBaseEmbed("**WvW total points:**\n");
         AddBatches(
             totalEmbed,
             "Total Points",
             TotalPointsColumns,
             totalRows,
-            row => FormatTotalPoints(row.Points, latestPoints.GetValueOrDefault(row.DiscordId)));
+            row => FormatTotalPoints(row.Points));
         CompleteEmbed(totalEmbed, footer);
 
         return [latestEmbed.Build(), totalEmbed.Build()];
@@ -140,16 +139,16 @@ public sealed class PlayerPointRankingService(IEntityService entityService, IFoo
     private static string FormatPoints(decimal points) =>
         points.ToString("0.###", CultureInfo.InvariantCulture);
 
-    private static string FormatTotalPoints(decimal total, decimal latest)
+    private static string FormatTotalPoints(decimal total)
     {
-        var value = $"{FormatPoints(total)}(+{FormatPoints(latest)})";
+        var rounded = Math.Round(total, 0, MidpointRounding.AwayFromZero);
+        var value = rounded.ToString("N0", CultureInfo.InvariantCulture);
         if (value.Length <= TotalPointsColumns[^1].Width)
         {
             return value;
         }
 
-        return $"{FormatCompactPoints(total)}(+{FormatCompactPoints(latest)})"
-            .ClipAt(TotalPointsColumns[^1].Width);
+        return FormatCompactPoints(rounded).ClipAt(TotalPointsColumns[^1].Width);
     }
 
     private static string FormatCompactPoints(decimal points)
@@ -157,11 +156,11 @@ public sealed class PlayerPointRankingService(IEntityService entityService, IFoo
         var absolute = Math.Abs(points);
         return absolute switch
         {
-            >= 1_000_000_000_000m => $"{(points / 1_000_000_000_000m).ToString("0.##", CultureInfo.InvariantCulture)}T",
-            >= 1_000_000_000m => $"{(points / 1_000_000_000m).ToString("0.##", CultureInfo.InvariantCulture)}B",
-            >= 1_000_000m => $"{(points / 1_000_000m).ToString("0.##", CultureInfo.InvariantCulture)}M",
-            >= 1_000m => $"{(points / 1_000m).ToString("0.##", CultureInfo.InvariantCulture)}K",
-            _ => FormatPoints(points)
+            >= 1_000_000_000_000m => $"{(points / 1_000_000_000_000m).ToString("0", CultureInfo.InvariantCulture)}T",
+            >= 1_000_000_000m => $"{(points / 1_000_000_000m).ToString("0", CultureInfo.InvariantCulture)}B",
+            >= 1_000_000m => $"{(points / 1_000_000m).ToString("0", CultureInfo.InvariantCulture)}M",
+            >= 1_000m => $"{(points / 1_000m).ToString("0", CultureInfo.InvariantCulture)}K",
+            _ => points.ToString("N0", CultureInfo.InvariantCulture)
         };
     }
 

@@ -47,9 +47,10 @@ public sealed class DataModelGenerationService(ILogger<DataModelGenerationServic
         const int maxRetries = 3;
         var attempt = 0;
         var reparseAttempted = false;
-        var useGetJson = ReportUrlHelper.TryParseReportUrl(url, out var reportUrl);
-        var requestUrl = useGetJson ? reportUrl.GetJsonUrl : url;
-        var modelUrl = useGetJson ? reportUrl.CanonicalUrl : url;
+        var parseAsGetJson = ReportUrlHelper.TryParseReportUrl(url, out var reportUrl);
+        var canFallBackToHtml = parseAsGetJson;
+        var requestUrl = parseAsGetJson ? reportUrl.GetJsonUrl : url;
+        var modelUrl = parseAsGetJson ? reportUrl.CanonicalUrl : url;
 
         while (true)
         {
@@ -60,7 +61,7 @@ public sealed class DataModelGenerationService(ILogger<DataModelGenerationServic
                 using var content = response.Content;
                 var result = await content.ReadAsStringAsync();
 
-                if (useGetJson)
+                if (parseAsGetJson)
                 {
                     return DpsReportGetJsonMapper.Map(result, modelUrl);
                 }
@@ -109,6 +110,16 @@ public sealed class DataModelGenerationService(ILogger<DataModelGenerationServic
 
                 if (attempt >= maxRetries)
                 {
+                    if (canFallBackToHtml)
+                    {
+                        logger.LogWarning("getJson failed for {url}. Falling back to the report HTML.", modelUrl);
+                        canFallBackToHtml = false;
+                        parseAsGetJson = false;
+                        requestUrl = modelUrl;
+                        attempt = 0;
+                        continue;
+                    }
+
                     logger.LogError("Max retries reached. Returning an empty EliteInsightDataModel.");
                     return new EliteInsightDataModel(modelUrl);
                 }

@@ -34,13 +34,13 @@ public class PlayerPointRankingServiceTests
         await entityService.Account.AddAsync(new Account
         {
             DiscordId = 1,
-            Points = 100,
+            Points = 90_712.212m,
             PreviousPoints = 90
         });
         await entityService.Account.AddAsync(new Account
         {
             DiscordId = 2,
-            Points = 80,
+            Points = 52_347.845m,
             PreviousPoints = 70
         });
         await entityService.GuildWarsAccount.AddAsync(new GuildWarsAccount
@@ -70,21 +70,23 @@ public class PlayerPointRankingServiceTests
         Assert.Equal(PlayerPointRankingService.EmbedTitle, latest.Title);
         Assert.Equal(PlayerPointRankingService.EmbedTitle, total.Title);
         Assert.Equal("**WvW Last fight points:**\n", latest.Description);
-        Assert.Equal("**WvW player Details:**\n", total.Description);
+        Assert.Equal("**WvW total points:**\n", total.Description);
         Assert.Equal("https://example.com/fight", latest.Url);
         Assert.Equal("Test quote", latest.Footer?.Text);
         Assert.Equal("Test quote", total.Footer?.Text);
 
         var latestField = Assert.Single(latest.Fields.Where(field => field.Name == "Latest Fight Points"));
         Assert.Contains("Alice.1234", latestField.Value);
-        Assert.Contains("(+3.5)", latestField.Value);
+        Assert.Contains("+3.5", latestField.Value);
+        Assert.DoesNotContain("(+3.5)", latestField.Value);
         Assert.DoesNotContain("Bob.5678", latestField.Value);
 
         var totalField = Assert.Single(total.Fields.Where(field => field.Name == "Total Points"));
         Assert.Contains("Alice.1234", totalField.Value);
-        Assert.Contains("100(+3.5)", totalField.Value);
+        Assert.Contains("90,712", totalField.Value);
         Assert.Contains("Bob.5678", totalField.Value);
-        Assert.Contains("80(+0)", totalField.Value);
+        Assert.Contains("52,348", totalField.Value);
+        Assert.DoesNotContain("(+", totalField.Value);
 
         AssertTableRowsFit(latestField.Value);
         AssertTableRowsFit(totalField.Value);

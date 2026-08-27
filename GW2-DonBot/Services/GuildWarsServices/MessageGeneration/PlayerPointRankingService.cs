@@ -28,10 +28,14 @@ public sealed class PlayerPointRankingService(IEntityService entityService, IFoo
         new("Points", 12, DiscordTable.Align.Right)
     ];
 
-    public async Task<IReadOnlyList<Embed>> Generate(Guild guild, long fightLogId)
+    public async Task<IReadOnlyList<Embed>> Generate(
+        Guild guild,
+        long fightLogId,
+        IReadOnlySet<long> guildMemberDiscordIds)
     {
         var awards = await entityService.PlayerPointAward.GetWhereAsync(a => a.FightLogId == fightLogId);
         var latestRows = awards
+            .Where(a => guildMemberDiscordIds.Contains(a.DiscordId))
             .GroupBy(a => a.DiscordId)
             .Select(group => new RankingRow(
                 group.Key,
@@ -43,7 +47,9 @@ public sealed class PlayerPointRankingService(IEntityService entityService, IFoo
             .ToList();
 
         var guildWarsAccounts = (await entityService.GuildWarsAccount.GetAllAsync())
-            .Where(account => !string.IsNullOrWhiteSpace(account.GuildWarsAccountName))
+            .Where(account =>
+                guildMemberDiscordIds.Contains(account.DiscordId) &&
+                !string.IsNullOrWhiteSpace(account.GuildWarsAccountName))
             .GroupBy(account => account.DiscordId)
             .ToDictionary(
                 group => group.Key,
@@ -52,7 +58,9 @@ public sealed class PlayerPointRankingService(IEntityService entityService, IFoo
                     .First());
 
         var totalRows = (await entityService.Account.GetAllAsync())
-            .Where(account => guildWarsAccounts.ContainsKey(account.DiscordId))
+            .Where(account =>
+                guildMemberDiscordIds.Contains(account.DiscordId) &&
+                guildWarsAccounts.ContainsKey(account.DiscordId))
             .OrderByDescending(account => account.Points)
             .ThenBy(account => guildWarsAccounts[account.DiscordId], StringComparer.OrdinalIgnoreCase)
             .Take(TotalRankingLimit)

@@ -43,6 +43,12 @@ public class PlayerPointRankingServiceTests
             Points = 52_347.845m,
             PreviousPoints = 70
         });
+        await entityService.Account.AddAsync(new Account
+        {
+            DiscordId = 3,
+            Points = 100_000m,
+            PreviousPoints = 90_000m
+        });
         await entityService.GuildWarsAccount.AddAsync(new GuildWarsAccount
         {
             GuildWarsAccountId = Guid.NewGuid(),
@@ -55,13 +61,20 @@ public class PlayerPointRankingServiceTests
             DiscordId = 2,
             GuildWarsAccountName = "Bob.5678"
         });
+        await entityService.GuildWarsAccount.AddAsync(new GuildWarsAccount
+        {
+            GuildWarsAccountId = Guid.NewGuid(),
+            DiscordId = 3,
+            GuildWarsAccountName = "FormerMember.9012"
+        });
         await entityService.PlayerPointAward.AddAsync(Award(1, 1, "Alice.1234", 2.5m));
         await entityService.PlayerPointAward.AddAsync(Award(2, 1, "Alice.1234", 1m));
         await entityService.PlayerPointAward.AddAsync(Award(3, 2, "Bob.5678", 9m, fightLogId: 9));
+        await entityService.PlayerPointAward.AddAsync(Award(4, 3, "FormerMember.9012", 10m));
 
         var service = new PlayerPointRankingService(entityService, new FooterService(entityService));
 
-        var embeds = await service.Generate(guild, FightLogId);
+        var embeds = await service.Generate(guild, FightLogId, new HashSet<long> { 1, 2 });
 
         Assert.Equal(2, embeds.Count);
         var latest = embeds[0];
@@ -80,6 +93,7 @@ public class PlayerPointRankingServiceTests
         Assert.Contains("+3.5", latestField.Value);
         Assert.DoesNotContain("(+3.5)", latestField.Value);
         Assert.DoesNotContain("Bob.5678", latestField.Value);
+        Assert.DoesNotContain("FormerMember.9012", latestField.Value);
 
         var totalField = Assert.Single(total.Fields.Where(field => field.Name == "Total Points"));
         Assert.Contains("Alice.1234", totalField.Value);
@@ -87,6 +101,7 @@ public class PlayerPointRankingServiceTests
         Assert.Contains("Bob.5678", totalField.Value);
         Assert.Contains("52,348", totalField.Value);
         Assert.DoesNotContain("(+", totalField.Value);
+        Assert.DoesNotContain("FormerMember.9012", totalField.Value);
 
         AssertTableRowsFit(latestField.Value);
         AssertTableRowsFit(totalField.Value);

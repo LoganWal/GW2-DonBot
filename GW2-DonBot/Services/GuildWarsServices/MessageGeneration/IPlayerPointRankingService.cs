@@ -5,5 +5,8 @@ namespace DonBot.Services.GuildWarsServices.MessageGeneration;
 
 public interface IPlayerPointRankingService
 {
-    Task<IReadOnlyList<Embed>> Generate(Guild guild, long fightLogId);
+    Task<IReadOnlyList<Embed>> Generate(
+        Guild guild,
+        long fightLogId,
+        IReadOnlySet<long> guildMemberDiscordIds);
 }

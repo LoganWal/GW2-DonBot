@@ -33,9 +33,20 @@ public sealed class PlayerPointRankingPublisher(
             return;
         }
 
+        var discordGuild = client.GetGuild((ulong)guild.GuildId);
+        if (discordGuild == null)
+        {
+            logger.LogWarning("Failed to find Discord guild {GuildId} for player point rankings.", guild.GuildId);
+            return;
+        }
+
         try
         {
-            var embeds = await rankingService.Generate(guild, fightLogId);
+            await discordGuild.DownloadUsersAsync();
+            var guildMemberDiscordIds = discordGuild.Users
+                .Select(user => (long)user.Id)
+                .ToHashSet();
+            var embeds = await rankingService.Generate(guild, fightLogId, guildMemberDiscordIds);
             var recentMessages = await channel.GetMessagesAsync(100).FlattenAsync();
             var oldRankings = recentMessages.Where(IsPointRankingMessage).ToList();
             foreach (var message in oldRankings)

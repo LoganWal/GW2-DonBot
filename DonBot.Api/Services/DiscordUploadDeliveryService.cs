@@ -136,6 +136,11 @@ public sealed class DiscordUploadDeliveryService(
                 .ToList();
         }
 
+        if (channels.Count > 0)
+        {
+            messageKinds = EnabledMessageKinds(guild, includeOverrideBaseSummaries: true);
+        }
+
         return new DiscordDeliveryCapabilities(
             true,
             defaultsAvailable,
@@ -161,16 +166,16 @@ public sealed class DiscordUploadDeliveryService(
             return DiscordDeliveryValidationResult.Failed("discord_delivery_disabled");
         }
 
-        if (EnabledMessageKinds(guild).Count == 0)
-        {
-            return DiscordDeliveryValidationResult.Failed("discord_delivery_unavailable");
-        }
-
         if (mode == DiscordDeliveryModes.GuildDefaults)
         {
             if (channelId.HasValue)
             {
                 return DiscordDeliveryValidationResult.Failed("invalid_discord_delivery");
+            }
+
+            if (EnabledMessageKinds(guild).Count == 0)
+            {
+                return DiscordDeliveryValidationResult.Failed("discord_delivery_unavailable");
             }
 
             foreach (var defaultChannelId in DefaultChannelIds(guild).Distinct())
@@ -596,10 +601,12 @@ public sealed class DiscordUploadDeliveryService(
                 ct);
     }
 
-    private static IReadOnlyList<string> EnabledMessageKinds(Guild guild)
+    private static IReadOnlyList<string> EnabledMessageKinds(
+        Guild guild,
+        bool includeOverrideBaseSummaries = false)
     {
         var kinds = new List<string>();
-        if (guild.LogReportChannelId.HasValue)
+        if (guild.LogReportChannelId.HasValue || includeOverrideBaseSummaries)
         {
             kinds.Add(DiscordDeliveryMessageKinds.PveSummary);
             kinds.Add(DiscordDeliveryMessageKinds.WvwSummary);
@@ -671,7 +678,7 @@ public sealed class DiscordUploadDeliveryService(
         {
             return guild.MannyUploaderChannelOverrideEnabled &&
                    upload.DiscordDeliveryChannelId == channelId &&
-                   EnabledMessageKinds(guild).Contains(messageKind);
+                   EnabledMessageKinds(guild, includeOverrideBaseSummaries: true).Contains(messageKind);
         }
 
         return ResolveChannelId(upload, guild, messageKind) == channelId;

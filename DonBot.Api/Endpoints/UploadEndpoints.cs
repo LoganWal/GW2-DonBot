@@ -789,8 +789,7 @@ public static class UploadEndpoints
                 AggregateDiscordDeliveryFailure.InvalidRequest =>
                     AggregateError(StatusCodes.Status400BadRequest, "invalid_request"),
                 AggregateDiscordDeliveryFailure.DeliveryDisabled or
-                    AggregateDiscordDeliveryFailure.RouteForbidden or
-                    AggregateDiscordDeliveryFailure.FightForbidden =>
+                    AggregateDiscordDeliveryFailure.RouteForbidden =>
                     AggregateError(StatusCodes.Status403Forbidden, "aggregate_forbidden"),
                 AggregateDiscordDeliveryFailure.FightNotFound =>
                     AggregateError(StatusCodes.Status404NotFound, "fight_not_found"),

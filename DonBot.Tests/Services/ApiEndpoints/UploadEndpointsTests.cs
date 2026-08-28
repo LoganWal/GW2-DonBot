@@ -599,7 +599,6 @@ public class UploadEndpointsTests
     [Theory]
     [InlineData(AggregateDiscordDeliveryFailure.DeliveryDisabled, HttpStatusCode.Forbidden)]
     [InlineData(AggregateDiscordDeliveryFailure.RouteForbidden, HttpStatusCode.Forbidden)]
-    [InlineData(AggregateDiscordDeliveryFailure.FightForbidden, HttpStatusCode.Forbidden)]
     [InlineData(AggregateDiscordDeliveryFailure.FightNotFound, HttpStatusCode.NotFound)]
     [InlineData(AggregateDiscordDeliveryFailure.FightNotReady, HttpStatusCode.Conflict)]
     [InlineData(AggregateDiscordDeliveryFailure.NoRenderableMessages, HttpStatusCode.Conflict)]

@@ -101,6 +101,19 @@ public class RaidReportSimpleReplyTests
     }
 
     [Fact]
+    public async Task GenerateAggregateReport_ExplicitFightFromAnotherGuildIsIncluded()
+    {
+        var otherGuildFight = MakeFight(42, "https://b.dps.report/other-guild");
+        otherGuildFight.GuildId = 2;
+        var service = BuildService([otherGuildFight], [MakePlayerFight(42)]);
+
+        var (embeds, _) = await service.GenerateAggregateReport([42], GuildId);
+
+        Assert.NotNull(embeds);
+        Assert.NotEmpty(embeds);
+    }
+
+    [Fact]
     public void BuildAggregateWebAppUrl_OverDiscordButtonLimitReturnsNull()
     {
         var fightLogIds = Enumerable.Range(0, 100)

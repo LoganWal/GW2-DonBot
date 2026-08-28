@@ -73,6 +73,30 @@ public class DiscordUploadDeliveryServiceTests
     }
 
     [Fact]
+    public async Task DeliverAsync_OverrideOnlyRouteSendsBaseSummaryToSelectedChannel()
+    {
+        using var db = new SqliteTestDb();
+        var upload = await SeedAsync(
+            db,
+            wvw: false,
+            primaryChannelId: null,
+            mode: DiscordDeliveryModes.ChannelOverride,
+            overrideChannelId: 999);
+        var gateway = new FakeGateway([999]);
+        var service = CreateService(db, gateway);
+
+        var result = await service.DeliverAsync(upload, BuildData(wvw: false));
+
+        Assert.Equal("sent", result.Outcome);
+        var sent = Assert.Single(gateway.Sent);
+        Assert.Equal(999, sent.ChannelId);
+        await using var context = await db.Factory.CreateDbContextAsync();
+        var receipt = Assert.Single(context.LogUploadDiscordDeliveryReceipt);
+        Assert.Equal(DiscordDeliveryMessageKinds.PveSummary, receipt.MessageKind);
+        Assert.Equal(DiscordDeliveryReceiptStatuses.Sent, receipt.Status);
+    }
+
+    [Fact]
     public async Task DeliverAsync_MissingPrimaryDefaultSkipsStandardAndContinuesOtherWvwMessages()
     {
         using var db = new SqliteTestDb();
@@ -375,6 +399,77 @@ public class DiscordUploadDeliveryServiceTests
 
         Assert.True(result.DefaultsAvailable);
         Assert.False(result.AggregateDefaultsAvailable);
+    }
+
+    [Fact]
+    public async Task GetCapabilitiesAsync_OverrideOnlyAuthorizedChannelAdvertisesBaseSummaries()
+    {
+        using var db = new SqliteTestDb();
+        var service = CreateService(db, new FakeGateway([900]));
+        var guild = new Guild
+        {
+            GuildId = 42, MannyUploaderDiscordDeliveryEnabled = true, MannyUploaderChannelOverrideEnabled = true
+        };
+
+        var result = await service.GetCapabilitiesAsync(guild, 123);
+
+        Assert.False(result.DefaultsAvailable);
+        Assert.False(result.AggregateDefaultsAvailable);
+        Assert.Equal(
+            [DiscordDeliveryMessageKinds.PveSummary, DiscordDeliveryMessageKinds.WvwSummary],
+            result.EnabledMessageKinds);
+        Assert.Equal(900, Assert.Single(result.Channels).ChannelId);
+    }
+
+    [Fact]
+    public async Task ValidateAsync_OverrideOnlyAuthorizedChannelIsAccepted()
+    {
+        using var db = new SqliteTestDb();
+        await SeedAsync(db, wvw: false, primaryChannelId: null);
+        var service = CreateService(db, new FakeGateway([900]));
+
+        var result = await service.ValidateAsync(
+            123,
+            42,
+            DiscordDeliveryModes.ChannelOverride,
+            900);
+
+        Assert.True(result.Accepted);
+        Assert.Null(result.ErrorCode);
+    }
+
+    [Fact]
+    public async Task ValidateAsync_OverrideOnlyUnauthorizedChannelIsRejected()
+    {
+        using var db = new SqliteTestDb();
+        await SeedAsync(db, wvw: false, primaryChannelId: null);
+        var service = CreateService(db, new FakeGateway([]));
+
+        var result = await service.ValidateAsync(
+            123,
+            42,
+            DiscordDeliveryModes.ChannelOverride,
+            900);
+
+        Assert.False(result.Accepted);
+        Assert.Equal("discord_channel_forbidden", result.ErrorCode);
+    }
+
+    [Fact]
+    public async Task ValidateAsync_GuildDefaultsStillRequireConfiguredDefaultChannel()
+    {
+        using var db = new SqliteTestDb();
+        await SeedAsync(db, wvw: false, primaryChannelId: null);
+        var service = CreateService(db, new FakeGateway([900]));
+
+        var result = await service.ValidateAsync(
+            123,
+            42,
+            DiscordDeliveryModes.GuildDefaults,
+            null);
+
+        Assert.False(result.Accepted);
+        Assert.Equal("discord_delivery_unavailable", result.ErrorCode);
     }
 
     private static DiscordUploadDeliveryService CreateService(SqliteTestDb db, FakeGateway gateway) =>

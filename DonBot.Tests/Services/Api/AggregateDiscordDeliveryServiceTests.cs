@@ -66,11 +66,11 @@ public class AggregateDiscordDeliveryServiceTests
     }
 
     [Fact]
-    public async Task DeliverAsync_MixedGuildSetFailsBeforeRenderingOrSending()
+    public async Task DeliverAsync_MatchingDifferentAndUnsetGuildProvenanceAreAccepted()
     {
         using var db = new SqliteTestDb();
-        var fightIds = await SeedAsync(db, guildIds: [42, 43], withPlayers: [true, true]);
-        var gateway = new FakeGateway([true]);
+        var fightIds = await SeedAsync(db, guildIds: [42, 43, 0], withPlayers: [true, true, true]);
+        var gateway = new FakeGateway([true, true]);
         var renderer = new FakeMessageGenerationService(1);
         var service = CreateService(db, gateway, renderer);
 
@@ -81,10 +81,11 @@ public class AggregateDiscordDeliveryServiceTests
             DiscordDeliveryModes.GuildDefaults,
             null));
 
-        Assert.Null(attempt.Result);
-        Assert.Equal(AggregateDiscordDeliveryFailure.FightForbidden, attempt.Failure);
-        Assert.Equal(0, renderer.CallCount);
-        Assert.Empty(gateway.Sent);
+        Assert.Equal(AggregateDiscordDeliveryFailure.None, attempt.Failure);
+        Assert.Equal(3, attempt.Result?.FightLogCount);
+        Assert.Equal("sent", attempt.Result?.DiscordDelivery.Outcome);
+        Assert.Equal(fightIds, renderer.RequestedFightIds);
+        Assert.Single(gateway.Sent);
     }
 
     [Fact]
@@ -204,7 +205,7 @@ public class AggregateDiscordDeliveryServiceTests
     }
 
     [Fact]
-    public async Task DeliverAsync_FightOwnershipChangedDuringRenderingFailsBeforeSend()
+    public async Task DeliverAsync_PlayerDataRemovedDuringRenderingFailsBeforeSend()
     {
         using var db = new SqliteTestDb();
         var fightIds = await SeedAsync(db, guildIds: [42, 42], withPlayers: [true, true]);
@@ -212,9 +213,9 @@ public class AggregateDiscordDeliveryServiceTests
         var renderer = new FakeMessageGenerationService(1, onGenerateAsync: async () =>
         {
             await using var context = await db.Factory.CreateDbContextAsync();
-            await context.FightLog
-                .Where(fight => fight.FightLogId == fightIds[1])
-                .ExecuteUpdateAsync(setters => setters.SetProperty(fight => fight.GuildId, 43));
+            await context.PlayerFightLog
+                .Where(player => player.FightLogId == fightIds[1])
+                .ExecuteDeleteAsync();
         });
         var service = CreateService(db, gateway, renderer);
 
@@ -225,7 +226,7 @@ public class AggregateDiscordDeliveryServiceTests
             DiscordDeliveryModes.GuildDefaults,
             null));
 
-        Assert.Equal(AggregateDiscordDeliveryFailure.FightForbidden, attempt.Failure);
+        Assert.Equal(AggregateDiscordDeliveryFailure.FightNotReady, attempt.Failure);
         Assert.Empty(gateway.Sent);
     }
 

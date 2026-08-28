@@ -23,7 +23,6 @@ public enum AggregateDiscordDeliveryFailure
     RouteForbidden,
     InvalidRequest,
     FightNotFound,
-    FightForbidden,
     FightNotReady,
     NoRenderableMessages,
     DependencyUnavailable,
@@ -85,7 +84,7 @@ public sealed class AggregateDiscordDeliveryService(
             return AggregateDiscordDeliveryAttempt.Failed(authorization.Failure);
         }
 
-        var fightFailure = await ValidateFightsAsync(request.GuildId, request.FightLogIds, ct);
+        var fightFailure = await ValidateFightsAsync(request.FightLogIds, ct);
         if (fightFailure != AggregateDiscordDeliveryFailure.None)
         {
             return AggregateDiscordDeliveryAttempt.Failed(fightFailure);
@@ -95,7 +94,7 @@ public sealed class AggregateDiscordDeliveryService(
         string? webAppUrl;
         try
         {
-            (messages, webAppUrl) = await messageGenerationService.GenerateRaidReplyReport(
+            (messages, webAppUrl) = await messageGenerationService.GenerateAggregateReport(
                 request.FightLogIds.ToList(),
                 request.GuildId);
         }
@@ -143,7 +142,7 @@ public sealed class AggregateDiscordDeliveryService(
             }
         }
 
-        fightFailure = await ValidateFightsAsync(request.GuildId, request.FightLogIds, ct);
+        fightFailure = await ValidateFightsAsync(request.FightLogIds, ct);
         if (fightFailure != AggregateDiscordDeliveryFailure.None)
         {
             return AggregateDiscordDeliveryAttempt.Failed(fightFailure);
@@ -209,27 +208,22 @@ public sealed class AggregateDiscordDeliveryService(
     }
 
     private async Task<AggregateDiscordDeliveryFailure> ValidateFightsAsync(
-        long guildId,
         IReadOnlyList<long> fightLogIds,
         CancellationToken ct)
     {
         await using var context = await dbContextFactory.CreateDbContextAsync(ct);
-        var fights = await context.FightLog
+        var existingFightIds = await context.FightLog
             .AsNoTracking()
             .Where(fight => fightLogIds.Contains(fight.FightLogId))
-            .Select(fight => new { fight.FightLogId, fight.GuildId })
-            .ToDictionaryAsync(fight => fight.FightLogId, ct);
+            .Select(fight => fight.FightLogId)
+            .ToListAsync(ct);
+        var existing = existingFightIds.ToHashSet();
 
         foreach (var fightLogId in fightLogIds)
         {
-            if (!fights.TryGetValue(fightLogId, out var fight))
+            if (!existing.Contains(fightLogId))
             {
                 return AggregateDiscordDeliveryFailure.FightNotFound;
-            }
-
-            if (fight.GuildId != guildId)
-            {
-                return AggregateDiscordDeliveryFailure.FightForbidden;
             }
         }
 

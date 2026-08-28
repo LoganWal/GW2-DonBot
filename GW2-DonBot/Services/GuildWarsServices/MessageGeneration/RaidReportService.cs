@@ -88,6 +88,17 @@ public sealed class RaidReportService(
         return await GetRaidReport(guildId, fights, messages);
     }
 
+    public async Task<(List<Embed>? Embeds, string? WebAppUrl)> GenerateAggregateReport(
+        List<long> fightLogIds,
+        long guildId)
+    {
+        var messages = new List<Embed>();
+        var fights = (await entityService.FightLog.GetWhereAsync(s =>
+            fightLogIds.Contains(s.FightLogId))).ToList();
+
+        return await GetRaidReport(guildId, fights, messages);
+    }
+
     public async Task<Embed> GenerateRaidAlert(long guildId)
     {
         var message = new EmbedBuilder

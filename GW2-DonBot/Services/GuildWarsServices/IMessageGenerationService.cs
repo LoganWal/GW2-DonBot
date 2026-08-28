@@ -7,13 +7,19 @@ namespace DonBot.Services.GuildWarsServices;
 
 public interface IMessageGenerationService
 {
-    public Task<(Embed Embed, string? WebAppUrl, long? FightLogId)> GenerateWvWFightSummary(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client);
+    public Task<(Embed Embed, string? WebAppUrl, long? FightLogId)> GenerateWvWFightSummary(EliteInsightDataModel data,
+        bool advancedLog, Guild guild, DiscordSocketClient client);
 
-    public Task<(Embed Embed, string? WebAppUrl, long FightLogId)> GeneratePvEFightSummary(EliteInsightDataModel data, long guildId);
+    public Task<(Embed Embed, string? WebAppUrl, long FightLogId)> GeneratePvEFightSummary(EliteInsightDataModel data,
+        long guildId);
 
     public Task<(List<Embed>? Embeds, string? WebAppUrl)> GenerateRaidReport(FightsReport fightsReport, long guildId);
 
     public Task<(List<Embed>? Embeds, string? WebAppUrl)> GenerateRaidReplyReport(List<long> fightLogIds, long guildId);
+
+    public Task<(List<Embed>? Embeds, string? WebAppUrl)> GenerateAggregateReport(
+        List<long> fightLogIds,
+        long guildId) => GenerateRaidReplyReport(fightLogIds, guildId);
 
     public Task<Embed> GenerateRaidAlert(long guildId);
 }

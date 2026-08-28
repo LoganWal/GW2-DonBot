@@ -1,5 +1,6 @@
 using System.Globalization;
 using Discord;
+using DonBot.Core.Models.Entities;
 using DonBot.Core.Models.GuildWars2;
 using DonBot.Core.Services.GuildWars2;
 using DonBot.Extensions;
@@ -37,6 +38,18 @@ public sealed class PvEFightSummaryService(
         var fightLog = ingestionResult.FightLog;
 
         await pointsAwardService.AwardFightAsync(fightLog.FightLogId);
+
+        var rendered = await RenderSimple(data, guildId, fightLog);
+        return (rendered.Embed, rendered.WebAppUrl, fightLog.FightLogId);
+    }
+
+    public async Task<(Embed Embed, string? WebAppUrl)> RenderSimple(
+        EliteInsightDataModel data,
+        long guildId,
+        FightLog fightLog)
+    {
+        var fightPhase = FightLogMaterializer.ResolveFightPhase(data);
+        var gw2Players = playerService.GetGw2Players(data, fightPhase, FightLogMaterializer.ShouldSumAllTargets(data));
 
         var webAppBaseUrl = configuration["WebApp:BaseUrl"];
         var webAppUrl = !string.IsNullOrEmpty(webAppBaseUrl)
@@ -101,7 +114,7 @@ public sealed class PvEFightSummaryService(
         footerService.AddWidthSpacer(message);
         footerService.AddInviteLink(message);
 
-        return (message.Build(), webAppUrl, fightLog.FightLogId);
+        return (message.Build(), webAppUrl);
     }
 
     private static string FormatFightProgress(int? fightPhase, decimal fightPercent) =>

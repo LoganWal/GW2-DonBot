@@ -67,6 +67,7 @@ Common settings include:
 - Primary and secondary Guild Wars 2 guild IDs.
 - Auto Wingman submission.
 - Auto log aggregation and single-log replies.
+- MannyUploader Discord delivery and optional channel overrides.
 - Raid alerts.
 - Spam and art-spam filtering.
 - Player point ranking posts after WvW fights.
@@ -97,6 +98,7 @@ Log upload supports:
 - URL uploads from `dps.report` and `wvw.report`.
 - Authenticated GW2 upload clients can import a `dps.report` permalink into a selected Discord server.
 - `.zevtc` file uploads when Elite Insights CLI is configured.
+- MannyUploader uploads can post the usual PvE or WvW summaries to guild defaults or an authorized channel override when enabled by a server admin.
 - Live progress while logs are stored, parsed, uploaded, and saved.
 - Optional Wingman submission for PvE logs.
 

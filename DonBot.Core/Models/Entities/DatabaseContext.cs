@@ -24,6 +24,7 @@ public sealed class DatabaseContext : DbContext
         ScheduledMessageDelete = Set<ScheduledMessageDelete>();
         RotationAnomaly = Set<RotationAnomaly>();
         LogUpload = Set<LogUpload>();
+        LogUploadDiscordDeliveryReceipt = Set<LogUploadDiscordDeliveryReceipt>();
     }
 
     public DbSet<Account> Account { get; set; }
@@ -57,6 +58,8 @@ public sealed class DatabaseContext : DbContext
     public DbSet<RotationAnomaly> RotationAnomaly { get; set; }
 
     public DbSet<LogUpload> LogUpload { get; set; }
+
+    public DbSet<LogUploadDiscordDeliveryReceipt> LogUploadDiscordDeliveryReceipt { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -99,6 +102,16 @@ public sealed class DatabaseContext : DbContext
             .HasIndex(lu => new { lu.DiscordId, lu.GuildId, lu.DpsReportUrl })
             .IsUnique()
             .HasFilter("\"SourceType\" = 'url' AND \"GuildId\" > 0 AND \"DpsReportUrl\" IS NOT NULL");
+
+        modelBuilder.Entity<LogUploadDiscordDeliveryReceipt>()
+            .HasIndex(receipt => new { receipt.LogUploadId, receipt.MessageKind })
+            .IsUnique();
+
+        modelBuilder.Entity<LogUploadDiscordDeliveryReceipt>()
+            .HasOne<LogUpload>()
+            .WithMany()
+            .HasForeignKey(receipt => receipt.LogUploadId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<ScheduledEvent>()
             .Property(se => se.NotificationMinutesBeforeStart)

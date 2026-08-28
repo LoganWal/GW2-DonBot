@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using DonBot.Api.Endpoints;
 using DonBot.Api.Services;
+using DonBot.Core.Models;
 using DonBot.Core.Models.Entities;
 using DonBot.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -216,6 +217,34 @@ public class UploadEndpointsTests
     }
 
     [Fact]
+    public async Task TusCreate_GuildDefaultsAcknowledgesAndPersistsDeliveryIntent()
+    {
+        var delivery = new FakeDiscordUploadDeliveryService
+        {
+            Validation = DiscordDeliveryValidationResult.Success()
+        };
+        using var host = NewLinkedGw2Host(delivery);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/upload/tus");
+        request.Headers.Add("Tus-Resumable", "1.0.0");
+        request.Headers.Add("Upload-Length", "4");
+        request.Headers.Add("Upload-Metadata", MetadataHeader(
+            ("filename", "fight.zevtc"),
+            ("guildid", "42"),
+            ("discorddelivery", DiscordDeliveryModes.GuildDefaults)));
+        request.Headers.Add("X-GW2-API-Key", "valid-key");
+
+        var response = await host.Client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal("accepted", response.Headers.GetValues("X-DonBot-Discord-Delivery").Single());
+        await using var context = await host.DbFactory.CreateDbContextAsync();
+        var upload = Assert.Single(context.LogUpload);
+        Assert.Equal("receiving", upload.Status);
+        Assert.Equal(DiscordDeliveryModes.GuildDefaults, upload.DiscordDeliveryMode);
+        Assert.Null(upload.DiscordDeliveryChannelId);
+    }
+
+    [Fact]
     public async Task IsTusUploadOwnerAsync_MatchingDiscordId_ReturnsTrue()
     {
         using var db = new SqliteTestDb();
@@ -325,6 +354,36 @@ public class UploadEndpointsTests
     }
 
     [Fact]
+    public async Task ListGw2UploadGuilds_ReturnsDiscordDeliveryCapabilityAndAuthorizedChannels()
+    {
+        var delivery = new FakeDiscordUploadDeliveryService
+        {
+            Capabilities = new DiscordDeliveryCapabilities(
+                true,
+                true,
+                true,
+                [DiscordDeliveryMessageKinds.PveSummary, DiscordDeliveryMessageKinds.WvwSummary],
+                [new DiscordAuthorizedChannel(99, "logs")])
+        };
+        using var host = NewLinkedGw2Host(delivery);
+
+        var response = await host.Client.PostAsJsonAsync("/api/upload/gw2/guilds", new { ApiKey = "valid-key" });
+        var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains(
+            "discord-summary-delivery-v1",
+            json.RootElement.GetProperty("capabilities").EnumerateArray().Select(item => item.GetString()));
+        var guild = json.RootElement.GetProperty("guilds").EnumerateArray()
+            .Single(item => item.GetProperty("guildId").GetString() == "42");
+        var discordDelivery = guild.GetProperty("discordDelivery");
+        Assert.True(discordDelivery.GetProperty("enabled").GetBoolean());
+        Assert.True(discordDelivery.GetProperty("defaultsAvailable").GetBoolean());
+        Assert.True(discordDelivery.GetProperty("channelOverrideAllowed").GetBoolean());
+        Assert.Equal("99", discordDelivery.GetProperty("channels")[0].GetProperty("channelId").GetString());
+    }
+
+    [Fact]
     public async Task ListGw2UploadGuilds_InvalidKey_ReturnsBadRequest()
     {
         var handler = new ApiStubHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
@@ -424,6 +483,92 @@ public class UploadEndpointsTests
         Assert.True(pipeline.TryReadQueuedUpload(out var queuedUploadId));
         Assert.Equal(uploadId, queuedUploadId);
         Assert.False(pipeline.TryReadQueuedUpload(out _));
+    }
+
+    [Fact]
+    public async Task SubmitGw2Url_GuildDefaultsPersistsAcceptedDeliveryIntent()
+    {
+        var delivery = new FakeDiscordUploadDeliveryService
+        {
+            Validation = DiscordDeliveryValidationResult.Success()
+        };
+        using var host = NewLinkedGw2Host(delivery);
+
+        var response = await PostGw2UrlAsync(
+            host,
+            discordDelivery: new { mode = DiscordDeliveryModes.GuildDefaults });
+        var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        Assert.True(json.RootElement.GetProperty("discordDeliveryAccepted").GetBoolean());
+        await using var context = await host.DbFactory.CreateDbContextAsync();
+        var upload = Assert.Single(context.LogUpload);
+        Assert.Equal(DiscordDeliveryModes.GuildDefaults, upload.DiscordDeliveryMode);
+        Assert.Null(upload.DiscordDeliveryChannelId);
+    }
+
+    [Fact]
+    public async Task SubmitGw2Url_ChannelOverridePersistsCanonicalChannel()
+    {
+        var delivery = new FakeDiscordUploadDeliveryService
+        {
+            Validation = DiscordDeliveryValidationResult.Success()
+        };
+        using var host = NewLinkedGw2Host(delivery);
+
+        var response = await PostGw2UrlAsync(
+            host,
+            discordDelivery: new { mode = DiscordDeliveryModes.ChannelOverride, channelId = "99" });
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        await using var context = await host.DbFactory.CreateDbContextAsync();
+        var upload = Assert.Single(context.LogUpload);
+        Assert.Equal(DiscordDeliveryModes.ChannelOverride, upload.DiscordDeliveryMode);
+        Assert.Equal(99, upload.DiscordDeliveryChannelId);
+    }
+
+    [Fact]
+    public async Task SubmitGw2Url_UnknownDiscordDeliveryFieldReturnsBadRequest()
+    {
+        var delivery = new FakeDiscordUploadDeliveryService
+        {
+            Validation = DiscordDeliveryValidationResult.Success()
+        };
+        using var host = NewLinkedGw2Host(delivery);
+
+        var response = await PostGw2UrlAsync(
+            host,
+            discordDelivery: new { mode = DiscordDeliveryModes.GuildDefaults, unexpected = true });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        await using var context = await host.DbFactory.CreateDbContextAsync();
+        Assert.Empty(context.LogUpload);
+    }
+
+    [Fact]
+    public async Task SubmitGw2Url_DifferentDeliveryIntentReturnsConflictWithoutRetargeting()
+    {
+        var delivery = new FakeDiscordUploadDeliveryService
+        {
+            Validation = DiscordDeliveryValidationResult.Success()
+        };
+        using var host = NewLinkedGw2Host(delivery);
+        var first = await PostGw2UrlAsync(
+            host,
+            discordDelivery: new { mode = DiscordDeliveryModes.GuildDefaults });
+        Assert.Equal(HttpStatusCode.Accepted, first.StatusCode);
+
+        var second = await PostGw2UrlAsync(
+            host,
+            discordDelivery: new { mode = DiscordDeliveryModes.ChannelOverride, channelId = "99" });
+        var body = await second.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
+        Assert.Contains("discord_delivery_conflict", body);
+        await using var context = await host.DbFactory.CreateDbContextAsync();
+        var upload = Assert.Single(context.LogUpload);
+        Assert.Equal(DiscordDeliveryModes.GuildDefaults, upload.DiscordDeliveryMode);
+        Assert.Null(upload.DiscordDeliveryChannelId);
     }
 
     [Fact]
@@ -550,6 +695,35 @@ public class UploadEndpointsTests
     }
 
     [Fact]
+    public async Task SubmitGw2Url_CompletedDeliveryDuplicateReturnsNormalizedDeliveryReceipt()
+    {
+        var delivery = new FakeDiscordUploadDeliveryService
+        {
+            Validation = DiscordDeliveryValidationResult.Success(),
+            Result = new DiscordDeliveryResult(true, "sent", 1, 0, 0, 0)
+        };
+        using var host = NewLinkedGw2Host(delivery);
+        await using (var context = await host.DbFactory.CreateDbContextAsync())
+        {
+            var upload = BuildUrlUpload();
+            upload.Status = "complete";
+            upload.FightLogId = 456;
+            upload.DiscordDeliveryMode = DiscordDeliveryModes.GuildDefaults;
+            context.LogUpload.Add(upload);
+            await context.SaveChangesAsync();
+        }
+
+        var response = await PostGw2UrlAsync(
+            host,
+            discordDelivery: new { mode = DiscordDeliveryModes.GuildDefaults });
+        var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("sent", json.RootElement.GetProperty("discordDelivery").GetProperty("outcome").GetString());
+        Assert.Equal(1, json.RootElement.GetProperty("discordDelivery").GetProperty("sent").GetInt32());
+    }
+
+    [Fact]
     public async Task SubmitGw2Url_FailedDuplicateReturnsStableConflict()
     {
         using var host = NewLinkedGw2Host();
@@ -608,12 +782,61 @@ public class UploadEndpointsTests
         }
     }
 
-    private static MinimalApiHost NewLinkedGw2Host()
+    [Fact]
+    public async Task StreamProgress_CompletedUploadRequiresOwnerAuthentication()
+    {
+        using var host = NewHost();
+        await SeedUrlUploadAsync(host, "complete", fightLogId: 77);
+
+        var anonymous = await host.Client.GetAsync("/api/upload/stream/1");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+
+        host.AuthenticateAs(456);
+        var differentUser = await host.Client.GetAsync("/api/upload/stream/1");
+
+        Assert.Equal(HttpStatusCode.NotFound, differentUser.StatusCode);
+    }
+
+    [Fact]
+    public async Task StreamProgress_CompletedUploadReturnsDurableResultToOwner()
+    {
+        var delivery = new FakeDiscordUploadDeliveryService
+        {
+            Result = new DiscordDeliveryResult(true, "sent", 1, 0, 0, 0)
+        };
+        using var host = NewHost(discordDelivery: delivery);
+        await SeedUrlUploadAsync(host, "complete", fightLogId: 77);
+        host.AuthenticateAs(123);
+
+        var response = await host.Client.GetAsync("/api/upload/stream/1");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("https://dps.report/abc-123", body);
+        Assert.Contains("\"fightLogId\":77", body);
+        Assert.Contains("\"outcome\":\"sent\"", body);
+    }
+
+    [Fact]
+    public async Task StreamProgress_Gw2ApiKeyAuthenticatesMannyUploaderOwner()
+    {
+        using var host = NewLinkedGw2Host();
+        await SeedUrlUploadAsync(host, "complete", fightLogId: 77);
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/upload/stream/1");
+        request.Headers.Add("X-GW2-API-Key", "valid-key");
+
+        var response = await host.Client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    private static MinimalApiHost NewLinkedGw2Host(FakeDiscordUploadDeliveryService? discordDelivery = null)
     {
         var accountId = Guid.NewGuid();
         var memberships = new FakeDiscordGuildMembershipService();
         memberships.GuildIds.Add(42);
-        var host = NewHost(ValidGw2AccountHandler(accountId), memberships);
+        var host = NewHost(ValidGw2AccountHandler(accountId), memberships, discordDelivery);
         using var context = host.DbFactory.CreateDbContext();
         context.GuildWarsAccount.Add(new GuildWarsAccount
         {
@@ -641,11 +864,12 @@ public class UploadEndpointsTests
         MinimalApiHost host,
         string url = "https://dps.report/abc-123",
         string guildId = "42",
-        string apiKey = "valid-key")
+        string apiKey = "valid-key",
+        object? discordDelivery = null)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/upload/gw2/url");
         request.Headers.Add("X-GW2-API-Key", apiKey);
-        request.Content = JsonContent.Create(new { url, guildId });
+        request.Content = JsonContent.Create(new { url, guildId, discordDelivery });
         return await host.Client.SendAsync(request);
     }
 
@@ -672,7 +896,8 @@ public class UploadEndpointsTests
 
     private static MinimalApiHost NewHost(
         HttpMessageHandler? gw2Handler = null,
-        FakeDiscordGuildMembershipService? discordGuilds = null) =>
+        FakeDiscordGuildMembershipService? discordGuilds = null,
+        FakeDiscordUploadDeliveryService? discordDelivery = null) =>
         new(
             app => app.MapUploadEndpoints(),
             services =>
@@ -680,17 +905,21 @@ public class UploadEndpointsTests
                 services.AddSingleton<ILogUploadProgressService, LogUploadProgressService>();
                 services.AddSingleton<LogUploadPipelineService>();
                 services.AddSingleton<IDiscordGuildMembershipService>(discordGuilds ?? new FakeDiscordGuildMembershipService());
+                services.AddSingleton<IDiscordUploadDeliveryService>(discordDelivery ?? new FakeDiscordUploadDeliveryService());
             },
             httpHandler: gw2Handler);
 
     private static Dictionary<string, Metadata> Metadata(params (string Key, string Value)[] values)
     {
-        var header = string.Join(
+        return tusdotnet.Models.Metadata.Parse(MetadataHeader(values));
+    }
+
+    private static string MetadataHeader(params (string Key, string Value)[] values)
+    {
+        return string.Join(
             ",",
             values.Select(value =>
                 $"{value.Key} {Convert.ToBase64String(Encoding.UTF8.GetBytes(value.Value))}"));
-
-        return tusdotnet.Models.Metadata.Parse(header);
     }
 
     private sealed class ApiStubHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler

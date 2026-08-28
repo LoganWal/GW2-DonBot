@@ -77,6 +77,25 @@ public sealed class WvWFightSummaryService(
 
     public async Task<(Embed Embed, string? WebAppUrl, long? FightLogId)> Generate(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
     {
+        var result = await RenderCore(data, advancedLog, guild, fightLog: null, client, performSideEffects: true);
+        return (result.Embed, result.WebAppUrl, result.FightLogId);
+    }
+
+    public Task<WvWFightSummaryRenderResult> Render(
+        EliteInsightDataModel data,
+        bool advancedLog,
+        Guild guild,
+        FightLog? fightLog) =>
+        RenderCore(data, advancedLog, guild, fightLog, client: null, performSideEffects: false);
+
+    private async Task<WvWFightSummaryRenderResult> RenderCore(
+        EliteInsightDataModel data,
+        bool advancedLog,
+        Guild guild,
+        FightLog? fightLog,
+        DiscordSocketClient? client,
+        bool performSideEffects)
+    {
         var playerCount = 5;
 
         var logLength = data.FightEliteInsightDataModel.Phases?.FirstOrDefault()?.EncounterDuration.TimeToSeconds() ?? 0;
@@ -114,15 +133,15 @@ public sealed class WvWFightSummaryService(
         var enemyDownsStr = gw2Players.Sum(s => s.Downs).ToString().PadCenter(7);
         var enemyDeathsStr = gw2Players.Sum(s => s.Kills).ToString().PadCenter(7);
 
-        if (!advancedLog && guild.StreamLogChannelId.HasValue)
-        {
-            var streamMessage =
-                $"```{DiscordTable.Header(FriendlyColumns)}" +
-                DiscordTable.Row(FriendlyColumns, "Ally", friendlyCountStr.Trim(), friendlyDamageStr.Trim(), friendlyDpsStr.Trim(), friendlyDownsStr.Trim(), friendlyDeathsStr.Trim()) +
-                DiscordTable.Row(FriendlyColumns, "Foe", enemyCountStr.Trim(), enemyDamageStr.Trim(), enemyDpsStr.Trim(), enemyDownsStr.Trim(), enemyDeathsStr.Trim()) +
-                "```";
+        var streamMessage =
+            $"```{DiscordTable.Header(FriendlyColumns)}" +
+            DiscordTable.Row(FriendlyColumns, "Ally", friendlyCountStr.Trim(), friendlyDamageStr.Trim(), friendlyDpsStr.Trim(), friendlyDownsStr.Trim(), friendlyDeathsStr.Trim()) +
+            DiscordTable.Row(FriendlyColumns, "Foe", enemyCountStr.Trim(), enemyDamageStr.Trim(), enemyDpsStr.Trim(), enemyDownsStr.Trim(), enemyDeathsStr.Trim()) +
+            "```";
 
-            if (client.GetChannel((ulong)guild.StreamLogChannelId) is ITextChannel streamLogChannel)
+        if (performSideEffects && !advancedLog && guild.StreamLogChannelId.HasValue)
+        {
+            if (client?.GetChannel((ulong)guild.StreamLogChannelId) is ITextChannel streamLogChannel)
             {
                 await streamLogChannel.SendMessageAsync(text: streamMessage);
             }
@@ -159,8 +178,7 @@ public sealed class WvWFightSummaryService(
         friendlyOverview += DiscordTable.Row(FriendlyColumns, "Foe", enemyCountStr.Trim(), enemyDamageStr.Trim(), enemyDpsStr.Trim(), enemyDownsStr.Trim(), enemyDeathsStr.Trim());
         friendlyOverview += "```";
 
-        FightLog? fightLog = null;
-        if (!advancedLog)
+        if (performSideEffects && !advancedLog)
         {
             var ingestionResult = await fightLogIngestionService.IngestAsync(new FightLogIngestionRequest(data, fightPhase, gw2Players)
             {
@@ -198,7 +216,7 @@ public sealed class WvWFightSummaryService(
         });
 
         var embed = await GenerateMessage(advancedLog, playerCount, gw2Players, message, guild.GuildId);
-        return (embed, webAppUrl, fightLog?.FightLogId);
+        return new WvWFightSummaryRenderResult(embed, webAppUrl, fightLog?.FightLogId, streamMessage);
     }
 
     internal static float CalculateDps(long damage, float durationSeconds) =>

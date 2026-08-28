@@ -7,12 +7,21 @@ namespace DonBot.Api.Services;
 
 public sealed class LogUploadProgressService : ILogUploadProgressService
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly ConcurrentDictionary<long, Channel<string>> _channels = new();
 
-    public void Publish(long uploadId, string stage, string message, string? dpsReportUrl = null, long? fightLogId = null)
+    public void Publish(
+        long uploadId,
+        string stage,
+        string message,
+        string? dpsReportUrl = null,
+        long? fightLogId = null,
+        DiscordDeliveryResult? discordDelivery = null)
     {
         var channel = _channels.GetOrAdd(uploadId, _ => Channel.CreateUnbounded<string>());
-        var payload = JsonSerializer.Serialize(new { stage, message, dpsReportUrl, fightLogId });
+        var payload = JsonSerializer.Serialize(
+            new { stage, message, dpsReportUrl, fightLogId, discordDelivery },
+            JsonOptions);
         channel.Writer.TryWrite(payload);
     }
 

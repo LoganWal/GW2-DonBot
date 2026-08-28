@@ -2,7 +2,13 @@ namespace DonBot.Api.Services;
 
 public interface ILogUploadProgressService
 {
-    void Publish(long uploadId, string stage, string message, string? dpsReportUrl = null, long? fightLogId = null);
+    void Publish(
+        long uploadId,
+        string stage,
+        string message,
+        string? dpsReportUrl = null,
+        long? fightLogId = null,
+        DiscordDeliveryResult? discordDelivery = null);
 
     void Complete(long uploadId);
 

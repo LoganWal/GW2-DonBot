@@ -35,6 +35,8 @@ public static class GuildAdminEndpoints
         string? LogReportChannelId,
         string? AdvanceLogReportChannelId,
         string? StreamLogChannelId,
+        bool MannyUploaderDiscordDeliveryEnabled,
+        bool MannyUploaderChannelOverrideEnabled,
         bool RaidAlertEnabled,
         string? RaidAlertChannelId,
         bool RemoveSpamEnabled,
@@ -447,6 +449,8 @@ public static class GuildAdminEndpoints
         LongToString(g.LogReportChannelId),
         LongToString(g.AdvanceLogReportChannelId),
         LongToString(g.StreamLogChannelId),
+        g.MannyUploaderDiscordDeliveryEnabled,
+        g.MannyUploaderChannelOverrideEnabled,
         g.RaidAlertEnabled,
         LongToString(g.RaidAlertChannelId),
         g.RemoveSpamEnabled,
@@ -483,6 +487,8 @@ public static class GuildAdminEndpoints
         guild.LogReportChannelId = ParseOptionalLong(dto.LogReportChannelId);
         guild.AdvanceLogReportChannelId = ParseOptionalLong(dto.AdvanceLogReportChannelId);
         guild.StreamLogChannelId = ParseOptionalLong(dto.StreamLogChannelId);
+        guild.MannyUploaderDiscordDeliveryEnabled = dto.MannyUploaderDiscordDeliveryEnabled;
+        guild.MannyUploaderChannelOverrideEnabled = dto.MannyUploaderChannelOverrideEnabled;
         guild.RaidAlertEnabled = dto.RaidAlertEnabled;
         guild.RaidAlertChannelId = ParseOptionalLong(dto.RaidAlertChannelId);
         guild.RemoveSpamEnabled = dto.RemoveSpamEnabled;

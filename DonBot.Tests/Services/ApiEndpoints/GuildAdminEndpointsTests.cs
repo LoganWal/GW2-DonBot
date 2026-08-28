@@ -106,6 +106,8 @@ public class GuildAdminEndpointsTests
             LogReportChannelId = 6,
             AdvanceLogReportChannelId = 7,
             StreamLogChannelId = 8,
+            MannyUploaderDiscordDeliveryEnabled = true,
+            MannyUploaderChannelOverrideEnabled = true,
             RaidAlertEnabled = true,
             RaidAlertChannelId = 9,
             RemoveSpamEnabled = true,
@@ -130,6 +132,8 @@ public class GuildAdminEndpointsTests
         Assert.Equal("gw2-primary", dto.Gw2GuildMemberRoleId);
         Assert.Equal("a,b,c", dto.Gw2SecondaryMemberRoleIds);
         Assert.True(dto.RaidAlertEnabled);
+        Assert.True(dto.MannyUploaderDiscordDeliveryEnabled);
+        Assert.True(dto.MannyUploaderChannelOverrideEnabled);
         Assert.True(dto.RemoveSpamEnabled);
         Assert.True(dto.ArtSpamFilterEnabled);
         Assert.False(dto.AutoSubmitToWingman);

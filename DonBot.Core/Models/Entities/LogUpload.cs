@@ -33,6 +33,11 @@ public class LogUpload
 
     public long GuildId { get; set; }
 
+    [MaxLength(32)]
+    public string? DiscordDeliveryMode { get; set; }
+
+    public long? DiscordDeliveryChannelId { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

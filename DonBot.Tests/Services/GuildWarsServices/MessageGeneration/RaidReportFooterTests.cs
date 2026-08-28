@@ -150,6 +150,9 @@ internal sealed class FakeWvWSummaryService(IFooterService footerService) : IWvW
     public Task<(Embed Embed, string? WebAppUrl, long? FightLogId)> Generate(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
         => throw new NotImplementedException();
 
+    public Task<WvWFightSummaryRenderResult> Render(EliteInsightDataModel data, bool advancedLog, Guild guild, FightLog? fightLog)
+        => throw new NotImplementedException();
+
     public async Task<Embed> GenerateMessage(bool advancedLog, int playerCount, List<Gw2Player> gw2Players, EmbedBuilder message, long guildId, StatTotals? statTotals = null)
     {
         // Match WvWFightSummaryService footer ownership.

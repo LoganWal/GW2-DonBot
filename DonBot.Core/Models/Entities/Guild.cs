@@ -32,6 +32,10 @@ public class Guild
 
     public long? StreamLogChannelId { get; set; }
 
+    public bool MannyUploaderDiscordDeliveryEnabled { get; set; }
+
+    public bool MannyUploaderChannelOverrideEnabled { get; set; }
+
     public bool RaidAlertEnabled { get; set; }
 
     public long? RaidAlertChannelId { get; set; }

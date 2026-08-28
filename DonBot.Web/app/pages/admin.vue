@@ -416,6 +416,8 @@ type Config = {
   logReportChannelId: string | null
   advanceLogReportChannelId: string | null
   streamLogChannelId: string | null
+  mannyUploaderDiscordDeliveryEnabled: boolean
+  mannyUploaderChannelOverrideEnabled: boolean
   raidAlertEnabled: boolean
   raidAlertChannelId: string | null
   removeSpamEnabled: boolean
@@ -467,6 +469,8 @@ const roleFields: Field[] = [
 ]
 
 const toggleFields: BooleanField[] = [
+  { key: 'mannyUploaderDiscordDeliveryEnabled', label: 'MannyUploader Discord delivery enabled', tip: 'Allow verified MannyUploader users to post processed log summaries using this server configuration.' },
+  { key: 'mannyUploaderChannelOverrideEnabled', label: 'MannyUploader channel overrides enabled', tip: 'Allow verified MannyUploader users to choose another channel where they can post.' },
   { key: 'raidAlertEnabled', label: 'Raid alerts enabled', tip: 'Allow scheduled raid alert messages to be posted in the raid alert channel.' },
   { key: 'removeSpamEnabled', label: 'Remove spam enabled', tip: 'Auto-delete messages from unverified users that contain dps.report or wingman links.' },
   { key: 'artSpamFilterEnabled', label: 'Art spam filter enabled', tip: 'Auto-delete image posts that match known art commission spam patterns.' },

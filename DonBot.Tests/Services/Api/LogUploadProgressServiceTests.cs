@@ -93,6 +93,27 @@ public class LogUploadProgressServiceTests
     }
 
     [Fact]
+    public async Task Publish_CompleteIncludesNormalizedDiscordDeliveryResult()
+    {
+        var svc = new LogUploadProgressService();
+        svc.Publish(
+            1L,
+            "complete",
+            "done",
+            discordDelivery: new DiscordDeliveryResult(true, "partial", 1, 1, 0, 0));
+        svc.Complete(1L);
+
+        var messages = await CollectAsync(svc.Subscribe(1L, CancellationToken.None));
+
+        var doc = JsonDocument.Parse(messages[0]);
+        var delivery = doc.RootElement.GetProperty("discordDelivery");
+        Assert.True(delivery.GetProperty("requested").GetBoolean());
+        Assert.Equal("partial", delivery.GetProperty("outcome").GetString());
+        Assert.Equal(1, delivery.GetProperty("sent").GetInt32());
+        Assert.Equal(1, delivery.GetProperty("skipped").GetInt32());
+    }
+
+    [Fact]
     public void Complete_UnknownId_DoesNotThrow()
     {
         var svc = new LogUploadProgressService();

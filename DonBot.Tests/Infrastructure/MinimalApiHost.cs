@@ -64,6 +64,7 @@ internal sealed class MinimalApiHost : IDisposable
         builder.Services.AddSingleton<RaffleService>();
         builder.Services.AddSingleton<ISecretService, TestSecretService>();
         builder.Services.AddSingleton<DiscordRestClientProvider>();
+        builder.Services.AddSingleton<IDiscordUploadDeliveryService, FakeDiscordUploadDeliveryService>();
         builder.Services.AddSingleton<GuildAccessGuard>();
         builder.Services.AddSingleton<AccessibleGuildsCache>();
 

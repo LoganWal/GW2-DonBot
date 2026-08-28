@@ -55,6 +55,8 @@ public static class ApiServiceRegister
         services.AddSingleton<RaffleService>();
         services.AddSingleton<LogUploadPipelineService>();
         services.AddSingleton<DiscordRestClientProvider>();
+        services.AddSingleton<IDiscordDeliveryGateway, DiscordDeliveryGateway>();
+        services.AddScoped<IDiscordUploadDeliveryService, DiscordUploadDeliveryService>();
         services.AddSingleton<IDiscordGuildMembershipService, DiscordGuildMembershipService>();
         services.AddSingleton<IUserGuildsService, UserGuildsService>();
         services.AddSingleton<IDiscordCommandAccessService, DiscordCommandAccessService>();
@@ -117,7 +119,8 @@ public static class ApiServiceRegister
                           "Tus-Version",
                           "Tus-Resumable",
                           "Tus-Max-Size",
-                          "Location"
+                          "Location",
+                          "X-DonBot-Discord-Delivery"
                       );
             });
         });

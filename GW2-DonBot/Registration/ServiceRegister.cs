@@ -40,7 +40,8 @@ public static class ServiceRegister
         services.AddSingleton<IArtSpamDetector, ArtSpamDetector>();
         services.AddSingleton<IScheduledMessageDeleteClient, DiscordScheduledMessageDeleteClient>();
         services.AddSingleton<ScheduledMessageDeleteService>();
-        services.AddSingleton<IScheduledMessageDeleteScheduler>(sp => sp.GetRequiredService<ScheduledMessageDeleteService>());
+        services.AddSingleton<IScheduledMessageDeleteScheduler>(sp =>
+            sp.GetRequiredService<ScheduledMessageDeleteService>());
         services.AddScoped<IPlayerService, PlayerService>();
         services.AddScoped<IPointsAwardService, PointsAwardService>();
         services.AddScoped<IRaidCommandService, RaidCommandCommandService>();
@@ -53,6 +54,7 @@ public static class ServiceRegister
         services.AddSingleton<RaffleService>();
 
         services.AddSingleton<IPendingLogService, PendingLogService>();
+        services.AddScoped<DiscordReportDeliveryClaimService>();
 
         services.AddTransient<IGenericCommandsService, GenericCommandsService>();
         services.AddTransient<IVerifyCommandsService, VerifyCommandsService>();

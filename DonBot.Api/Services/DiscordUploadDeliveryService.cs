@@ -3,6 +3,7 @@ using DonBot.Core.Models;
 using DonBot.Core.Models.Entities;
 using DonBot.Core.Models.Enums;
 using DonBot.Core.Models.GuildWars2;
+using DonBot.Core.Services.GuildWars2;
 using DonBot.Models.Statics;
 using DonBot.Services.GuildWarsServices.MessageGeneration;
 using Microsoft.EntityFrameworkCore;
@@ -86,6 +87,7 @@ public interface IDiscordUploadDeliveryService
 public sealed class DiscordUploadDeliveryService(
     IDbContextFactory<DatabaseContext> dbContextFactory,
     IDiscordDeliveryGateway gateway,
+    DiscordReportDeliveryClaimService deliveryClaimService,
     IPvEFightSummaryService pveRenderer,
     IWvWFightSummaryService wvwRenderer,
     ILogger<DiscordUploadDeliveryService> logger) : IDiscordUploadDeliveryService
@@ -193,7 +195,8 @@ public sealed class DiscordUploadDeliveryService(
         await using var context = await dbContextFactory.CreateDbContextAsync(ct);
         var guild = await context.Guild.AsNoTracking().FirstOrDefaultAsync(item => item.GuildId == upload.GuildId, ct);
         var fightLog = upload.FightLogId is > 0
-            ? await context.FightLog.AsNoTracking().FirstOrDefaultAsync(item => item.FightLogId == upload.FightLogId, ct)
+            ? await context.FightLog.AsNoTracking()
+                .FirstOrDefaultAsync(item => item.FightLogId == upload.FightLogId, ct)
             : null;
         if (guild is null || fightLog is null)
         {
@@ -213,6 +216,20 @@ public sealed class DiscordUploadDeliveryService(
                 ex.GetType().Name);
             return await RecordFailureAsync(upload, data, "summary_render_failed", ct);
         }
+
+        var reportUrl = upload.DpsReportUrl ?? data.FightEliteInsightDataModel.Url;
+        if (!await deliveryClaimService.TryClaimAsync(
+                upload.GuildId,
+                reportUrl,
+                DiscordReportDeliveryClaimService.ApiSource,
+                ct))
+        {
+            logger.LogInformation(
+                "Skipping Discord delivery for upload {UploadId} because another path claimed the report.",
+                upload.LogUploadId);
+            return await RecordDuplicateAsync(upload, messages, guild, ct);
+        }
+
         foreach (var message in messages)
         {
             var configuredChannelId = ResolveChannelId(upload, guild, message.Kind);
@@ -229,19 +246,22 @@ public sealed class DiscordUploadDeliveryService(
             var channelId = receipt.ResolvedChannelId;
             if (!guild.MannyUploaderDiscordDeliveryEnabled || channelId is not > 0)
             {
-                await SetReceiptAsync(receipt.LogUploadDiscordDeliveryReceiptId, DiscordDeliveryReceiptStatuses.Skipped, null, "destination_unavailable", ct);
+                await SetReceiptAsync(receipt.LogUploadDiscordDeliveryReceiptId, DiscordDeliveryReceiptStatuses.Skipped,
+                    null, "destination_unavailable", ct);
                 continue;
             }
 
             if (!await IsRouteStillEnabledAsync(upload, message.Kind, channelId.Value, ct))
             {
-                await SetReceiptAsync(receipt.LogUploadDiscordDeliveryReceiptId, DiscordDeliveryReceiptStatuses.Skipped, null, "route_revoked", ct);
+                await SetReceiptAsync(receipt.LogUploadDiscordDeliveryReceiptId, DiscordDeliveryReceiptStatuses.Skipped,
+                    null, "route_revoked", ct);
                 continue;
             }
 
             if (!await IsAuthorizedChannelSafeAsync(upload.DiscordId, upload.GuildId, channelId.Value, ct))
             {
-                await SetReceiptAsync(receipt.LogUploadDiscordDeliveryReceiptId, DiscordDeliveryReceiptStatuses.Skipped, null, "authorization_revoked", ct);
+                await SetReceiptAsync(receipt.LogUploadDiscordDeliveryReceiptId, DiscordDeliveryReceiptStatuses.Skipped,
+                    null, "authorization_revoked", ct);
                 continue;
             }
 
@@ -259,7 +279,8 @@ public sealed class DiscordUploadDeliveryService(
                     message.Embed,
                     message.Components,
                     ct);
-                await SetReceiptAsync(receipt.LogUploadDiscordDeliveryReceiptId, DiscordDeliveryReceiptStatuses.Sent, messageId, null, ct);
+                await SetReceiptAsync(receipt.LogUploadDiscordDeliveryReceiptId, DiscordDeliveryReceiptStatuses.Sent,
+                    messageId, null, ct);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -272,11 +293,13 @@ public sealed class DiscordUploadDeliveryService(
                     upload.LogUploadId,
                     message.Kind,
                     (int)ex.HttpCode);
-                await SetReceiptAsync(receipt.LogUploadDiscordDeliveryReceiptId, DiscordDeliveryReceiptStatuses.Failed, null, "discord_request_rejected", ct);
+                await SetReceiptAsync(receipt.LogUploadDiscordDeliveryReceiptId, DiscordDeliveryReceiptStatuses.Failed,
+                    null, "discord_request_rejected", ct);
             }
             catch (InvalidOperationException)
             {
-                await SetReceiptAsync(receipt.LogUploadDiscordDeliveryReceiptId, DiscordDeliveryReceiptStatuses.Failed, null, "discord_destination_unavailable", ct);
+                await SetReceiptAsync(receipt.LogUploadDiscordDeliveryReceiptId, DiscordDeliveryReceiptStatuses.Failed,
+                    null, "discord_destination_unavailable", ct);
             }
             catch (Exception ex)
             {
@@ -285,7 +308,35 @@ public sealed class DiscordUploadDeliveryService(
                     upload.LogUploadId,
                     message.Kind,
                     ex.GetType().Name);
-                await SetReceiptAsync(receipt.LogUploadDiscordDeliveryReceiptId, DiscordDeliveryReceiptStatuses.Ambiguous, null, "discord_send_ambiguous", ct);
+                await SetReceiptAsync(receipt.LogUploadDiscordDeliveryReceiptId,
+                    DiscordDeliveryReceiptStatuses.Ambiguous, null, "discord_send_ambiguous", ct);
+            }
+        }
+
+        return await GetResultAsync(upload.LogUploadId, ct);
+    }
+
+    private async Task<DiscordDeliveryResult> RecordDuplicateAsync(
+        LogUpload upload,
+        IReadOnlyList<DeliveryMessage> messages,
+        Guild guild,
+        CancellationToken ct)
+    {
+        foreach (var message in messages)
+        {
+            var receipt = await GetOrCreateReceiptAsync(
+                upload.LogUploadId,
+                message.Kind,
+                ResolveChannelId(upload, guild, message.Kind),
+                ct);
+            if (!IsTerminal(receipt.Status))
+            {
+                await SetReceiptAsync(
+                    receipt.LogUploadDiscordDeliveryReceiptId,
+                    DiscordDeliveryReceiptStatuses.Skipped,
+                    null,
+                    "duplicate_delivery",
+                    ct);
             }
         }
 
@@ -325,7 +376,7 @@ public sealed class DiscordUploadDeliveryService(
 
         var updated = await context.LogUploadDiscordDeliveryReceipt
             .Where(receipt => receipt.LogUploadId == uploadId &&
-                receipt.Status == DiscordDeliveryReceiptStatuses.Pending)
+                              receipt.Status == DiscordDeliveryReceiptStatuses.Pending)
             .ExecuteUpdateAsync(
                 setters => setters
                     .SetProperty(receipt => receipt.Status, DiscordDeliveryReceiptStatuses.Failed)
@@ -384,8 +435,12 @@ public sealed class DiscordUploadDeliveryService(
             var rendered = await pveRenderer.RenderSimple(data, guild.GuildId, fightLog);
             var components = rendered.WebAppUrl is null
                 ? null
-                : new ComponentBuilder().WithButton("View on DonBot", style: ButtonStyle.Link, url: rendered.WebAppUrl).Build();
-            return [new DeliveryMessage(DiscordDeliveryMessageKinds.PveSummary, string.Empty, rendered.Embed, components)];
+                : new ComponentBuilder().WithButton("View on DonBot", style: ButtonStyle.Link, url: rendered.WebAppUrl)
+                    .Build();
+            return
+            [
+                new DeliveryMessage(DiscordDeliveryMessageKinds.PveSummary, string.Empty, rendered.Embed, components)
+            ];
         }
 
         var standard = await wvwRenderer.Render(data, false, guild, fightLog);
@@ -402,11 +457,14 @@ public sealed class DiscordUploadDeliveryService(
         if (guild.AdvanceLogReportChannelId.HasValue)
         {
             var advanced = await wvwRenderer.Render(data, true, guild, fightLog: null);
-            messages.Add(new DeliveryMessage(DiscordDeliveryMessageKinds.WvwAdvanced, string.Empty, advanced.Embed, null));
+            messages.Add(new DeliveryMessage(DiscordDeliveryMessageKinds.WvwAdvanced, string.Empty, advanced.Embed,
+                null));
         }
+
         if (guild.StreamLogChannelId.HasValue)
         {
-            messages.Add(new DeliveryMessage(DiscordDeliveryMessageKinds.WvwStream, standard.StreamMessage, null, null));
+            messages.Add(new DeliveryMessage(DiscordDeliveryMessageKinds.WvwStream, standard.StreamMessage, null,
+                null));
         }
 
         return messages;
@@ -424,7 +482,8 @@ public sealed class DiscordUploadDeliveryService(
         var receipt = await GetOrCreateReceiptAsync(upload.LogUploadId, kind, null, ct);
         if (!IsTerminal(receipt.Status))
         {
-            await SetReceiptAsync(receipt.LogUploadDiscordDeliveryReceiptId, DiscordDeliveryReceiptStatuses.Skipped, null, failureCode, ct);
+            await SetReceiptAsync(receipt.LogUploadDiscordDeliveryReceiptId, DiscordDeliveryReceiptStatuses.Skipped,
+                null, failureCode, ct);
         }
 
         return await GetResultAsync(upload.LogUploadId, ct);
@@ -442,7 +501,8 @@ public sealed class DiscordUploadDeliveryService(
         var receipt = await GetOrCreateReceiptAsync(upload.LogUploadId, kind, null, ct);
         if (!IsTerminal(receipt.Status))
         {
-            await SetReceiptAsync(receipt.LogUploadDiscordDeliveryReceiptId, DiscordDeliveryReceiptStatuses.Failed, null, failureCode, ct);
+            await SetReceiptAsync(receipt.LogUploadDiscordDeliveryReceiptId, DiscordDeliveryReceiptStatuses.Failed,
+                null, failureCode, ct);
         }
 
         return await GetResultAsync(upload.LogUploadId, ct);
@@ -494,7 +554,7 @@ public sealed class DiscordUploadDeliveryService(
         await using var context = await dbContextFactory.CreateDbContextAsync(ct);
         var updated = await context.LogUploadDiscordDeliveryReceipt
             .Where(receipt => receipt.LogUploadDiscordDeliveryReceiptId == receiptId &&
-                receipt.Status == DiscordDeliveryReceiptStatuses.Pending)
+                              receipt.Status == DiscordDeliveryReceiptStatuses.Pending)
             .ExecuteUpdateAsync(
                 setters => setters
                     .SetProperty(receipt => receipt.Status, DiscordDeliveryReceiptStatuses.Sending)
@@ -530,10 +590,12 @@ public sealed class DiscordUploadDeliveryService(
             kinds.Add(DiscordDeliveryMessageKinds.PveSummary);
             kinds.Add(DiscordDeliveryMessageKinds.WvwSummary);
         }
+
         if (guild.AdvanceLogReportChannelId.HasValue)
         {
             kinds.Add(DiscordDeliveryMessageKinds.WvwAdvanced);
         }
+
         if (guild.StreamLogChannelId.HasValue)
         {
             kinds.Add(DiscordDeliveryMessageKinds.WvwStream);
@@ -548,10 +610,12 @@ public sealed class DiscordUploadDeliveryService(
         {
             yield return primary;
         }
+
         if (guild.AdvanceLogReportChannelId is { } advanced)
         {
             yield return advanced;
         }
+
         if (guild.StreamLogChannelId is { } stream)
         {
             yield return stream;
@@ -567,7 +631,8 @@ public sealed class DiscordUploadDeliveryService(
 
         return messageKind switch
         {
-            DiscordDeliveryMessageKinds.PveSummary or DiscordDeliveryMessageKinds.WvwSummary => guild.LogReportChannelId,
+            DiscordDeliveryMessageKinds.PveSummary or DiscordDeliveryMessageKinds.WvwSummary =>
+                guild.LogReportChannelId,
             DiscordDeliveryMessageKinds.WvwAdvanced => guild.AdvanceLogReportChannelId,
             DiscordDeliveryMessageKinds.WvwStream => guild.StreamLogChannelId,
             _ => null
@@ -591,8 +656,8 @@ public sealed class DiscordUploadDeliveryService(
         if (upload.DiscordDeliveryMode == DiscordDeliveryModes.ChannelOverride)
         {
             return guild.MannyUploaderChannelOverrideEnabled &&
-                upload.DiscordDeliveryChannelId == channelId &&
-                EnabledMessageKinds(guild).Contains(messageKind);
+                   upload.DiscordDeliveryChannelId == channelId &&
+                   EnabledMessageKinds(guild).Contains(messageKind);
         }
 
         return ResolveChannelId(upload, guild, messageKind) == channelId;

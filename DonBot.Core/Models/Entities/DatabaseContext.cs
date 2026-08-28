@@ -25,6 +25,7 @@ public sealed class DatabaseContext : DbContext
         RotationAnomaly = Set<RotationAnomaly>();
         LogUpload = Set<LogUpload>();
         LogUploadDiscordDeliveryReceipt = Set<LogUploadDiscordDeliveryReceipt>();
+        DiscordReportDeliveryClaim = Set<DiscordReportDeliveryClaim>();
     }
 
     public DbSet<Account> Account { get; set; }
@@ -60,6 +61,8 @@ public sealed class DatabaseContext : DbContext
     public DbSet<LogUpload> LogUpload { get; set; }
 
     public DbSet<LogUploadDiscordDeliveryReceipt> LogUploadDiscordDeliveryReceipt { get; set; }
+
+    public DbSet<DiscordReportDeliveryClaim> DiscordReportDeliveryClaim { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -112,6 +115,10 @@ public sealed class DatabaseContext : DbContext
             .WithMany()
             .HasForeignKey(receipt => receipt.LogUploadId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<DiscordReportDeliveryClaim>()
+            .HasIndex(claim => new { claim.GuildId, claim.ReportUrlHash })
+            .IsUnique();
 
         modelBuilder.Entity<ScheduledEvent>()
             .Property(se => se.NotificationMinutesBeforeStart)

@@ -23,10 +23,12 @@ public class DiscordMessageHandler(
     IPendingLogService pendingLogService,
     IArtSpamDetector artSpamDetector,
     IScheduledMessageDeleteScheduler scheduledMessageDeleteScheduler,
-    PlayerPointRankingPublisher playerPointRankingPublisher)
+    PlayerPointRankingPublisher playerPointRankingPublisher,
+    DiscordReportDeliveryClaimService deliveryClaimService)
 {
     private static readonly TimeSpan ArtSpamQuestionnaireLifetime = TimeSpan.FromHours(1);
-    private readonly HashSet<string> _seenUrls = [];
+    private readonly ReportUrlMemoryClaims _seenUrls = new();
+
     private static readonly string[] ImageAttachmentExtensions =
     [
         ".jpg",
@@ -45,7 +47,7 @@ public class DiscordMessageHandler(
         var fightLogs = await entityService.FightLog.GetAllAsync();
         foreach (var url in fightLogs.Select(s => s.Url).Distinct())
         {
-            _seenUrls.Add(url);
+            _seenUrls.TryClaim(url);
         }
     }
 
@@ -94,7 +96,8 @@ public class DiscordMessageHandler(
                 return;
             }
 
-            if ((guild?.RemoveSpamEnabled ?? false) && IsMatch(seenMessage.Content, @"\b((https?|ftp)://|www\.|(\w+\.)+\w{2,})(\S*)\b"))
+            if ((guild?.RemoveSpamEnabled ?? false) &&
+                IsMatch(seenMessage.Content, @"\b((https?|ftp)://|www\.|(\w+\.)+\w{2,})(\S*)\b"))
             {
                 if (seenMessage.Channel is not SocketTextChannel)
                 {
@@ -102,7 +105,8 @@ public class DiscordMessageHandler(
                     return;
                 }
 
-                var user = await entityService.Account.GetFirstOrDefaultAsync(g => g.DiscordId == (long)seenMessage.Author.Id);
+                var user = await entityService.Account.GetFirstOrDefaultAsync(g =>
+                    g.DiscordId == (long)seenMessage.Author.Id);
                 if (user is null)
                 {
                     await HandleSpamMessage(seenMessage, "posting a discord link without being verified");
@@ -122,7 +126,8 @@ public class DiscordMessageHandler(
 
             bool embedMessage;
             List<string> trimmedUrls;
-            if (seenMessage.Source != MessageSource.Webhook || seenMessage.Channel.Id != (ulong)(guild?.LogDropOffChannelId ?? -1))
+            if (seenMessage.Source != MessageSource.Webhook ||
+                seenMessage.Channel.Id != (ulong)(guild?.LogDropOffChannelId ?? -1))
             {
                 embedMessage = false;
                 trimmedUrls = LogUrlExtractor.ExtractFromText(seenMessage.Content);
@@ -131,7 +136,8 @@ public class DiscordMessageHandler(
             {
                 embedMessage = true;
 
-                var urls = seenMessage.Embeds.SelectMany(x => x.Fields.SelectMany(y => y.Value.Split('('))).Where(x => x.Contains(")")).ToList();
+                var urls = seenMessage.Embeds.SelectMany(x => x.Fields.SelectMany(y => y.Value.Split('(')))
+                    .Where(x => x.Contains(")")).ToList();
                 urls.AddRange(seenMessage.Embeds.Select(x => x.Url).Where(x => !string.IsNullOrEmpty(x)));
 
                 trimmedUrls = urls.Select(url => url.Contains(')') ? url[..url.IndexOf(')')] : url).ToList();
@@ -146,7 +152,8 @@ public class DiscordMessageHandler(
                 }
 
                 logger.LogInformation("Assessing: {Url}", string.Join(",", trimmedUrls));
-                await AnalyseAndReportOnUrl(trimmedUrls, guild?.GuildId ?? -1, embedMessage, seenMessage.Channel, authorId);
+                await AnalyseAndReportOnUrl(trimmedUrls, guild?.GuildId ?? -1, embedMessage, seenMessage.Channel,
+                    authorId);
             }
         }
         catch (Exception e)
@@ -171,7 +178,8 @@ public class DiscordMessageHandler(
             return true;
         }
 
-        return ImageAttachmentExtensions.Any(ext => attachment.Filename.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
+        return ImageAttachmentExtensions.Any(ext =>
+            attachment.Filename.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
     }
 
     private async Task HandleSpamMessage(SocketMessage seenMessage, string reason, bool sendArtQuestionnaire = false)
@@ -190,7 +198,8 @@ public class DiscordMessageHandler(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to send art spam questionnaire for user {DiscordId}.", seenMessage.Author.Id);
+                logger.LogWarning(ex, "Failed to send art spam questionnaire for user {DiscordId}.",
+                    seenMessage.Author.Id);
                 questionnaireMessage = null;
             }
 
@@ -228,11 +237,13 @@ public class DiscordMessageHandler(
 
         if (client.GetChannel((ulong)guild.RemovedMessageChannelId) is not ITextChannel targetChannel)
         {
-            logger.LogWarning("Unable to find guild remove channel {GuildRemovedMessageChannelId}", guild.RemovedMessageChannelId);
+            logger.LogWarning("Unable to find guild remove channel {GuildRemovedMessageChannelId}",
+                guild.RemovedMessageChannelId);
             return;
         }
 
-        await targetChannel.SendMessageAsync($"Removed message from <@{seenMessage.Author.Id}> ({seenMessage.Author.Username}), for {reason}.");
+        await targetChannel.SendMessageAsync(
+            $"Removed message from <@{seenMessage.Author.Id}> ({seenMessage.Author.Username}), for {reason}.");
     }
 
     private async Task DeleteArtSpamQuestionnaireAfterDelayAsync(IUserMessage questionnaireMessage, ulong userId)
@@ -249,7 +260,8 @@ public class DiscordMessageHandler(
         }
     }
 
-    private async Task AnalyseAndReportOnUrl(List<string> urls, long guildId, bool isEmbed, ISocketMessageChannel replyChannel, ulong uploaderId)
+    private async Task AnalyseAndReportOnUrl(List<string> urls, long guildId, bool isEmbed,
+        ISocketMessageChannel replyChannel, ulong uploaderId)
     {
         var urlList = string.Join(",", urls);
 
@@ -258,7 +270,8 @@ public class DiscordMessageHandler(
 
         if (!isEmbed)
         {
-            var shouldAsk = (urls.Count > 1 && guild.AutoAggregateLogs) || (urls.Count == 1 && guild.AutoReplySingleLog);
+            var shouldAsk = (urls.Count > 1 && guild.AutoAggregateLogs) ||
+                            (urls.Count == 1 && guild.AutoReplySingleLog);
             if (!shouldAsk)
             {
                 return;
@@ -284,25 +297,42 @@ public class DiscordMessageHandler(
             return;
         }
 
-        if (urls.All(url => _seenUrls.Contains(url)))
+        var unseenUrls = urls
+            .Distinct(StringComparer.Ordinal)
+            .Where(_seenUrls.TryClaim)
+            .ToList();
+        if (unseenUrls.Count == 0)
         {
             logger.LogWarning("Already seen, not analysing or reporting: {url}", urlList);
             return;
         }
 
+        urlList = string.Join(",", unseenUrls);
         logger.LogInformation("Analysing and reporting on: {url}", urlList);
         var dataList = new List<EliteInsightDataModel>();
 
-        foreach (var url in urls)
+        try
         {
-            dataList.Add(await dataModelGenerator.GenerateEliteInsightDataModelFromUrl(url));
+            foreach (var url in unseenUrls)
+            {
+                dataList.Add(await dataModelGenerator.GenerateEliteInsightDataModelFromUrl(url));
+            }
+        }
+        catch
+        {
+            foreach (var url in unseenUrls)
+            {
+                _seenUrls.Release(url);
+            }
+
+            throw;
         }
 
         logger.LogInformation("Generating fight summary: {url}", urlList);
 
         if (guild.AutoSubmitToWingman)
         {
-            var nonWvwUrls = urls.Where((_, i) => !dataList[i].FightEliteInsightDataModel.Wvw).ToList();
+            var nonWvwUrls = unseenUrls.Where((_, i) => !dataList[i].FightEliteInsightDataModel.Wvw).ToList();
             if (nonWvwUrls.Count > 0)
             {
                 _ = SubmitToWingmanAsync(nonWvwUrls);
@@ -311,9 +341,15 @@ public class DiscordMessageHandler(
 
         foreach (var eliteInsightDataModel in dataList)
         {
-            if (_seenUrls.Contains(eliteInsightDataModel.FightEliteInsightDataModel.Url))
+            var reportUrl = eliteInsightDataModel.FightEliteInsightDataModel.Url;
+            if (!await deliveryClaimService.TryClaimAsync(
+                    guildId,
+                    reportUrl,
+                    DiscordReportDeliveryClaimService.DiscordSource))
             {
-                logger.LogInformation("Already seen {url}, going to next log.", eliteInsightDataModel.FightEliteInsightDataModel.Url);
+                logger.LogInformation(
+                    "Discord delivery for {Url} was already claimed by another path.",
+                    reportUrl);
                 continue;
             }
 
@@ -323,14 +359,18 @@ public class DiscordMessageHandler(
             {
                 if (guild.AdvanceLogReportChannelId != null)
                 {
-                    if (client.GetChannel((ulong)guild.AdvanceLogReportChannelId) is not ITextChannel advanceLogReportChannel)
+                    if (client.GetChannel((ulong)guild.AdvanceLogReportChannelId) is not ITextChannel
+                        advanceLogReportChannel)
                     {
-                        logger.LogWarning("Failed to find the target channel {guildAdvanceLogReportChannelId}", guild.AdvanceLogReportChannelId);
+                        logger.LogWarning("Failed to find the target channel {guildAdvanceLogReportChannelId}",
+                            guild.AdvanceLogReportChannelId);
                         await replyChannel.SendMessageAsync("Failed to find the advanced log report channel.");
                         continue;
                     }
 
-                    var (advancedMessage, _, _) = await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, true, guild, client);
+                    var (advancedMessage, _, _) =
+                        await messageGenerationService.GenerateWvWFightSummary(eliteInsightDataModel, true, guild,
+                            client);
                     await advanceLogReportChannel.SendMessageAsync(text: "", embeds: [advancedMessage]);
                 }
 
@@ -343,14 +383,17 @@ public class DiscordMessageHandler(
                 {
                     cb.WithButton("View on DonBot", style: ButtonStyle.Link, url: wvwWebAppUrl);
                 }
+
                 buttonBuilder = cb.Build();
             }
             else
             {
-                var (pveMessage, pveWebAppUrl, _) = await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, guildId);
+                var (pveMessage, pveWebAppUrl, _) =
+                    await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, guildId);
                 message = pveMessage;
                 buttonBuilder = pveWebAppUrl != null
-                    ? new ComponentBuilder().WithButton("View on DonBot", style: ButtonStyle.Link, url: pveWebAppUrl).Build()
+                    ? new ComponentBuilder().WithButton("View on DonBot", style: ButtonStyle.Link, url: pveWebAppUrl)
+                        .Build()
                     : null;
             }
 
@@ -362,7 +405,8 @@ public class DiscordMessageHandler(
 
             if (client.GetChannel((ulong)guild.LogReportChannelId) is not ITextChannel logReportChannel)
             {
-                logger.LogWarning("Failed to find the target channel {guildLogReportChannelId}", guild.LogReportChannelId);
+                logger.LogWarning("Failed to find the target channel {guildLogReportChannelId}",
+                    guild.LogReportChannelId);
                 return;
             }
 
@@ -370,13 +414,10 @@ public class DiscordMessageHandler(
         }
 
         logger.LogInformation("Completed and posted report on: {url}", urlList);
-        foreach (var url in urls)
-        {
-            _seenUrls.Add(url);
-        }
     }
 
-    public async Task ProcessAndPostLogsAsync(SocketMessageComponent interaction, PendingLogState state, bool submitToWingman)
+    public async Task ProcessAndPostLogsAsync(SocketMessageComponent interaction, PendingLogState state,
+        bool submitToWingman)
     {
         var urls = state.Urls;
         var guildId = state.GuildId;
@@ -385,9 +426,11 @@ public class DiscordMessageHandler(
         await interaction.DeferAsync();
         await interaction.Message.DeleteAsync();
 
-        var progressMessage = (IUserMessage)await interaction.Channel.SendMessageAsync($"Fetching log 1 of {urls.Count}...");
+        var progressMessage =
+            (IUserMessage)await interaction.Channel.SendMessageAsync($"Fetching log 1 of {urls.Count}...");
 
-        var dataList = new List<EliteInsightDataModel> { await dataModelGenerator.GenerateEliteInsightDataModelFromUrl(urls[0]) };
+        var dataList =
+            new List<EliteInsightDataModel> { await dataModelGenerator.GenerateEliteInsightDataModelFromUrl(urls[0]) };
         for (var i = 1; i < urls.Count; i++)
         {
             await progressMessage.ModifyAsync(m => m.Content = $"Fetching log {i + 1} of {urls.Count}...");
@@ -403,7 +446,9 @@ public class DiscordMessageHandler(
             if (nonWvwUrls.Count > 0)
             {
                 _ = SubmitToWingmanAsync(nonWvwUrls);
-                await progressMessage.ModifyAsync(m => m.Content = $"Uploading {nonWvwUrls.Count} log{(nonWvwUrls.Count > 1 ? "s" : "")} to Wingman in the background...");
+                await progressMessage.ModifyAsync(m =>
+                    m.Content =
+                        $"Uploading {nonWvwUrls.Count} log{(nonWvwUrls.Count > 1 ? "s" : "")} to Wingman in the background...");
                 await Task.Delay(2000);
             }
         }
@@ -417,7 +462,8 @@ public class DiscordMessageHandler(
             {
                 if (eliteInsightDataModel.FightEliteInsightDataModel.Wvw)
                 {
-                    var (_, _, wvwFightLogId) = await GenerateWvWSummaryAndPostPointRankings(eliteInsightDataModel, guild);
+                    var (_, _, wvwFightLogId) =
+                        await GenerateWvWSummaryAndPostPointRankings(eliteInsightDataModel, guild);
                     if (wvwFightLogId.HasValue)
                     {
                         resolvedFightLogIds.Add(wvwFightLogId.Value);
@@ -425,12 +471,14 @@ public class DiscordMessageHandler(
                 }
                 else
                 {
-                    var (_, _, pveFightLogId) = await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, guildId);
+                    var (_, _, pveFightLogId) =
+                        await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, guildId);
                     resolvedFightLogIds.Add(pveFightLogId);
                 }
             }
 
-            var (messages, replyWebAppUrl) = await messageGenerationService.GenerateRaidReplyReport(resolvedFightLogIds, guildId);
+            var (messages, replyWebAppUrl) =
+                await messageGenerationService.GenerateRaidReplyReport(resolvedFightLogIds, guildId);
             if (messages != null)
             {
                 string? bestTimesButtonId = null;
@@ -463,12 +511,15 @@ public class DiscordMessageHandler(
                         cb.WithButton("View on DonBot", style: ButtonStyle.Link, url: replyWebAppUrl);
                         hasButton = true;
                     }
+
                     if (i == bestTimesIndex && bestTimesButtonId != null)
                     {
                         cb.WithButton("Best Times", bestTimesButtonId);
                         hasButton = true;
                     }
-                    await interaction.Channel.SendMessageAsync(embeds: [messages[i]], components: hasButton ? cb.Build() : null);
+
+                    await interaction.Channel.SendMessageAsync(embeds: [messages[i]],
+                        components: hasButton ? cb.Build() : null);
                 }
             }
         }
@@ -486,24 +537,28 @@ public class DiscordMessageHandler(
                 {
                     cb.WithButton("View on DonBot", style: ButtonStyle.Link, url: wvwUrl);
                 }
+
                 singleButtonBuilder = cb.Build();
             }
             else
             {
-                var (pveMsg, pveUrl, _) = await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, guildId);
+                var (pveMsg, pveUrl, _) =
+                    await messageGenerationService.GeneratePvEFightSummary(eliteInsightDataModel, guildId);
                 singleMessage = pveMsg;
                 if (pveUrl != null)
                 {
-                    singleButtonBuilder = new ComponentBuilder().WithButton("View on DonBot", style: ButtonStyle.Link, url: pveUrl).Build();
+                    singleButtonBuilder = new ComponentBuilder()
+                        .WithButton("View on DonBot", style: ButtonStyle.Link, url: pveUrl).Build();
                 }
             }
 
-            await interaction.Channel.SendMessageAsync(text: "", embeds: [singleMessage], components: singleButtonBuilder);
+            await interaction.Channel.SendMessageAsync(text: "", embeds: [singleMessage],
+                components: singleButtonBuilder);
         }
 
         foreach (var url in urls)
         {
-            _seenUrls.Add(url);
+            _seenUrls.TryClaim(url);
         }
 
         logger.LogInformation("Completed and posted report on: {url}", string.Join(",", urls));
@@ -527,13 +582,15 @@ public class DiscordMessageHandler(
         {
             await playerPointRankingPublisher.PublishAsync(guild, result.FightLogId.Value);
         }
+
         return result;
     }
 
     private async Task SubmitToWingmanAsync(List<string> urls)
     {
         var dpsReportUrls = urls
-            .Select(u => ReportUrlHelper.TryParseReportUrl(u, out var parsed, requireHttps: true) ? parsed.CanonicalUrl : null)
+            .Select(u =>
+                ReportUrlHelper.TryParseReportUrl(u, out var parsed, requireHttps: true) ? parsed.CanonicalUrl : null)
             .OfType<string>()
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -547,7 +604,8 @@ public class DiscordMessageHandler(
         {
             try
             {
-                var wingmanUrl = $"https://gw2wingman.nevermindcreations.de/api/importLogQueued?link={Uri.EscapeDataString(url)}";
+                var wingmanUrl =
+                    $"https://gw2wingman.nevermindcreations.de/api/importLogQueued?link={Uri.EscapeDataString(url)}";
                 var response = await httpClient.GetAsync(wingmanUrl);
                 logger.LogInformation("Submitted {Url} to wingman, status: {Status}", url, response.StatusCode);
             }

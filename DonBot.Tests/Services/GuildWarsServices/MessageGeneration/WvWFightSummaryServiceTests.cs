@@ -15,4 +15,12 @@ public sealed class WvWFightSummaryServiceTests
         Assert.Equal(expected, result);
         Assert.True(float.IsFinite(result));
     }
+
+    [Theory]
+    [InlineData(21264.416015625, "21264")]
+    [InlineData(2539.582275390625, "2540")]
+    public void FormatDistance_RoundsToWholeNumber(double distance, string expected)
+    {
+        Assert.Equal(expected, WvWFightSummaryService.FormatDistance(distance));
+    }
 }

@@ -5,6 +5,7 @@ using DonBot.Core.Models;
 using DonBot.Core.Models.Entities;
 using DonBot.Core.Models.Enums;
 using DonBot.Core.Models.GuildWars2;
+using DonBot.Core.Services.GuildWars2;
 using DonBot.Services.GuildWarsServices.MessageGeneration;
 using DonBot.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -65,8 +66,7 @@ public class DiscordUploadDeliveryServiceTests
         Assert.Equal(
             new[]
             {
-                DiscordDeliveryMessageKinds.WvwAdvanced,
-                DiscordDeliveryMessageKinds.WvwStream,
+                DiscordDeliveryMessageKinds.WvwAdvanced, DiscordDeliveryMessageKinds.WvwStream,
                 DiscordDeliveryMessageKinds.WvwSummary
             },
             kinds);
@@ -91,6 +91,39 @@ public class DiscordUploadDeliveryServiceTests
         Assert.Equal(2, result.Sent);
         Assert.Equal(1, result.Skipped);
         Assert.Equal(new long[] { 101, 102 }, gateway.Sent.Select(message => message.ChannelId).Order().ToArray());
+    }
+
+    [Fact]
+    public async Task DeliverAsync_DiscordPathClaimSkipsEveryApiMessage()
+    {
+        using var db = new SqliteTestDb();
+        var upload = await SeedAsync(
+            db,
+            wvw: true,
+            primaryChannelId: 100,
+            advancedChannelId: 101,
+            streamChannelId: 102);
+        var claimService = new DiscordReportDeliveryClaimService(db.Factory);
+        Assert.True(await claimService.TryClaimAsync(
+            upload.GuildId,
+            upload.DpsReportUrl!,
+            DiscordReportDeliveryClaimService.DiscordSource));
+        var gateway = new FakeGateway([100, 101, 102]);
+        var service = CreateService(db, gateway);
+
+        var result = await service.DeliverAsync(upload, BuildData(wvw: true));
+
+        Assert.Equal("skipped", result.Outcome);
+        Assert.Equal(3, result.Skipped);
+        Assert.Empty(gateway.Sent);
+        await using var context = await db.Factory.CreateDbContextAsync();
+        var receipts = await context.LogUploadDiscordDeliveryReceipt.ToListAsync();
+        Assert.Equal(3, receipts.Count);
+        Assert.All(receipts, receipt =>
+        {
+            Assert.Equal(DiscordDeliveryReceiptStatuses.Skipped, receipt.Status);
+            Assert.Equal("duplicate_delivery", receipt.FailureCode);
+        });
     }
 
     [Fact]
@@ -127,6 +160,7 @@ public class DiscordUploadDeliveryServiceTests
             });
             await context.SaveChangesAsync();
         }
+
         var service = CreateService(db, new FakeGateway([100]));
 
         await service.NormalizeInterruptedAsync();
@@ -153,6 +187,7 @@ public class DiscordUploadDeliveryServiceTests
             });
             await context.SaveChangesAsync();
         }
+
         var gateway = new FakeGateway([100]);
         var service = CreateService(db, gateway);
 
@@ -220,6 +255,7 @@ public class DiscordUploadDeliveryServiceTests
             context.Guild.Update(guild);
             await context.SaveChangesAsync();
         }
+
         var gateway = new FakeGateway([100, 200]);
         var service = CreateService(db, gateway);
 
@@ -275,11 +311,7 @@ public class DiscordUploadDeliveryServiceTests
     public async Task GetCapabilitiesAsync_DiscordLookupFailuresFailClosed()
     {
         using var db = new SqliteTestDb();
-        var gateway = new FakeGateway([100])
-        {
-            ThrowOnAuthorization = true,
-            ThrowOnDiscovery = true
-        };
+        var gateway = new FakeGateway([100]) { ThrowOnAuthorization = true, ThrowOnDiscovery = true };
         var service = CreateService(db, gateway);
         var guild = new Guild
         {
@@ -300,6 +332,7 @@ public class DiscordUploadDeliveryServiceTests
         new(
             db.Factory,
             gateway,
+            new DiscordReportDeliveryClaimService(db.Factory),
             new FakePveRenderer(),
             new FakeWvwRenderer(),
             NullLogger<DiscordUploadDeliveryService>.Instance);
@@ -374,7 +407,8 @@ public class DiscordUploadDeliveryServiceTests
 
         public bool ThrowOnDiscovery { get; init; }
 
-        public Task<IReadOnlyList<DiscordAuthorizedChannel>> GetAuthorizedChannelsAsync(long discordId, long guildId, CancellationToken ct = default)
+        public Task<IReadOnlyList<DiscordAuthorizedChannel>> GetAuthorizedChannelsAsync(long discordId, long guildId,
+            CancellationToken ct = default)
         {
             if (ThrowOnDiscovery)
             {
@@ -382,10 +416,12 @@ public class DiscordUploadDeliveryServiceTests
             }
 
             return Task.FromResult<IReadOnlyList<DiscordAuthorizedChannel>>(
-                _authorizedChannels.Select(channelId => new DiscordAuthorizedChannel(channelId, $"channel-{channelId}")).ToList());
+                _authorizedChannels.Select(channelId => new DiscordAuthorizedChannel(channelId, $"channel-{channelId}"))
+                    .ToList());
         }
 
-        public Task<bool> IsAuthorizedChannelAsync(long discordId, long guildId, long channelId, CancellationToken ct = default)
+        public Task<bool> IsAuthorizedChannelAsync(long discordId, long guildId, long channelId,
+            CancellationToken ct = default)
         {
             if (ThrowOnAuthorization)
             {
@@ -395,12 +431,14 @@ public class DiscordUploadDeliveryServiceTests
             return Task.FromResult(_authorizedChannels.Contains(channelId));
         }
 
-        public Task<long> SendMessageAsync(long channelId, string text, Embed? embed, MessageComponent? components, CancellationToken ct = default)
+        public Task<long> SendMessageAsync(long channelId, string text, Embed? embed, MessageComponent? components,
+            CancellationToken ct = default)
         {
             if (ThrowOnSend)
             {
                 throw new InvalidOperationException("sensitive Discord response");
             }
+
             if (ThrowAmbiguousOnSend)
             {
                 throw new HttpRequestException("unknown send outcome");
@@ -415,26 +453,31 @@ public class DiscordUploadDeliveryServiceTests
 
     private sealed class FakePveRenderer : IPvEFightSummaryService
     {
-        public Task<(Embed Embed, string? WebAppUrl, long FightLogId)> GenerateSimple(EliteInsightDataModel data, long guildId) =>
+        public Task<(Embed Embed, string? WebAppUrl, long FightLogId)> GenerateSimple(EliteInsightDataModel data,
+            long guildId) =>
             throw new NotImplementedException();
 
-        public Task<(Embed Embed, string? WebAppUrl)> RenderSimple(EliteInsightDataModel data, long guildId, FightLog fightLog) =>
+        public Task<(Embed Embed, string? WebAppUrl)> RenderSimple(EliteInsightDataModel data, long guildId,
+            FightLog fightLog) =>
             Task.FromResult((new EmbedBuilder().WithTitle("PvE").Build(), (string?)"https://donbot/logs/1"));
     }
 
     private sealed class FakeWvwRenderer : IWvWFightSummaryService
     {
-        public Task<(Embed Embed, string? WebAppUrl, long? FightLogId)> Generate(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client) =>
+        public Task<(Embed Embed, string? WebAppUrl, long? FightLogId)> Generate(EliteInsightDataModel data,
+            bool advancedLog, Guild guild, DiscordSocketClient client) =>
             throw new NotImplementedException();
 
-        public Task<WvWFightSummaryRenderResult> Render(EliteInsightDataModel data, bool advancedLog, Guild guild, FightLog? fightLog) =>
+        public Task<WvWFightSummaryRenderResult> Render(EliteInsightDataModel data, bool advancedLog, Guild guild,
+            FightLog? fightLog) =>
             Task.FromResult(new WvWFightSummaryRenderResult(
                 new EmbedBuilder().WithTitle(advancedLog ? "Advanced" : "Standard").Build(),
                 advancedLog ? null : "https://donbot/logs/1",
                 fightLog?.FightLogId,
                 "stream-output"));
 
-        public Task<Embed> GenerateMessage(bool advancedLog, int playerCount, List<Gw2Player> gw2Players, EmbedBuilder message, long guildId, StatTotals? statTotals = null) =>
+        public Task<Embed> GenerateMessage(bool advancedLog, int playerCount, List<Gw2Player> gw2Players,
+            EmbedBuilder message, long guildId, StatTotals? statTotals = null) =>
             throw new NotImplementedException();
     }
 }

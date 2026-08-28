@@ -68,14 +68,14 @@ public sealed class WvWFightSummaryService(
     {
         var columns = new DiscordTable.Column[]
         {
-            new(label, Math.Max(label.Length, 6)),
-            new("Ours", 8, DiscordTable.Align.Right),
+            new(label, Math.Max(label.Length, 6)), new("Ours", 8, DiscordTable.Align.Right),
             new("Theirs", 8, DiscordTable.Align.Right)
         };
         return $"```{DiscordTable.Header(columns)}{DiscordTable.Row(columns, string.Empty, ours, theirs)}```";
     }
 
-    public async Task<(Embed Embed, string? WebAppUrl, long? FightLogId)> Generate(EliteInsightDataModel data, bool advancedLog, Guild guild, DiscordSocketClient client)
+    public async Task<(Embed Embed, string? WebAppUrl, long? FightLogId)> Generate(EliteInsightDataModel data,
+        bool advancedLog, Guild guild, DiscordSocketClient client)
     {
         var result = await RenderCore(data, advancedLog, guild, fightLog: null, client, performSideEffects: true);
         return (result.Embed, result.WebAppUrl, result.FightLogId);
@@ -98,7 +98,8 @@ public sealed class WvWFightSummaryService(
     {
         var playerCount = 5;
 
-        var logLength = data.FightEliteInsightDataModel.Phases?.FirstOrDefault()?.EncounterDuration.TimeToSeconds() ?? 0;
+        var logLength = data.FightEliteInsightDataModel.Phases?.FirstOrDefault()?.EncounterDuration.TimeToSeconds() ??
+                        0;
 
         var friendlyCount = data.FightEliteInsightDataModel.Players?.Count ?? 0;
         var squadMemberCount = data.FightEliteInsightDataModel.Players?.Count(s => !s.NotInSquad) ?? 0;
@@ -135,8 +136,10 @@ public sealed class WvWFightSummaryService(
 
         var streamMessage =
             $"```{DiscordTable.Header(FriendlyColumns)}" +
-            DiscordTable.Row(FriendlyColumns, "Ally", friendlyCountStr.Trim(), friendlyDamageStr.Trim(), friendlyDpsStr.Trim(), friendlyDownsStr.Trim(), friendlyDeathsStr.Trim()) +
-            DiscordTable.Row(FriendlyColumns, "Foe", enemyCountStr.Trim(), enemyDamageStr.Trim(), enemyDpsStr.Trim(), enemyDownsStr.Trim(), enemyDeathsStr.Trim()) +
+            DiscordTable.Row(FriendlyColumns, "Ally", friendlyCountStr.Trim(), friendlyDamageStr.Trim(),
+                friendlyDpsStr.Trim(), friendlyDownsStr.Trim(), friendlyDeathsStr.Trim()) +
+            DiscordTable.Row(FriendlyColumns, "Foe", enemyCountStr.Trim(), enemyDamageStr.Trim(), enemyDpsStr.Trim(),
+                enemyDownsStr.Trim(), enemyDeathsStr.Trim()) +
             "```";
 
         if (performSideEffects && !advancedLog && guild.StreamLogChannelId.HasValue)
@@ -151,7 +154,8 @@ public sealed class WvWFightSummaryService(
         var rangeStart = range.Start.GetOffset(data.FightEliteInsightDataModel.LogName?.Length ?? 0);
         var rangeEnd = range.End.GetOffset(data.FightEliteInsightDataModel.LogName?.Length ?? 0);
 
-        if (rangeStart < 0 || rangeStart > data.FightEliteInsightDataModel.LogName?.Length || rangeEnd < 0 || rangeEnd > data.FightEliteInsightDataModel.LogName?.Length)
+        if (rangeStart < 0 || rangeStart > data.FightEliteInsightDataModel.LogName?.Length || rangeEnd < 0 ||
+            rangeEnd > data.FightEliteInsightDataModel.LogName?.Length)
         {
             throw new Exception($"Bad battleground name: {data.FightEliteInsightDataModel.LogName}");
         }
@@ -160,31 +164,53 @@ public sealed class WvWFightSummaryService(
 
         var battleGroundEmoji = ":grey_question:";
 
-        battleGroundEmoji = battleGround.Contains("Red", StringComparison.OrdinalIgnoreCase) ? ":red_square:" : battleGroundEmoji;
-        battleGroundEmoji = battleGround.Contains("Blue", StringComparison.OrdinalIgnoreCase) ? ":blue_square:" : battleGroundEmoji;
-        battleGroundEmoji = battleGround.Contains("Green", StringComparison.OrdinalIgnoreCase) ? ":green_square:" : battleGroundEmoji;
-        battleGroundEmoji = battleGround.Contains("Eternal", StringComparison.OrdinalIgnoreCase) ? ":white_large_square:" : battleGroundEmoji;
-        battleGroundEmoji = battleGround.Contains("Edge", StringComparison.OrdinalIgnoreCase) ? ":brown_square:" : battleGroundEmoji;
+        battleGroundEmoji = battleGround.Contains("Red", StringComparison.OrdinalIgnoreCase)
+            ? ":red_square:"
+            : battleGroundEmoji;
+        battleGroundEmoji = battleGround.Contains("Blue", StringComparison.OrdinalIgnoreCase)
+            ? ":blue_square:"
+            : battleGroundEmoji;
+        battleGroundEmoji = battleGround.Contains("Green", StringComparison.OrdinalIgnoreCase)
+            ? ":green_square:"
+            : battleGroundEmoji;
+        battleGroundEmoji = battleGround.Contains("Eternal", StringComparison.OrdinalIgnoreCase)
+            ? ":white_large_square:"
+            : battleGroundEmoji;
+        battleGroundEmoji = battleGround.Contains("Edge", StringComparison.OrdinalIgnoreCase)
+            ? ":brown_square:"
+            : battleGroundEmoji;
 
         var battleGroundColor = System.Drawing.Color.FromArgb(204, 214, 221);
-        battleGroundColor = battleGround.Contains("Red", StringComparison.OrdinalIgnoreCase) ? System.Drawing.Color.FromArgb(219, 44, 67) : battleGroundColor;
-        battleGroundColor = battleGround.Contains("Blue", StringComparison.OrdinalIgnoreCase) ? System.Drawing.Color.FromArgb(85, 172, 238) : battleGroundColor;
-        battleGroundColor = battleGround.Contains("Green", StringComparison.OrdinalIgnoreCase) ? System.Drawing.Color.FromArgb(123, 179, 91) : battleGroundColor;
-        battleGroundColor = battleGround.Contains("Eternal", StringComparison.OrdinalIgnoreCase) ? System.Drawing.Color.FromArgb(230, 231, 232) : battleGroundColor;
-        battleGroundColor = battleGround.Contains("Edge", StringComparison.OrdinalIgnoreCase) ? System.Drawing.Color.FromArgb(193, 105, 79) : battleGroundColor;
+        battleGroundColor = battleGround.Contains("Red", StringComparison.OrdinalIgnoreCase)
+            ? System.Drawing.Color.FromArgb(219, 44, 67)
+            : battleGroundColor;
+        battleGroundColor = battleGround.Contains("Blue", StringComparison.OrdinalIgnoreCase)
+            ? System.Drawing.Color.FromArgb(85, 172, 238)
+            : battleGroundColor;
+        battleGroundColor = battleGround.Contains("Green", StringComparison.OrdinalIgnoreCase)
+            ? System.Drawing.Color.FromArgb(123, 179, 91)
+            : battleGroundColor;
+        battleGroundColor = battleGround.Contains("Eternal", StringComparison.OrdinalIgnoreCase)
+            ? System.Drawing.Color.FromArgb(230, 231, 232)
+            : battleGroundColor;
+        battleGroundColor = battleGround.Contains("Edge", StringComparison.OrdinalIgnoreCase)
+            ? System.Drawing.Color.FromArgb(193, 105, 79)
+            : battleGroundColor;
 
         var friendlyOverview = $"```{DiscordTable.Header(FriendlyColumns)}";
-        friendlyOverview += DiscordTable.Row(FriendlyColumns, "Ally", friendlyCountStr.Trim(), friendlyDamageStr.Trim(), friendlyDpsStr.Trim(), friendlyDownsStr.Trim(), friendlyDeathsStr.Trim());
-        friendlyOverview += DiscordTable.Row(FriendlyColumns, "Foe", enemyCountStr.Trim(), enemyDamageStr.Trim(), enemyDpsStr.Trim(), enemyDownsStr.Trim(), enemyDeathsStr.Trim());
+        friendlyOverview += DiscordTable.Row(FriendlyColumns, "Ally", friendlyCountStr.Trim(), friendlyDamageStr.Trim(),
+            friendlyDpsStr.Trim(), friendlyDownsStr.Trim(), friendlyDeathsStr.Trim());
+        friendlyOverview += DiscordTable.Row(FriendlyColumns, "Foe", enemyCountStr.Trim(), enemyDamageStr.Trim(),
+            enemyDpsStr.Trim(), enemyDownsStr.Trim(), enemyDeathsStr.Trim());
         friendlyOverview += "```";
 
         if (performSideEffects && !advancedLog)
         {
-            var ingestionResult = await fightLogIngestionService.IngestAsync(new FightLogIngestionRequest(data, fightPhase, gw2Players)
-            {
-                GuildId = guild.GuildId,
-                ExistingLogUpdateMode = ExistingFightLogUpdateMode.RawDataOnly
-            });
+            var ingestionResult = await fightLogIngestionService.IngestAsync(
+                new FightLogIngestionRequest(data, fightPhase, gw2Players)
+                {
+                    GuildId = guild.GuildId, ExistingLogUpdateMode = ExistingFightLogUpdateMode.RawDataOnly
+                });
             fightLog = ingestionResult.FightLog;
             await pointsAwardService.AwardFightAsync(fightLog.FightLogId);
         }
@@ -197,7 +223,8 @@ public sealed class WvWFightSummaryService(
         var message = new EmbedBuilder
         {
             Title = $"{battleGroundEmoji} Report (WvW) - {battleGround}\n",
-            Description = $"**Fight Duration:** {data.FightEliteInsightDataModel.Phases?.FirstOrDefault()?.EncounterDuration}\n",
+            Description =
+                $"**Fight Duration:** {data.FightEliteInsightDataModel.Phases?.FirstOrDefault()?.EncounterDuration}\n",
             Color = (Color)battleGroundColor,
             Author = new EmbedAuthorBuilder()
             {
@@ -224,7 +251,11 @@ public sealed class WvWFightSummaryService(
             ? damage / durationSeconds
             : 0;
 
-    public async Task<Embed> GenerateMessage(bool advancedLog, int playerCount, List<Gw2Player> gw2Players, EmbedBuilder message, long guildId, StatTotals? statTotals = null)
+    internal static string FormatDistance(double distance) =>
+        Math.Round(distance).ToString(CultureInfo.InvariantCulture);
+
+    public async Task<Embed> GenerateMessage(bool advancedLog, int playerCount, List<Gw2Player> gw2Players,
+        EmbedBuilder message, long guildId, StatTotals? statTotals = null)
     {
         var damageOverview = $"```{DiscordTable.Header(DamageColumns)}";
 
@@ -351,7 +382,9 @@ public sealed class WvWFightSummaryService(
             foreach (var gw2Player in topBarrier)
             {
                 var barrier = gw2Player.BarrierGenerated;
-                var name = !string.IsNullOrEmpty(gw2Player.CharacterName) ? gw2Player.CharacterName : gw2Player.AccountName;
+                var name = !string.IsNullOrEmpty(gw2Player.CharacterName)
+                    ? gw2Player.CharacterName
+                    : gw2Player.AccountName;
                 var prof = gw2Player.Profession;
 
                 barrierOverview += DiscordTable.Row(BarrierColumns,
@@ -360,6 +393,7 @@ public sealed class WvWFightSummaryService(
                     barrier.FormatNumber());
                 barrierIndex++;
             }
+
             barrierOverview += "```";
 
             var topDistance = gw2Players.OrderByDescending(s => s.DistanceFromTag).Take(playerCount).ToList();
@@ -367,15 +401,18 @@ public sealed class WvWFightSummaryService(
             foreach (var gw2Player in topDistance)
             {
                 var distance = gw2Player.DistanceFromTag;
-                var name = !string.IsNullOrEmpty(gw2Player.CharacterName) ? gw2Player.CharacterName : gw2Player.AccountName;
+                var name = !string.IsNullOrEmpty(gw2Player.CharacterName)
+                    ? gw2Player.CharacterName
+                    : gw2Player.AccountName;
                 var prof = gw2Player.Profession;
 
                 distanceOverview += DiscordTable.Row(DistanceColumns,
                     distanceIndex.ToString().PadLeft(2, '0'),
                     DisplayName(name, prof),
-                    distance.ToString(CultureInfo.InvariantCulture));
+                    FormatDistance(distance));
                 distanceIndex++;
             }
+
             distanceOverview += "```";
 
             var topTimesDowned = gw2Players.OrderByDescending(s => s.TimesDowned).Take(playerCount).ToList();
@@ -383,7 +420,9 @@ public sealed class WvWFightSummaryService(
             foreach (var gw2Player in topTimesDowned)
             {
                 var timesDowned = gw2Player.TimesDowned;
-                var name = !string.IsNullOrEmpty(gw2Player.CharacterName) ? gw2Player.CharacterName : gw2Player.AccountName;
+                var name = !string.IsNullOrEmpty(gw2Player.CharacterName)
+                    ? gw2Player.CharacterName
+                    : gw2Player.AccountName;
                 var prof = gw2Player.Profession;
 
                 timesDownedOverview += DiscordTable.Row(TimesDownedColumns,
@@ -412,8 +451,7 @@ public sealed class WvWFightSummaryService(
             var diff = totalDmg - totalBarrierMitigation;
             var diffColumns = new DiscordTable.Column[]
             {
-                new("Dmg Taken", 9, DiscordTable.Align.Right),
-                new("Barrier", 8, DiscordTable.Align.Right),
+                new("Dmg Taken", 9, DiscordTable.Align.Right), new("Barrier", 8, DiscordTable.Align.Right),
                 new("Diff", 16)
             };
 
@@ -496,8 +534,7 @@ public sealed class WvWFightSummaryService(
 
         message.Footer = new EmbedFooterBuilder()
         {
-            Text = $"{await footerService.Generate(guildId)}",
-            IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+            Text = $"{await footerService.Generate(guildId)}", IconUrl = "https://i.imgur.com/tQ4LD6H.png"
         };
 
         message.Timestamp = DateTime.Now;

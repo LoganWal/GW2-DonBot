@@ -115,7 +115,10 @@ public class LogUploadPipelineServiceTests
         await using var provider = services.BuildServiceProvider();
         var pipeline = CreatePipeline(db, provider);
 
-        await pipeline.ProcessUploadAsync(uploadId, CancellationToken.None);
+        await pipeline.RecoverInterruptedUploadsAsync(CancellationToken.None);
+        Assert.True(pipeline.TryReadQueuedUpload(out var queuedId));
+        Assert.Equal(uploadId, queuedId);
+        await pipeline.ProcessUploadAsync(queuedId, CancellationToken.None);
 
         await using var verification = await db.Factory.CreateDbContextAsync();
         Assert.Equal("complete", (await verification.LogUpload.SingleAsync()).Status);
@@ -172,7 +175,10 @@ public class LogUploadPipelineServiceTests
         await using var provider = services.BuildServiceProvider();
         var pipeline = CreatePipeline(db, provider);
 
-        await pipeline.ProcessUploadAsync(uploadId, CancellationToken.None);
+        await pipeline.RecoverInterruptedUploadsAsync(CancellationToken.None);
+        Assert.True(pipeline.TryReadQueuedUpload(out var queuedId));
+        Assert.Equal(uploadId, queuedId);
+        await pipeline.ProcessUploadAsync(queuedId, CancellationToken.None);
 
         await using var verification = await db.Factory.CreateDbContextAsync();
         Assert.Equal("complete", (await verification.LogUpload.SingleAsync()).Status);
@@ -184,15 +190,110 @@ public class LogUploadPipelineServiceTests
     public async Task RecoverInterruptedUploadsAsync_QueuesUploadingState()
     {
         using var db = new SqliteTestDb();
+        var testRoot = Path.Combine(Path.GetTempPath(), $"donbot-recovery-{Guid.NewGuid():N}");
+        var storagePath = Path.Combine(testRoot, "uploads");
+        long uploadId;
+        try
+        {
+            await using (var context = await db.Factory.CreateDbContextAsync())
+            {
+                var upload = new LogUpload
+                {
+                    DiscordId = 123,
+                    FileName = "fight.zevtc",
+                    SourceType = "file",
+                    Status = "uploading"
+                };
+                context.LogUpload.Add(upload);
+                await context.SaveChangesAsync();
+                uploadId = upload.LogUploadId;
+            }
+
+            var sourceDirectory = Path.Combine(storagePath, uploadId.ToString());
+            Directory.CreateDirectory(sourceDirectory);
+            await File.WriteAllBytesAsync(Path.Combine(sourceDirectory, "fight.zevtc"), [1, 2, 3]);
+
+            var services = new ServiceCollection();
+            services.AddSingleton<IDiscordUploadDeliveryService, FakeDiscordUploadDeliveryService>();
+            services.AddHttpClient();
+            await using var provider = services.BuildServiceProvider();
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Upload:StoragePath"] = storagePath
+                })
+                .Build();
+            var pipeline = CreatePipeline(db, provider, configuration);
+
+            await pipeline.RecoverInterruptedUploadsAsync(CancellationToken.None);
+
+            Assert.True(pipeline.TryReadQueuedUpload(out var queuedId));
+            Assert.Equal(uploadId, queuedId);
+            await using var verification = await db.Factory.CreateDbContextAsync();
+            Assert.Equal("pending", (await verification.LogUpload.SingleAsync()).Status);
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task RecoverInterruptedUploadsAsync_MissingFileFailsWithoutQueueing()
+    {
+        using var db = new SqliteTestDb();
+        await using (var context = await db.Factory.CreateDbContextAsync())
+        {
+            context.LogUpload.Add(new LogUpload
+            {
+                DiscordId = 123,
+                FileName = "missing.zevtc",
+                SourceType = "file",
+                Status = "uploading"
+            });
+            await context.SaveChangesAsync();
+        }
+
+        var services = new ServiceCollection();
+        services.AddSingleton<IDiscordUploadDeliveryService, FakeDiscordUploadDeliveryService>();
+        services.AddHttpClient();
+        await using var provider = services.BuildServiceProvider();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Upload:StoragePath"] = Path.Combine(
+                    Path.GetTempPath(),
+                    $"donbot-missing-recovery-{Guid.NewGuid():N}")
+            })
+            .Build();
+        var pipeline = CreatePipeline(db, provider, configuration);
+
+        await pipeline.RecoverInterruptedUploadsAsync(CancellationToken.None);
+
+        Assert.False(pipeline.TryReadQueuedUpload(out _));
+        await using var verification = await db.Factory.CreateDbContextAsync();
+        var failed = await verification.LogUpload.SingleAsync();
+        Assert.Equal("failed", failed.Status);
+        Assert.Equal("Upload source file is no longer available.", failed.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task ProcessUploadAsync_DoesNotReclaimActiveUpload()
+    {
+        using var db = new SqliteTestDb();
         long uploadId;
         await using (var context = await db.Factory.CreateDbContextAsync())
         {
             var upload = new LogUpload
             {
                 DiscordId = 123,
-                FileName = "fight.zevtc",
-                SourceType = "file",
-                Status = "uploading"
+                FileName = "abc-123",
+                SourceType = "url",
+                Status = "parsing",
+                DpsReportUrl = "https://dps.report/abc-123"
             };
             context.LogUpload.Add(upload);
             await context.SaveChangesAsync();
@@ -200,15 +301,14 @@ public class LogUploadPipelineServiceTests
         }
 
         var services = new ServiceCollection();
-        services.AddSingleton<IDiscordUploadDeliveryService, FakeDiscordUploadDeliveryService>();
         services.AddHttpClient();
         await using var provider = services.BuildServiceProvider();
         var pipeline = CreatePipeline(db, provider);
 
-        await pipeline.RecoverInterruptedUploadsAsync(CancellationToken.None);
+        await pipeline.ProcessUploadAsync(uploadId, CancellationToken.None);
 
-        Assert.True(pipeline.TryReadQueuedUpload(out var queuedId));
-        Assert.Equal(uploadId, queuedId);
+        await using var verification = await db.Factory.CreateDbContextAsync();
+        Assert.Equal("parsing", (await verification.LogUpload.SingleAsync()).Status);
     }
 
     [Fact]

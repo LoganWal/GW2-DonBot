@@ -8,6 +8,7 @@ using DonBot.Api.Services;
 using DonBot.Core.Models;
 using DonBot.Core.Models.Entities;
 using DonBot.Tests.Infrastructure;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using tusdotnet.Models;
@@ -829,6 +830,21 @@ public class UploadEndpointsTests
         var response = await host.Client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task WriteProgressStreamAsync_RequestCancellationCompletesNormally()
+    {
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await UploadEndpoints.WriteProgressStreamAsync(
+            1,
+            new LogUploadProgressService(),
+            context.Response,
+            cts.Token);
     }
 
     private static MinimalApiHost NewLinkedGw2Host(FakeDiscordUploadDeliveryService? discordDelivery = null)

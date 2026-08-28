@@ -1048,9 +1048,24 @@ public static class UploadEndpoints
             }
         }
 
-        await foreach (var msg in progress.Subscribe(id, ct))
+        await WriteProgressStreamAsync(id, progress, ctx.Response, ct);
+    }
+
+    internal static async Task WriteProgressStreamAsync(
+        long id,
+        ILogUploadProgressService progress,
+        HttpResponse response,
+        CancellationToken ct)
+    {
+        try
         {
-            await SseWriter.WriteDataAsync(ctx.Response, msg, ct);
+            await foreach (var msg in progress.Subscribe(id, ct))
+            {
+                await SseWriter.WriteDataAsync(response, msg, ct);
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
         }
     }
 

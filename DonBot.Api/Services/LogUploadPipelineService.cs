@@ -12,6 +12,8 @@ namespace DonBot.Api.Services;
 
 public sealed class LogUploadPipelineService : BackgroundService
 {
+    private const string MissingSourceFileMessage = "Upload source file is no longer available.";
+
     private readonly ILogUploadProgressService _progress;
     private readonly IDbContextFactory<DatabaseContext> _dbContextFactory;
     private readonly IServiceScopeFactory _scopeFactory;
@@ -426,23 +428,55 @@ public sealed class LogUploadPipelineService : BackgroundService
         await discordDeliveryService.NormalizeInterruptedAsync(ct);
 
         await using var context = await _dbContextFactory.CreateDbContextAsync(ct);
-        await context.LogUpload
-            .Where(upload => upload.Status == "processing")
-            .ExecuteUpdateAsync(
-                setters => setters
-                    .SetProperty(upload => upload.Status, "pending")
-                    .SetProperty(upload => upload.UpdatedAt, DateTime.UtcNow),
-                ct);
-        var uploadIds = await context.LogUpload.AsNoTracking()
+        var uploads = await context.LogUpload.AsTracking()
             .Where(upload => upload.Status == "pending" ||
                 upload.Status == "stored" ||
+                upload.Status == "processing" ||
                 upload.Status == "parsing" ||
                 upload.Status == "uploading" ||
                 upload.Status == "saving" ||
                 upload.Status == "delivering")
-            .Select(upload => upload.LogUploadId)
             .ToListAsync(ct);
-        foreach (var uploadId in uploadIds)
+
+        var storagePath = _configuration["Upload:StoragePath"] ?? "/tmp/donbot/uploads";
+        var now = DateTime.UtcNow;
+        var queuedUploadIds = new List<long>(uploads.Count);
+        var missingUploadIds = new List<long>();
+        foreach (var upload in uploads)
+        {
+            var canResumeWithoutSource = upload.SourceType == "url" ||
+                (upload.FightLogId is > 0 && !string.IsNullOrWhiteSpace(upload.DpsReportUrl));
+            var sourcePath = Path.Combine(storagePath, upload.LogUploadId.ToString(), upload.FileName);
+            if (!canResumeWithoutSource && !File.Exists(sourcePath))
+            {
+                upload.Status = "failed";
+                upload.ErrorMessage = MissingSourceFileMessage;
+                upload.UpdatedAt = now;
+                missingUploadIds.Add(upload.LogUploadId);
+                continue;
+            }
+
+            upload.Status = "pending";
+            upload.ErrorMessage = null;
+            upload.UpdatedAt = now;
+            queuedUploadIds.Add(upload.LogUploadId);
+        }
+
+        await context.SaveChangesAsync(ct);
+
+        foreach (var uploadId in missingUploadIds)
+        {
+            CleanupUploadDirectories(uploadId);
+            _progress.Complete(uploadId);
+        }
+        if (missingUploadIds.Count > 0)
+        {
+            _logger.LogWarning(
+                "Marked {count} interrupted file uploads failed because their source files were unavailable",
+                missingUploadIds.Count);
+        }
+
+        foreach (var uploadId in queuedUploadIds)
         {
             Enqueue(uploadId);
         }
@@ -454,11 +488,7 @@ public sealed class LogUploadPipelineService : BackgroundService
         var claimed = await context.LogUpload
             .Where(upload => upload.LogUploadId == uploadId &&
                 (upload.Status == "pending" ||
-                    upload.Status == "stored" ||
-                    upload.Status == "parsing" ||
-                    upload.Status == "uploading" ||
-                    upload.Status == "saving" ||
-                    upload.Status == "delivering"))
+                    upload.Status == "stored"))
             .ExecuteUpdateAsync(
                 setters => setters
                     .SetProperty(upload => upload.Status, "processing")

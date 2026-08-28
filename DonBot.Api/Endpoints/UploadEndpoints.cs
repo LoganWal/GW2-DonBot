@@ -20,6 +20,7 @@ public static class UploadEndpoints
 {
     private static readonly System.Text.Json.JsonSerializerOptions SseJsonOptions =
         new(System.Text.Json.JsonSerializerDefaults.Web);
+
     private const string Gw2ApiKeyHeader = "X-GW2-API-Key";
     private const string TusUploadIdentityItemKey = "donbot:tus-upload-identity";
     private const string TusDiscordDeliveryItemKey = "donbot:tus-discord-delivery";
@@ -60,7 +61,8 @@ public static class UploadEndpoints
                         return;
                     }
 
-                    var guildResult = await ResolveTusGuildIdAsync(ctx.HttpContext, ctx.Metadata, ctx.CancellationToken);
+                    var guildResult =
+                        await ResolveTusGuildIdAsync(ctx.HttpContext, ctx.Metadata, ctx.CancellationToken);
 
                     if (guildResult.FailureStatus is { } status)
                     {
@@ -75,7 +77,8 @@ public static class UploadEndpoints
                         ctx.CancellationToken);
                     if (deliveryResult.FailureStatus is { } deliveryStatus)
                     {
-                        ctx.FailRequest(deliveryStatus, deliveryResult.FailureMessage ?? "Invalid Discord delivery request.");
+                        ctx.FailRequest(deliveryStatus,
+                            deliveryResult.FailureMessage ?? "Invalid Discord delivery request.");
                     }
                 },
                 OnCreateCompleteAsync = async ctx =>
@@ -91,9 +94,10 @@ public static class UploadEndpoints
                         : "upload.zevtc";
                     var safeName = Path.GetFileName(filename);
                     var wingman = TryGetMetadataString(ctx.Metadata, "wingman", out var wingmanRaw) &&
-                        string.Equals(wingmanRaw, "true", StringComparison.OrdinalIgnoreCase);
+                                  string.Equals(wingmanRaw, "true", StringComparison.OrdinalIgnoreCase);
 
-                    var guildResult = await ResolveTusGuildIdAsync(ctx.HttpContext, ctx.Metadata, ctx.CancellationToken);
+                    var guildResult =
+                        await ResolveTusGuildIdAsync(ctx.HttpContext, ctx.Metadata, ctx.CancellationToken);
 
                     if (guildResult.FailureStatus is not null)
                     {
@@ -346,14 +350,15 @@ public static class UploadEndpoints
             result = new TusDiscordDeliveryResolution(DiscordDeliveryModes.GuildDefaults, null);
         }
         else if (mode == DiscordDeliveryModes.ChannelOverride &&
-            hasChannel &&
-            TryParseCanonicalPositiveInt64(channelIdRaw, out var channelId))
+                 hasChannel &&
+                 TryParseCanonicalPositiveInt64(channelIdRaw, out var channelId))
         {
             result = new TusDiscordDeliveryResolution(DiscordDeliveryModes.ChannelOverride, channelId);
         }
         else
         {
-            result = TusDiscordDeliveryResolution.Failed(HttpStatusCode.BadRequest, "Invalid Discord delivery request.");
+            result = TusDiscordDeliveryResolution.Failed(HttpStatusCode.BadRequest,
+                "Invalid Discord delivery request.");
         }
 
         if (result.FailureStatus is null && result.Mode is not null)
@@ -361,7 +366,8 @@ public static class UploadEndpoints
             var identityResult = await ResolveTusUploadIdentityAsync(httpContext, ct);
             if (identityResult.Identity is not { } identity || guildId <= 0)
             {
-                result = TusDiscordDeliveryResolution.Failed(HttpStatusCode.Forbidden, "Discord delivery is not authorized.");
+                result = TusDiscordDeliveryResolution.Failed(HttpStatusCode.Forbidden,
+                    "Discord delivery is not authorized.");
             }
             else
             {
@@ -683,10 +689,10 @@ public static class UploadEndpoints
             request = await httpContext.Request.ReadFromJsonAsync<SubmitGw2UrlRequest>(cancellationToken: ct);
         }
         catch (Exception ex) when (ex is
-            System.Text.Json.JsonException or
-            BadHttpRequestException or
-            NotSupportedException or
-            InvalidOperationException)
+                                       System.Text.Json.JsonException or
+                                       BadHttpRequestException or
+                                       NotSupportedException or
+                                       InvalidOperationException)
         {
             return Gw2UrlError(StatusCodes.Status400BadRequest, "invalid_request");
         }
@@ -700,9 +706,9 @@ public static class UploadEndpoints
         }
 
         if (request is null ||
-            request.AdditionalProperties?.Keys.Any(
-                property => string.Equals(property, "wingman", StringComparison.OrdinalIgnoreCase)) == true ||
-            !TryParseCanonicalDpsReportPermalink(request.Url, out var parsedUrl) ||
+            request.AdditionalProperties?.Keys.Any(property =>
+                string.Equals(property, "wingman", StringComparison.OrdinalIgnoreCase)) == true ||
+            !TryParseCanonicalReportPermalink(request.Url, out var parsedUrl) ||
             !TryParseCanonicalPositiveInt64(request.GuildId, out var guildId))
         {
             return Gw2UrlError(StatusCodes.Status400BadRequest, "invalid_request");
@@ -811,7 +817,7 @@ public static class UploadEndpoints
         }
     }
 
-    private static bool TryParseCanonicalDpsReportPermalink(string? url, out ParsedReportUrl parsedUrl)
+    private static bool TryParseCanonicalReportPermalink(string? url, out ParsedReportUrl parsedUrl)
     {
         parsedUrl = null!;
         if (string.IsNullOrEmpty(url) ||
@@ -823,8 +829,7 @@ public static class UploadEndpoints
             !string.IsNullOrEmpty(uri.Query) ||
             !uri.IsDefaultPort ||
             !ReportUrlHelper.TryParseReportUrl(url, out parsedUrl, requireHttps: true) ||
-            parsedUrl.Kind != ReportUrlKind.DpsReport ||
-            !string.Equals(parsedUrl.Host, "dps.report", StringComparison.Ordinal) ||
+            !IsCanonicalReportHost(parsedUrl) ||
             !string.Equals(url, parsedUrl.CanonicalUrl, StringComparison.Ordinal))
         {
             parsedUrl = null!;
@@ -834,13 +839,23 @@ public static class UploadEndpoints
         return true;
     }
 
+    private static bool IsCanonicalReportHost(ParsedReportUrl parsedUrl) =>
+        parsedUrl.Kind switch
+        {
+            ReportUrlKind.DpsReport => string.Equals(parsedUrl.Host, "dps.report", StringComparison.Ordinal),
+            ReportUrlKind.WvwReport => string.Equals(parsedUrl.Host, "wvw.report", StringComparison.Ordinal),
+            _ => false
+        };
+
     private static bool TryParseCanonicalPositiveInt64(string? value, out long result)
     {
         result = 0;
         return !string.IsNullOrEmpty(value) &&
-            long.TryParse(value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out result) &&
-            result > 0 &&
-            string.Equals(value, result.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
+               long.TryParse(value, System.Globalization.NumberStyles.None,
+                   System.Globalization.CultureInfo.InvariantCulture, out result) &&
+               result > 0 &&
+               string.Equals(value, result.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                   StringComparison.Ordinal);
     }
 
     private static bool TryNormalizeDiscordDelivery(
@@ -893,9 +908,9 @@ public static class UploadEndpoints
             .AsNoTracking()
             .FirstOrDefaultAsync(
                 upload => upload.DiscordId == discordId &&
-                    upload.GuildId == guildId &&
-                    upload.DpsReportUrl == canonicalUrl &&
-                    upload.SourceType == "url",
+                          upload.GuildId == guildId &&
+                          upload.DpsReportUrl == canonicalUrl &&
+                          upload.SourceType == "url",
                 ct);
 
     private static async Task<IResult> ExistingGw2UrlImportAsync(
@@ -1087,6 +1102,7 @@ public static class UploadEndpoints
         {
             return Results.NotFound();
         }
+
         if (string.IsNullOrEmpty(upload.DpsReportUrl))
         {
             return Results.BadRequest("No dps.report URL available.");
@@ -1111,7 +1127,8 @@ public static class UploadEndpoints
 
         await using var ctx = await dbContextFactory.CreateDbContextAsync();
         var uploads = await ctx.LogUpload
-            .Where(u => u.DiscordId == discordId && u.Status == "complete" && u.CreatedAt >= cutoff && u.DpsReportUrl != null)
+            .Where(u => u.DiscordId == discordId && u.Status == "complete" && u.CreatedAt >= cutoff &&
+                        u.DpsReportUrl != null)
             .Select(u => u.DpsReportUrl!)
             .ToListAsync();
 
@@ -1298,7 +1315,8 @@ public static class UploadEndpoints
     {
         public static TusUploadIdentityResult Success(TusUploadIdentity identity) => new(identity, null, null);
 
-        public static TusUploadIdentityResult Failed(HttpStatusCode status, string message) => new(null, status, message);
+        public static TusUploadIdentityResult Failed(HttpStatusCode status, string message) =>
+            new(null, status, message);
     }
 
     private sealed record Gw2UploadAccess(long DiscordId, string AccountName, IReadOnlyList<GuildSummaryDto> Guilds);

@@ -21,10 +21,12 @@ public class UploadEndpointsTests
     {
         public HashSet<ulong> GuildIds { get; } = [];
 
-        public Task<IReadOnlyList<DiscordUserGuild>?> GetUserGuildsAsync(ulong discordId, string accessToken, CancellationToken ct = default)
+        public Task<IReadOnlyList<DiscordUserGuild>?> GetUserGuildsAsync(ulong discordId, string accessToken,
+            CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<DiscordUserGuild>?>(BuildGuilds());
 
-        public Task<IReadOnlyList<DiscordUserGuild>?> GetForPrincipalAsync(ClaimsPrincipal user, CancellationToken ct = default)
+        public Task<IReadOnlyList<DiscordUserGuild>?> GetForPrincipalAsync(ClaimsPrincipal user,
+            CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<DiscordUserGuild>?>(BuildGuilds());
 
         public Task<bool> IsMemberAsync(ClaimsPrincipal user, ulong guildId, CancellationToken ct = default)
@@ -60,11 +62,8 @@ public class UploadEndpointsTests
         using var host = NewHost();
         host.AuthenticateAs(123L);
 
-        var response = await host.Client.PostAsJsonAsync("/api/upload/urls", new
-        {
-            Urls = new[] { "https://b.dps.report/abc," },
-            Wingman = false
-        });
+        var response = await host.Client.PostAsJsonAsync("/api/upload/urls",
+            new { Urls = new[] { "https://b.dps.report/abc," }, Wingman = false });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         await using var ctx = await host.DbFactory.CreateDbContextAsync();
@@ -80,16 +79,16 @@ public class UploadEndpointsTests
         using var host = NewHost();
         host.AuthenticateAs(123L);
 
-        var response = await host.Client.PostAsJsonAsync("/api/upload/urls", new
-        {
-            Urls = new[]
+        var response = await host.Client.PostAsJsonAsync("/api/upload/urls",
+            new
             {
-                "https://b.dps.report/abc",
-                "https://dps.report/abc",
-                "https://dps.report/getJson?permalink=abc"
-            },
-            Wingman = true
-        });
+                Urls = new[]
+                {
+                    "https://b.dps.report/abc", "https://dps.report/abc",
+                    "https://dps.report/getJson?permalink=abc"
+                },
+                Wingman = true
+            });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
@@ -109,10 +108,8 @@ public class UploadEndpointsTests
         using var host = NewHost();
         host.AuthenticateAs(123L);
 
-        var response = await host.Client.PostAsJsonAsync("/api/upload/urls", new
-        {
-            Urls = new[] { "https://dps.report/" }
-        });
+        var response =
+            await host.Client.PostAsJsonAsync("/api/upload/urls", new { Urls = new[] { "https://dps.report/" } });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -220,10 +217,7 @@ public class UploadEndpointsTests
     [Fact]
     public async Task TusCreate_GuildDefaultsAcknowledgesAndPersistsDeliveryIntent()
     {
-        var delivery = new FakeDiscordUploadDeliveryService
-        {
-            Validation = DiscordDeliveryValidationResult.Success()
-        };
+        var delivery = new FakeDiscordUploadDeliveryService { Validation = DiscordDeliveryValidationResult.Success() };
         using var host = NewLinkedGw2Host(delivery);
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/upload/tus");
         request.Headers.Add("Tus-Resumable", "1.0.0");
@@ -321,24 +315,9 @@ public class UploadEndpointsTests
                 GuildWarsGuilds = "stored-guild"
             });
             db.Guild.AddRange(
-                new Guild
-                {
-                    GuildId = 10,
-                    GuildName = "Live Guild",
-                    Gw2GuildMemberRoleId = "live-guild"
-                },
-                new Guild
-                {
-                    GuildId = 11,
-                    GuildName = "Stored Guild",
-                    Gw2SecondaryMemberRoleIds = "stored-guild"
-                },
-                new Guild
-                {
-                    GuildId = 12,
-                    GuildName = "Other Guild",
-                    Gw2GuildMemberRoleId = "other-guild"
-                });
+                new Guild { GuildId = 10, GuildName = "Live Guild", Gw2GuildMemberRoleId = "live-guild" },
+                new Guild { GuildId = 11, GuildName = "Stored Guild", Gw2SecondaryMemberRoleIds = "stored-guild" },
+                new Guild { GuildId = 12, GuildName = "Other Guild", Gw2GuildMemberRoleId = "other-guild" });
             await db.SaveChangesAsync();
         }
 
@@ -487,12 +466,34 @@ public class UploadEndpointsTests
     }
 
     [Fact]
+    public async Task SubmitGw2Url_CanonicalWvwReportCreatesUploadWithoutWingman()
+    {
+        using var host = NewLinkedGw2Host();
+        const string url = "https://wvw.report/TQk1-upload_wvw";
+
+        var response = await PostGw2UrlAsync(host, url: url);
+        var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        Assert.False(json.RootElement.GetProperty("duplicate").GetBoolean());
+        var uploadId = json.RootElement.GetProperty("uploadId").GetInt64();
+
+        await using var context = await host.DbFactory.CreateDbContextAsync();
+        var upload = Assert.Single(await context.LogUpload.ToListAsync());
+        Assert.Equal("TQk1-upload_wvw", upload.FileName);
+        Assert.Equal(url, upload.DpsReportUrl);
+        Assert.False(upload.SubmitToWingman);
+
+        var pipeline = host.Services.GetRequiredService<LogUploadPipelineService>();
+        Assert.True(pipeline.TryReadQueuedUpload(out var queuedUploadId));
+        Assert.Equal(uploadId, queuedUploadId);
+        Assert.False(pipeline.TryReadQueuedUpload(out _));
+    }
+
+    [Fact]
     public async Task SubmitGw2Url_GuildDefaultsPersistsAcceptedDeliveryIntent()
     {
-        var delivery = new FakeDiscordUploadDeliveryService
-        {
-            Validation = DiscordDeliveryValidationResult.Success()
-        };
+        var delivery = new FakeDiscordUploadDeliveryService { Validation = DiscordDeliveryValidationResult.Success() };
         using var host = NewLinkedGw2Host(delivery);
 
         var response = await PostGw2UrlAsync(
@@ -511,10 +512,7 @@ public class UploadEndpointsTests
     [Fact]
     public async Task SubmitGw2Url_ChannelOverridePersistsCanonicalChannel()
     {
-        var delivery = new FakeDiscordUploadDeliveryService
-        {
-            Validation = DiscordDeliveryValidationResult.Success()
-        };
+        var delivery = new FakeDiscordUploadDeliveryService { Validation = DiscordDeliveryValidationResult.Success() };
         using var host = NewLinkedGw2Host(delivery);
 
         var response = await PostGw2UrlAsync(
@@ -531,10 +529,7 @@ public class UploadEndpointsTests
     [Fact]
     public async Task SubmitGw2Url_UnknownDiscordDeliveryFieldReturnsBadRequest()
     {
-        var delivery = new FakeDiscordUploadDeliveryService
-        {
-            Validation = DiscordDeliveryValidationResult.Success()
-        };
+        var delivery = new FakeDiscordUploadDeliveryService { Validation = DiscordDeliveryValidationResult.Success() };
         using var host = NewLinkedGw2Host(delivery);
 
         var response = await PostGw2UrlAsync(
@@ -549,10 +544,7 @@ public class UploadEndpointsTests
     [Fact]
     public async Task SubmitGw2Url_DifferentDeliveryIntentReturnsConflictWithoutRetargeting()
     {
-        var delivery = new FakeDiscordUploadDeliveryService
-        {
-            Validation = DiscordDeliveryValidationResult.Success()
-        };
+        var delivery = new FakeDiscordUploadDeliveryService { Validation = DiscordDeliveryValidationResult.Success() };
         using var host = NewLinkedGw2Host(delivery);
         var first = await PostGw2UrlAsync(
             host,
@@ -587,10 +579,12 @@ public class UploadEndpointsTests
     [Theory]
     [InlineData("http://dps.report/abc")]
     [InlineData("https://b.dps.report/abc")]
-    [InlineData("https://wvw.report/abc")]
     [InlineData("https://gw2wingman.nevermindcreations.de/log/abc")]
     [InlineData("https://dps.report.evil.example/abc")]
+    [InlineData("https://wvw.report.evil.example/TQk1-upload_wvw")]
+    [InlineData("https://evil.example/wvw.report/TQk1-upload_wvw")]
     [InlineData("https://user@dps.report/abc")]
+    [InlineData("https://user@wvw.report/TQk1-upload_wvw")]
     [InlineData("https://dps.report/abc#fragment")]
     [InlineData("https://dps.report/abc?query=1")]
     [InlineData("https://dps.report/getJson?permalink=abc")]
@@ -629,12 +623,8 @@ public class UploadEndpointsTests
         using var host = NewLinkedGw2Host();
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/upload/gw2/url");
         request.Headers.Add("X-GW2-API-Key", "valid-key");
-        request.Content = JsonContent.Create(new
-        {
-            url = "https://dps.report/abc-123",
-            guildId = "42",
-            wingman = false
-        });
+        request.Content =
+            JsonContent.Create(new { url = "https://dps.report/abc-123", guildId = "42", wingman = false });
 
         var response = await host.Client.SendAsync(request);
 
@@ -677,6 +667,31 @@ public class UploadEndpointsTests
         Assert.False(pipeline.TryReadQueuedUpload(out _));
         await using var context = await host.DbFactory.CreateDbContextAsync();
         Assert.Single(context.LogUpload);
+    }
+
+    [Fact]
+    public async Task SubmitGw2Url_ActiveWvwDuplicateReturnsExistingReceiptWithoutSecondEnqueue()
+    {
+        using var host = NewLinkedGw2Host();
+        const string url = "https://wvw.report/TQk1-upload_wvw";
+        var firstResponse = await PostGw2UrlAsync(host, url: url);
+        var firstJson = JsonDocument.Parse(await firstResponse.Content.ReadAsStringAsync());
+        var uploadId = firstJson.RootElement.GetProperty("uploadId").GetInt64();
+        var pipeline = host.Services.GetRequiredService<LogUploadPipelineService>();
+        Assert.True(pipeline.TryReadQueuedUpload(out var queuedUploadId));
+        Assert.Equal(uploadId, queuedUploadId);
+
+        var duplicateResponse = await PostGw2UrlAsync(host, url: url);
+        var duplicateJson = JsonDocument.Parse(await duplicateResponse.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, duplicateResponse.StatusCode);
+        Assert.Equal(uploadId, duplicateJson.RootElement.GetProperty("uploadId").GetInt64());
+        Assert.True(duplicateJson.RootElement.GetProperty("duplicate").GetBoolean());
+        Assert.False(pipeline.TryReadQueuedUpload(out _));
+        await using var context = await host.DbFactory.CreateDbContextAsync();
+        var upload = Assert.Single(context.LogUpload);
+        Assert.Equal(url, upload.DpsReportUrl);
+        Assert.False(upload.SubmitToWingman);
     }
 
     [Fact]
@@ -856,9 +871,7 @@ public class UploadEndpointsTests
         using var context = host.DbFactory.CreateDbContext();
         context.GuildWarsAccount.Add(new GuildWarsAccount
         {
-            GuildWarsAccountId = accountId,
-            DiscordId = 123,
-            GuildWarsAccountName = "Player.1234"
+            GuildWarsAccountId = accountId, DiscordId = 123, GuildWarsAccountName = "Player.1234"
         });
         context.Guild.AddRange(
             new Guild { GuildId = 42, GuildName = "Allowed Guild" },
@@ -920,8 +933,10 @@ public class UploadEndpointsTests
             {
                 services.AddSingleton<ILogUploadProgressService, LogUploadProgressService>();
                 services.AddSingleton<LogUploadPipelineService>();
-                services.AddSingleton<IDiscordGuildMembershipService>(discordGuilds ?? new FakeDiscordGuildMembershipService());
-                services.AddSingleton<IDiscordUploadDeliveryService>(discordDelivery ?? new FakeDiscordUploadDeliveryService());
+                services.AddSingleton<IDiscordGuildMembershipService>(discordGuilds ??
+                                                                      new FakeDiscordGuildMembershipService());
+                services.AddSingleton<IDiscordUploadDeliveryService>(discordDelivery ??
+                                                                     new FakeDiscordUploadDeliveryService());
             },
             httpHandler: gw2Handler);
 
@@ -940,7 +955,8 @@ public class UploadEndpointsTests
 
     private sealed class ApiStubHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+            CancellationToken cancellationToken) =>
             Task.FromResult(respond(request));
     }
 }

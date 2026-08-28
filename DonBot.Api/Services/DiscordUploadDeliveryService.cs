@@ -15,7 +15,10 @@ public sealed record DiscordDeliveryCapabilities(
     bool DefaultsAvailable,
     bool ChannelOverrideAllowed,
     IReadOnlyList<string> EnabledMessageKinds,
-    IReadOnlyList<DiscordAuthorizedChannel> Channels);
+    IReadOnlyList<DiscordAuthorizedChannel> Channels,
+    bool AggregateEnabled = false,
+    int MaxAggregateFightLogs = AggregateDiscordDeliveryService.MaxFightLogs,
+    bool AggregateDefaultsAvailable = false);
 
 public sealed record DiscordDeliveryValidationResult(bool Accepted, string? ErrorCode)
 {
@@ -34,12 +37,8 @@ public sealed record DiscordDeliveryResult(
 {
     public static DiscordDeliveryResult NotRequested { get; } = new(false, "not_requested", 0, 0, 0, 0);
 
-    public static DiscordDeliveryResult FromReceipts(IReadOnlyCollection<LogUploadDiscordDeliveryReceipt> receipts)
+    public static DiscordDeliveryResult FromCounts(int sent, int skipped, int failed, int ambiguous)
     {
-        var sent = receipts.Count(receipt => receipt.Status == DiscordDeliveryReceiptStatuses.Sent);
-        var skipped = receipts.Count(receipt => receipt.Status == DiscordDeliveryReceiptStatuses.Skipped);
-        var failed = receipts.Count(receipt => receipt.Status == DiscordDeliveryReceiptStatuses.Failed);
-        var ambiguous = receipts.Count(receipt => receipt.Status == DiscordDeliveryReceiptStatuses.Ambiguous);
         var total = sent + skipped + failed + ambiguous;
         var outcome = total == 0 || skipped == total
             ? "skipped"
@@ -52,6 +51,15 @@ public sealed record DiscordDeliveryResult(
                         : "partial";
 
         return new DiscordDeliveryResult(true, outcome, sent, skipped, failed, ambiguous);
+    }
+
+    public static DiscordDeliveryResult FromReceipts(IReadOnlyCollection<LogUploadDiscordDeliveryReceipt> receipts)
+    {
+        var sent = receipts.Count(receipt => receipt.Status == DiscordDeliveryReceiptStatuses.Sent);
+        var skipped = receipts.Count(receipt => receipt.Status == DiscordDeliveryReceiptStatuses.Skipped);
+        var failed = receipts.Count(receipt => receipt.Status == DiscordDeliveryReceiptStatuses.Failed);
+        var ambiguous = receipts.Count(receipt => receipt.Status == DiscordDeliveryReceiptStatuses.Ambiguous);
+        return FromCounts(sent, skipped, failed, ambiguous);
     }
 }
 
@@ -102,18 +110,21 @@ public sealed class DiscordUploadDeliveryService(
         var messageKinds = EnabledMessageKinds(guild);
         if (!guild.MannyUploaderDiscordDeliveryEnabled)
         {
-            return new DiscordDeliveryCapabilities(false, false, false, [], []);
+            return new DiscordDeliveryCapabilities(false, false, false, [], [], false);
         }
 
-        var defaultChannelIds = DefaultChannelIds(guild).Distinct().ToList();
         var defaultsAvailable = false;
-        foreach (var channelId in defaultChannelIds)
+        var aggregateDefaultsAvailable = false;
+        foreach (var channelId in DefaultChannelIds(guild).Distinct())
         {
-            if (await IsAuthorizedChannelSafeAsync(discordId, guild.GuildId, channelId, ct))
+            if (!await IsAuthorizedChannelSafeAsync(discordId, guild.GuildId, channelId, ct))
             {
-                defaultsAvailable = true;
-                break;
+                continue;
             }
+
+            defaultsAvailable = true;
+            aggregateDefaultsAvailable = channelId == guild.LogReportChannelId;
+            break;
         }
 
         IReadOnlyList<DiscordAuthorizedChannel> channels = [];
@@ -130,7 +141,10 @@ public sealed class DiscordUploadDeliveryService(
             defaultsAvailable,
             guild.MannyUploaderChannelOverrideEnabled,
             messageKinds,
-            channels);
+            channels,
+            true,
+            AggregateDiscordDeliveryService.MaxFightLogs,
+            aggregateDefaultsAvailable);
     }
 
     public async Task<DiscordDeliveryValidationResult> ValidateAsync(

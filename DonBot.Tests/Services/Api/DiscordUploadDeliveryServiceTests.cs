@@ -326,6 +326,55 @@ public class DiscordUploadDeliveryServiceTests
         Assert.True(result.Enabled);
         Assert.False(result.DefaultsAvailable);
         Assert.Empty(result.Channels);
+        Assert.True(result.AggregateEnabled);
+        Assert.Equal(100, result.MaxAggregateFightLogs);
+    }
+
+    [Fact]
+    public async Task GetCapabilitiesAsync_AdvancedChannelPreservesExistingDefaultsWithoutAggregateDefaults()
+    {
+        using var db = new SqliteTestDb();
+        var gateway = new FakeGateway([200]);
+        var service = CreateService(db, gateway);
+        var guild = new Guild
+        {
+            GuildId = 42, AdvanceLogReportChannelId = 200, MannyUploaderDiscordDeliveryEnabled = true
+        };
+
+        var result = await service.GetCapabilitiesAsync(guild, 123);
+
+        Assert.True(result.Enabled);
+        Assert.True(result.DefaultsAvailable);
+        Assert.True(result.AggregateEnabled);
+        Assert.Equal(100, result.MaxAggregateFightLogs);
+        Assert.False(result.AggregateDefaultsAvailable);
+    }
+
+    [Fact]
+    public async Task GetCapabilitiesAsync_DisabledGuildDoesNotAdvertiseAggregateDelivery()
+    {
+        using var db = new SqliteTestDb();
+        var service = CreateService(db, new FakeGateway([100]));
+        var guild = new Guild { GuildId = 42, LogReportChannelId = 100 };
+
+        var result = await service.GetCapabilitiesAsync(guild, 123);
+
+        Assert.False(result.Enabled);
+        Assert.False(result.AggregateEnabled);
+        Assert.Equal(100, result.MaxAggregateFightLogs);
+    }
+
+    [Fact]
+    public async Task GetCapabilitiesAsync_StreamChannelPreservesExistingDefaultsWithoutAggregateDefaults()
+    {
+        using var db = new SqliteTestDb();
+        var service = CreateService(db, new FakeGateway([300]));
+        var guild = new Guild { GuildId = 42, StreamLogChannelId = 300, MannyUploaderDiscordDeliveryEnabled = true };
+
+        var result = await service.GetCapabilitiesAsync(guild, 123);
+
+        Assert.True(result.DefaultsAvailable);
+        Assert.False(result.AggregateDefaultsAvailable);
     }
 
     private static DiscordUploadDeliveryService CreateService(SqliteTestDb db, FakeGateway gateway) =>

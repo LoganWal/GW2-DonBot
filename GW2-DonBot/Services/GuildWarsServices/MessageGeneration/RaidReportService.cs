@@ -15,6 +15,8 @@ public sealed class RaidReportService(
     IWvWFightSummaryService wvWFightSummaryService,
     IConfiguration configuration) : IRaidReportService
 {
+    internal const int MaxDiscordButtonUrlLength = 512;
+
     // Kept within DiscordTable.MaxRowWidth for Discord mobile embeds.
     internal static readonly DiscordTable.Column[] SurvivabilityColumns =
     [
@@ -69,14 +71,19 @@ public sealed class RaidReportService(
             return (null, null);
         }
 
-        var fights = (await entityService.FightLog.GetWhereAsync(s => s.GuildId == guildId && s.FightStart >= fightsReport.FightsStart && s.FightStart <= fightsReport.FightsEnd)).OrderBy(s => s.FightStart).ToList();
+        var fights = (await entityService.FightLog.GetWhereAsync(s =>
+                s.GuildId == guildId && s.FightStart >= fightsReport.FightsStart &&
+                s.FightStart <= fightsReport.FightsEnd))
+            .OrderBy(s => s.FightStart).ToList();
         return await GetRaidReport(guildId, fights, messages);
     }
 
-    public async Task<(List<Embed>? Embeds, string? WebAppUrl)> GenerateSimpleReply(List<long> fightLogIds, long guildId)
+    public async Task<(List<Embed>? Embeds, string? WebAppUrl)> GenerateSimpleReply(List<long> fightLogIds,
+        long guildId)
     {
         var messages = new List<Embed>();
-        var fights = (await entityService.FightLog.GetWhereAsync(s => fightLogIds.Contains(s.FightLogId))).ToList();
+        var fights = (await entityService.FightLog.GetWhereAsync(s =>
+            s.GuildId == guildId && fightLogIds.Contains(s.FightLogId))).ToList();
 
         return await GetRaidReport(guildId, fights, messages);
     }
@@ -96,8 +103,7 @@ public sealed class RaidReportService(
             },
             Footer = new EmbedFooterBuilder()
             {
-                Text = $"{await footerService.Generate(guildId)}",
-                IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+                Text = $"{await footerService.Generate(guildId)}", IconUrl = "https://i.imgur.com/tQ4LD6H.png"
             },
             Timestamp = DateTime.Now
         };
@@ -152,7 +158,8 @@ public sealed class RaidReportService(
         return $"```{SurvivabilityHeader}{string.Concat(rows)}```";
     }
 
-    private static IReadOnlyList<string> BuildSurvivabilityRows(List<IGrouping<string, PlayerFightLog>> groupedPlayerFights)
+    private static IReadOnlyList<string> BuildSurvivabilityRows(
+        List<IGrouping<string, PlayerFightLog>> groupedPlayerFights)
     {
         var allLogs = groupedPlayerFights.SelectMany(g => g).ToList();
 
@@ -169,14 +176,16 @@ public sealed class RaidReportService(
             .OrderBy(s => s.Sum(d => d.ResurrectionTime))
             .Select(gw2Player => DiscordTable.Row(SurvivabilityColumns,
                 gw2Player.FirstOrDefault()?.GuildWarsAccountName.ClipAt(13) ?? string.Empty,
-                Math.Round((double)gw2Player.Sum(s => s.ResurrectionTime) / 1000, 3).ToString(CultureInfo.CurrentCulture),
+                Math.Round((double)gw2Player.Sum(s => s.ResurrectionTime) / 1000, 3)
+                    .ToString(CultureInfo.CurrentCulture),
                 gw2Player.Sum(s => s.DamageTaken).ToString(CultureInfo.CurrentCulture),
                 gw2Player.Sum(s => s.TimesDowned).ToString(CultureInfo.CurrentCulture),
                 firstToDieCounts.GetValueOrDefault(gw2Player.Key, 0).ToString(CultureInfo.CurrentCulture)))
             .ToList();
     }
 
-    private static void AddChunkedCodeFenceFields(EmbedBuilder message, string fieldName, string header, IEnumerable<string> rows, int chunkSize = 12)
+    private static void AddChunkedCodeFenceFields(EmbedBuilder message, string fieldName, string header,
+        IEnumerable<string> rows, int chunkSize = 12)
     {
         var buffer = new List<string>();
         foreach (var row in rows)
@@ -185,7 +194,12 @@ public sealed class RaidReportService(
             if (buffer.Count == chunkSize)
             {
                 var value = $"```{header}{string.Concat(buffer)}```";
-                message.AddField(x => { x.Name = fieldName; x.Value = value; x.IsInline = false; });
+                message.AddField(x =>
+                {
+                    x.Name = fieldName;
+                    x.Value = value;
+                    x.IsInline = false;
+                });
                 buffer.Clear();
             }
         }
@@ -193,11 +207,17 @@ public sealed class RaidReportService(
         if (buffer.Count > 0)
         {
             var value = $"```{header}{string.Concat(buffer)}```";
-            message.AddField(x => { x.Name = fieldName; x.Value = value; x.IsInline = false; });
+            message.AddField(x =>
+            {
+                x.Name = fieldName;
+                x.Value = value;
+                x.IsInline = false;
+            });
         }
     }
 
-    private async Task<(List<Embed>? Embeds, string? WebAppUrl)> GetRaidReport(long guildId, List<FightLog> fights, List<Embed> messages)
+    private async Task<(List<Embed>? Embeds, string? WebAppUrl)> GetRaidReport(long guildId, List<FightLog> fights,
+        List<Embed> messages)
     {
         fights = fights.OrderBy(s => s.FightStart).ToList();
         var fightLogIds = fights.Select(f => f.FightLogId).ToList();
@@ -205,7 +225,8 @@ public sealed class RaidReportService(
         var playerFightLogIds = playerFights.Select(p => p.PlayerFightLogId).ToList();
         await entityService.PlayerFightLogMechanic.GetWhereAsync(m => playerFightLogIds.Contains(m.PlayerFightLogId));
 
-        var groupedPlayerFights = playerFights.GroupBy(s => s.GuildWarsAccountName).OrderByDescending(s => s.Sum(d => d.Damage)).ToList();
+        var groupedPlayerFights = playerFights.GroupBy(s => s.GuildWarsAccountName)
+            .OrderByDescending(s => s.Sum(d => d.Damage)).ToList();
         var groupedFights = fights.GroupBy(f => f.FightType).OrderBy(f => f.Key).ToList();
 
         if (!fights.Any() || !playerFights.Any())
@@ -217,25 +238,27 @@ public sealed class RaidReportService(
         var lastFight = fights.Last();
 
         var duration = lastFight.FightStart.AddMilliseconds(lastFight.FightDurationInMs) - firstFight.FightStart;
-        var durationString = $"{(int)duration.TotalHours} hrs {(int)duration.TotalMinutes % 60} mins {duration.Seconds} secs";
+        var durationString =
+            $"{(int)duration.TotalHours} hrs {(int)duration.TotalMinutes % 60} mins {duration.Seconds} secs";
 
-        var wvwFightCount = fights.Count(s => s.FightType == (short)FightTypesEnum.WvW && s.FightType != (short)FightTypesEnum.Unkn);
-        var pveFightCount = fights.Count(s => s.FightType != (short)FightTypesEnum.WvW && s.FightType != (short)FightTypesEnum.Unkn);
+        var wvwFightCount = fights.Count(s =>
+            s.FightType == (short)FightTypesEnum.WvW && s.FightType != (short)FightTypesEnum.Unkn);
+        var pveFightCount = fights.Count(s =>
+            s.FightType != (short)FightTypesEnum.WvW && s.FightType != (short)FightTypesEnum.Unkn);
 
         if (wvwFightCount > pveFightCount)
         {
             messages.Add(await GenerateWvWRaidReport(durationString, groupedPlayerFights, false, guildId));
             messages.Add(await GenerateWvWRaidReport(durationString, groupedPlayerFights, true, guildId));
-
         }
         else
         {
-            messages.AddRange(await GeneratePvERaidReport(durationString, groupedFights, groupedPlayerFights, fights, guildId));
+            messages.AddRange(await GeneratePvERaidReport(durationString, groupedFights, groupedPlayerFights, fights,
+                guildId));
             var successLogs = await GeneratePvERaidLogReport(durationString, fights, true, guildId);
             if (successLogs != null)
             {
                 messages.Add(successLogs);
-
             }
 
             var failedLogs = await GeneratePvERaidLogReport(durationString, fights, false, guildId);
@@ -247,13 +270,7 @@ public sealed class RaidReportService(
 
         if (messages.Count > 0)
         {
-            var webAppBaseUrl = configuration["WebApp:BaseUrl"];
-            string? webAppUrl = null;
-            if (!string.IsNullOrEmpty(webAppBaseUrl))
-            {
-                var ids = string.Join(",", fightLogIds);
-                webAppUrl = $"{webAppBaseUrl}/logs/aggregate?ids={ids}";
-            }
+            var webAppUrl = BuildAggregateWebAppUrl(configuration["WebApp:BaseUrl"], fightLogIds);
 
             var lastBuilder = messages[^1].ToEmbedBuilder();
             footerService.AddInviteLink(lastBuilder);
@@ -265,7 +282,20 @@ public sealed class RaidReportService(
         return (messages, null);
     }
 
-    private async Task<Embed> GenerateWvWRaidReport(string durationString, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, bool advancedLog, long guildId)
+    internal static string? BuildAggregateWebAppUrl(string? webAppBaseUrl, IReadOnlyList<long> fightLogIds)
+    {
+        if (string.IsNullOrEmpty(webAppBaseUrl))
+        {
+            return null;
+        }
+
+        var ids = string.Join(",", fightLogIds);
+        var url = $"{webAppBaseUrl}/logs/aggregate?ids={ids}";
+        return url.Length <= MaxDiscordButtonUrlLength ? url : null;
+    }
+
+    private async Task<Embed> GenerateWvWRaidReport(string durationString,
+        List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, bool advancedLog, long guildId)
     {
         var message = new EmbedBuilder
         {
@@ -286,15 +316,15 @@ public sealed class RaidReportService(
 
         message.Footer = new EmbedFooterBuilder()
         {
-            Text = $"{await footerService.Generate(guildId)}",
-            IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+            Text = $"{await footerService.Generate(guildId)}", IconUrl = "https://i.imgur.com/tQ4LD6H.png"
         };
 
         message.Timestamp = DateTime.Now;
 
         var statTotals = new StatTotals
         {
-            TotalStrips = groupedPlayerFights.Select(groupedPlayerFight => groupedPlayerFight.ToList()).Select(values => values.Sum(s => s.Strips)).Sum()
+            TotalStrips = groupedPlayerFights.Select(groupedPlayerFight => groupedPlayerFight.ToList())
+                .Select(values => values.Sum(s => s.Strips)).Sum()
         };
 
         if (!advancedLog)
@@ -322,6 +352,7 @@ public sealed class RaidReportService(
                     Math.Round(subData.Average(s => s.TotalAlac), 2).ToString(CultureInfo.CurrentCulture),
                     subData.Sum(s => s.TimesInterrupted).ToString(CultureInfo.CurrentCulture));
             }
+
             subOverview += "```";
 
             message.AddField(x =>
@@ -335,7 +366,9 @@ public sealed class RaidReportService(
         return await wvWFightSummaryService.GenerateMessage(advancedLog, 10, gw2Players, message, guildId, statTotals);
     }
 
-    private async Task<List<Embed>> GeneratePvERaidReport(string durationString, List<IGrouping<short, FightLog>> groupedFights, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights, List<FightLog> fights, long guildId)
+    private async Task<List<Embed>> GeneratePvERaidReport(string durationString,
+        List<IGrouping<short, FightLog>> groupedFights, List<IGrouping<string, PlayerFightLog>> groupedPlayerFights,
+        List<FightLog> fights, long guildId)
     {
         var color = (Color)System.Drawing.Color.FromArgb(195, 0, 101);
         var author = new EmbedAuthorBuilder
@@ -344,7 +377,11 @@ public sealed class RaidReportService(
             Url = "https://github.com/LoganWal/GW2-DonBot",
             IconUrl = "https://i.imgur.com/tQ4LD6H.png"
         };
-        async Task<EmbedFooterBuilder> Footer() => new() { Text = await footerService.Generate(guildId), IconUrl = "https://i.imgur.com/tQ4LD6H.png" };
+
+        async Task<EmbedFooterBuilder> Footer() => new()
+        {
+            Text = await footerService.Generate(guildId), IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+        };
 
         var fightsEmbed = new EmbedBuilder
         {
@@ -376,18 +413,26 @@ public sealed class RaidReportService(
                 var fightTypeFightModeList = fightTypeFightMode.ToList();
 
                 var bestFightTime = TimeSpan.FromMilliseconds(bestFight?.FightDurationInMs ?? 0);
-                var bestFightTimeString = bestFightTime.Ticks != 0 ? $"{(bestFightTime.Hours * 60) + bestFightTime.Minutes:D2}m:{bestFightTime.Seconds:D2}s" : "None   ";
+                var bestFightTimeString = bestFightTime.Ticks != 0
+                    ? $"{(bestFightTime.Hours * 60) + bestFightTime.Minutes:D2}m:{bestFightTime.Seconds:D2}s"
+                    : "None   ";
 
                 var successFights = fightTypeFightModeList.Where(s => s.IsSuccess).ToList();
-                var successFightTime = TimeSpan.FromMilliseconds(successFights.Count != 0 ? successFights.Min(s => s.FightDurationInMs) : 0);
-                var successFightTimeString = successFightTime.Ticks != 0 ? $"{(successFightTime.Hours * 60) + successFightTime.Minutes:D2}m:{successFightTime.Seconds:D2}s" : "None   ";
+                var successFightTime =
+                    TimeSpan.FromMilliseconds(
+                        successFights.Count != 0 ? successFights.Min(s => s.FightDurationInMs) : 0);
+                var successFightTimeString = successFightTime.Ticks != 0
+                    ? $"{(successFightTime.Hours * 60) + successFightTime.Minutes:D2}m:{successFightTime.Seconds:D2}s"
+                    : "None   ";
 
                 if (successFightTime <= bestFightTime && successFightTime.Ticks != 0)
                 {
                     successFightTimeString += " (!)";
                 }
 
-                var fightName = $"({fightTypeFightMode.Key.GetFightModeName()}){Enum.GetName(typeof(FightTypesEnum), groupedFight.Key) ?? nameof(FightTypesEnum.Unkn)}".ClipAt(13);
+                var fightName =
+                    $"({fightTypeFightMode.Key.GetFightModeName()}){Enum.GetName(typeof(FightTypesEnum), groupedFight.Key) ?? nameof(FightTypesEnum.Unkn)}"
+                        .ClipAt(13);
                 fightRows.Add(DiscordTable.Row(FightsColumns,
                     fightName,
                     bestFightTimeString.Trim(),
@@ -400,17 +445,15 @@ public sealed class RaidReportService(
 
         var playerEmbed = new EmbedBuilder
         {
-            Color = color,
-            Author = author,
-            Footer = await Footer(),
-            Timestamp = DateTime.Now
+            Color = color, Author = author, Footer = await Footer(), Timestamp = DateTime.Now
         };
 
         var playerLineByDmg = new List<Tuple<float, string>>();
         foreach (var groupedPlayerFight in groupedPlayerFights)
         {
             var playerFightsListForType = groupedPlayerFight.ToList();
-            var playerFights = fights.Where(f => playerFightsListForType.Select(s => s.FightLogId).Contains(f.FightLogId));
+            var playerFights =
+                fights.Where(f => playerFightsListForType.Select(s => s.FightLogId).Contains(f.FightLogId));
 
             var totalFightTimeSec = playerFights.Sum(s => s.FightDurationInMs) / 1000f;
             var dps = playerFightsListForType.Sum(s => s.Damage / totalFightTimeSec);
@@ -418,22 +461,23 @@ public sealed class RaidReportService(
                 groupedPlayerFight.Key.ClipAt(12),
                 dps.FormatNumber(true),
                 playerFightsListForType.Sum(s => s.Cleave / totalFightTimeSec).FormatNumber(true),
-                Math.Round(playerFightsListForType.Average(s => s.AlacDuration), 1).ToString(CultureInfo.CurrentCulture),
-                Math.Round(playerFightsListForType.Average(s => s.QuicknessDuration), 1).ToString(CultureInfo.CurrentCulture));
+                Math.Round(playerFightsListForType.Average(s => s.AlacDuration), 1)
+                    .ToString(CultureInfo.CurrentCulture),
+                Math.Round(playerFightsListForType.Average(s => s.QuicknessDuration), 1)
+                    .ToString(CultureInfo.CurrentCulture));
             playerLineByDmg.Add(new Tuple<float, string>(dps, playerLine));
         }
 
-        AddChunkedCodeFenceFields(playerEmbed, "Player Overview", DiscordTable.Header(PlayerColumns), playerLineByDmg.OrderByDescending(s => s.Item1).Select(t => t.Item2));
+        AddChunkedCodeFenceFields(playerEmbed, "Player Overview", DiscordTable.Header(PlayerColumns),
+            playerLineByDmg.OrderByDescending(s => s.Item1).Select(t => t.Item2));
 
         var surviveEmbed = new EmbedBuilder
         {
-            Color = color,
-            Author = author,
-            Footer = await Footer(),
-            Timestamp = DateTime.Now
+            Color = color, Author = author, Footer = await Footer(), Timestamp = DateTime.Now
         };
 
-        AddChunkedCodeFenceFields(surviveEmbed, "Survivability Overview", SurvivabilityHeader, BuildSurvivabilityRows(groupedPlayerFights));
+        AddChunkedCodeFenceFields(surviveEmbed, "Survivability Overview", SurvivabilityHeader,
+            BuildSurvivabilityRows(groupedPlayerFights));
 
         footerService.AddWidthSpacer(fightsEmbed);
         footerService.AddWidthSpacer(playerEmbed);
@@ -476,7 +520,8 @@ public sealed class RaidReportService(
             .OrderByDescending(x => x.Total)
             .ToList();
 
-    private async Task<Embed?> GeneratePvERaidLogReport(string durationString, List<FightLog> fights, bool isSuccessLogs, long guildId)
+    private async Task<Embed?> GeneratePvERaidLogReport(string durationString, List<FightLog> fights,
+        bool isSuccessLogs, long guildId)
     {
         var fightLogs = fights.Where(s => s.IsSuccess == isSuccessLogs).ToList();
         if (!fightLogs.Any())
@@ -486,7 +531,8 @@ public sealed class RaidReportService(
 
         if (!isSuccessLogs)
         {
-            fightLogs = fightLogs.OrderBy(s => s.FightType).ThenBy(s => s.FightPhase).ThenByDescending(s => s.FightPercent).ToList();
+            fightLogs = fightLogs.OrderBy(s => s.FightType).ThenBy(s => s.FightPhase)
+                .ThenByDescending(s => s.FightPercent).ToList();
         }
 
         var message = new EmbedBuilder
@@ -509,8 +555,11 @@ public sealed class RaidReportService(
 
             foreach (var item in currentBatch)
             {
-                var failedPercentageString = !isSuccessLogs ? $"{(item.FightPhase != null ? ($" - P{item.FightPhase}") : string.Empty)} - {item.FightPercent}%" : string.Empty;
-                fightUrlOverview += $"{Enum.GetName(typeof(FightTypesEnum), item.FightType)} - {item.FightMode.GetFightModeName()}{failedPercentageString} - {item.Url}\n";
+                var failedPercentageString = !isSuccessLogs
+                    ? $"{(item.FightPhase != null ? ($" - P{item.FightPhase}") : string.Empty)} - {item.FightPercent}%"
+                    : string.Empty;
+                fightUrlOverview +=
+                    $"{Enum.GetName(typeof(FightTypesEnum), item.FightType)} - {item.FightMode.GetFightModeName()}{failedPercentageString} - {item.Url}\n";
             }
 
             message.AddField(x =>
@@ -523,8 +572,7 @@ public sealed class RaidReportService(
 
         message.Footer = new EmbedFooterBuilder()
         {
-            Text = $"{await footerService.Generate(guildId)}",
-            IconUrl = "https://i.imgur.com/tQ4LD6H.png"
+            Text = $"{await footerService.Generate(guildId)}", IconUrl = "https://i.imgur.com/tQ4LD6H.png"
         };
 
         message.Timestamp = DateTime.Now;

@@ -48,13 +48,11 @@ public class RaidReportSimpleReplyTests
     {
         var fights = new List<FightLog>
         {
-            MakeFight(1, "https://b.dps.report/a"),
-            MakeFight(2, "https://b.dps.report/b")
+            MakeFight(1, "https://b.dps.report/a"), MakeFight(2, "https://b.dps.report/b")
         };
         var playerFights = new List<PlayerFightLog>
         {
-            MakePlayerFight(fightLogId: 1, playerFightLogId: 1),
-            MakePlayerFight(fightLogId: 2, playerFightLogId: 2)
+            MakePlayerFight(fightLogId: 1, playerFightLogId: 1), MakePlayerFight(fightLogId: 2, playerFightLogId: 2)
         };
         var service = BuildService(fights, playerFights);
 
@@ -87,6 +85,31 @@ public class RaidReportSimpleReplyTests
         var fightsOverviewField = embeds[0].Fields.FirstOrDefault(f => f.Name == "Fights Overview");
         Assert.NotEqual(default, fightsOverviewField);
         Assert.Contains(" 3\n", fightsOverviewField.Value);
+    }
+
+    [Fact]
+    public async Task GenerateSimpleReply_FightOwnedByAnotherGuildIsExcluded()
+    {
+        var otherGuildFight = MakeFight(42, "https://b.dps.report/other-guild");
+        otherGuildFight.GuildId = 2;
+        var service = BuildService([otherGuildFight], [MakePlayerFight(42)]);
+
+        var (embeds, webAppUrl) = await service.GenerateSimpleReply([42], GuildId);
+
+        Assert.Null(embeds);
+        Assert.Null(webAppUrl);
+    }
+
+    [Fact]
+    public void BuildAggregateWebAppUrl_OverDiscordButtonLimitReturnsNull()
+    {
+        var fightLogIds = Enumerable.Range(0, 100)
+            .Select(index => long.MaxValue - index)
+            .ToList();
+
+        var result = RaidReportService.BuildAggregateWebAppUrl("https://donbot.example", fightLogIds);
+
+        Assert.Null(result);
     }
 
     private static FightLog MakeFight(long id, string url) => new()

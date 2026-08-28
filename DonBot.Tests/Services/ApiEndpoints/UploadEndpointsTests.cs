@@ -44,11 +44,14 @@ public class UploadEndpointsTests
     {
         public HashSet<long> GuildIds { get; } = [];
 
+        public int CallCount { get; private set; }
+
         public Task<IReadOnlySet<long>> GetMemberGuildIdsAsync(
             long discordId,
             IReadOnlyCollection<long> guildIds,
             CancellationToken ct = default)
         {
+            CallCount++;
             var result = guildIds
                 .Where(GuildIds.Contains)
                 .ToHashSet();
@@ -343,7 +346,10 @@ public class UploadEndpointsTests
                 true,
                 true,
                 [DiscordDeliveryMessageKinds.PveSummary, DiscordDeliveryMessageKinds.WvwSummary],
-                [new DiscordAuthorizedChannel(99, "logs")])
+                [new DiscordAuthorizedChannel(99, "logs")],
+                true,
+                100,
+                true)
         };
         using var host = NewLinkedGw2Host(delivery);
 
@@ -354,13 +360,268 @@ public class UploadEndpointsTests
         Assert.Contains(
             "discord-summary-delivery-v1",
             json.RootElement.GetProperty("capabilities").EnumerateArray().Select(item => item.GetString()));
+        Assert.Contains(
+            "discord-aggregate-delivery-v1",
+            json.RootElement.GetProperty("capabilities").EnumerateArray().Select(item => item.GetString()));
         var guild = json.RootElement.GetProperty("guilds").EnumerateArray()
             .Single(item => item.GetProperty("guildId").GetString() == "42");
         var discordDelivery = guild.GetProperty("discordDelivery");
         Assert.True(discordDelivery.GetProperty("enabled").GetBoolean());
         Assert.True(discordDelivery.GetProperty("defaultsAvailable").GetBoolean());
         Assert.True(discordDelivery.GetProperty("channelOverrideAllowed").GetBoolean());
+        Assert.True(discordDelivery.GetProperty("aggregateEnabled").GetBoolean());
+        Assert.Equal(100, discordDelivery.GetProperty("maxAggregateFightLogs").GetInt32());
+        Assert.True(discordDelivery.GetProperty("aggregateDefaultsAvailable").GetBoolean());
         Assert.Equal("99", discordDelivery.GetProperty("channels")[0].GetProperty("channelId").GetString());
+    }
+
+    [Fact]
+    public async Task SubmitGw2Aggregate_GuildDefaultsReturnsNormalizedResultAndExactRequest()
+    {
+        var aggregate = new FakeAggregateDiscordDeliveryService
+        {
+            Attempt = AggregateDiscordDeliveryAttempt.Completed(
+                new AggregateDiscordDeliveryResult(3, DiscordDeliveryResult.FromCounts(2, 0, 0, 0)))
+        };
+        using var host = NewLinkedGw2Host(aggregateDelivery: aggregate);
+
+        var response = await PostGw2AggregateAsync(host, ["101", "102", "103"]);
+        var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(3, json.RootElement.GetProperty("fightLogCount").GetInt32());
+        var delivery = json.RootElement.GetProperty("discordDelivery");
+        Assert.True(delivery.GetProperty("requested").GetBoolean());
+        Assert.Equal("sent", delivery.GetProperty("outcome").GetString());
+        Assert.Equal(2, delivery.GetProperty("sent").GetInt32());
+        var request = Assert.Single(aggregate.Requests);
+        Assert.Equal(123, request.DiscordId);
+        Assert.Equal(42, request.GuildId);
+        Assert.Equal([101, 102, 103], request.FightLogIds);
+        Assert.Equal(DiscordDeliveryModes.GuildDefaults, request.Mode);
+        Assert.Null(request.ChannelId);
+        Assert.Equal(0,
+            Assert.IsType<FakeDiscordGuildMembershipService>(
+                host.Services.GetRequiredService<IDiscordGuildMembershipService>()).CallCount);
+    }
+
+    [Fact]
+    public async Task SubmitGw2Aggregate_ChannelOverridePreservesExactTarget()
+    {
+        var aggregate = new FakeAggregateDiscordDeliveryService();
+        using var host = NewLinkedGw2Host(aggregateDelivery: aggregate);
+
+        var response = await PostGw2AggregateAsync(
+            host,
+            ["101", "102"],
+            new { mode = DiscordDeliveryModes.ChannelOverride, channelId = "99" });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var request = Assert.Single(aggregate.Requests);
+        Assert.Equal(DiscordDeliveryModes.ChannelOverride, request.Mode);
+        Assert.Equal(99, request.ChannelId);
+    }
+
+    [Theory]
+    [InlineData("{\"guildId\":\"42\",\"fightLogIds\":[\"101\"],\"discordDelivery\":{\"mode\":\"guild_defaults\"}}")]
+    [InlineData(
+        "{\"guildId\":\"42\",\"fightLogIds\":[\"101\",\"101\"],\"discordDelivery\":{\"mode\":\"guild_defaults\"}}")]
+    [InlineData(
+        "{\"guildId\":\"042\",\"fightLogIds\":[\"101\",\"102\"],\"discordDelivery\":{\"mode\":\"guild_defaults\"}}")]
+    [InlineData(
+        "{\"guildId\":\"42\",\"fightLogIds\":[\"0\",\"102\"],\"discordDelivery\":{\"mode\":\"guild_defaults\"}}")]
+    [InlineData(
+        "{\"guildId\":\"42\",\"fightLogIds\":[\"101\",\"102\"],\"discordDelivery\":{\"mode\":\"guild_defaults\",\"channelId\":null}}")]
+    [InlineData(
+        "{\"guildId\":\"42\",\"fightLogIds\":[\"101\",\"102\"],\"discordDelivery\":{\"mode\":\"channel_override\"}}")]
+    [InlineData(
+        "{\"guildId\":\"42\",\"fightLogIds\":[\"101\",\"102\"],\"discordDelivery\":{\"mode\":\"guild_defaults\",\"extra\":true}}")]
+    [InlineData(
+        "{\"guildId\":\"42\",\"fightLogIds\":[\"101\",\"102\"],\"discordDelivery\":{\"mode\":\"guild_defaults\"},\"extra\":true}")]
+    [InlineData(
+        "{\"guildId\":\"42\",\"guildId\":\"43\",\"fightLogIds\":[\"101\",\"102\"],\"discordDelivery\":{\"mode\":\"guild_defaults\"}}")]
+    [InlineData(
+        "{\"guildId\":\"42\",\"fightLogIds\":[\"101\",\"102\"],\"discordDelivery\":{\"mode\":\"guild_defaults\",\"mode\":\"channel_override\",\"channelId\":\"99\"}}")]
+    public async Task SubmitGw2Aggregate_InvalidContractReturnsBadRequestWithoutDelivery(string body)
+    {
+        var aggregate = new FakeAggregateDiscordDeliveryService();
+        using var host = NewLinkedGw2Host(aggregateDelivery: aggregate);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/upload/gw2/aggregate");
+        request.Headers.Add("X-GW2-API-Key", "valid-key");
+        request.Content = new StringContent(body, Encoding.UTF8, "application/json");
+
+        var response = await host.Client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Empty(aggregate.Requests);
+    }
+
+    [Fact]
+    public async Task SubmitGw2Aggregate_OneHundredAndOneFightsReturnsBadRequest()
+    {
+        var aggregate = new FakeAggregateDiscordDeliveryService();
+        using var host = NewLinkedGw2Host(aggregateDelivery: aggregate);
+        var ids = Enumerable.Range(1, 101).Select(id => id.ToString()).ToArray();
+
+        var response = await PostGw2AggregateAsync(host, ids);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Empty(aggregate.Requests);
+    }
+
+    [Fact]
+    public async Task SubmitGw2Aggregate_OversizedFixedLengthBodyReturnsBadRequestWithoutDelivery()
+    {
+        var aggregate = new FakeAggregateDiscordDeliveryService();
+        using var host = NewLinkedGw2Host(aggregateDelivery: aggregate);
+        var body = "{\"guildId\":\"42\",\"fightLogIds\":[\"" + new string('1', 20_000) +
+                   "\",\"102\"],\"discordDelivery\":{\"mode\":\"guild_defaults\"}}";
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/upload/gw2/aggregate");
+        request.Headers.Add("X-GW2-API-Key", "valid-key");
+        request.Content = new StringContent(body, Encoding.UTF8, "application/json");
+
+        var response = await host.Client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Empty(aggregate.Requests);
+    }
+
+    [Fact]
+    public async Task SubmitGw2Aggregate_OversizedChunkedBodyReturnsBadRequestWithoutDelivery()
+    {
+        var aggregate = new FakeAggregateDiscordDeliveryService();
+        using var host = NewLinkedGw2Host(aggregateDelivery: aggregate);
+        var body = "{\"guildId\":\"42\",\"fightLogIds\":[\"" + new string('1', 20_000) +
+                   "\",\"102\"],\"discordDelivery\":{\"mode\":\"guild_defaults\"}}";
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/upload/gw2/aggregate");
+        request.Headers.Add("X-GW2-API-Key", "valid-key");
+        request.Content = new ChunkedJsonContent(body);
+
+        var response = await host.Client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Empty(aggregate.Requests);
+    }
+
+    [Fact]
+    public async Task SubmitGw2Aggregate_OneHundredFightsIsAccepted()
+    {
+        var aggregate = new FakeAggregateDiscordDeliveryService
+        {
+            Attempt = AggregateDiscordDeliveryAttempt.Completed(
+                new AggregateDiscordDeliveryResult(100, DiscordDeliveryResult.FromCounts(1, 0, 0, 0)))
+        };
+        using var host = NewLinkedGw2Host(aggregateDelivery: aggregate);
+        var ids = Enumerable.Range(1, 100).Select(id => id.ToString()).ToArray();
+
+        var response = await PostGw2AggregateAsync(host, ids);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(100, Assert.Single(aggregate.Requests).FightLogIds.Count);
+    }
+
+    [Fact]
+    public async Task SubmitGw2Aggregate_MissingKeyReturnsUnauthorizedBeforeReadingBody()
+    {
+        using var host = NewHost();
+        using var content = new StringContent("{malformed", Encoding.UTF8, "application/json");
+
+        var response = await host.Client.PostAsync("/api/upload/gw2/aggregate", content);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.DoesNotContain("malformed", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task SubmitGw2Aggregate_InvalidKeyReturnsUnauthorizedWithRedactedBody()
+    {
+        var handler = new ApiStubHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+        using var host = NewHost(handler);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/upload/gw2/aggregate");
+        request.Headers.Add("X-GW2-API-Key", "secret-invalid-key");
+        request.Content = JsonContent.Create(new
+        {
+            guildId = "42",
+            fightLogIds = new[] { "101", "102" },
+            discordDelivery = new { mode = DiscordDeliveryModes.GuildDefaults }
+        });
+        var response = await host.Client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.DoesNotContain("secret-invalid-key", body);
+    }
+
+    [Fact]
+    public async Task SubmitGw2Aggregate_UnlinkedIdentityReturnsForbidden()
+    {
+        using var host = NewHost(ValidGw2AccountHandler(Guid.NewGuid()));
+
+        var response = await PostGw2AggregateAsync(host, ["101", "102"]);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SubmitGw2Aggregate_ForbiddenGuildIsRejectedByDeliveryService()
+    {
+        var aggregate = new FakeAggregateDiscordDeliveryService
+        {
+            Attempt = AggregateDiscordDeliveryAttempt.Failed(AggregateDiscordDeliveryFailure.DeliveryDisabled)
+        };
+        using var host = NewLinkedGw2Host(aggregateDelivery: aggregate);
+
+        var response = await PostGw2AggregateAsync(host, ["101", "102"], guildId: "43");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Single(aggregate.Requests);
+    }
+
+    [Fact]
+    public async Task SubmitGw2Aggregate_RateLimitRejectsSixthRequest()
+    {
+        var aggregate = new FakeAggregateDiscordDeliveryService();
+        using var host = NewLinkedGw2Host(aggregateDelivery: aggregate);
+
+        for (var requestNumber = 0; requestNumber < 5; requestNumber++)
+        {
+            var accepted = await PostGw2AggregateAsync(host, ["101", "102"]);
+            Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+        }
+
+        var rejected = await PostGw2AggregateAsync(host, ["101", "102"]);
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, rejected.StatusCode);
+        Assert.Equal(5, aggregate.Requests.Count);
+    }
+
+    [Theory]
+    [InlineData(AggregateDiscordDeliveryFailure.DeliveryDisabled, HttpStatusCode.Forbidden)]
+    [InlineData(AggregateDiscordDeliveryFailure.RouteForbidden, HttpStatusCode.Forbidden)]
+    [InlineData(AggregateDiscordDeliveryFailure.FightForbidden, HttpStatusCode.Forbidden)]
+    [InlineData(AggregateDiscordDeliveryFailure.FightNotFound, HttpStatusCode.NotFound)]
+    [InlineData(AggregateDiscordDeliveryFailure.FightNotReady, HttpStatusCode.Conflict)]
+    [InlineData(AggregateDiscordDeliveryFailure.NoRenderableMessages, HttpStatusCode.Conflict)]
+    [InlineData(AggregateDiscordDeliveryFailure.DependencyUnavailable, HttpStatusCode.ServiceUnavailable)]
+    [InlineData(AggregateDiscordDeliveryFailure.Internal, HttpStatusCode.InternalServerError)]
+    public async Task SubmitGw2Aggregate_ServiceFailuresMapToSafeStatus(
+        AggregateDiscordDeliveryFailure failure,
+        HttpStatusCode expectedStatus)
+    {
+        var aggregate = new FakeAggregateDiscordDeliveryService
+        {
+            Attempt = AggregateDiscordDeliveryAttempt.Failed(failure)
+        };
+        using var host = NewLinkedGw2Host(aggregateDelivery: aggregate);
+
+        var response = await PostGw2AggregateAsync(host, ["101", "102"]);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(expectedStatus, response.StatusCode);
+        Assert.True(Encoding.UTF8.GetByteCount(body) < 1024);
+        Assert.DoesNotContain("101", body);
+        Assert.DoesNotContain("Player.1234", body);
     }
 
     [Fact]
@@ -862,12 +1123,14 @@ public class UploadEndpointsTests
             cts.Token);
     }
 
-    private static MinimalApiHost NewLinkedGw2Host(FakeDiscordUploadDeliveryService? discordDelivery = null)
+    private static MinimalApiHost NewLinkedGw2Host(
+        FakeDiscordUploadDeliveryService? discordDelivery = null,
+        FakeAggregateDiscordDeliveryService? aggregateDelivery = null)
     {
         var accountId = Guid.NewGuid();
         var memberships = new FakeDiscordGuildMembershipService();
         memberships.GuildIds.Add(42);
-        var host = NewHost(ValidGw2AccountHandler(accountId), memberships, discordDelivery);
+        var host = NewHost(ValidGw2AccountHandler(accountId), memberships, discordDelivery, aggregateDelivery);
         using var context = host.DbFactory.CreateDbContext();
         context.GuildWarsAccount.Add(new GuildWarsAccount
         {
@@ -902,6 +1165,23 @@ public class UploadEndpointsTests
         return await host.Client.SendAsync(request);
     }
 
+    private static async Task<HttpResponseMessage> PostGw2AggregateAsync(
+        MinimalApiHost host,
+        IReadOnlyCollection<string> fightLogIds,
+        object? discordDelivery = null,
+        string guildId = "42")
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/upload/gw2/aggregate");
+        request.Headers.Add("X-GW2-API-Key", "valid-key");
+        request.Content = JsonContent.Create(new
+        {
+            guildId,
+            fightLogIds,
+            discordDelivery = discordDelivery ?? new { mode = DiscordDeliveryModes.GuildDefaults }
+        });
+        return await host.Client.SendAsync(request);
+    }
+
     private static async Task SeedUrlUploadAsync(MinimalApiHost host, string status, long? fightLogId = null)
     {
         await using var context = await host.DbFactory.CreateDbContextAsync();
@@ -926,7 +1206,8 @@ public class UploadEndpointsTests
     private static MinimalApiHost NewHost(
         HttpMessageHandler? gw2Handler = null,
         FakeDiscordGuildMembershipService? discordGuilds = null,
-        FakeDiscordUploadDeliveryService? discordDelivery = null) =>
+        FakeDiscordUploadDeliveryService? discordDelivery = null,
+        FakeAggregateDiscordDeliveryService? aggregateDelivery = null) =>
         new(
             app => app.MapUploadEndpoints(),
             services =>
@@ -937,6 +1218,9 @@ public class UploadEndpointsTests
                                                                       new FakeDiscordGuildMembershipService());
                 services.AddSingleton<IDiscordUploadDeliveryService>(discordDelivery ??
                                                                      new FakeDiscordUploadDeliveryService());
+                services.AddSingleton<IAggregateDiscordDeliveryService>(aggregateDelivery ??
+                                                                        new FakeAggregateDiscordDeliveryService());
+                services.AddSingleton<IAggregateDeliveryAdmissionService, AggregateDeliveryAdmissionService>();
             },
             httpHandler: gw2Handler);
 
@@ -958,5 +1242,31 @@ public class UploadEndpointsTests
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
             CancellationToken cancellationToken) =>
             Task.FromResult(respond(request));
+    }
+
+    private sealed class ChunkedJsonContent : HttpContent
+    {
+        private readonly string _value;
+
+        public ChunkedJsonContent(string value)
+        {
+            _value = value;
+            Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+        }
+
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) =>
+            stream.WriteAsync(Encoding.UTF8.GetBytes(_value)).AsTask();
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = 0;
+            return false;
+        }
+
+        protected override void SerializeToStream(Stream stream, TransportContext? context,
+            CancellationToken cancellationToken)
+        {
+            stream.Write(Encoding.UTF8.GetBytes(_value));
+        }
     }
 }

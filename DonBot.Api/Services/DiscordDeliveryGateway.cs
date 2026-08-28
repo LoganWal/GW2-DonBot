@@ -5,6 +5,15 @@ namespace DonBot.Api.Services;
 
 public sealed record DiscordAuthorizedChannel(long ChannelId, string ChannelName);
 
+public enum DiscordChannelAuthorizationStatus
+{
+    Authorized,
+    Forbidden,
+    Unavailable
+}
+
+public sealed record DiscordChannelAuthorizationResult(DiscordChannelAuthorizationStatus Status);
+
 public interface IDiscordDeliveryGateway
 {
     Task<IReadOnlyList<DiscordAuthorizedChannel>> GetAuthorizedChannelsAsync(
@@ -17,6 +26,15 @@ public interface IDiscordDeliveryGateway
         long guildId,
         long channelId,
         CancellationToken ct = default);
+
+    async Task<DiscordChannelAuthorizationResult> AuthorizeChannelAsync(
+        long discordId,
+        long guildId,
+        long channelId,
+        CancellationToken ct = default) =>
+        await IsAuthorizedChannelAsync(discordId, guildId, channelId, ct)
+            ? new DiscordChannelAuthorizationResult(DiscordChannelAuthorizationStatus.Authorized)
+            : new DiscordChannelAuthorizationResult(DiscordChannelAuthorizationStatus.Forbidden);
 
     Task<long> SendMessageAsync(
         long channelId,
@@ -36,15 +54,15 @@ public sealed class DiscordDeliveryGateway(
         CancellationToken ct = default)
     {
         var access = await ResolveAccessAsync(discordId, guildId, ct);
-        if (access is null)
+        if (access.Access is null)
         {
             return [];
         }
 
-        var channels = await access.Guild.GetTextChannelsAsync(new RequestOptions { CancelToken = ct });
+        var channels = await access.Access.Guild.GetTextChannelsAsync(new RequestOptions { CancelToken = ct });
         return channels
-            .Where(channel => HasRequiredPermissions(access.Member, channel) &&
-                HasRequiredPermissions(access.Bot, channel))
+            .Where(channel => HasRequiredPermissions(access.Access.Member, channel) &&
+                              HasRequiredPermissions(access.Access.Bot, channel))
             .OrderBy(channel => channel.Position)
             .ThenBy(channel => channel.Name, StringComparer.OrdinalIgnoreCase)
             .Select(channel => new DiscordAuthorizedChannel((long)channel.Id, NormalizeName(channel.Name)))
@@ -57,23 +75,54 @@ public sealed class DiscordDeliveryGateway(
         long channelId,
         CancellationToken ct = default)
     {
+        return (await AuthorizeChannelAsync(discordId, guildId, channelId, ct)).Status ==
+               DiscordChannelAuthorizationStatus.Authorized;
+    }
+
+    public async Task<DiscordChannelAuthorizationResult> AuthorizeChannelAsync(
+        long discordId,
+        long guildId,
+        long channelId,
+        CancellationToken ct = default)
+    {
         if (channelId <= 0)
         {
-            return false;
+            return new DiscordChannelAuthorizationResult(DiscordChannelAuthorizationStatus.Forbidden);
         }
 
         var access = await ResolveAccessAsync(discordId, guildId, ct);
-        if (access is null)
+        if (access.Status == DiscordChannelAuthorizationStatus.Unavailable)
         {
-            return false;
+            return new DiscordChannelAuthorizationResult(DiscordChannelAuthorizationStatus.Unavailable);
         }
 
-        var channel = await access.Guild.GetTextChannelAsync(
-            (ulong)channelId,
-            new RequestOptions { CancelToken = ct });
-        return channel is not null &&
-            HasRequiredPermissions(access.Member, channel) &&
-            HasRequiredPermissions(access.Bot, channel);
+        if (access.Access is null)
+        {
+            return new DiscordChannelAuthorizationResult(DiscordChannelAuthorizationStatus.Forbidden);
+        }
+
+        try
+        {
+            var channel = await access.Access.Guild.GetTextChannelAsync(
+                (ulong)channelId,
+                new RequestOptions { CancelToken = ct });
+            return channel is not null &&
+                   HasRequiredPermissions(access.Access.Member, channel) &&
+                   HasRequiredPermissions(access.Access.Bot, channel)
+                ? new DiscordChannelAuthorizationResult(DiscordChannelAuthorizationStatus.Authorized)
+                : new DiscordChannelAuthorizationResult(DiscordChannelAuthorizationStatus.Forbidden);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                "Discord channel authorization failed with exception type {ExceptionType}.",
+                ex.GetType().Name);
+            return new DiscordChannelAuthorizationResult(DiscordChannelAuthorizationStatus.Unavailable);
+        }
     }
 
     public async Task<long> SendMessageAsync(
@@ -100,11 +149,11 @@ public sealed class DiscordDeliveryGateway(
         return (long)message.Id;
     }
 
-    private async Task<DiscordAccess?> ResolveAccessAsync(long discordId, long guildId, CancellationToken ct)
+    private async Task<DiscordAccessResolution> ResolveAccessAsync(long discordId, long guildId, CancellationToken ct)
     {
         if (discordId <= 0 || guildId <= 0)
         {
-            return null;
+            return new DiscordAccessResolution(null, DiscordChannelAuthorizationStatus.Forbidden);
         }
 
         try
@@ -114,12 +163,16 @@ public sealed class DiscordDeliveryGateway(
             var guild = await client.GetGuildAsync((ulong)guildId, options);
             if (guild is null)
             {
-                return null;
+                return new DiscordAccessResolution(null, DiscordChannelAuthorizationStatus.Forbidden);
             }
 
             var member = await guild.GetUserAsync((ulong)discordId, options);
             var bot = await guild.GetUserAsync(client.CurrentUser.Id, options);
-            return member is null || bot is null ? null : new DiscordAccess(guild, member, bot);
+            return member is null || bot is null
+                ? new DiscordAccessResolution(null, DiscordChannelAuthorizationStatus.Forbidden)
+                : new DiscordAccessResolution(
+                    new DiscordAccess(guild, member, bot),
+                    DiscordChannelAuthorizationStatus.Authorized);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -128,11 +181,9 @@ public sealed class DiscordDeliveryGateway(
         catch (Exception ex)
         {
             logger.LogWarning(
-                ex,
-                "Failed to resolve Discord delivery access for user {DiscordId} in guild {GuildId}.",
-                discordId,
-                guildId);
-            return null;
+                "Discord delivery access resolution failed with exception type {ExceptionType}.",
+                ex.GetType().Name);
+            return new DiscordAccessResolution(null, DiscordChannelAuthorizationStatus.Unavailable);
         }
     }
 
@@ -158,4 +209,8 @@ public sealed class DiscordDeliveryGateway(
     }
 
     private sealed record DiscordAccess(RestGuild Guild, RestGuildUser Member, RestGuildUser Bot);
+
+    private sealed record DiscordAccessResolution(
+        DiscordAccess? Access,
+        DiscordChannelAuthorizationStatus Status);
 }

@@ -54,6 +54,8 @@ public static class ApiServiceRegister
         services.AddSingleton<DiscordRestClientProvider>();
         services.AddSingleton<IDiscordDeliveryGateway, DiscordDeliveryGateway>();
         services.AddScoped<IDiscordUploadDeliveryService, DiscordUploadDeliveryService>();
+        services.AddScoped<IAggregateDiscordDeliveryService, AggregateDiscordDeliveryService>();
+        services.AddSingleton<IAggregateDeliveryAdmissionService, AggregateDeliveryAdmissionService>();
         services.AddScoped<DiscordReportDeliveryClaimService>();
         services.AddSingleton<IDiscordGuildMembershipService, DiscordGuildMembershipService>();
         services.AddSingleton<IUserGuildsService, UserGuildsService>();

@@ -113,24 +113,23 @@ public sealed class DiscordUploadDeliveryService(
             return new DiscordDeliveryCapabilities(false, false, false, [], [], false);
         }
 
-        var defaultsAvailable = false;
-        var aggregateDefaultsAvailable = false;
-        foreach (var channelId in DefaultChannelIds(guild).Distinct())
+        IReadOnlyList<DiscordAuthorizedChannel> authorizedChannels = [];
+        if (guild.MannyUploaderChannelOverrideEnabled || DefaultChannelIds(guild).Any())
         {
-            if (!await IsAuthorizedChannelSafeAsync(discordId, guild.GuildId, channelId, ct))
-            {
-                continue;
-            }
-
-            defaultsAvailable = true;
-            aggregateDefaultsAvailable = channelId == guild.LogReportChannelId;
-            break;
+            authorizedChannels = await GetAuthorizedChannelsSafeAsync(discordId, guild.GuildId, ct);
         }
+
+        var authorizedChannelIds = authorizedChannels
+            .Select(channel => channel.ChannelId)
+            .ToHashSet();
+        var defaultsAvailable = DefaultChannelIds(guild).Any(authorizedChannelIds.Contains);
+        var aggregateDefaultsAvailable = guild.LogReportChannelId is { } primaryChannelId &&
+                                         authorizedChannelIds.Contains(primaryChannelId);
 
         IReadOnlyList<DiscordAuthorizedChannel> channels = [];
         if (guild.MannyUploaderChannelOverrideEnabled)
         {
-            channels = (await GetAuthorizedChannelsSafeAsync(discordId, guild.GuildId, ct))
+            channels = authorizedChannels
                 .DistinctBy(channel => channel.ChannelId)
                 .Take(MaxChannelsPerGuild)
                 .ToList();

@@ -422,6 +422,29 @@ public class DiscordUploadDeliveryServiceTests
     }
 
     [Fact]
+    public async Task GetCapabilitiesAsync_UsesOneAuthorizedChannelSnapshotPerGuild()
+    {
+        using var db = new SqliteTestDb();
+        var gateway = new FakeGateway([100, 200, 300, 900]);
+        var service = CreateService(db, gateway);
+        var guild = new Guild
+        {
+            GuildId = 42,
+            LogReportChannelId = 100,
+            AdvanceLogReportChannelId = 200,
+            StreamLogChannelId = 300,
+            MannyUploaderDiscordDeliveryEnabled = true,
+            MannyUploaderChannelOverrideEnabled = true
+        };
+
+        var result = await service.GetCapabilitiesAsync(guild, 123);
+
+        Assert.True(result.DefaultsAvailable);
+        Assert.Equal(1, gateway.DiscoveryCallCount);
+        Assert.Equal(0, gateway.AuthorizationCallCount);
+    }
+
+    [Fact]
     public async Task ValidateAsync_OverrideOnlyAuthorizedChannelIsAccepted()
     {
         using var db = new SqliteTestDb();
@@ -551,9 +574,14 @@ public class DiscordUploadDeliveryServiceTests
 
         public bool ThrowOnDiscovery { get; init; }
 
+        public int DiscoveryCallCount { get; private set; }
+
+        public int AuthorizationCallCount { get; private set; }
+
         public Task<IReadOnlyList<DiscordAuthorizedChannel>> GetAuthorizedChannelsAsync(long discordId, long guildId,
             CancellationToken ct = default)
         {
+            DiscoveryCallCount++;
             if (ThrowOnDiscovery)
             {
                 throw new HttpRequestException("sensitive Discord discovery response");
@@ -567,6 +595,7 @@ public class DiscordUploadDeliveryServiceTests
         public Task<bool> IsAuthorizedChannelAsync(long discordId, long guildId, long channelId,
             CancellationToken ct = default)
         {
+            AuthorizationCallCount++;
             if (ThrowOnAuthorization)
             {
                 throw new HttpRequestException("sensitive Discord lookup response");

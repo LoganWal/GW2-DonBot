@@ -18,6 +18,7 @@ namespace DonBot.Api.Endpoints;
 
 public static class UploadEndpoints
 {
+    internal const int MaxConcurrentDiscordCapabilityLookups = 8;
     private static readonly System.Text.Json.JsonSerializerOptions SseJsonOptions =
         new(System.Text.Json.JsonSerializerDefaults.Web);
 
@@ -540,14 +541,33 @@ public static class UploadEndpoints
             .Take(256)
             .ToList();
 
+        var capabilitiesByGuild = new DiscordDeliveryCapabilities?[authorizedGuilds.Count];
+        if (includeDiscordDelivery)
+        {
+            await Parallel.ForEachAsync(
+                Enumerable.Range(0, authorizedGuilds.Count),
+                new ParallelOptions
+                {
+                    CancellationToken = ct,
+                    MaxDegreeOfParallelism = MaxConcurrentDiscordCapabilityLookups
+                },
+                async (index, token) =>
+                {
+                    capabilitiesByGuild[index] = await discordDeliveryService.GetCapabilitiesAsync(
+                        authorizedGuilds[index],
+                        discordId,
+                        token);
+                });
+        }
+
         var result = new List<GuildSummaryDto>(authorizedGuilds.Count);
         // A lower practical cap keeps worst-case UTF-8 names within the 256 KiB response budget.
         var remainingChannels = 384;
-        foreach (var guild in authorizedGuilds)
+        for (var index = 0; index < authorizedGuilds.Count; index++)
         {
-            var capabilities = includeDiscordDelivery
-                ? await discordDeliveryService.GetCapabilitiesAsync(guild, discordId, ct)
-                : new DiscordDeliveryCapabilities(false, false, false, [], [], false);
+            var guild = authorizedGuilds[index];
+            var capabilities = capabilitiesByGuild[index] ??
+                               new DiscordDeliveryCapabilities(false, false, false, [], [], false);
             var channels = capabilities.Channels
                 .Take(remainingChannels)
                 .Select(channel => new DiscordChannelDto(

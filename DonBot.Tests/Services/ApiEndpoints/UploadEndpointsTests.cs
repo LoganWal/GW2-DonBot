@@ -376,6 +376,74 @@ public class UploadEndpointsTests
     }
 
     [Fact]
+    public async Task ListGw2UploadGuilds_CapabilityDiscoveryUsesBoundedConcurrency()
+    {
+        const int guildCount = 16;
+        var accountId = Guid.NewGuid();
+        var memberships = new FakeDiscordGuildMembershipService();
+        memberships.GuildIds.UnionWith(Enumerable.Range(1, guildCount).Select(id => (long)id));
+        var delivery = new FakeDiscordUploadDeliveryService();
+        var overlapReached = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var active = 0;
+        var maxActive = 0;
+        var concurrencyLock = new object();
+        delivery.CapabilitiesHandler = async (_, _, ct) =>
+        {
+            lock (concurrencyLock)
+            {
+                active++;
+                maxActive = Math.Max(maxActive, active);
+                if (active >= 2)
+                {
+                    overlapReached.TrySetResult(true);
+                }
+            }
+
+            try
+            {
+                await overlapReached.Task.WaitAsync(TimeSpan.FromSeconds(2), ct);
+                await Task.Delay(20, ct);
+                return delivery.Capabilities;
+            }
+            finally
+            {
+                lock (concurrencyLock)
+                {
+                    active--;
+                }
+            }
+        };
+
+        using var host = NewHost(ValidGw2AccountHandler(accountId), memberships, delivery);
+        await using (var db = await host.DbFactory.CreateDbContextAsync())
+        {
+            db.GuildWarsAccount.Add(new GuildWarsAccount
+            {
+                GuildWarsAccountId = accountId,
+                DiscordId = 123,
+                GuildWarsAccountName = "Player.1234"
+            });
+            db.Guild.AddRange(Enumerable.Range(1, guildCount).Select(id => new Guild
+            {
+                GuildId = id,
+                GuildName = $"Guild {id:D2}"
+            }));
+            await db.SaveChangesAsync();
+        }
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var response = await host.Client.PostAsJsonAsync(
+            "/api/upload/gw2/guilds",
+            new { ApiKey = "valid-key" },
+            timeout.Token);
+        var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(timeout.Token));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(guildCount, json.RootElement.GetProperty("guilds").GetArrayLength());
+        Assert.InRange(maxActive, 2, UploadEndpoints.MaxConcurrentDiscordCapabilityLookups);
+    }
+
+    [Fact]
     public async Task SubmitGw2Aggregate_GuildDefaultsReturnsNormalizedResultAndExactRequest()
     {
         var aggregate = new FakeAggregateDiscordDeliveryService

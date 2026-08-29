@@ -13,6 +13,8 @@ internal sealed class FakeDiscordUploadDeliveryService : IDiscordUploadDeliveryS
 
     public DiscordDeliveryResult Result { get; set; } = DiscordDeliveryResult.NotRequested;
 
+    public Func<Guild, long, CancellationToken, Task<DiscordDeliveryCapabilities>>? CapabilitiesHandler { get; set; }
+
     public List<long> DeliveredUploadIds { get; } = [];
 
     public List<long> FailedUploadIds { get; } = [];
@@ -20,7 +22,9 @@ internal sealed class FakeDiscordUploadDeliveryService : IDiscordUploadDeliveryS
     public Task<DiscordDeliveryCapabilities> GetCapabilitiesAsync(
         Guild guild,
         long discordId,
-        CancellationToken ct = default) => Task.FromResult(Capabilities);
+        CancellationToken ct = default) => CapabilitiesHandler is null
+        ? Task.FromResult(Capabilities)
+        : CapabilitiesHandler(guild, discordId, ct);
 
     public Task<DiscordDeliveryValidationResult> ValidateAsync(
         long discordId,

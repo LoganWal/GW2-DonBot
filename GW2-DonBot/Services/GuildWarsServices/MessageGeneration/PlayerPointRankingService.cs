@@ -33,9 +33,13 @@ public sealed class PlayerPointRankingService(IEntityService entityService, IFoo
         long fightLogId,
         IReadOnlySet<long> guildMemberDiscordIds)
     {
-        var awards = await entityService.PlayerPointAward.GetWhereAsync(a => a.FightLogId == fightLogId);
+        var guildFights = await entityService.FightLog.GetWhereAsync(f => f.GuildId == guild.GuildId);
+        var guildFightIds = guildFights.Select(f => f.FightLogId).ToList();
+        var memberIds = guildMemberDiscordIds.ToList();
+        var awards = await entityService.PlayerPointAward.GetWhereAsync(a =>
+            guildFightIds.Contains(a.FightLogId) && memberIds.Contains(a.DiscordId));
         var latestRows = awards
-            .Where(a => guildMemberDiscordIds.Contains(a.DiscordId))
+            .Where(a => a.FightLogId == fightLogId)
             .GroupBy(a => a.DiscordId)
             .Select(group => new RankingRow(
                 group.Key,
@@ -46,10 +50,9 @@ public sealed class PlayerPointRankingService(IEntityService entityService, IFoo
             .ThenBy(row => row.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var guildWarsAccounts = (await entityService.GuildWarsAccount.GetAllAsync())
-            .Where(account =>
-                guildMemberDiscordIds.Contains(account.DiscordId) &&
-                !string.IsNullOrWhiteSpace(account.GuildWarsAccountName))
+        var guildWarsAccounts = (await entityService.GuildWarsAccount.GetWhereAsync(account =>
+                memberIds.Contains(account.DiscordId)))
+            .Where(account => !string.IsNullOrWhiteSpace(account.GuildWarsAccountName))
             .GroupBy(account => account.DiscordId)
             .ToDictionary(
                 group => group.Key,
@@ -57,20 +60,19 @@ public sealed class PlayerPointRankingService(IEntityService entityService, IFoo
                     .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
                     .First());
 
-        var totalRows = (await entityService.Account.GetAllAsync())
-            .Where(account =>
-                guildMemberDiscordIds.Contains(account.DiscordId) &&
-                guildWarsAccounts.ContainsKey(account.DiscordId))
-            .OrderByDescending(account => account.Points)
-            .ThenBy(account => guildWarsAccounts[account.DiscordId], StringComparer.OrdinalIgnoreCase)
+        var totalRows = awards
+            .Where(award => guildWarsAccounts.ContainsKey(award.DiscordId))
+            .GroupBy(award => award.DiscordId)
+            .Select(group => new RankingRow(
+                group.Key,
+                guildWarsAccounts[group.Key],
+                group.Sum(award => award.Points)))
+            .OrderByDescending(row => row.Points)
+            .ThenBy(row => row.Name, StringComparer.OrdinalIgnoreCase)
             .Take(TotalRankingLimit)
-            .Select(account => new RankingRow(
-                account.DiscordId,
-                guildWarsAccounts[account.DiscordId],
-                account.Points))
             .ToList();
 
-        var fight = await entityService.FightLog.GetFirstOrDefaultAsync(f => f.FightLogId == fightLogId);
+        var fight = guildFights.FirstOrDefault(f => f.FightLogId == fightLogId);
         var footer = await footerService.Generate(guild.GuildId);
 
         var latestEmbed = BuildBaseEmbed("**WvW Last fight points:**\n", fight?.Url);

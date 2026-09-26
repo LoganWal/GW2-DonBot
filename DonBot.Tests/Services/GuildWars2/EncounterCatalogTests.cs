@@ -5,6 +5,28 @@ namespace DonBot.Tests.Services.GuildWars2;
 
 public class EncounterCatalogTests
 {
+    [Fact]
+    public void ResolvePveEncounter_NexusGetJson_UsesEliteInsightsIdInsteadOfTriggerId()
+    {
+        const string json = """
+            {
+                "triggerID": 28106,
+                "eiEncounterID": 263682,
+                "eiLogID": 263682,
+                "fightName": "Nexus of Eternity",
+                "players": [],
+                "targets": [{ "id": 28106, "name": "Vloxx" }],
+                "phases": []
+            }
+            """;
+        var data = DpsReportGetJsonMapper.Map(json, "https://dps.report/AQF4-20260921-232521_boss");
+
+        var result = EncounterCatalog.ResolvePveEncounter(data.FightEliteInsightDataModel.FightId);
+
+        Assert.Equal((short)FightTypesEnum.Vloxx, result.FightType);
+        Assert.False(result.SumAllTargets);
+    }
+
     [Theory]
     [InlineData(131329, FightTypesEnum.Vale, false)]
     [InlineData(131332, FightTypesEnum.Spirit, true)]
@@ -61,6 +83,7 @@ public class EncounterCatalogTests
     [InlineData(197890, FightTypesEnum.Eparch, true)]
     [InlineData(198145, FightTypesEnum.Shadow, true)]
     [InlineData(263681, FightTypesEnum.Kela, true)]
+    [InlineData(263682, FightTypesEnum.Vloxx, false)]
     public void ResolvePveEncounter_WhenKnownEncounter_ReturnsFightTypeAndTargetMode(
         long encounterId,
         FightTypesEnum expectedFightType,
@@ -84,6 +107,7 @@ public class EncounterCatalogTests
     [Theory]
     [InlineData(FightTypesEnum.Spirit, true)]
     [InlineData(FightTypesEnum.Vale, false)]
+    [InlineData(FightTypesEnum.Vloxx, false)]
     [InlineData(FightTypesEnum.Unkn, true)]
     public void ShouldSumAllTargets_ReturnsCatalogTargetMode(FightTypesEnum fightType, bool expected)
     {

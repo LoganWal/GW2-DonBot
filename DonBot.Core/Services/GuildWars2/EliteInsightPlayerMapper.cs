@@ -18,6 +18,7 @@ public static class EliteInsightPlayerMapper
         var stabBoonIndex = data.FightEliteInsightDataModel.Boons.IndexOf(Gw2BoonIds.Stability);
         var quickBoonIndex = data.FightEliteInsightDataModel.Boons.IndexOf(Gw2BoonIds.Quickness);
         var alacBoonIndex = data.FightEliteInsightDataModel.Boons.IndexOf(Gw2BoonIds.Alacrity);
+        var regenBoonIndex = data.FightEliteInsightDataModel.Boons.IndexOf(Gw2BoonIds.Regeneration);
         var fightPhaseIndex = ResolveFightPhaseIndex(data, fightPhase);
         var healingPhase = ResolveExtensionPhase(data.HealingEliteInsightDataModel.HealingPhases, fightPhaseIndex);
         var barrierPhase = ResolveExtensionPhase(data.BarrierEliteInsightDataModel.BarrierPhases, fightPhaseIndex);
@@ -109,6 +110,7 @@ public static class EliteInsightPlayerMapper
                 var barrierMitigation = defStats?[ArcDpsDataIndices.BarrierMitigationIndex].Double ?? 0;
                 var totalQuick = GetBoonUptime(boons, quickBoonIndex);
                 var totalAlac = GetBoonUptime(boons, alacBoonIndex);
+                var totalRegen = GetBoonUptime(boons, regenBoonIndex);
 
                 if (isNewPlayer)
                 {
@@ -139,6 +141,7 @@ public static class EliteInsightPlayerMapper
                     existingPlayer.BarrierMitigation = barrierMitigation;
                     existingPlayer.TotalQuick = totalQuick;
                     existingPlayer.TotalAlac = totalAlac;
+                    existingPlayer.TotalRegen = totalRegen;
                     existingPlayer.ResurrectionTime = resurrectionTime;
                     existingPlayer.TimeOfDeath = deathTime;
                 }
@@ -171,6 +174,7 @@ public static class EliteInsightPlayerMapper
                     existingPlayer.BarrierMitigation += barrierMitigation;
                     existingPlayer.TotalQuick += totalQuick;
                     existingPlayer.TotalAlac += totalAlac;
+                    existingPlayer.TotalRegen += totalRegen;
                     existingPlayer.ResurrectionTime += resurrectionTime;
                     if (deathTime.HasValue && (!existingPlayer.TimeOfDeath.HasValue || deathTime.Value < existingPlayer.TimeOfDeath.Value))
                     {
@@ -218,6 +222,7 @@ public static class EliteInsightPlayerMapper
             player.DistanceFromTag /= count;
             player.TotalQuick /= count;
             player.TotalAlac /= count;
+            player.TotalRegen /= count;
         }
 
         return gw2Players;

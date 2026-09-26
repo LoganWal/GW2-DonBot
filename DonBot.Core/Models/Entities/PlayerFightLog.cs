@@ -29,6 +29,8 @@ public class PlayerFightLog
 
     public decimal AlacDuration { get; init; }
 
+    public decimal RegenDuration { get; init; }
+
     public decimal QuicknessGenGroup { get; init; }
 
     public decimal AlacGenGroup { get; init; }

@@ -338,7 +338,7 @@ public sealed class SchedulerService(
 
             if (current.Length > header.Length)
             {
-                current.AppendLine();
+                current.Append('\n');
             }
 
             current.Append(notificationLine);

@@ -63,7 +63,8 @@ public static class EncounterCatalog
             [197633] = AllTargets(FightTypesEnum.Kanaxai),
             [197890] = AllTargets(FightTypesEnum.Eparch),
             [198145] = AllTargets(FightTypesEnum.Shadow),
-            [263681] = AllTargets(FightTypesEnum.Kela)
+            [263681] = AllTargets(FightTypesEnum.Kela),
+            [263682] = OneTarget(FightTypesEnum.Vloxx)
         };
 
     public static EncounterDefinition ResolvePveEncounter(long encounterId) =>

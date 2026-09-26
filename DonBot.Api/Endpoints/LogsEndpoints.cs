@@ -839,6 +839,7 @@ public static class LogsEndpoints
         FightTypesEnum.Decima => "Decima",
         FightTypesEnum.Ura => "Ura",
         FightTypesEnum.Kela => "Kela",
+        FightTypesEnum.Vloxx => "Vloxx (Nexus of Eternity)",
         FightTypesEnum.Ah => "Aetherblade Hideout",
         FightTypesEnum.Xjj => "Xunlai Jade Junkyard",
         FightTypesEnum.Ko => "Kaineng Overlook",

@@ -57,7 +57,8 @@ public enum FightTypesEnum
     Eparch = 52, // Fractal
     Spirit = 53, // wing 1
     Shadow = 54, // Fractal
-    Kela = 55, // wing 9
+    Kela = 55, // VoE Strike
+    Vloxx = 56, // VoE Strike
     Golem = 32766, // Golem
     Unkn = short.MaxValue,
 }

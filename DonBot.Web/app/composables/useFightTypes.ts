@@ -10,7 +10,7 @@ export const FIGHT_NAMES: Record<number, string> = {
   21: 'Conjured Amalgamate', 22: 'Twin Largos', 23: 'Qadim',
   24: 'Cardinal Adina', 25: 'Cardinal Sabir', 26: 'Qadim the Peerless',
   44: 'Greer', 45: 'Decima', 46: 'Ura',
-  55: 'Kela',
+  55: 'Kela', 56: 'Vloxx (Nexus of Eternity)',
   27: 'Aetherblade Hideout', 28: 'Xunlai Jade Junkyard', 29: 'Kaineng Overlook', 30: 'Harvest Temple',
   31: "Old Lion's Court",
   32: 'Cosmic Observatory', 33: 'Temple of Febe',
@@ -29,7 +29,7 @@ const GROUPS: { label: string; values: number[] }[] = [
   { label: 'Wing 6', values: [21, 22, 23] },
   { label: 'Wing 7', values: [24, 25, 26] },
   { label: 'Wing 8', values: [44, 45, 46] },
-  { label: 'Wing 9', values: [55] },
+  { label: 'Visions of Eternity', values: [55, 56] },
   { label: 'EoD Strikes', values: [27, 28, 29, 30] },
   { label: 'Core Strikes', values: [31] },
   { label: 'SotO Strikes', values: [32, 33] },
@@ -49,13 +49,13 @@ for (const g of GROUPS)
 
 const SUPER_CATEGORIES: { label: string; groups: string[] }[] = [
   { label: 'WvW', groups: ['WvW'] },
-  { label: 'Raids', groups: ['Wing 1', 'Wing 2', 'Wing 3', 'Wing 4', 'Wing 5', 'Wing 6', 'Wing 7', 'Wing 8', 'Wing 9'] },
+  { label: 'Raids', groups: ['Wing 1', 'Wing 2', 'Wing 3', 'Wing 4', 'Wing 5', 'Wing 6', 'Wing 7', 'Wing 8', 'Visions of Eternity'] },
   { label: 'Strikes', groups: ['EoD Strikes', 'Core Strikes', 'SotO Strikes', 'Icebrood Strikes'] },
   { label: 'Fractals', groups: ['Fractals'] },
   { label: 'Other', groups: ['Golem', 'Other'] },
 ]
 
-const RAID_GROUPS = new Set(['Wing 1', 'Wing 2', 'Wing 3', 'Wing 4', 'Wing 5', 'Wing 6', 'Wing 7', 'Wing 8', 'Wing 9'])
+const RAID_GROUPS = new Set(['Wing 1', 'Wing 2', 'Wing 3', 'Wing 4', 'Wing 5', 'Wing 6', 'Wing 7', 'Wing 8', 'Visions of Eternity'])
 const STRIKE_GROUPS = new Set(['EoD Strikes', 'Core Strikes', 'SotO Strikes', 'Icebrood Strikes'])
 
 export const wvwTypes = [0]
@@ -85,7 +85,7 @@ export const fightTypeGroupedOptions = [
 ]
 
 export function groupByFightType<T extends { fightType: number }>(items: T[]): { label: string; items: T[] }[] {
-  const order = ['WvW', 'Wing 1', 'Wing 2', 'Wing 3', 'Wing 4', 'Wing 5', 'Wing 6', 'Wing 7', 'Wing 8', 'Wing 9',
+  const order = ['WvW', 'Wing 1', 'Wing 2', 'Wing 3', 'Wing 4', 'Wing 5', 'Wing 6', 'Wing 7', 'Wing 8', 'Visions of Eternity',
     'EoD Strikes', 'Core Strikes', 'SotO Strikes', 'Icebrood Strikes', 'Fractals', 'Golem', 'Other']
   const map = new Map<string, T[]>()
   for (const item of items)

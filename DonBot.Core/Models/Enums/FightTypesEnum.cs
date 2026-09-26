@@ -58,6 +58,7 @@ public enum FightTypesEnum
     Spirit = 53, // wing 1
     Shadow = 54, // Fractal
     Kela = 55, // wing 9
+    Vloxx = 56, // Nexus of Eternity
     Golem = 32766, // Golem
     Unkn = short.MaxValue,
 }

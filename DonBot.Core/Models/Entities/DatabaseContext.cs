@@ -132,6 +132,10 @@ public sealed class DatabaseContext : DbContext
             .HasPrecision(6, 2);
 
         modelBuilder.Entity<PlayerFightLog>()
+            .Property(pfl => pfl.RegenDuration)
+            .HasPrecision(6, 2);
+
+        modelBuilder.Entity<PlayerFightLog>()
             .Property(pfl => pfl.AlacGenGroup)
             .HasPrecision(6, 2);
 

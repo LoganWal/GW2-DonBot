@@ -63,6 +63,7 @@ public class Gw2Player
     public double TotalQuick { get; set; }
 
     public double TotalAlac { get; set; }
+    public double TotalRegen { get; set; }
 
     public int ResurrectionTime { get; set; }
 

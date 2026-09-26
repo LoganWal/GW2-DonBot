@@ -12,6 +12,8 @@ DonBot is a Discord bot and web app for Guild Wars 2 communities. It turns comba
 
 - Reads `dps.report`, `wvw.report`, and GW2 Wingman log links posted in Discord.
 - Creates WvW and PvE fight summaries from Elite Insights data.
+- Recognizes Vloxx in Nexus of Eternity.
+- Shows regeneration uptime in WvW subgroup overviews and omits distance from tag in advanced reports.
 - Adds WvW tools such as advanced reports and Know My Enemy.
 - Flags suspicious PvE rotation patterns for review.
 - Tracks player stats, best times, progression, mechanics, and leaderboards.

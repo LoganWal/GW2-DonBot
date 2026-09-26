@@ -38,9 +38,6 @@ public sealed class WvWFightSummaryService(
     internal static readonly DiscordTable.Column[] HealingColumns =
         [new("#", 2), new("Name", NameWidth), new("Healing", 7, DiscordTable.Align.Right)];
 
-    internal static readonly DiscordTable.Column[] DistanceColumns =
-        [new("#", 2), new("Name", NameWidth), new("Dist", 7, DiscordTable.Align.Right)];
-
     private static readonly DiscordTable.Column[] BarrierColumns =
         [new("#", 2), new("Name", NameWidth), new("Barrier", 7, DiscordTable.Align.Right)];
 
@@ -251,9 +248,6 @@ public sealed class WvWFightSummaryService(
             ? damage / durationSeconds
             : 0;
 
-    internal static string FormatDistance(double distance) =>
-        Math.Round(distance).ToString(CultureInfo.InvariantCulture);
-
     public async Task<Embed> GenerateMessage(bool advancedLog, int playerCount, List<Gw2Player> gw2Players,
         EmbedBuilder message, long guildId, StatTotals? statTotals = null)
     {
@@ -370,7 +364,6 @@ public sealed class WvWFightSummaryService(
 
         healingOverview += "```";
 
-        var distanceOverview = $"```{DiscordTable.Header(DistanceColumns)}";
         var timesDownedOverview = $"```{DiscordTable.Header(TimesDownedColumns)}";
         var barrierOverview = $"```{DiscordTable.Header(BarrierColumns)}";
         var aggregations = string.Empty;
@@ -395,25 +388,6 @@ public sealed class WvWFightSummaryService(
             }
 
             barrierOverview += "```";
-
-            var topDistance = gw2Players.OrderByDescending(s => s.DistanceFromTag).Take(playerCount).ToList();
-            var distanceIndex = 1;
-            foreach (var gw2Player in topDistance)
-            {
-                var distance = gw2Player.DistanceFromTag;
-                var name = !string.IsNullOrEmpty(gw2Player.CharacterName)
-                    ? gw2Player.CharacterName
-                    : gw2Player.AccountName;
-                var prof = gw2Player.Profession;
-
-                distanceOverview += DiscordTable.Row(DistanceColumns,
-                    distanceIndex.ToString().PadLeft(2, '0'),
-                    DisplayName(name, prof),
-                    FormatDistance(distance));
-                distanceIndex++;
-            }
-
-            distanceOverview += "```";
 
             var topTimesDowned = gw2Players.OrderByDescending(s => s.TimesDowned).Take(playerCount).ToList();
             var timesDownedIndex = 1;
@@ -512,13 +486,6 @@ public sealed class WvWFightSummaryService(
             {
                 x.Name = "Times Downed";
                 x.Value = $"{timesDownedOverview}";
-                x.IsInline = false;
-            });
-
-            message.AddField(x =>
-            {
-                x.Name = "Distance From Tag";
-                x.Value = $"{distanceOverview}";
                 x.IsInline = false;
             });
 

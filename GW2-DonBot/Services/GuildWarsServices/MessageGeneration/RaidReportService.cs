@@ -57,7 +57,7 @@ public sealed class RaidReportService(
     [
         new("Sub", 3),
         new("Quick", 5, DiscordTable.Align.Right),
-        new("Alac", 5, DiscordTable.Align.Right),
+        new("Regen", 5, DiscordTable.Align.Right),
         new("Intrpt", 6, DiscordTable.Align.Right)
     ];
 
@@ -159,7 +159,8 @@ public sealed class RaidReportService(
                 ? playersFights.Where(s => s.DistanceFromTag < 1100).Average(s => s.DistanceFromTag)
                 : 0), 2),
             TotalQuick = Math.Round(Convert.ToDouble(playersFights.Average(s => s.QuicknessDuration)), 2),
-            TotalAlac = Math.Round(Convert.ToDouble(playersFights.Average(s => s.AlacDuration)), 2)
+            TotalAlac = Math.Round(Convert.ToDouble(playersFights.Average(s => s.AlacDuration)), 2),
+            TotalRegen = Math.Round(Convert.ToDouble(playersFights.Average(s => s.RegenDuration)), 2)
         };
     }
 
@@ -360,7 +361,7 @@ public sealed class RaidReportService(
                 subOverview += DiscordTable.Row(WvWSubColumns,
                     subData.Key.ToString(CultureInfo.CurrentCulture),
                     Math.Round(subData.Average(s => s.TotalQuick), 2).ToString(CultureInfo.CurrentCulture),
-                    Math.Round(subData.Average(s => s.TotalAlac), 2).ToString(CultureInfo.CurrentCulture),
+                    Math.Round(subData.Average(s => s.TotalRegen), 2).ToString(CultureInfo.CurrentCulture),
                     subData.Sum(s => s.TimesInterrupted).ToString(CultureInfo.CurrentCulture));
             }
 

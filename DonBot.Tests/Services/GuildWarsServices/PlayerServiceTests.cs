@@ -7,6 +7,26 @@ public class PlayerServiceTests
 {
     private static readonly PlayerService Service = new(null!); // IEntityService not used by GetGw2Players
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    [InlineData(-1)]
+    public void GetGw2Players_Regen_UsesBoonIdAndDefaultsMissingBoonToZero(int regenIndex)
+    {
+        var boons = new List<int> { Gw2BoonIds.Quickness, Gw2BoonIds.Alacrity };
+        if (regenIndex >= 0)
+        {
+            boons.Insert(regenIndex, Gw2BoonIds.Regeneration);
+        }
+        var data = BuildData(boons);
+        var phase = BuildPhase(BoonData(boons.Count, regenIndex, 12),
+            BoonData(boons.Count, regenIndex, 87.25));
+
+        var player = Assert.Single(Service.GetGw2Players(data, phase));
+
+        Assert.Equal(regenIndex < 0 ? 0 : 87.25, player.TotalRegen);
+    }
+
     [Fact]
     public void GetGw2Players_StabOnGroup_WhenStabilityAtStandardIndex_ReadsCorrectValue()
     {
@@ -19,6 +39,22 @@ public class PlayerServiceTests
 
         Assert.Single(players);
         Assert.Equal(stabValue, players[0].StabOnGroup);
+    }
+
+    [Fact]
+    public void GetGw2Players_Regen_AveragesCharactersIncludingZeroUptime()
+    {
+        var data = BuildData([Gw2BoonIds.Regeneration]);
+        data.FightEliteInsightDataModel.Players!.Add(new ArcDpsPlayer
+        {
+            Acc = "Test.1234", Profession = "Warrior", Name = "SecondCharacter", Group = 1
+        });
+        var phase = BuildPhase([[80]]);
+        phase.BuffsStatContainer.BoonActiveStats!.Add(new BoonActiveStat { Data = [[0]] });
+
+        var player = Assert.Single(Service.GetGw2Players(data, phase));
+
+        Assert.Equal(40, player.TotalRegen);
     }
 
     [Fact]

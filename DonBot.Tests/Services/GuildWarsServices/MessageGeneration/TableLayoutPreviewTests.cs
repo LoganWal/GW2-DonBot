@@ -46,9 +46,6 @@ public class TableLayoutPreviewTests(ITestOutputHelper output)
         Preview("WvW Fight - Healing", WvWFightSummaryService.HealingColumns,
             ["01", "Renero.9172 (Dru)", "999.9K"]);
 
-        Preview("WvW Fight - Distance", WvWFightSummaryService.DistanceColumns,
-            ["01", "Monty.8103 (Spe)", "343"]);
-
         Preview("WvW Fight - Friendly/Stream", WvWFightSummaryService.FriendlyColumns,
             ["Ally", "60(45)", "12.4M", "210.5K", "85", "12"],
             ["Foe", "72", "9.8M", "166.1K", "120", "48"]);

@@ -50,6 +50,7 @@ public static class PlayerFightLogFactory
             Deaths = player.Deaths,
             QuicknessDuration = Decimal(player.TotalQuick),
             AlacDuration = Decimal(player.TotalAlac),
+            RegenDuration = Decimal(player.TotalRegen),
             QuicknessGenGroup = Decimal(player.QuicknessGenGroup),
             AlacGenGroup = Decimal(player.AlacGenGroup),
             BoonRole = boonRole,

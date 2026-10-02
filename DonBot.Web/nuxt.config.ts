@@ -24,7 +24,21 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-03-15',
   ssr: false,
   nitro: {
-    preset: 'static'
+    preset: 'static',
+    rollupConfig: {
+      onwarn(warning, warn) {
+        const isUnusedH3CompatibilityImport =
+          warning.code === 'UNUSED_EXTERNAL_IMPORT' &&
+          warning.message.includes('@nuxt/nitro-server/dist/h3.mjs')
+        const isNitroDefaultExclusion =
+          ['CIRCULAR_DEPENDENCY', 'EVAL'].includes(warning.code ?? '') ||
+          warning.message.includes('Unsupported source map comment')
+
+        if (!isUnusedH3CompatibilityImport && !isNitroDefaultExclusion) {
+          warn(warning)
+        }
+      }
+    }
   },
   modules: ['@primevue/nuxt-module'],
   css: ['primeicons/primeicons.css', '~/assets/global.css'],

@@ -525,6 +525,24 @@ public sealed class LogUploadPipelineService : BackgroundService
         IDiscordUploadDeliveryService discordDeliveryService,
         CancellationToken ct)
     {
+        if (model.FightEliteInsightDataModel.Wvw && upload.FightLogId is > 0 && upload.GuildId > 0)
+        {
+            try
+            {
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var rankings = scope.ServiceProvider.GetRequiredService<IUploadPlayerPointRankingService>();
+                await rankings.PublishAsync(upload.GuildId, upload.FightLogId.Value, ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to refresh player point rankings for upload {UploadId}.", upload.LogUploadId);
+            }
+        }
+
         var deliveryResult = await discordDeliveryService.DeliverAsync(upload, model, ct);
         await FinalizeAsync(upload.LogUploadId, upload.DpsReportUrl, upload.FightLogId, ct);
         _progress.Publish(

@@ -37,12 +37,14 @@ public class PlayerPointRankingServiceTests
         {
             DiscordId = 1,
             Points = 90_712.212m,
+            AvailablePoints = 0m,
             PreviousPoints = 90
         });
         await entityService.Account.AddAsync(new Account
         {
             DiscordId = 2,
             Points = 52_347.845m,
+            AvailablePoints = 1m,
             PreviousPoints = 70
         });
         await entityService.Account.AddAsync(new Account

@@ -580,7 +580,7 @@ public class DiscordMessageHandler(
         var result = await messageGenerationService.GenerateWvWFightSummary(data, false, guild, client);
         if (result.FightLogId.HasValue)
         {
-            await playerPointRankingPublisher.PublishAsync(guild, result.FightLogId.Value);
+            await playerPointRankingPublisher.PublishAsync(client, guild, result.FightLogId.Value);
         }
 
         return result;

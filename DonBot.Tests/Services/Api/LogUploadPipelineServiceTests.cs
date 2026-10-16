@@ -13,8 +13,11 @@ namespace DonBot.Tests.Services.Api;
 
 public class LogUploadPipelineServiceTests
 {
-    [Fact]
-    public async Task ProcessUploadAsync_UrlUploadRetainsGuildIdWhenSavingFight()
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task ProcessUploadAsync_UrlUploadAwardsPointsAndRefreshesWvwRankings(bool wvw, bool rankingFails)
     {
         using var db = new SqliteTestDb();
         long uploadId;
@@ -39,11 +42,15 @@ public class LogUploadPipelineServiceTests
         var discordDelivery = new FakeDiscordUploadDeliveryService();
         var pointsAwardService = new StubPointsAwardService();
         var rotationAnalysisService = new StubRotationAnalysisService();
-        services.AddSingleton<IDataModelGenerationService>(new StubDataModelGenerationService(BuildData()));
+        var rankings = new StubUploadPlayerPointRankingService(db, pointsAwardService, rankingFails);
+        var data = BuildData();
+        data.FightEliteInsightDataModel.Wvw = wvw;
+        services.AddSingleton<IDataModelGenerationService>(new StubDataModelGenerationService(data));
         services.AddSingleton<IPlayerService, StubPlayerService>();
         services.AddSingleton<IPointsAwardService>(pointsAwardService);
         services.AddSingleton<IRotationAnalysisService>(rotationAnalysisService);
         services.AddSingleton<IDiscordUploadDeliveryService>(discordDelivery);
+        services.AddSingleton<IUploadPlayerPointRankingService>(rankings);
         services.AddHttpClient();
         await using var provider = services.BuildServiceProvider();
 
@@ -66,7 +73,9 @@ public class LogUploadPipelineServiceTests
         Assert.Equal(fight.FightLogId, completedUpload.FightLogId);
         Assert.Equal(new[] { uploadId }, discordDelivery.DeliveredUploadIds);
         Assert.Equal(1, pointsAwardService.CallCount);
-        Assert.Equal(1, rotationAnalysisService.CallCount);
+        Assert.Equal(wvw ? 0 : 1, rotationAnalysisService.CallCount);
+        Assert.Equal(wvw ? new[] { (42L, fight.FightLogId) } : [], rankings.PublishedFights);
+        Assert.Null(completedUpload.DiscordDeliveryMode);
     }
 
     [Fact]
@@ -488,6 +497,28 @@ public class LogUploadPipelineServiceTests
         {
             CallCount++;
             return Task.CompletedTask;
+        }
+    }
+
+    private sealed class StubUploadPlayerPointRankingService(
+        SqliteTestDb db,
+        StubPointsAwardService pointsAwardService,
+        bool fail) : IUploadPlayerPointRankingService
+    {
+        public List<(long GuildId, long FightLogId)> PublishedFights { get; } = [];
+
+        public async Task PublishAsync(long guildId, long fightLogId, CancellationToken ct = default)
+        {
+            Assert.Equal(1, pointsAwardService.CallCount);
+            await using var context = await db.Factory.CreateDbContextAsync(ct);
+            var upload = await context.LogUpload.SingleAsync(ct);
+            Assert.Equal("delivering", upload.Status);
+            Assert.Equal(fightLogId, upload.FightLogId);
+            PublishedFights.Add((guildId, fightLogId));
+            if (fail)
+            {
+                throw new HttpRequestException("Discord unavailable");
+            }
         }
     }
 }

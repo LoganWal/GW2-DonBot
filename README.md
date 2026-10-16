@@ -73,6 +73,8 @@ Common settings include:
 - Player point ranking posts after WvW fights.
 - WvW and PvE leaderboard posting.
 
+WvW point rankings refresh after Discord logs and web or MannyUploader uploads. Totals include earned points from that server's logs, including points already spent on raffles.
+
 ## Web App
 
 The web app uses Discord login and gives players and admins a richer interface than Discord commands.

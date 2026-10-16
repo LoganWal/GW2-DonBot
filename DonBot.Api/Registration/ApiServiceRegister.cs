@@ -5,6 +5,7 @@ using DonBot.Core.Services.GuildWars2;
 using DonBot.Core.Services.RaidLifecycle;
 using DonBot.Core.Services.Raffles;
 using DonBot.Services.DatabaseServices;
+using DonBot.Services.DiscordServices;
 using DonBot.Services.GuildWarsServices;
 using DonBot.Services.GuildWarsServices.MessageGeneration;
 using DonBot.Services.SecretsServices;
@@ -35,6 +36,9 @@ public static class ApiServiceRegister
         services.AddScoped<IRaidLifecycleService, RaidLifecycleService>();
         services.AddScoped<IPlayerService, PlayerService>();
         services.AddScoped<IPointsAwardService, PointsAwardService>();
+        services.AddTransient<IPlayerPointRankingService, PlayerPointRankingService>();
+        services.AddScoped<PlayerPointRankingPublisher>();
+        services.AddScoped<IUploadPlayerPointRankingService, UploadPlayerPointRankingService>();
         services.AddScoped<IDataModelGenerationService, DataModelGenerationService>();
 
         services.AddTransient<IFooterService, FooterService>();

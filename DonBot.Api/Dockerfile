@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.402 AS build
 WORKDIR /src
 
 COPY Directory.Build.props Directory.Packages.props ./
@@ -10,9 +10,9 @@ RUN dotnet restore DonBot.Api/DonBot.Api.csproj --locked-mode
 COPY . .
 RUN dotnet publish DonBot.Api/DonBot.Api.csproj -c Release -o /app/publish --no-restore /p:ErrorOnDuplicatePublishOutputFiles=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.13 AS final
 RUN apt-get update && apt-get install -y --no-install-recommends curl libgssapi-krb5-2 && \
-    curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --channel 8.0 --runtime dotnet --install-dir /usr/share/dotnet && \
+    curl -fsSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --version 8.0.32 --runtime dotnet --install-dir /usr/share/dotnet && \
     apt-get remove -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app/publish .

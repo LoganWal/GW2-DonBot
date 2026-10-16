@@ -1,5 +1,5 @@
 # Stage 1: build
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.402 AS build
 WORKDIR /src
 
 COPY Directory.Build.props Directory.Packages.props ./
@@ -11,7 +11,7 @@ COPY . .
 RUN dotnet publish GW2-DonBot/DonBot.csproj -c Release -o /app/publish --no-restore
 
 # Stage 2: runtime
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.13 AS final
 RUN apt-get update && apt-get install -y --no-install-recommends libgssapi-krb5-2 && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app/publish .

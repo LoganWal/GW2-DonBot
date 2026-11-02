@@ -16,13 +16,15 @@
     "@primevue/nuxt-module": "^4.5.5",
     "@primevue/themes": "^4.5.4",
     "chart.js": "^4.5.1",
-    "nuxt": "^4.6.1",
+    "nuxt": "^4.6.3",
     "primeicons": "^7.0.0",
     "primevue": "^4.5.5",
     "tus-js-client": "^4.3.1"
   },
   "overrides": {
-    "esbuild": "0.28.1"
+    "esbuild": "0.28.1",
+    "glob": "^14.0.2",
+    "minimatch": "^11.0.1"
   },
   "allowScripts": {
     "esbuild@0.28.1": true,

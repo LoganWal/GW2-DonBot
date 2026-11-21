@@ -94,6 +94,45 @@ public sealed class ScheduledEventCoreTests
         Assert.True(option.Notify);
     }
 
+    [Theory]
+    [InlineData(14)]
+    [InlineData(10)]
+    public void ApplyForUpdate_ChangingIntervalMovesNextOccurrenceAfterLastPostedEvent(short intervalDays)
+    {
+        var request = ValidRequest(utcEventTime: Now.AddDays(7)) with { Hour = 9 };
+        var existing = ScheduledEventPlanner.BuildEvent(999, request);
+        existing.PostedEventTime = Now;
+
+        ScheduledEventPlanner.ApplyForUpdate(existing, request with { RepeatIntervalDays = intervalDays });
+
+        var expectedEventTime = Now.AddDays(intervalDays);
+        var expectedPostTime = expectedEventTime.AddHours(-1);
+        Assert.Equal(expectedEventTime, existing.UtcEventTime);
+        Assert.Equal((short)expectedPostTime.DayOfWeek, existing.Day);
+        Assert.Equal(Now, existing.PostedEventTime);
+        Assert.Equal(expectedPostTime, ScheduledEventRecurrence.GetNextEventTime(existing, Now));
+        Assert.False(ScheduledEventRecurrence.IsScheduledForFireTime(existing, Now.AddDays(7).AddHours(-1)));
+    }
+
+    [Theory]
+    [InlineData(false, 0)]
+    [InlineData(true, 2)]
+    public void ApplyForUpdate_ChangingIntervalKeepsFirstOrExplicitlySelectedOccurrence(bool hasPosted, int dateChangeDays)
+    {
+        var request = ValidRequest(utcEventTime: Now.AddDays(7));
+        var existing = ScheduledEventPlanner.BuildEvent(999, request);
+        existing.PostedEventTime = hasPosted ? Now : null;
+        var nextEventTime = request.UtcEventTime.AddDays(dateChangeDays);
+
+        ScheduledEventPlanner.ApplyForUpdate(existing, request with
+        {
+            RepeatIntervalDays = 14,
+            UtcEventTime = nextEventTime
+        });
+
+        Assert.Equal(nextEventTime, existing.UtcEventTime);
+    }
+
     [Fact]
     public void ResponseOptions_SerializeAndNormalizeAllowedRoles()
     {

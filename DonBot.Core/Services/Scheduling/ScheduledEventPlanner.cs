@@ -24,6 +24,20 @@ public static class ScheduledEventPlanner
 
     public static void ApplyForUpdate(ScheduledEvent scheduledEvent, ScheduledEventWriteRequest request)
     {
+        var intervalChange = request.RepeatIntervalDays - scheduledEvent.RepeatIntervalDays;
+        if (intervalChange != 0
+            && scheduledEvent.PostedEventTime.HasValue
+            && request.UtcEventTime == scheduledEvent.UtcEventTime
+            && request.Day == scheduledEvent.Day
+            && request.Hour == scheduledEvent.Hour)
+        {
+            request = request with
+            {
+                UtcEventTime = request.UtcEventTime.AddDays(intervalChange),
+                Day = (short)((request.Day + intervalChange % 7 + 7) % 7)
+            };
+        }
+
         Apply(scheduledEvent, request, ResolveResponseOptionsJsonForUpdate(scheduledEvent, request));
     }
 

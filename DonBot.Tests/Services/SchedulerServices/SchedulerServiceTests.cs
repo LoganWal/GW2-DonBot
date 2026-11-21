@@ -170,9 +170,22 @@ public class SchedulerServiceTests
     }
 
     [Fact]
+    public void AdvanceAfterFire_FortnightlyEventWaitsTwoWeeksForNextPost()
+    {
+        var ev = MakeWeeklyEvent(day: 5, hour: 9, utcEventTime: Now, repeatIntervalDays: 14);
+        var firstPostTime = Now.AddHours(-1);
+
+        ScheduledEventRecurrence.AdvanceAfterFire(ev, ev);
+
+        Assert.False(ScheduledEventRecurrence.IsScheduledForFireTime(ev, firstPostTime.AddDays(7)));
+        Assert.Equal(firstPostTime.AddDays(14), ScheduledEventRecurrence.GetNextEventTime(ev, Now));
+        Assert.True(ScheduledEventRecurrence.IsScheduledForFireTime(ev, firstPostTime.AddDays(14)));
+    }
+
+    [Fact]
     public void IsScheduledForFireTime_SameDayAndHour_ReturnsTrue()
     {
-        var ev = MakeWeeklyEvent(day: (short)Now.DayOfWeek, hour: (short)Now.Hour);
+        var ev = MakeWeeklyEvent(day: (short)Now.DayOfWeek, hour: (short)Now.Hour, utcEventTime: Now);
 
         Assert.True(ScheduledEventRecurrence.IsScheduledForFireTime(ev, Now));
     }
@@ -207,7 +220,7 @@ public class SchedulerServiceTests
     {
         var entityService = new FakeEntityService();
         var service = BuildService(entityService);
-        var ev = MakeWeeklyEvent(day: 5, hour: 4, utcEventTime: Now.AddDays(3));
+        var ev = MakeWeeklyEvent(day: 5, hour: 4, utcEventTime: Now.AddDays(7));
         var originalDay = ev.Day;
         var originalTime = ev.UtcEventTime;
 
@@ -338,13 +351,14 @@ public class SchedulerServiceTests
             Day = 5,
             Hour = 4,
             RepeatIntervalDays = 4,
-            UtcEventTime = Now.AddDays(-8)
+            UtcEventTime = Now.AddDays(-7)
         };
 
-        await service.FastForwardEventIfBehind(ev, Now);
+        var comparisonTime = Now.AddDays(4);
+        await service.FastForwardEventIfBehind(ev, comparisonTime);
 
         Assert.Equal(3, ev.Day);
-        Assert.True(ev.UtcEventTime > Now);
+        Assert.True(ev.UtcEventTime > comparisonTime);
     }
 
     [Fact]

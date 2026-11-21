@@ -414,15 +414,7 @@ public sealed class SchedulerService(
 
             var preFireSnapshot = ScheduledEventSnapshot.Capture(scheduledEvent);
 
-            // The current occurrence is shown in the posted message, so advance stale rows before sending.
-            var fireNow = DateTime.UtcNow;
-            if (scheduledEvent.UtcEventTime <= fireNow)
-            {
-                logger.LogWarning("Event {ScheduledEventId} has stale UtcEventTime {UtcEventTime} at fire time - fast-forwarding before sending.",
-                    scheduledEvent.ScheduledEventId, scheduledEvent.UtcEventTime);
-                ScheduledEventRecurrence.AdvanceEventIfBehind(scheduledEvent, fireNow);
-            }
-
+            ScheduledEventRecurrence.AdvanceEventIfBehind(scheduledEvent, selectedFireTime.AddTicks(-1));
             scheduledEvent.PostedEventTime = scheduledEvent.UtcEventTime;
 
             var handlerEventType = (ScheduledEventTypeEnum)ScheduledEventResponseOptions.ToCurrentEventType(scheduledEvent.EventType);

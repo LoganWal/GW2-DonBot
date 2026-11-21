@@ -11,40 +11,49 @@ public static class ScheduledEventRecurrence
             return DateTime.MaxValue;
         }
 
-        var nextEventTime = new DateTime(
-            now.Year,
-            now.Month,
-            now.Day,
-            scheduledEvent.Hour,
-            0,
-            0,
-            DateTimeKind.Utc);
-        while ((int)nextEventTime.DayOfWeek != scheduledEvent.Day || nextEventTime <= now)
+        var postTime = GetPostTime(scheduledEvent);
+        if (postTime > now)
         {
-            nextEventTime = nextEventTime.AddDays(1);
+            return postTime;
         }
 
-        return nextEventTime;
+        var intervals = (now - postTime).Days / scheduledEvent.RepeatIntervalDays + 1;
+        return postTime.AddDays(intervals * scheduledEvent.RepeatIntervalDays);
     }
 
     public static bool IsScheduledForFireTime(ScheduledEvent scheduledEvent, DateTime fireTime) =>
         scheduledEvent.RepeatIntervalDays > 0
-        && scheduledEvent.Day == (short)fireTime.DayOfWeek
-        && scheduledEvent.Hour == fireTime.Hour;
+        && GetNextEventTime(scheduledEvent, fireTime.AddTicks(-1)) == fireTime;
 
     public static bool AdvanceEventIfBehind(ScheduledEvent scheduledEvent, DateTime now)
     {
-        if (scheduledEvent.RepeatIntervalDays <= 0 || scheduledEvent.UtcEventTime > now)
+        if (scheduledEvent.RepeatIntervalDays <= 0)
         {
             return false;
         }
 
-        while (scheduledEvent.UtcEventTime <= now)
+        var postTime = GetPostTime(scheduledEvent);
+        if (postTime > now)
+        {
+            return false;
+        }
+
+        while (postTime <= now)
         {
             AdvanceByInterval(scheduledEvent, scheduledEvent.RepeatIntervalDays);
+            postTime = postTime.AddDays(scheduledEvent.RepeatIntervalDays);
         }
 
         return true;
+    }
+
+    private static DateTime GetPostTime(ScheduledEvent scheduledEvent)
+    {
+        var eventTime = scheduledEvent.UtcEventTime;
+        var daysSincePostDay = ((int)eventTime.DayOfWeek - scheduledEvent.Day + 7) % 7;
+        var postTime = eventTime.Date.AddDays(-daysSincePostDay).AddHours(scheduledEvent.Hour);
+        // The latest matching slot before the event anchors the entire cadence.
+        return postTime > eventTime ? postTime.AddDays(-7) : postTime;
     }
 
     public static void AdvanceAfterFire(ScheduledEvent scheduledEvent, ScheduledEvent firedOccurrence)

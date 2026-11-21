@@ -128,7 +128,7 @@
         <div class="field">
           <label>
             Post message at
-            <i class="pi pi-info-circle field-info" v-tooltip.top="'When DonBot posts the signup message to your channel (weekly, in your local time).'" />
+            <i class="pi pi-info-circle field-info" v-tooltip.top="'DonBot posts at this local weekday and hour on or before the event. Later posts follow the repeat interval.'" />
           </label>
           <div class="field-row-2">
             <Select

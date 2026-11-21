@@ -26,6 +26,7 @@ internal sealed class MinimalApiHost : IDisposable
     private const string JwtKey = "test-jwt-signing-key-must-be-at-least-256-bits-long-for-hmac-sha256!!";
 
     private readonly SqliteConnection _connection;
+    private readonly WebApplication _app;
     private readonly TestServer _server;
     public HttpClient Client { get; }
 
@@ -42,7 +43,10 @@ internal sealed class MinimalApiHost : IDisposable
         _connection = new SqliteConnection(connectionString);
         _connection.Open();
 
-        var builder = WebApplication.CreateBuilder();
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            Args = ["--hostBuilder:reloadConfigOnChange=false"]
+        });
         builder.WebHost.UseTestServer();
         builder.Logging.ClearProviders();
 
@@ -102,6 +106,7 @@ internal sealed class MinimalApiHost : IDisposable
         mapEndpoints(app);
 
         app.Start();
+        _app = app;
         _server = app.GetTestServer();
         Client = _server.CreateClient();
     }
@@ -120,8 +125,14 @@ internal sealed class MinimalApiHost : IDisposable
     public void Dispose()
     {
         Client.Dispose();
-        _server.Dispose();
-        _connection.Dispose();
+        try
+        {
+            _app.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+        finally
+        {
+            _connection.Dispose();
+        }
     }
 
     private sealed class SingleHandlerFactory(HttpMessageHandler handler) : IHttpClientFactory
